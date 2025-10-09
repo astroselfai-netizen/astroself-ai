@@ -24,9 +24,10 @@ import { responsiveWidth, fontFamily, color } from '../../constant/theme';
 // import Bg from '../../assets/svgs/bg.svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MainContainer } from '../../components/common/mainContainer';
+import { AuthContainer } from '../../components/common/AuthContainer';
 // use require for images to avoid TS module declaration issues
 import UserService from '../../services/user/user.service';
+import { useTheme } from '../../context/ThemeContext';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -47,6 +48,7 @@ type LoginScreenNavigationProp = StackNavigationProp<
 // (unused validation removed)
 
 const ForgotPassword = () => {
+  const { theme, colors } = useTheme();
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,9 +87,9 @@ const ForgotPassword = () => {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       style={{ flex: 1, backgroundColor: '#202945' }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer>
+      <AuthContainer>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -101,17 +103,37 @@ const ForgotPassword = () => {
             >
               <Image
                 source={require('../../assets/icons/back.png')}
-                style={styles.backIcon}
+                style={[
+                  styles.backIcon,
+                  {
+                    tintColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
               />
             </TouchableOpacity>
             <View style={styles.backIconWrap}>
-              <Text style={styles.topBarText}>Forgot Password</Text>
+              <Text
+                style={[
+                  styles.topBarText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Forgot Password
+              </Text>
             </View>
           </View>
           {/* Sun Icon and Astroself */}
           <View style={styles.centeredHeader}>
             <Image
-              source={require('../../assets/icons/Subtract.png')}
+              source={require('../../assets/icons/Subtract-dark.png')}
               style={styles.sunIcon}
             />
             {/* <Text style={styles.astroselfText}>Astroself</Text> */}
@@ -126,9 +148,22 @@ const ForgotPassword = () => {
           {/* Email Input */}
           <View style={styles.formContainer}>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.Orangeaccentcolor,
+                      color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
               placeholder="Enter your registered email id"
-              placeholderTextColor={color.themeTextWhite}
+              placeholderTextColor={
+                theme === 'dark' ? colors.themeTextWhite : colors.themelightText
+              }
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -146,7 +181,7 @@ const ForgotPassword = () => {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </MainContainer>
+      </AuthContainer>
     </KeyboardAvoidingView>
   );
 };
@@ -226,9 +261,9 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: '#223149',
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: responsiveWidth('2.5'),
-    paddingVertical: responsiveWidth('2.5'),
+    paddingVertical: responsiveWidth('3'),
     color: color.themeTextWhite,
     fontSize: 16,
     marginBottom: 16,

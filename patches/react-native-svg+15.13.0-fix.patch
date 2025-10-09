@@ -1,0 +1,41 @@
+diff --git a/node_modules/react-native-svg/android/build.gradle b/node_modules/react-native-svg/android/build.gradle
+index 4fe912c..e6a142e 100644
+--- a/node_modules/react-native-svg/android/build.gradle
++++ b/node_modules/react-native-svg/android/build.gradle
+@@ -40,7 +40,7 @@ def safeExtGet(prop, fallback) {
+ 
+ def resolveReactNativeDirectory() {
+   def reactNativeLocation = safeExtGet("REACT_NATIVE_NODE_MODULES_DIR", null)
+   if (reactNativeLocation != null) {
+-    return file(reactNativeLocation)
++    return file(reactNativeLocation)
+   }
+ 
+   // Fallback to node resolver for custom directory structures like monorepos.
+@@ -85,7 +85,7 @@ def getFrescoVersion() {
+ def FRESCO_VERSION = getFrescoVersion()
+ 
+ android {
+-    compileSdkVersion safeExtGet('compileSdkVersion', 28)
++    compileSdk safeExtGet('compileSdkVersion', 28)
+     namespace "com.horcrux.svg"
+     def agpVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
+     if (agpVersion.tokenize('.')[0].toInteger() >= 8) {
+@@ -103,14 +103,14 @@ android {
+     }
+ 
+     defaultConfig {
+-        minSdkVersion safeExtGet('minSdkVersion', 16)
++        minSdk safeExtGet('minSdkVersion', 16)
+         //noinspection OldTargetApi
+-        targetSdkVersion safeExtGet('targetSdkVersion', 28)
++        targetSdk safeExtGet('targetSdkVersion', 28)
+         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+ 
+         consumerProguardFiles 'proguard-rules.pro'
+     }
+-    lintOptions {
++    lint {
+         abortOnError false
+     }
+ 

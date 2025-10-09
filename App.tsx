@@ -27,6 +27,7 @@ import PermissionRequestModal from './src/components/PermissionRequestModal';
 import NotificationBanner from './src/components/NotificationBanner';
 import permissionChecker from './src/utils/permissionChecker';
 import CrashlyticsService from './src/services/crashlyticsService';
+import { ThemeProvider } from './src/context/ThemeContext';
 // import iOSDebugInfo from './src/components/iOSDebugInfo';
 // Enable optimized screens
 enableScreens();
@@ -100,27 +101,29 @@ function App() {
 
   return (
     // <View key={keyState} style={{flex:1}}>
-      <SafeAreaProvider>
-        <StatusBar />
-        {/* <View key={keyState}> */}
-        <MainNavigator />
-        {/* </View> */}
-        <Toast />
-        
-        {/* Notification Banner */}
-        {/* <NotificationBanner
-          onPress={() => setShowPermissionModal(true)}
-        /> */}
-        
-        {/* Permission Request Modal */}
-        <PermissionRequestModal
-          visible={showPermissionModal}
-          onClose={() => setShowPermissionModal(false)}
-        />
-        
-        {/* iOS Debug Info */}
-        {/* <iOSDebugInfo /> */}
-      </SafeAreaProvider>
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <StatusBar />
+          {/* <View key={keyState}> */}
+          <MainNavigator />
+          {/* </View> */}
+          <Toast />
+          
+          {/* Notification Banner */}
+          {/* <NotificationBanner
+            onPress={() => setShowPermissionModal(true)}
+          /> */}
+          
+          {/* Permission Request Modal */}
+          <PermissionRequestModal
+            visible={showPermissionModal}
+            onClose={() => setShowPermissionModal(false)}
+          />
+          
+          {/* iOS Debug Info */}
+          {/* <iOSDebugInfo /> */}
+        </SafeAreaProvider>
+      </ThemeProvider>
     // </View>
   );
 }

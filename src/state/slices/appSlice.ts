@@ -4,7 +4,8 @@ export interface AppState {
   keyState: number;
   userToken?: string;
   user?: Api.User.Res.Detail | undefined;
-  members?:any
+  members?:any;
+  membersUpdated?: boolean;
 }
 
 const initialState: AppState = {
@@ -12,6 +13,7 @@ const initialState: AppState = {
   userToken: undefined,
   user: undefined,
   members: undefined,
+  membersUpdated: false,
 };
 
 const appSlice = createSlice({
@@ -30,10 +32,13 @@ const appSlice = createSlice({
     setMembers(state, action: PayloadAction<Api.User.Res.Detail | undefined>) {
       state.members = action.payload;
     },
+    setMembersUpdated(state, action: PayloadAction<boolean>) {
+      state.membersUpdated = action.payload;
+    },
   },
 });
 
-export const { setKeyState, setUserToken, setUser ,setMembers} = appSlice.actions;
+export const { setKeyState, setUserToken, setUser, setMembers, setMembersUpdated } = appSlice.actions;
 export default appSlice.reducer;
 
 

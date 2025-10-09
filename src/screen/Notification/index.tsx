@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { responsiveWidth, fontFamily } from '../../constant/theme';
 import { icons } from '../../assets';
+import { useTheme } from '../../context/ThemeContext';
+import { MainContainer } from '../../components/common/mainContainer';
 
 
 export type RootStackParamList = {
@@ -155,15 +157,8 @@ const NotificationScreen = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [notifications] = useState<NotificationItem[]>(sampleNotifications);
+  const {theme,colors} = useTheme();
 
-  const getCurrentTime = () => {
-    const now = new Date();
-    return now.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    });
-  };
 
   const getFilteredNotifications = () => {
     if (selectedCategory === 'All') {
@@ -188,23 +183,23 @@ const NotificationScreen = () => {
     
     return (
       <ImageBackground
-        source={require('../../assets/image/DarkBackground.png')}
+        source={theme === 'dark' ? require('../../assets/image/DarkBackground.png') : require('../../assets/image/LightBackground.png')}
         blurRadius={12}
-        style={styles.mahadashaCard}
-        imageStyle={styles.mahadashaBgImage}
+        style={[styles.mahadashaCard,{backgroundColor: theme === 'dark' ? colors.surface : colors.white, borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor}]}
+        imageStyle={[styles.mahadashaBgImage,{backgroundColor: theme === 'dark' ? colors.surface : colors.white, borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor}]}
       >
-        <View style={styles.mahadashaOverlay} />
+        <View style={[styles.mahadashaOverlay,{backgroundColor: theme === 'dark' ? colors.transparent : colors.white}]} />
         <View
           style={[
             styles.mahadashaInner,
-            { flexDirection: 'row', alignItems: 'center' }
+            styles.notificationRow
           ]}
         >
           {/* <View key={notification.id} style={styles.notificationCard}> */}
           <View
             style={[
               styles.notificationIconContainer,
-              { backgroundColor: notificationStyle.iconBg },
+              { backgroundColor: theme === 'dark' ? colors.surface : colors.white },
             ]}
           >
             <Image
@@ -213,9 +208,9 @@ const NotificationScreen = () => {
             />
           </View>
           <View style={styles.notificationContent}>
-            <Text style={styles.notificationText}>{notification.title}</Text>
+            <Text style={[styles.notificationText,{color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy}]}>{notification.title}</Text>
           </View>
-          <Text style={styles.notificationDate}>{notification.date}</Text>
+          <Text style={[styles.notificationDate,{color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy}]}>{notification.date}</Text>
         </View>
         {/* </View> */}
       </ImageBackground>
@@ -230,61 +225,122 @@ const NotificationScreen = () => {
         backgroundColor="transparent"
         translucent={true}
       /> */}
-      
+
+      <MainContainer>
+
       {/* Background with pattern */}
-      <ImageBackground
-        source={require('../../assets/image/DarkBackground.png')}
+      {/* <ImageBackground
+        source={
+          theme === 'dark'
+            ? require('../../assets/image/DarkBackground.png')
+            : require('../../assets/image/LightBackground.png')
+        }
         style={styles.backgroundImage}
         imageStyle={styles.backgroundImageStyle}
-      >
+      > */}
         {/* Header Section */}
         <View style={styles.headerSection}>
-          
           <View style={styles.headerContent}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <Image 
-                // source={require('../../assets/icons/back.png')} 
-                source={icons.Icback} 
-                style={styles.backIcon} 
+              <Image
+                // source={require('../../assets/icons/back.png')}
+                source={icons.Icback}
+                style={[
+                  styles.backIcon,
+                  {
+                    tintColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
               />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Notification</Text>
+            <View style={styles.titleContainer}>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  {
+                    color:
+                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Notification
+              </Text>
+            </View>
+            <View style={styles.backButton} />
           </View>
         </View>
 
         {/* Category Tabs */}
-        <View style={styles.categoryContainer}>
-          {CATEGORIES.map((category) => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScrollContainer}
+          contentContainerStyle={styles.categoryContainer}
+        >
+          {CATEGORIES.map(category => (
             <TouchableOpacity
               key={category}
-              style={[
-                styles.categoryTab,
-                selectedCategory === category && styles.selectedCategoryTab
-              ]}
+               style={[
+                 styles.categoryTab,
+                 selectedCategory === category && styles.selectedCategoryTab,
+                 {
+                   borderColor:
+                     selectedCategory === category
+                       ? theme === 'dark'
+                         ? colors.Orangeaccentcolor
+                         : colors.white
+                       : theme === 'dark'
+                         ? colors.themeBorderDropdown
+                         : colors.borderColor,
+                   backgroundColor:
+                     selectedCategory === category
+                       ? theme === 'dark'
+                         ? colors.Orangeaccentcolor
+                         : colors.white
+                       : theme === 'dark'
+                         ? colors.surface
+                         : colors.white,
+                 },
+               ]}
               onPress={() => setSelectedCategory(category)}
             >
-              <Text style={[
-                styles.categoryText,
-                selectedCategory === category && styles.selectedCategoryText
-              ]}>
+               <Text
+                 style={[
+                   styles.categoryText,
+                   {
+                     color:
+                       selectedCategory === category
+                         ? theme === 'dark'
+                           ? colors.themeTextWhite
+                           : colors.Orangeaccentcolor
+                         : theme === 'dark'
+                           ? colors.themeTextWhite
+                           : colors.DarkNavy,
+                   },
+                 ]}
+               >
                 {category}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {/* Notifications List */}
-        <ScrollView 
+        <ScrollView
           style={styles.notificationsContainer}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.notificationsContent}
         >
           {getFilteredNotifications().map(renderNotificationCard)}
         </ScrollView>
-      </ImageBackground>
+      </MainContainer>
+      {/* </ImageBackground> */}
     </View>
   );
 };
@@ -299,7 +355,7 @@ const styles = StyleSheet.create({
     // paddingTop: Platform.OS === 'ios' ? 50 : 30,
   },
   backgroundImageStyle: {
-    opacity: 0.8,
+    // opacity: 0.8,
   },
 
   // Header Section
@@ -348,6 +404,7 @@ const styles = StyleSheet.create({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backButton: {
     width: 40,
@@ -364,52 +421,63 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     tintColor: '#FFFFFF',
   },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontSize: 24,
     fontFamily: fontFamily.regular,
-    flex: 1,
     // fontWeight: '600',
-    // alignSelf: 'center',
     textAlign: 'center',
     color: '#F6EFD9',
     // color: 'rgba(238, 229, 202, 1)',
   },
 
   // Category Tabs
+  categoryScrollContainer: {
+    // marginBottom: responsiveWidth('1'),
+    height: 40,
+    maxHeight:  40,
+    // flex: 0.5,
+    // backgroundColor: 'red',
+  },
   categoryContainer: {
     flexDirection: 'row',
     paddingHorizontal: responsiveWidth('6'),
     marginBottom: responsiveWidth('2'),
+    maxHeight:  40,
   },
   categoryTab: {
     paddingHorizontal: responsiveWidth('5'),
-    paddingVertical: responsiveWidth('1'),
+    // paddingVertical: responsiveWidth('2'),
     borderRadius: 6,
     marginRight: responsiveWidth('1'),
     borderWidth: 1,
-    borderColor: 'rgba(73, 108, 168, 1)',
-    backgroundColor: 'transparent',
+    // height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   selectedCategoryTab: {
-    backgroundColor: '#rgba(238, 229, 202, 1)',
+    // Dynamic styling handled in component
   },
   categoryText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontFamily: fontFamily.regular,
     fontWeight: '500',
   },
   selectedCategoryText: {
-    color: '#1A1F3A',
+    // Dynamic styling handled in component
   },
 
   // Notifications
   notificationsContainer: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: responsiveWidth('2'),
   },
   notificationsContent: {
-    paddingBottom: 100,
+    paddingBottom: 20,
   },
   notificationCard: {
     flexDirection: 'row',
@@ -422,16 +490,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   notificationIconContainer: {
-    width: 50,
-    height: 50,
+    width: responsiveWidth(15),
+    height: responsiveWidth(15),
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
   },
   notificationIcon: {
-    width: 30,
-    height: 30,
+    width: 48,
+    height:48,
+    resizeMode: 'contain',
     // tintColor: '#FFFFFF',
   },
   notificationContent: {
@@ -472,7 +541,12 @@ const styles = StyleSheet.create({
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   mahadashaInner: {
-    padding: responsiveWidth('3'),
+    paddingHorizontal: responsiveWidth('2'),
+    paddingVertical: responsiveWidth('1'),
+  },
+  notificationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   mahadashaCardHeder: {
     borderRadius: 20,

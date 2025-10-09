@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { color, fontFamily, responsiveHeight, responsiveWidth } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../context/ThemeContext';
 
 interface SnapshotPredictionsProps {
   selectedMemberId?: string;
@@ -15,6 +16,7 @@ interface SnapshotPredictionsProps {
 
 const SnapshotPredictions: React.FC<SnapshotPredictionsProps> = ({ selectedMemberId }) => {
   const navigation = useNavigation<any>();
+  const { theme, colors } = useTheme();
 
   const handleCardPress = (cardValue: string) => {
     console.log('cardTitle-->24', cardValue);
@@ -33,7 +35,7 @@ const SnapshotPredictions: React.FC<SnapshotPredictionsProps> = ({ selectedMembe
       title: 'Snapshot Prediction',
       value: 'Snapshot Prediction',
       subtitle: 'Future, Glimpse',
-      icon: require('../../assets/icons/GeneralAnalysis/SnapshotPrediction.png'),
+      icon: require('../../assets/icons/SnapshotPrediction/SnapshotPrediction.png'),
     },
     {
       id: 2,
@@ -45,20 +47,67 @@ const SnapshotPredictions: React.FC<SnapshotPredictionsProps> = ({ selectedMembe
   ];
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme === 'dark' ? colors.primary : colors.DarkNavy,
+          borderColor:
+            theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+        },
+      ]}
+    >
       <View style={styles.content}>
         <View style={styles.cardsGrid}>
           {cards.map(card => (
-            <TouchableOpacity 
-              key={card.id} 
-              style={styles.card} 
+            <TouchableOpacity
+              key={card.id}
+              style={[
+                styles.card,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.surface,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                  boxShadow:
+                    theme === 'dark'
+                      ? ''
+                      : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
+                },
+              ]}
               onPress={() => handleCardPress(card.value)}
             >
               <View style={styles.cardIconContainer}>
                 <Image source={card.icon} style={styles.cardIcon} />
               </View>
-              <Text style={styles.cardText}>{card.title}</Text>
-              <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
+              <Text
+                style={[
+                  styles.cardText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {card.title}
+              </Text>
+              <Text
+                style={[
+                  styles.cardSubtitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {card.subtitle}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>

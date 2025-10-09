@@ -21,16 +21,17 @@ import { useProfileData } from '../../hooks/useProfileData';
 import CurrentSituation from '../../components/CurrentSituation';
 import GeneralAnalysis from '../../components/GeneralAnalysis';
 import SnapshotPredictions from '../../components/SnapshotPredictions';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect,  } from '@react-navigation/native';
+import { useTheme } from '../../context/ThemeContext';
 
 
 const ChatScreen = () => {
-  const [activeTab, setActiveTab] = useState('Snapshot Predictions');
+  const [activeTab, setActiveTab] = useState('Current Situation');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
   const [hasUserSelectedMember, setHasUserSelectedMember] = useState(false);
   const navigation = useNavigation<any>();
-
+  const { theme ,colors} = useTheme();
   const { membersData, loading, error, refreshProfileData } = useProfileData();
 
   // Refresh data every time user comes to this screen
@@ -133,34 +134,129 @@ const ChatScreen = () => {
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>Predictions</Text>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Predictions
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Empty State Card */}
         <ImageBackground
-          source={require('../../assets/image/DarkBackground.png')}
+          source={
+            theme === 'dark'
+              ? require('../../assets/image/DarkBackground.png')
+              : require('../../assets/image/LightBackground.png')
+          }
           blurRadius={12}
-          style={styles.emptyStateCardContainer as any}
-          imageStyle={styles.emptyStateCard}
+          style={[
+            styles.emptyStateCardContainer,
+            {
+              backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+          imageStyle={[
+            styles.emptyStateCard,
+            {
+              backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
         >
-          <View style={styles.emptyStateOverlay} />
-          <View style={styles.emptyStateContainer}>
-            <View style={styles.emptyStateContent}>
+          {/* <View style={[{backgroundColor: theme === 'dark' ? colors.transparent : colors.white}]} /> */}
+          <View
+            style={[
+              styles.emptyStateContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.surface : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.emptyStateContent,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.surface : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
+            >
+              {/* <Text
+                style={[
+                  styles.mahadashaTitle,
+                  {
+                    color:
+                      theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Current Dasha Overview
+              </Text> */}
               <Text
                 style={[
-                  styles.emptyStateTitle
+                  styles.emptyStateTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
                 ]}
               >
                 Add your details to generate your predictions
               </Text>
               <TouchableOpacity
-                style={styles.emptyStateButton}
+                style={[
+                  styles.emptyStateButton,
+                  {
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.borderColor
+                        : colors.primaryBlue,
+                  },
+                ]}
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('AddNewMember')}
               >
-                <Text style={styles.emptyStateButtonText}>Add New Member</Text>
+                <Text
+                  style={[
+                    styles.emptyStateButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.borderColor
+                          : colors.primaryBlue,
+                    },
+                  ]}
+                >
+                  Add New Member
+                </Text>
               </TouchableOpacity>
             </View>
             <Image
@@ -187,7 +283,17 @@ const ChatScreen = () => {
             <Image source={icons.Icback} style={styles.backIcon} />
           </TouchableOpacity> */}
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Predictions</Text>
+            <Text
+              style={[
+                styles.headerTitle,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Predictions
+            </Text>
           </View>
         </View>
       </View>
@@ -197,17 +303,59 @@ const ChatScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Profile member dropdown */}
-        <View style={styles.profileCardContainer}>
+        <View
+          style={[
+            styles.profileCardContainer,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.white,
+              borderColor:
+                theme === 'dark' ? colors.themeBorderDropdown : colors.white,
+            },
+          ]}
+        >
           <Image
             source={require('../../assets/icons/profile-icons.png')}
             style={styles.profileIcon as any}
           />
-          <View style={styles.dropdownWrapper}>
+          <View
+            style={[
+              styles.dropdownWrapper,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+          >
             <TouchableOpacity
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.surfaceOpacity,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
               onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
             >
-              <Text style={styles.selectedMemberText}>
+              <Text
+                style={[
+                  styles.selectedMemberText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
                 {selectedMemberId
                   ? membersData?.find(
                       (m: any) => (m.id || m._id) == selectedMemberId,
@@ -228,7 +376,19 @@ const ChatScreen = () => {
                 onPress={() => setIsMemberDropdownOpen(false)}
               >
                 <View style={styles.modalDropdownContainer}>
-                  <View style={styles.dropdownContainer}>
+                  <View
+                    style={[
+                      styles.dropdownContainer,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavy : colors.white,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeBorderDropdown
+                            : colors.borderColor,
+                      },
+                    ]}
+                  >
                     {membersData && membersData.length > 0 ? (
                       <FlatList
                         data={membersData}
@@ -243,7 +403,17 @@ const ChatScreen = () => {
                             }}
                             activeOpacity={0.7}
                           >
-                            <Text style={styles.dropdownItemText}>
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
                               {item.full_name}
                             </Text>
                           </TouchableOpacity>
@@ -263,6 +433,10 @@ const ChatScreen = () => {
               </TouchableOpacity>
             </Modal>
           </View>
+          <TouchableOpacity
+            style={styles.arrowIconContainer}
+            onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
+          >
           <Image
             source={require('../../assets/icons/Dropdown.png')}
             style={[
@@ -272,20 +446,59 @@ const ChatScreen = () => {
                   { rotate: isMemberDropdownOpen ? '180deg' : '0deg' },
                 ],
                 marginRight: -responsiveWidth('1.5%'),
+                tintColor:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
               },
             ]}
           />
+         </TouchableOpacity>
         </View>
 
         {/* Greeting Section Card */}
         <ImageBackground
-          source={require('../../assets/image/DarkBackground.png')}
+          source={
+            theme === 'dark'
+              ? require('../../assets/image/DarkBackground.png')
+              : require('../../assets/image/LightBackground.png')
+          }
           blurRadius={12}
-          style={styles.greetingCard as any}
-          imageStyle={styles.greetingCardBgImage}
+          style={[
+            styles.greetingCard as any,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.transparent : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+          imageStyle={[
+            styles.greetingCardBgImage,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.transparent : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
         >
           <View style={styles.greetingOverlay} />
-          <View style={styles.greetingContent}>
+          <View
+            style={[
+              styles.greetingContent,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.transparent : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+          >
             {/* <View style={styles.greetingSection}>
               <Text style={styles.greetingText}>
                 Hello{' '}
@@ -306,10 +519,56 @@ const ChatScreen = () => {
             {/* <View style={styles.separatorLine} /> */}
 
             {/* User Details */}
-            <View style={styles.userDetailsContainer}>
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Date of Birth</Text>
-                <Text style={styles.detailValue}>
+            <View
+              style={[
+                styles.userDetailsContainer,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.detailItem,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.transparent : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.detailLabel,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Date of Birth
+                </Text>
+                <Text
+                  style={[
+                    styles.detailValue,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
                   {selectedMemberId &&
                   membersData?.find(
                     (m: any) => (m.id || m._id) == selectedMemberId,
@@ -332,10 +591,34 @@ const ChatScreen = () => {
                     : 'Not Available'}
                 </Text>
               </View>
-              <View style={styles.detailSeparator} />
+              <View style={[styles.detailSeparator,{
+                backgroundColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]} />
               <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Place of Birth</Text>
-                <Text style={styles.detailValue}>
+                <Text
+                  style={[
+                    styles.detailLabel,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Place of Birth
+                </Text>
+                <Text
+                  style={[
+                    styles.detailValue,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
                   {selectedMemberId &&
                   membersData?.find(
                     (m: any) => (m.id || m._id) == selectedMemberId,
@@ -354,75 +637,167 @@ const ChatScreen = () => {
               onPress={handleNakshatraNavigation}
               activeOpacity={0.8}
             >
-              <Text style={styles.nakshatraButtonText}>Nakshatra & Dasha</Text>
+              <Text
+                style={[
+                  styles.nakshatraButtonText,
+                  {
+                    color:
+                      theme === 'dark' ? colors.themeTextWhite : colors.surface,
+                  },
+                ]}
+              >
+                Nakshatra & Dasha
+              </Text>
             </TouchableOpacity>
           </View>
         </ImageBackground>
 
         {/* Analysis Tabs */}
         <ImageBackground
-          source={require('../../assets/image/DarkBackground.png')}
+          source={
+            theme === 'dark'
+              ? require('../../assets/image/DarkBackground.png')
+              : require('../../assets/image/LightBackground.png')
+          }
           blurRadius={12}
-          style={styles.tabsContainer as any}
-          imageStyle={styles.tabsBgImage}
+          style={[
+            styles.tabsContainer as any,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.transparent : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+          imageStyle={[
+            styles.tabsBgImage,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.transparent : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
         >
           <View style={styles.tabsOverlay} />
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabsScrollContent}
+            contentContainerStyle={[
+              styles.tabsScrollContent,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.transparent : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
             style={styles.tabsScrollView}
           >
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === 'Snapshot Predictions' && styles.activeTab,
-              ]}
-              onPress={() => setActiveTab('Snapshot Predictions')}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === 'Snapshot Predictions' && styles.activeTabText,
-                ]}
-              >
-                Snap cast
-              </Text> 
-            </TouchableOpacity>
+             {/* <TouchableOpacity
+               style={[
+                 styles.tab,
+                 activeTab === 'Snapshot Predictions' && {
+                   ...styles.activeTab,
+                   borderBottomColor: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                 },
+                 {
+                   backgroundColor:
+                     theme === 'dark' ? colors.transparent : colors.white,
+                   borderColor:
+                     theme === 'dark'
+                       ? colors.themeBorderDropdown
+                       : colors.borderColor,
+                 },
+               ]}
+               onPress={() => setActiveTab('Snapshot Predictions')}
+             >
+               <Text
+                 style={[
+                   styles.tabText,
+                   {
+                     color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                   },
+                   activeTab === 'Snapshot Predictions' && {
+                     color: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                   },
+                 ]}
+               >
+                 Snap cast
+               </Text>
+             </TouchableOpacity> */}
 
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === 'Current Situation' && styles.activeTab,
-              ]}
-              onPress={() => setActiveTab('Current Situation')}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === 'Current Situation' && styles.activeTabText,
-                ]}
-              >
-                Life now
-              </Text>
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={[
+                 styles.tab,
+                 activeTab === 'Current Situation' && {
+                   ...styles.activeTab,
+                   borderBottomColor: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                 },
+                 {
+                   backgroundColor:
+                     theme === 'dark' ? colors.transparent : colors.white,
+                   borderColor:
+                     theme === 'dark'
+                       ? colors.themeBorderDropdown
+                       : colors.borderColor,
+                 },
+               ]}
+               onPress={() => setActiveTab('Current Situation')}
+             >
+               <Text
+                 style={[
+                   styles.tabText,
+                   {
+                     color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                   },
+                   activeTab === 'Current Situation' && {
+                     color: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                   },
+                 ]}
+               >
+                 Life now
+               </Text>
+             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === 'General Analysis' && styles.activeTab,
-              ]}
-              onPress={() => setActiveTab('General Analysis')}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === 'General Analysis' && styles.activeTabText,
-                ]}
-              >
-                Life view
-              </Text>
-            </TouchableOpacity>
+             <TouchableOpacity
+               style={[
+                 styles.tab,
+                 activeTab === 'General Analysis' && {
+                   ...styles.activeTab,
+                   borderBottomColor: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                 },
+                 {
+                   backgroundColor:
+                     theme === 'dark' ? colors.transparent : colors.white,
+                   borderColor:
+                     theme === 'dark'
+                       ? colors.themeBorderDropdown
+                       : colors.borderColor,
+                 },
+               ]}
+               onPress={() => setActiveTab('General Analysis')}
+             >
+               <Text
+                 style={[
+                   styles.tabText,
+                   {
+                     color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                   },
+                   activeTab === 'General Analysis' && {
+                     color: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                   },
+                 ]}
+               >
+                 Life view
+               </Text>
+             </TouchableOpacity>
           </ScrollView>
         </ImageBackground>
 
@@ -485,7 +860,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 49, 73, 0.9)',
     borderRadius: 10,
     padding: responsiveWidth('2'),
-    marginTop: responsiveWidth('3'),
+    // marginTop: responsiveWidth('1'),
     // marginHorizontal: responsiveWidth('3'),
     marginBottom: 24,
     borderWidth: 2,
@@ -581,9 +956,7 @@ const styles = StyleSheet.create({
   },
   greetingCard: {
     borderRadius: 16,
-    padding: responsiveWidth('2%'),
-    paddingVertical: responsiveWidth('3%'),
-    // marginHorizontal: responsiveWidth('1'),
+
     marginBottom: 24,
     borderWidth: 0.2,
     borderColor: '#EEE5CA',
@@ -603,6 +976,9 @@ const styles = StyleSheet.create({
   greetingContent: {
     position: 'relative',
     zIndex: 1,
+    padding: responsiveWidth('2%'),
+    paddingVertical: responsiveWidth('3%'),
+    // marginHorizontal: responsiveWidth('1'),
   },
   greetingSection: {
     marginBottom: responsiveHeight(1),
@@ -707,18 +1083,19 @@ const styles = StyleSheet.create({
   tabsScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    // justifyContent: "space-between",
     paddingHorizontal: responsiveWidth(2),
   },
   tab: {
     paddingVertical: responsiveWidth(2),
     paddingHorizontal: responsiveWidth(1.5),
     alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: responsiveWidth(30),
+    // justifyContent: "space-between",
+    minWidth: responsiveWidth(43.5),
   },
   activeTab: {
     borderBottomWidth: 3,
-    borderBottomColor: '#F2994A',
+    borderBottomColor: '#F2994A', // This will be overridden by theme colors
   },
   tabText: {
     color: color.themeTextWhite,
@@ -789,44 +1166,75 @@ const styles = StyleSheet.create({
     marginTop: responsiveWidth('2%'),
     marginHorizontal: responsiveWidth('4'),
     // paddingHorizontal: responsiveWidth('4'),
-    paddingVertical: Platform.OS === 'android' ? responsiveWidth('4') : responsiveWidth('0'),
+    borderRadius: 16,
+    // paddingVertical: Platform.OS === 'android' ? 10 : responsiveWidth('2'),
+    paddingTop: Platform.OS === 'android' ? 10 : responsiveWidth('2'),
+    paddingBottom: Platform.OS === 'android' ? 10 : responsiveWidth('4'),
     marginBottom: 24,
   },
   emptyStateCard: {
     borderRadius: 16,
     // padding: responsiveWidth('2%'),
     // paddingVertical: responsiveWidth('2%'),
+    // padding: responsiveWidth('2%'),
     borderWidth: 0.2,
     borderColor: '#EEE5CA',
     // opacity: 0.7,
   },
   emptyStateOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    // position: 'absolute',
+    // top: 0,
+    // padding: responsiveWidth('2%'),
+    // left: 0,
+    // right: 0,
+    // bottom: 0,
   },
   emptyStateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    // justifyContent: 'space-between',
+    borderRadius: 16,
+    // borderWidth: 0.2,
+    // borderColor: '#EEE5CA',
     paddingLeft: responsiveWidth(4),
+    // paddingRight: responsiveWidth(4),
     // paddingRight: responsiveWidth(2),
-    // padding: responsiveWidth(2),
-    justifyContent: 'space-between',
+    // paddingVertical: Platform.OS === 'android' ? responsiveHeight('1') : responsiveWidth('0'),
+    paddingTop:
+      Platform.OS === 'android'
+        ? responsiveHeight('0.5')
+        : responsiveWidth('0'),
+    paddingBottom:
+      Platform.OS === 'android'
+        ? responsiveHeight('1.5')
+        : responsiveWidth('0'),
+    // justifyContent: 'space-between',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyStateContent: {
     flex: 1,
+    // justifyContent: 'center',
+    // alignItems: 'center',
+  },
+  mahadashaTitle: {
+    // ...font.label,
+    fontSize: 18,
+    fontFamily: fontFamily.regular,
+    // marginBottom: 12,
   },
   emptyStateTitle: {
     fontFamily: fontFamily.regular,
-    fontWeight: '500' ,
-    fontSize: 18,
-    // lineHeight: 30,
+    fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 30,
+    // textAlign: 'left',
+    // textAlign: 'center',
+    // width: '100%',
     letterSpacing: -0.14,
     color: color.themeTextWhite,
     // textAlignVertical: 'center',
-    textAlignVertical: 'center',
+    // textAlignVertical: 'center',
   },
   emptyStateButton: {
     borderColor: color.themeTextWhite,
@@ -834,7 +1242,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    marginTop: responsiveWidth('2'),
+    marginTop: 5,
     // marginTop: responsiveWidth('5'),
     alignSelf: 'flex-start',
   },
@@ -845,10 +1253,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   emptyStateImage: {
-    width: responsiveWidth('30%'),
-    height: responsiveWidth('30%'),
+    width: 100,
+    height: 100,
     resizeMode: 'contain',
     marginLeft: 10,
+    marginRight: 10,
   },
 });
 

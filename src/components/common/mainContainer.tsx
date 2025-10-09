@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import React from 'react';
 import { color, responsiveHeight, responsiveWidth } from '../../constant/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 interface MainContainerProps extends ViewProps {
   containerStyle?: ViewStyle;
@@ -19,16 +20,18 @@ const MainContainer: React.FC<MainContainerProps> = ({
   subContainerStyle,
   children,
 }) => {
-  return (
-    <View style={[styles.container, containerStyle]}>
+  const { colors } = useTheme();
 
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }, containerStyle]}>
       <ImageBackground
-        source={require('../../assets/image/DarkBackground.png')} // Local image
+        source={colors.backgroundImage}
         style={styles.background}
-        resizeMode="cover" // or "contain" / "stretch" / "center" / "repeat"
+        resizeMode="cover"
       >
-        {/* <View style={[styles.subContainer, subContainerStyle]}>{children}</View> */}
-        {children}
+        <View style={[styles.subContainer, subContainerStyle]}>
+          {children}
+        </View>
       </ImageBackground>
     </View>
   );
@@ -39,11 +42,9 @@ export { MainContainer };
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#202945'
   },
   background: {
     flex: 1,
-    backgroundColor: '#202945'
   },
   subContainer: {
     flex: 1,

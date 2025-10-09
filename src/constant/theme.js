@@ -34,37 +34,119 @@ function normalize(size) {
   }
 }
 
-export const color = {
-  transparent: 'transparent',
-  transparentBack: 'rgb(245, 245, 245)',
-  transparentpink: 'rgba(224, 85, 126, 0.5)',
-  transparentGray: 'rgba(71, 71, 71, 0.3)',
-  transparentWhite: 'rgba(255,255,255,0.83)',
-  black: '#000000',
-  white: '#FFFFFF',
-  dimOrange: '#FFA500',
-  themeTextWhite: '#EEE5CA',
-  themeBorderDropdown: 'rgba(73, 108, 168, 1)',
-  green: '#00656f',
-  red: '#A52A2A',
-  pink: '#E0557E',
-  dark: '#F2F2F2',
-  blur: '#00008B',
-  gray: '#858680',
-  lightgray: '#D5D8D5',
-  navyblue: '#043f5d',
-  darkwhitep: '#FAFAFA',
-  darkwhite: '#F6F6F6',
-  yellow: '#edd095',
-  staryello: '#ffd700',
-  darkgreen: '#004349',
-  border: '#D5D8D5',
-  primary: '#0047AF',
-  primaryGreen: '#27AE60',
-  primaryBackground: '#ECF5FF',
-  grayText: '#8E8E93',
-  lightGrayText: '#8C8C8C',
+// Dark Theme Colors
+export const darkTheme = {
+  colors: {
+    transparent: 'transparent',
+    transparentBack: 'rgb(245, 245, 245)',
+    transparentpink: 'rgba(224, 85, 126, 0.5)',
+    transparentGray: 'rgba(71, 71, 71, 0.3)',
+    transparentWhite: 'rgba(255,255,255,0.83)',
+    black: '#000000',
+    white: '#FFFFFF',
+    dimOrange: '#FFA500',
+    themeTextWhite: '#EEE5CA',
+    placeholderTextColor: '#B0B3C7',
+    themelightText: 'rgba(34, 49, 73, 0.4)',
+    themeBorderDropdown: 'rgba(73, 108, 168, 1)',
+    green: '#00656f',
+    red: '#A52A2A',
+    pink: '#E0557E',
+    dark: '#F2F2F2',
+    blur: '#00008B',
+    gray: '#858680',
+    lightgray: '#D5D8D5',
+    navyblue: '#043f5d',
+    darkwhitep: '#FAFAFA',
+    darkwhite: '#F6F6F6',
+    yellow: '#edd095',
+    staryello: '#ffd700',
+    darkgreen: '#004349',
+    border: '#D5D8D5',
+    primary: '#EEE5CA',
+    primaryGreen: '#27AE60',
+    primaryBackground: '',
+    grayText: '#8E8E93',
+    lightGrayText: '#8C8C8C',
+    // Dark theme specific colors
+    background: '',
+    surface: '#rgba(34, 49, 73, 0.2)',
+    surfaceOpacity: 'rgba(255, 255, 255, 1)',
+    whiteOpacity: 'rgba(255, 255, 255, 0.2)',
+    tabaleHeder: '#D6C295',
+    cardBackground: 'rgba(34, 49, 73, 0.9)',
+    DarkNavyBlue: 'rgba(34, 49, 73, 0.9)',
+    DarkNavy: '#223149',
+    textPrimary: '#EEE5CA',
+    textSecondary: '#F6EFD9',
+    accent: '#DF8A5D',
+    Orangeaccentcolor: '#DF8A5D',
+    accentLight: '#F2994A',
+    primaryBlue: 'rgba(73, 108, 168, 1)',
+    borderColor: '#EEE5CA',
+    backgroundImage: require('../assets/image/DarkBackground.png'),
+    subtractIcon: require('../assets/icons/Subtract-dark.png'),
+  },
 };
+
+// Light Theme Colors
+export const lightTheme = {
+  colors: {
+    transparent: 'transparent',
+    transparentBack: 'rgb(245, 245, 245)',
+    transparentpink: 'rgba(224, 85, 126, 0.5)',
+    transparentGray: 'rgba(71, 71, 71, 0.3)',
+    transparentWhite: 'rgba(255,255,255,0.83)',
+    black: '#000000',
+    white: '#FFFFFF',
+    dimOrange: '#FFA500',
+    themeTextWhite: '#2C3E50', // Dark text for light theme
+    placeholderTextColor: '#B0B3C7',
+    themelightText: 'rgba(34, 49, 73, 0.4)',
+    themeBorderDropdown: 'rgba(73, 108, 168, 1)',
+    green: '#00656f',
+    red: '#A52A2A',
+    pink: '#E0557E',
+    dark: '#F2F2F2',
+    blur: '#00008B',
+    gray: '#858680',
+    lightgray: '#D5D8D5',
+    navyblue: '#043f5d',
+    darkwhitep: '#FAFAFA',
+    darkwhite: '#F6F6F6',
+    yellow: '#edd095',
+    staryello: '#ffd700',
+    darkgreen: '#004349',
+    border: '#D5D8D5',
+    primary: '#0047AF',
+    primaryGreen: '#27AE60',
+    primaryBackground: '#ECF5FF',
+    grayText: '#8E8E93',
+    lightGrayText: '#8C8C8C',
+    // Light theme specific colors
+    background: '#F5F5DC', // Light creamy beige background
+    surface: '#EEE5CA',
+    // Pure white for cards
+    cardBackground: '#FFFFFF',
+    surfaceOpacity: 'rgba(255, 255, 255, 1)',
+    whiteOpacity: 'rgba(255, 255, 255, 0.3)',
+    tabaleHeder: '#D6C295',
+    DarkNavyBlue: 'rgba(34, 49, 73, 0.9)',
+    DarkNavy: '#223149', // Pure white for planet cards
+    textPrimary: '#000000', // Black text for light theme
+    textSecondary: '#2C3E50', // Dark gray for secondary text
+    accent: '#FF8C00', // Orange accent color
+    Orangeaccentcolor: '#DF8A5D',
+    accentLight: '#FFA500', // Light orange
+    borderColor: '#E0E0E0', // Light gray border
+    primaryBlue: 'rgba(73, 108, 168, 1)',
+    backgroundImage: require('../assets/image/LightBackground.png'),
+    subtractIcon: require('../assets/icons/Subtract-light.png'),
+  },
+};
+
+// Legacy color export for backward compatibility
+export const color = darkTheme.colors;
 
 // Font sizes
 export const fontSize = {

@@ -1,21 +1,26 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Image, Text } from 'react-native';
+import { StyleSheet, Image } from 'react-native';
 import { NavigationProp, StackActions } from '@react-navigation/native';
 
-import { color, responsiveHeight, responsiveWidth } from '../../constant/theme';
+import { responsiveHeight, responsiveWidth } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { icons} from "../../assets/index"
+import { useSelector } from 'react-redux';
+import { RootState } from '../../state/store';
 // import Icon from '../../assets/svgs/icBall.svg';
 // import { useTranslation } from 'react-i18next';
 
 type RootStackParamList = {
   Login: undefined;
   HomeScreen: undefined;
+  AddNewMember: undefined;
 };
 
 const SplashScreen = () => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const membersData = useSelector((state: RootState) => state.app.members);
+  const user = useSelector((state: RootState) => state.app.user);
 
   // const { i18n } = useTranslation();  // t is the function to get translations
 
@@ -28,8 +33,45 @@ const SplashScreen = () => {
 
         setTimeout(() => {
           if (token) {
-            navigation.dispatch(StackActions.replace('HomeScreen'));
+            // User is logged in - check if they have any members
+            console.log('User has token, checking members data...');
+            console.log('Current membersData:', membersData);
+            console.log('Current user:', user);
+            
+            // Wait for user data to be loaded (indicates app initialization is complete)
+            if (user && user._id) {
+              console.log('User data loaded, checking members...');
+              
+              // Check if members data is loaded
+              if (membersData !== undefined) {
+                console.log('Members data loaded:', membersData);
+                
+                if (!membersData || (Array.isArray(membersData) && membersData.length === 0)) {
+                  // User has no members, show AddNewMember screen
+                  console.log('No members found, navigating to AddNewMember');
+                  navigation.dispatch(StackActions.replace('AddNewMember'));
+                } else {
+                  // User has members, go to home screen
+                  console.log('Members found, navigating to HomeScreen');
+                  navigation.dispatch(StackActions.replace('HomeScreen'));
+                }
+              } else {
+                console.log('Members data not yet loaded, waiting...');
+                // If members data is not loaded yet, wait a bit more
+                // setTimeout(() => {
+                //   if (!membersData || (Array.isArray(membersData) && membersData.length === 0)) {
+                //     navigation.dispatch(StackActions.replace('AddNewMember'));
+                //   } else {
+                //     navigation.dispatch(StackActions.replace('HomeScreen'));
+                //   }
+                // }, 1000);
+              }
+            } else {
+              console.log('User data not yet loaded, waiting...');
+            }
           } else {
+            // User not logged in
+            console.log('No token found, navigating to Login');
             navigation.dispatch(StackActions.replace('Login'));
           }
         }, 2000); // 2 second delay
@@ -42,7 +84,7 @@ const SplashScreen = () => {
     };
 
     checkUserData();
-  }, [navigation]);
+  }, [navigation, membersData, user]);
 
   return (
     <Image

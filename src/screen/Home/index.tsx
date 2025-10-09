@@ -31,8 +31,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import moment from 'moment';
 import UserService from '../../services/user/user.service';
 import { useProfileData } from '../../hooks/useProfileData';
+import { useTheme } from '../../context/ThemeContext';
+import HomeImageSlider from '../../components/HomeImageSlider';
+import { baseURL } from '../../utils/http';
 // Removed BlurView to avoid external dependency for blur
-
 
 export type RootStackParamList = {
   Login: undefined;
@@ -70,7 +72,12 @@ const CARDS_PER_GROUP = 3;
 function formatDashaDate(dateStr: string) {
   if (!dateStr) return '';
   // Try both 'DD-MM-YYYY' and 'YYYY-MM-DD' formats
-  let m = moment(dateStr, ['DD-MM-YYYY', 'YYYY-MM-DD', 'DD/MM/YYYY', 'YYYY/MM/DD']);
+  let m = moment(dateStr, [
+    'DD-MM-YYYY',
+    'YYYY-MM-DD',
+    'DD/MM/YYYY',
+    'YYYY/MM/DD',
+  ]);
   if (!m.isValid()) {
     // Try to extract and format if range is not standard
     return dateStr;
@@ -82,26 +89,29 @@ const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const userService = serviceFactory.get<UserService>('UserService');
   const [_currentGroup, setCurrentGroup] = useState(0);
-  const { membersData, loading, refreshProfileData } =
-    useProfileData();
+  const { membersData, loading, refreshProfileData } = useProfileData();
+  const { theme, colors } = useTheme();
 
   // Debug membersData whenever it changes
   useEffect(() => {
     console.log('membersData updated:', membersData);
     if (membersData && membersData.length > 0) {
       console.log('First member details:', membersData[0]);
-      console.log('All member names:', membersData.map((member: any) => ({
-        name: member.name,
-        first_name: member.first_name,
-        full_name: member.full_name,
-        primary_member: member.primary_member
-      })));
+      console.log(
+        'All member names:',
+        membersData.map((member: any) => ({
+          name: member.name,
+          first_name: member.first_name,
+          full_name: member.full_name,
+          primary_member: member.primary_member,
+        })),
+      );
     }
   }, [membersData]);
 
   // Get current user data as fallback
   const [currentUser, setCurrentUser] = useState<any>(null);
-  
+
   useEffect(() => {
     const getUserData = async () => {
       try {
@@ -127,22 +137,21 @@ const HomeScreen = () => {
     if (!membersData || membersData.length === 0) {
       return null;
     }
-    
+
     // Look for a member with primary_member field set to true
     const primaryMember = membersData.find(
       (member: any) =>
         member.primary_mamber === 'True' || member.primary_mamber === true,
     );
 
-   
     if (primaryMember) {
       return primaryMember.id || primaryMember._id;
     }
-    
+
     // If no primary_member field found, assume first member is primary
     const firstMember = membersData[0];
 
-     console.log('primaryMember===>123', firstMember);
+    console.log('primaryMember===>123', firstMember);
     return firstMember?.id || firstMember?._id || null;
   }, [membersData]);
 
@@ -150,12 +159,16 @@ const HomeScreen = () => {
   const getPrimaryMemberName = useCallback(() => {
     console.log('getPrimaryMemberName called with membersData:', membersData);
     console.log('Current user data:', currentUser);
-    
+
     if (!membersData || membersData.length === 0) {
       console.log('No members data available, using current user');
       // Fallback to current user data
       if (currentUser) {
-        const name = currentUser.name || currentUser.first_name || currentUser.full_name || 'User';
+        const name =
+          currentUser.name ||
+          currentUser.first_name ||
+          currentUser.full_name ||
+          'User';
         console.log('Using current user name:', name);
         return name;
       }
@@ -163,23 +176,31 @@ const HomeScreen = () => {
     }
 
     console.log('membersData===>123', membersData);
-    
+
     // Look for a member with primary_member field set to true
     const primaryMember = membersData.find(
       (member: any) =>
         member.primary_mamber === 'True' || member.primary_mamber === true,
     );
-    
+
     if (primaryMember) {
-      const name = primaryMember.name || primaryMember.first_name || primaryMember.full_name || 'User';
+      const name =
+        primaryMember.name ||
+        primaryMember.first_name ||
+        primaryMember.full_name ||
+        'User';
       console.log('Using primary member name:', name);
       return name;
     }
-    
+
     // If no primary_member field found, assume first member is primary
     const firstMember = membersData[0];
     console.log('Using first member as primary:', firstMember);
-    const name = firstMember?.name || firstMember?.first_name || firstMember?.full_name || 'User';
+    const name =
+      firstMember?.name ||
+      firstMember?.first_name ||
+      firstMember?.full_name ||
+      'User';
     console.log('Using first member name:', name);
     return name;
   }, [membersData, currentUser]);
@@ -189,49 +210,54 @@ const HomeScreen = () => {
     try {
       setDashaLoading(true);
       setDashaError(null);
-      
+
       const userDataStr = await AsyncStorage.getItem('USER_DATA');
       const userData = userDataStr ? JSON.parse(userDataStr) : null;
 
       console.log('userData===>123', membersData);
-      
+
       // Get primary member ID from membersData
       const primaryMemberId = getPrimaryMemberId();
       const memberId = primaryMemberId || userData?._id || userData?.user_id;
-      
+
       console.log('Primary member ID:', primaryMemberId);
       console.log('Using member ID for dasha:', memberId);
-      
+
       if (!memberId) {
         setDashaError('No member ID found');
         return;
       }
-  
+
       const apiRes = await userService.getDashaData(memberId);
 
       console.log('apiRes===>123', apiRes);
 
-      
       // Parse new API response format to UI format
       const parsed: any[] = [];
-      
+
       // Handle new flat structure with direct dasha types
-      const dashaTypes = ['MahaDasha', 'AntarDasha', 'PratyantarDasha', 'SookshmaDasha', 'PranDasha'];
-      
+      const dashaTypes = [
+        'MahaDasha',
+        'AntarDasha',
+        'PratyantarDasha',
+        'SookshmaDasha',
+        'PranDasha',
+      ];
+
       // Mapping for display names
       const dashaDisplayNames: { [key: string]: string } = {
-        'MahaDasha': 'Maha Dasha',
-        'AntarDasha': 'Antar Dasha',
-        'PratyantarDasha': 'Pratyantar Dasha',
-        'SookshmaDasha': 'Sookshma Dasha',
-        'PranDasha': 'Pran Dasha'
+        MahaDasha: 'Maha Dasha',
+        AntarDasha: 'Antar Dasha',
+        PratyantarDasha: 'Pratyantar Dasha',
+        SookshmaDasha: 'Sookshma Dasha',
+        PranDasha: 'Pran Dasha',
       };
-      
-      dashaTypes.forEach((dashaType) => {
+
+      dashaTypes.forEach(dashaType => {
         if (apiRes[dashaType]) {
           const dashaInfo = apiRes[dashaType];
           parsed.push({
-            icon: `https://astrology.hcshub.in/api/${dashaInfo.path}`,
+            icon: `${baseURL}/${dashaInfo.path}`,
             dashaname: dashaDisplayNames[dashaType] || dashaType,
             planetname: dashaInfo.planet,
             start: formatDashaDate(dashaInfo.start),
@@ -239,7 +265,7 @@ const HomeScreen = () => {
           });
         }
       });
-      
+
       setDashaData(parsed);
     } catch (e: any) {
       console.error('Error fetching dasha data:', e);
@@ -262,7 +288,7 @@ const HomeScreen = () => {
       console.log('Home screen focused - refreshing data');
       // Refresh profile data (which includes members data)
       refreshProfileData();
-      
+
       // Also refresh current user data
       const getUserData = async () => {
         try {
@@ -277,7 +303,7 @@ const HomeScreen = () => {
         }
       };
       getUserData();
-    }, [refreshProfileData])
+    }, [refreshProfileData]),
   );
 
   // Refresh function to reload both profile and dasha data
@@ -298,22 +324,22 @@ const HomeScreen = () => {
   };
 
   return (
-    <View style={styles.safeArea}>
-      <StatusBar
-        barStyle="light-content"
+    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      {/* <StatusBar
+        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent={true}
-      />
+      /> */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.container}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
         <MainContainer>
           {/* Sticky Header */}
           <View style={styles.headerContainer}>
             <ImageBackground
-              source={require('../../assets/image/DarkBackground.png')}
+              source={colors.backgroundImage}
               // blurRadius={12}
               style={{}}
               imageStyle={{}}
@@ -324,7 +350,7 @@ const HomeScreen = () => {
                   title=""
                   rightIconContainerStyle={{}}
                   rightIcon={require('../../assets/icons/Ic-ball.png')}
-                  LeftIcon={require('../../assets/icons/Subtract.png')}
+                  LeftIcon={colors.subtractIcon}
                   onPressRight={() => navigation.navigate('NotificationScreen')}
                 />
               </View>
@@ -336,30 +362,98 @@ const HomeScreen = () => {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Mahadasha Carousel Card */}
+            {/* Greeting Section */}
             <View style={styles.greetingContainer}>
-              <Text style={styles.greetingText}>Good Morning, </Text>
+              <Text
+                style={[
+                  styles.greetingText,
+                  {
+                    color:
+                      theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Good Morning,{' '}
+              </Text>
               <TouchableOpacity
                 style={styles.memberNameContainer}
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('ProfileScreen')}
               >
-                <Text style={styles.memberNameText}>
+                <Text style={[styles.memberNameText, { color: colors.accent }]}>
                   {getPrimaryMemberName()}
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* image slider section */}
+            <View style={styles.imageSliderContainer}>
+              <HomeImageSlider />
+            </View>
+
             {/* Mahadasha Card */}
             <ImageBackground
-              source={require('../../assets/image/DarkBackground.png')}
+              source={
+                theme === 'dark'
+                  ? require('../../assets/image/DarkBackground.png')
+                  : require('../../assets/image/LightBackground.png')
+              }
               blurRadius={12}
-              style={styles.mahadashaCard}
-              imageStyle={styles.mahadashaBgImage}
+              style={[
+                styles.mahadashaCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.borderColor
+                      : colors.surfaceOpacity,
+                },
+              ]}
+              imageStyle={[
+                styles.mahadashaBgImage,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.borderColor
+                      : colors.surfaceOpacity,
+                },
+              ]}
             >
-              <View style={styles.mahadashaOverlay} />
-              <View style={styles.mahadashaInner}>
-                <Text style={styles.mahadashaTitle}>
-                  Your Current Dasha Overview
+              <View
+                style={[
+                  styles.mahadashaOverlay,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.transparent : colors.white,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.mahadashaInner,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.surface : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.borderColor
+                        : colors.surfaceOpacity,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.mahadashaTitle,
+                    {
+                      color:
+                        theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Current Dasha Overview
                 </Text>
 
                 {/* Dasha Data */}
@@ -377,22 +471,88 @@ const HomeScreen = () => {
                       {dashaData.map((item, idx) => (
                         <View
                           key={item?.planetname + idx}
-                          style={styles.carouselCard}
+                          style={[
+                            styles.carouselCard,
+                            {
+                              backgroundColor:
+                                theme === 'dark'
+                                  ? colors.DarkNavy
+                                  : colors.white,
+                              boxShadow:
+                                theme === 'dark' ? '' : '0px 0px 5px #DF8A5D',
+
+                              shadowColor: theme === 'dark' ? '#000' : '',
+                              shadowOffset: {
+                                width: theme === 'dark' ? 0 : 0,
+                                height: theme === 'dark' ? 2 : 0,
+                              },
+                              shadowOpacity: theme === 'dark' ? 0.4 : 0,
+                              shadowRadius: theme === 'dark' ? 3 : 0,
+                              elevation: theme === 'dark' ? 3 : 0,
+                              // borderColor:
+                              //   theme === 'dark'
+                              //     ? colors.themeBorderDropdown
+                              //     : colors.borderColor,
+                            },
+                          ]}
                         >
                           <Image
                             source={{ uri: item.icon }}
                             style={styles.planetIcon}
                           />
-                          <Text style={styles.planetName}>
+                          <Text
+                            style={[
+                              styles.planetName,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.textPrimary
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
                             {item.dashaname}
                           </Text>
                           <Text
-                            style={[styles.planetName, { fontWeight: '400' }]}
+                            style={[
+                              styles.planetName,
+                              {
+                                fontWeight: '400',
+                                color:
+                                  theme === 'dark'
+                                    ? colors.textPrimary
+                                    : colors.DarkNavy,
+                              },
+                            ]}
                           >
                             {item.planetname}
                           </Text>
-                          <Text style={styles.planetDate}>{item.start}</Text>
-                          <Text style={styles.planetDate}>{item.end}</Text>
+                          <Text
+                            style={[
+                              styles.planetDate,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.textPrimary
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {item.start}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.planetDate,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.textPrimary
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {item.end}
+                          </Text>
                         </View>
                       ))}
                     </ScrollView>
@@ -418,17 +578,39 @@ const HomeScreen = () => {
                           {
                             textAlign: 'left' as const,
                             marginTop: -responsiveWidth('4'),
+                            color:
+                              theme === 'dark'
+                                ? colors.textPrimary
+                                : colors.DarkNavy,
                           },
                         ]}
                       >
                         Add your details to generate your charts
                       </Text>
                       <TouchableOpacity
-                        style={styles.emptyStateButton}
+                        style={[
+                          styles.emptyStateButton,
+                          {
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.borderColor
+                                : colors.primaryBlue,
+                          },
+                        ]}
                         // activeOpacity={0.7}
                         onPress={() => navigation.navigate('AddNewMember')}
                       >
-                        <Text style={styles.emptyStateButtonText}>
+                        <Text
+                          style={[
+                            styles.emptyStateButtonText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.borderColor
+                                  : colors.primaryBlue,
+                            },
+                          ]}
+                        >
                           Add New Member
                         </Text>
                       </TouchableOpacity>
@@ -442,17 +624,40 @@ const HomeScreen = () => {
               </View>
             </ImageBackground>
             {/* Astro AI Chat Card */}
-            <View style={styles.astroCard}>
+            <View
+              style={[
+                styles.astroCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.primary : colors.DarkNavy,
+                },
+              ]}
+            >
               <View style={styles.astroContent}>
-                <Text style={styles.astroTitle}>
-                  Ask questions about your life, career, relationships
+                <Text
+                  style={[
+                    styles.astroTitle,
+                    {
+                      color:
+                        theme === 'dark' ? colors.DarkNavy : colors.surface,
+                    },
+                  ]}
+                >
+                  Gain clarity on your life, career & relationships
                 </Text>
                 <TouchableOpacity
-                  style={styles.astroButton}
-                  activeOpacity={0.7}
+                  style={[
+                    styles.astroButton,
+                    { backgroundColor: colors.Orangeaccentcolor },
+                  ]}
+                  // activeOpacity={0.7}
                   onPress={() => navigation.navigate('ChatScreen')}
                 >
-                  <Text style={styles.astroButtonText}>Chat with Astro AI</Text>
+                  <Text
+                    style={[styles.astroButtonText, { color: colors.white }]}
+                  >
+                    See Predictions
+                  </Text>
                 </TouchableOpacity>
               </View>
               <Image
@@ -461,24 +666,58 @@ const HomeScreen = () => {
               />
             </View>
             {/* Manage Members Card */}
-            <ImageBackground
-              source={require('../../assets/image/DarkBackground.png')}
-              blurRadius={12}
-              style={styles.membersCard}
-              imageStyle={styles.membersBgImage}
+            <View
+              style={[
+                styles.membersCard,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.cardBackground
+                      : colors.surfaceOpacity,
+                },
+              ]}
             >
-              <View style={styles.membersOverlay} />
               <View style={styles.membersInner}>
                 <View style={styles.membersContent}>
-                  <Text style={styles.membersTitle}>
-                    Browse all added members
+                  <Text
+                    style={[
+                      styles.membersTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.textPrimary
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Add your loved ones to generate their charts
                   </Text>
                   <TouchableOpacity
-                    style={styles.membersButton}
+                    style={[
+                      styles.membersButton,
+                      {
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.borderColor
+                            : colors.primaryBlue,
+                      },
+                    ]}
                     activeOpacity={0.7}
                     onPress={() => navigation.navigate('MemberManagement')}
                   >
-                    <Text style={styles.membersButtonText}>Manage Members</Text>
+                    <Text
+                      style={[
+                        styles.membersButtonText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.textPrimary
+                              : colors.primaryBlue,
+                        },
+                      ]}
+                    >
+                      Manage Members
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <Image
@@ -486,7 +725,7 @@ const HomeScreen = () => {
                   style={styles.membersImage}
                 />
               </View>
-            </ImageBackground>
+            </View>
             {/* Example MapView (add inside your main render/return, adjust as needed) */}
             {/*
             <MapView
@@ -515,7 +754,6 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#202945',
   },
   container: {
     flex: 1,
@@ -524,25 +762,26 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minHeight: '100%',
     // backgroundColor: '#202945',
-    paddingTop: Platform.OS === 'android' ? 75 : 70, // Add padding for sticky header
+    // paddingTop: Platform.OS === 'android' ? 0 : 70, // Add padding for sticky header
     paddingBottom: Platform.OS === 'android' ? 35 : 32,
   },
   headerContainer: {
-    position: 'absolute',
+    // position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
     marginTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
     // backgroundColor: '#202945',
+    // backgroundColor:  color.DarkNavy,
   },
   greetingContainer: {
     marginLeft: responsiveWidth('3%'),
     flexDirection: 'row',
-    marginTop:
-      Platform.OS === 'android'
-        ? responsiveHeight('5%')
-        : responsiveWidth('12%'),
+    // marginTop:
+    //   Platform.OS === 'android'
+    //     ? responsiveHeight('0%')
+    //     : responsiveWidth('0%'),
   },
   greetingText: {
     // ...font.labelLarge,
@@ -555,7 +794,6 @@ const styles = StyleSheet.create({
 
     letterSpacing: -0.14,
     textAlignVertical: 'center' as const,
-    color: color.themeTextWhite,
   },
   memberNameContainer: {
     // Inline style for text within text
@@ -571,15 +809,27 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     letterSpacing: -0.14,
     textAlignVertical: 'center' as const,
-    color: 'rgba(223, 138, 93, 1)',
+  },
+  imageSliderContainer: {
+    marginTop: responsiveHeight('1.5%'),
+    marginHorizontal: responsiveWidth('2%'),
   },
   mahadashaCard: {
     borderRadius: 20,
     marginHorizontal: 8,
     marginTop: responsiveWidth('3%'),
     borderWidth: 0.2,
+    // opacity: 0.7,
     borderColor: '#EEE5CA',
     overflow: 'hidden',
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 3,
+    // },
+    // shadowOpacity: 0.3,
+    // shadowRadius: 4,
+    // elevation: 5,
   },
   mahadashaCardHeder: {
     // borderRadius: 20,
@@ -603,13 +853,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    opacity: 0.7,
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   mahadashaInner: {
     padding: responsiveWidth('3'),
   },
   mahadashaTitle: {
-    color: color.themeTextWhite,
     // ...font.label,
     fontSize: 18,
     fontFamily: fontFamily.regular,
@@ -626,15 +876,30 @@ const styles = StyleSheet.create({
   // },
   carouselContainer: {
     flexDirection: 'row',
+    // overflow: 'hidden',
+    padding: responsiveWidth('1'),
+    // borderWidth: 1,
+    // paddingVertical: responsiveWidth('5'),
   },
   carouselCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(34, 49, 73, 1)',
     borderRadius: 16,
     padding: responsiveWidth('1'),
     paddingVertical: responsiveWidth('3'),
     marginRight: 16,
     width: responsiveWidth('37%'),
+
+    // shadowColor: '#ff0000',
+    // borderWidth: 1,
+    // shadowOffset: {
+    //   width: 0,
+
+    //   height: 0,
+    // },
+
+    // shadowOpacity: 0.3,
+    // shadowRadius: 16,
+    // elevation: 16,
   },
   planetIcon: {
     width: responsiveWidth('10'),
@@ -644,7 +909,6 @@ const styles = StyleSheet.create({
     marginBottom: responsiveWidth('2'),
   },
   planetName: {
-    color: color.themeTextWhite,
     fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
     // ...font.mini,
     fontSize: 14,
@@ -652,8 +916,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   planetDate: {
-    color: color.themeTextWhite,
-
     fontSize: 14,
     fontFamily: fontFamily.regular,
     textAlign: 'center',
@@ -672,14 +934,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   astroCard: {
-    backgroundColor: 'rgba(238, 229, 202, 1)',
     borderRadius: 16,
     marginHorizontal: 8,
     marginTop: 20,
-    // padding: responsiveWidth('4'),
     flexDirection: 'row',
-    // alignItems: 'center',
-    // justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   astroContent: {
     flex: 1,
@@ -694,11 +960,9 @@ const styles = StyleSheet.create({
     marginBottom: responsiveWidth('2'),
     // paddingBottom: responsiveWidth('2'),
     // letterSpacing: -0.14,
-    color: '#202945',
     textAlignVertical: 'center',
   },
   astroButton: {
-    backgroundColor: 'rgba(223, 138, 93, 1)',
     borderRadius: 10,
     paddingVertical: 14,
     justifyContent: 'center',
@@ -709,7 +973,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   astroButtonText: {
-    color: color.themeTextWhite,
     fontSize: 12,
     fontFamily: fontFamily.regular,
     fontWeight: '600' as const,
@@ -727,11 +990,23 @@ const styles = StyleSheet.create({
     marginTop: responsiveWidth('5%'),
     borderWidth: 0.2,
     borderColor: '#EEE5CA',
+    justifyContent: 'center',
+    alignItems: 'center',
     overflow: 'hidden',
     marginBottom: responsiveWidth('15%'),
-    paddingHorizontal: responsiveWidth('5'),
-    paddingVertical: Platform.OS === 'android' ? responsiveWidth('2') : responsiveWidth('0'),
-    // paddingVertical: -responsiveWidth('5'),
+    paddingVertical: Platform.OS === 'android' ? 10 : responsiveWidth('1'),
+    paddingHorizontal: responsiveWidth('3'),
+    // paddingTop:  Platform.OS === 'android' ? responsiveWidth('1') : responsiveWidth('0'),
+    // paddingVertical:
+    //   Platform.OS === 'android' ? responsiveWidth('0') : responsiveWidth('0'),
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 4,
+    // elevation: 3,
   },
   membersBgImage: {
     borderRadius: 16,
@@ -748,13 +1023,21 @@ const styles = StyleSheet.create({
   membersInner: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: Platform.OS === 'android' ? 10 : 7,
+
     // justifyContent: 'space-between',
     // alignSelf: 'center',
-    paddingVertical: Platform.OS === 'android' ? responsiveWidth('2.5') : responsiveWidth('0'),
+    // paddingTop: Platform.OS === 'android' ? responsiveWidth('0.5') : responsiveWidth('0'),
+    // paddingVertical:
+    //   Platform.OS === 'android' ? responsiveWidth('0') : responsiveWidth('0'),
     // paddingHorizontal: responsiveWidth('3'),
   },
   membersContent: {
     flex: 1,
+    // width: '70%',
+
+    // justifyContent: 'center',
+    // alignItems: 'center',
   },
   membersTitle: {
     // ...font.subtitleLarge,
@@ -762,13 +1045,11 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     // lineHeight: 32,
     letterSpacing: -0.14,
-    color: color.themeTextWhite,
-    marginTop: -responsiveWidth('2.5'),
-    marginBottom: responsiveWidth('3'),
+    marginTop: -10,
+    marginBottom: 10,
     textAlignVertical: 'center',
   },
   membersButton: {
-    borderColor: color.themeTextWhite,
     borderWidth: 1,
     borderRadius: 10,
     justifyContent: 'center',
@@ -781,16 +1062,15 @@ const styles = StyleSheet.create({
   },
   membersButtonText: {
     fontFamily: fontFamily.regular,
-    color: color.themeTextWhite,
     fontWeight: '600' as const,
     fontSize: 12,
   },
   membersImage: {
-    width: responsiveWidth('30%'),
-    height: responsiveWidth('30%'),
+    width: 100,
+    height: 100,
     resizeMode: 'contain',
-    marginLeft: responsiveWidth('5'),
-    marginRight: -responsiveWidth('3'),
+    // marginLeft: responsiveWidth('5'),
+    // marginRight: 5,
   },
   // Empty state styles
   emptyStateContainer: {
@@ -806,10 +1086,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '500',
     // ...font.h6,
-    fontSize: 18,
+    fontSize: 14,
     lineHeight: 30,
     letterSpacing: -0.14,
-    color: color.themeTextWhite,
     textAlignVertical: 'center',
   },
   emptyStateSubtitle: {
@@ -823,23 +1102,22 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
   emptyStateButton: {
-    borderColor: '#F6EFD9',
     borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    marginTop: Platform.OS === 'android' ? responsiveWidth('5') : responsiveWidth('4'),
+    marginTop:
+      Platform.OS === 'android' ? responsiveWidth('2') : responsiveWidth('1'),
     alignSelf: 'flex-start',
   },
   emptyStateButtonText: {
     fontFamily: fontFamily.regular,
-    color: '#F6EFD9',
     fontWeight: '600' as const,
     fontSize: 12,
   },
   emptyStateImage: {
-    width:  responsiveWidth('35%'),
-    height: responsiveWidth('35%'),
+    width: responsiveWidth('27%'),
+    height: responsiveWidth('27%'),
     resizeMode: 'contain',
     marginLeft: 10,
   },

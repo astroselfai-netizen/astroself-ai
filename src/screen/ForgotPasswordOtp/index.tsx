@@ -15,7 +15,7 @@ import {
 import { responsiveHeight, responsiveWidth, fontFamily } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MainContainer } from '../../components/common/mainContainer';
+import { AuthContainer } from '../../components/common/AuthContainer';
 import BackIcon from '../../assets/icons/back.png';
 
 export type RootStackParamList = {
@@ -76,9 +76,9 @@ const ForgotPasswordOtp = () => {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       style={{ flex: 1, backgroundColor: '#202945' }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer>
+        <AuthContainer>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -101,7 +101,7 @@ const ForgotPasswordOtp = () => {
               style={{ alignItems: 'center', marginTop: responsiveWidth('4%') }}
             >
               <Image
-                source={require('../../assets/icons/Subtract.png')}
+                source={require('../../assets/icons/Subtract-dark.png')}
                 style={styles.astroIcon}
               />
 
@@ -154,7 +154,7 @@ const ForgotPasswordOtp = () => {
             </View>
           </View>
         </ScrollView>
-      </MainContainer>
+        </AuthContainer>
     </KeyboardAvoidingView>
   );
 };

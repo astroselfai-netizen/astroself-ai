@@ -16,14 +16,19 @@ import {
 } from 'react-native';
 import { MainContainer } from '../../components/common/mainContainer';
 import { responsiveWidth, font, fontFamily, color } from '../../constant/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../../state/store';
+import { setMembersUpdated } from '../../state/slices/appSlice';
 import PaymentService from '../../services/payment/payment.service';
 import serviceFactory from '../../services/serviceFactory';
 import RazorpayCheckout from 'react-native-razorpay';
 import Toast from 'react-native-toast-message';
+import LottieView from 'lottie-react-native';
 // Removed BlurView to avoid external dependency for blur
 
 // Razorpay Configuration
@@ -43,6 +48,7 @@ export type RootStackParamList = {
   BasicDeatil: undefined;
   AddNewMember: undefined;
   MemberManagement: undefined;
+  NakshatraScreen: { userId: string };
 };
 
 type ProfileScreenNavigationProp = StackNavigationProp<
@@ -54,15 +60,22 @@ type ProfileScreenNavigationProp = StackNavigationProp<
 const ProfileScreen = () => {
     const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { profileData, membersData, loading, error, refreshProfileData } = useProfileData();
+  const { colors, theme } = useTheme();
+  // const dispatch = useDispatch();
+  // const membersUpdated = useSelector((state: RootState) => state.app.membersUpdated);
   const paymentService = serviceFactory.get<PaymentService>('PaymentService');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [selectedMemberCount, setSelectedMemberCount] = useState(1);
 
-  // Refresh profile data when screen comes into focus
+  // Refresh profile data when screen comes into focus and members data has been updated
   useFocusEffect(
     React.useCallback(() => {
-      refreshProfileData();
-    }, [refreshProfileData])
+      // if (membersUpdated) {
+        refreshProfileData();
+        // Reset the flag after refreshing
+        // dispatch(setMembersUpdated(false));
+      // }
+    }, [refreshProfileData]),
   );
 
   // Helper function to get primary member data
@@ -103,7 +116,7 @@ const ProfileScreen = () => {
         });
       }
     }
-    return (profileData as any)?.date_of_birth || 'May 20, 1995';
+    return (profileData as any)?.date_of_birth || 'Not specified';
   };
 
   // Helper function to format time of birth from birth_data
@@ -121,7 +134,7 @@ const ProfileScreen = () => {
         });
       }
     }
-    return (profileData as any)?.time_of_birth || '10:30 AM';
+    return (profileData as any)?.time_of_birth || 'Not specified';
   };
 
   // Show error alert if there's an error
@@ -164,9 +177,9 @@ const ProfileScreen = () => {
   const getDisplayGender = () => {
     const primaryMember = getPrimaryMemberData();
     if (primaryMember?.gender) {
-      return primaryMember.gender;
+      return primaryMember.gender.charAt(0).toUpperCase() + primaryMember.gender.slice(1).toLowerCase();
     }
-    return profileData?.gender || 'Not specified';
+    return profileData?.gender ? profileData.gender.charAt(0).toUpperCase() + profileData.gender.slice(1).toLowerCase() : 'Not specified';
   };
 
   const getDisplayBirthplace = () => {
@@ -175,6 +188,14 @@ const ProfileScreen = () => {
       return primaryMember.birthplace;
     }
     return profileData?.birthplace || 'Not specified';
+  };
+
+  const getDisplayOccupation = () => {
+    const primaryMember = getPrimaryMemberData();
+    if (primaryMember?.occupation) {
+      return primaryMember.occupation;
+    }
+    return (profileData as any)?.occupation || 'Not specified';
   };
 
   // Helper function to get gender-based profile image
@@ -186,7 +207,7 @@ const ProfileScreen = () => {
       return require('../../assets/image/profile-Female.png');
     }
     // Default to regular profile image if gender is not specified or unknown
-    return require('../../assets/image/profile.png');
+    return require('../../assets/image/profile-Male.png');
   };
 
   // Helper function to get gender-based icon
@@ -300,7 +321,6 @@ const ProfileScreen = () => {
         });
         
         // Navigate to AddNewMember screen
-        refreshProfileData();
         navigation.navigate('AddNewMember');
       } else {
         throw new Error(verifyResponse.message || 'Payment verification failed');
@@ -378,11 +398,19 @@ const ProfileScreen = () => {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={{ flex: 1, backgroundColor: '#202945' }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
         <MainContainer>
           <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading profile...</Text>
+            <LottieView
+              source={require('../../assets/lottie/loader-Animation-1.json')}
+              autoPlay
+              loop
+              style={styles.lottieAnimation}
+            />
+            {/* <Text style={[styles.loadingText,{
+              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+            }]}>Loading profile...</Text> */}
           </View>
         </MainContainer>
       </KeyboardAvoidingView>
@@ -398,18 +426,38 @@ const ProfileScreen = () => {
       <MainContainer>
         {/* Sticky Header */}
         <ImageBackground
-          source={require('../../assets/image/DarkBackground.png')}
+          source={
+            theme === 'dark'
+              ? require('../../assets/image/DarkBackground.png')
+              : require('../../assets/image/LightBackground.png')
+          }
           // blurRadius={12}
-          style={styles.stickyHeaderContainer}
+          style={[
+            styles.stickyHeaderContainer,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.cardBackground : colors.white,
+            },
+          ]}
           imageStyle={styles.stickyHeaderBgImage}
         >
           <View style={styles.stickyHeaderOverlay} />
           {/* <Image
-            source={require('../../assets/icons/Subtract.png')}
+            source={colors.subtractIcon}
             style={styles.headerIcon}
           /> */}
           {/* <View style={styles.headerTextWrap}> */}
-          <Text style={styles.headerText}>Profile</Text>
+          <Text
+            style={[
+              styles.headerText,
+              {
+                color:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              },
+            ]}
+          >
+            Profile
+          </Text>
           {/* </View> */}
         </ImageBackground>
 
@@ -429,73 +477,280 @@ const ProfileScreen = () => {
           <View style={{ padding: responsiveWidth('4') }}>
             {/* Profile Card */}
             <ImageBackground
-              source={require('../../assets/image/DarkBackground.png')}
+              source={
+                theme === 'dark'
+                  ? require('../../assets/image/DarkBackground.png')
+                  : require('../../assets/image/LightBackground.png')
+              }
               blurRadius={12}
-              style={styles.membersCardMain}
-              imageStyle={styles.membersBgImage}
+              style={[
+                styles.membersCardMain,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.white,
+                },
+              ]}
+              imageStyle={[styles.membersBgImage, styles.membersCardMainImage]}
             >
               <View style={styles.membersOverlay} />
-              <View style={styles.profileCardRedesigned}>
+              <View
+                style={[
+                  styles.profileCardRedesigned,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.transparent : colors.white,
+                  },
+                ]}
+              >
                 {/* Profile Header Row */}
                 <View style={styles.profileHeaderRow}>
-                  <Image
-                    source={getProfileImageSource()}
-                    style={styles.profileAvatar}
-                  />
-                  <Text style={styles.profileNameText}>{getDisplayName()}</Text>
+                  <View style={styles.profileAvatarContainer}>
+                    <Image
+                      source={getProfileImageSource()}
+                      style={styles.profileAvatar}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.profileNameText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {getDisplayName()}
+                  </Text>
                 </View>
 
-                {/* Email Section */}
-                <View style={styles.emailSection}>
-                  <Text style={styles.emailLabel}>Email</Text>
-                  <Text style={styles.emailValue}>{getDisplayEmail()}</Text>
-                </View>
+                {/* Profile Information List */}
+                <View style={styles.profileInfoList}>
+                  {/* Email */}
+                  <View style={styles.profileInfoRow}>
+                    <Text
+                      style={[
+                        styles.profileInfoLabel,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Email
+                    </Text>
+                    <Text
+                      style={[
+                        styles.profileInfoValue,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      : {getDisplayEmail()}
+                    </Text>
+                  </View>
 
-                {/* Info Grid */}
-                <View style={styles.infoGridContainer}>
-                  <View style={styles.infoColumnLeft}>
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Gender</Text>
-                      <View style={styles.genderContainer}>
-                        <Text style={styles.infoValue}>
-                          {getDisplayGender()}
-                        </Text>
+                  {/* Occupation */}
+                  {/* <View style={styles.profileInfoRow}>
+                    <Text
+                      style={[
+                        styles.profileInfoLabel,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Occupation:
+                    </Text>
+                    <Text
+                      style={[
+                        styles.profileInfoValue,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {getDisplayOccupation()}
+                    </Text>
+                  </View> */}
+
+                  {/* Gender */}
+                  <View style={styles.profileInfoRow}>
+                    <Text
+                      style={[
+                        styles.profileInfoLabel,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Gender
+                    </Text>
+                    <View style={styles.genderValueContainer}>
+                      <Text
+                        style={[
+                          styles.profileInfoValue,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                                
+                          },
+                        ]}
+                      >
+                        : {getDisplayGender()}
+                      </Text>
+                      <View style={styles.genderIconContainer}>
                         <Image
                           source={getGenderIconSource()}
                           style={styles.genderIcon}
                         />
                       </View>
                     </View>
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Time of Birth</Text>
-                      <Text style={styles.infoValue}>
-                        {getFormattedTimeOfBirth()}
-                      </Text>
-                    </View>
                   </View>
 
-                  <View style={styles.infoColumnRight}>
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Date of Birth</Text>
-                      <Text style={styles.infoValue}>
-                        {getFormattedDateOfBirth()}
-                      </Text>
-                    </View>
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Place of Birth</Text>
-                      <Text style={styles.infoValue}>
-                        {getDisplayBirthplace()}
-                      </Text>
-                    </View>
+                  {/* Date of Birth */}
+                  <View style={styles.profileInfoRow}>
+                    <Text
+                      style={[
+                        styles.profileInfoLabel,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Date Of Birth
+                    </Text>
+                    <Text
+                      style={[
+                        styles.profileInfoValue,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      : {getFormattedDateOfBirth()}
+                    </Text>
+                  </View>
+
+                  {/* Time of Birth */}
+                  <View style={styles.profileInfoRow}>
+                    <Text
+                      style={[
+                        styles.profileInfoLabel,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Time Of Birth
+                    </Text>
+                    <Text
+                      style={[
+                        styles.profileInfoValue,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      : {getFormattedTimeOfBirth()}
+                    </Text>
+                  </View>
+
+                  {/* Place of Birth */}
+                  <View style={styles.profileInfoRow}>
+                    <Text
+                      style={[
+                        styles.profileInfoLabel,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Place Of Birth
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={[
+                        styles.profileInfoValue,
+
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                              
+                        },
+                      ]}
+                    >
+                      : {getDisplayBirthplace()}
+                    </Text>
                   </View>
                 </View>
               </View>
             </ImageBackground>
 
             {/* Birth Chart Card */}
-            <View style={styles.birthChartCard}>
+            <View
+              style={[
+                styles.birthChartCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : colors.DarkNavy,
+                  borderColor:
+                    theme === 'dark' ? colors.borderColor : colors.borderColor,
+                },
+              ]}
+            >
               <View style={{ flex: 1 }}>
-                <Text style={styles.birthChartTitle}>Your Birth Chart</Text>
+                <Text
+                  style={[
+                    styles.birthChartTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.surface,
+                    },
+                  ]}
+                >
+                  Your Birth Chart
+                </Text>
                 <TouchableOpacity
                   onPress={() =>
                     navigation.navigate('NakshatraScreen', {
@@ -515,121 +770,239 @@ const ProfileScreen = () => {
 
             {/* Add New Member Card */}
             <ImageBackground
-              source={require('../../assets/image/DarkBackground.png')}
+              source={
+                theme === 'dark'
+                  ? require('../../assets/image/DarkBackground.png')
+                  : require('../../assets/image/LightBackground.png')
+              }
               blurRadius={12}
-              style={styles.newMembersCard}
-              imageStyle={styles.newMembersBgImage}
+              style={[
+                styles.newMembersCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : colors.white,
+                  borderColor:
+                    theme === 'dark' ? colors.borderColor : colors.borderColor,
+                },
+              ]}
+              imageStyle={[
+                styles.newMembersBgImage,
+                styles.newMembersCardImage,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : colors.white,
+                },
+              ]}
             >
-              <View style={styles.newMmembersOverlay} />
-              <Text style={styles.addMemberTitle}>
-                Add members and generate charts
-              </Text>
-              <View style={styles.addMemberCard}>
-                <View style={styles.addMemberCardLeft}>
-                  {/* Member Count Selector */}
-                  <View style={styles.memberCountContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.countButton,
-                        selectedMemberCount <= 1 && styles.countButtonDisabled,
-                      ]}
-                      onPress={() => {
-                        if (selectedMemberCount > 1) {
-                          setSelectedMemberCount(selectedMemberCount - 1);
-                        }
-                      }}
-                      disabled={selectedMemberCount <= 1}
-                    >
-                      <Text
+              {/* <View style={styles.newMmembersOverlay} /> */}
+              <View
+                style={[
+                  styles.newMmembersOverlay,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.transparent : colors.white,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.addMemberTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Add members and generate charts
+                </Text>
+                <View
+                  style={[
+                    styles.addMemberCard,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.transparent : colors.white,
+                    },
+                  ]}
+                >
+                  <View style={styles.addMemberCardLeft}>
+                    {/* Member Count Selector */}
+                    <View style={styles.memberCountContainer}>
+                      <TouchableOpacity
                         style={[
-                          styles.countButtonText,
+                          styles.countButton,
+                          {
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.Orangeaccentcolor
+                                : colors.Orangeaccentcolor,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.themeBorderDropdown
+                                : colors.borderColor,
+                          },
                           selectedMemberCount <= 1 &&
-                            styles.countButtonTextDisabled,
+                            styles.countButtonDisabled,
                         ]}
+                        onPress={() => {
+                          if (selectedMemberCount > 1) {
+                            setSelectedMemberCount(selectedMemberCount - 1);
+                          }
+                        }}
+                        disabled={selectedMemberCount <= 1}
                       >
-                        -
-                      </Text>
-                    </TouchableOpacity>
+                        <Text
+                          style={[
+                            styles.countButtonText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.white,
+                            },
+                            selectedMemberCount <= 1 &&
+                              styles.countButtonTextDisabled,
+                          ]}
+                        >
+                          -
+                        </Text>
+                      </TouchableOpacity>
 
-                    <View style={styles.memberCountDisplay}>
-                      <Text style={styles.memberCountNumber}>
-                        {selectedMemberCount.toString().padStart(2, '0')}
-                      </Text>
-                      <Text style={styles.memberCountLabel}>
-                        Member{selectedMemberCount > 1 ? 's' : ''}
-                      </Text>
+                      <View style={styles.memberCountDisplay}>
+                        <Text
+                          style={[
+                            styles.memberCountNumber,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {selectedMemberCount.toString().padStart(2, '0')}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.memberCountLabel,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          Member{selectedMemberCount > 1 ? 's' : ''}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.countButton,
+                          {
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.Orangeaccentcolor
+                                : colors.Orangeaccentcolor,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.themeBorderDropdown
+                                : colors.themeBorderDropdown,
+                          },
+                        ]}
+                        onPress={() => {
+                          setSelectedMemberCount(selectedMemberCount + 1);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.countButtonText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.surface,
+                            },
+                          ]}
+                        >
+                          +
+                        </Text>
+                      </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.countButton}
-                      onPress={() => {
-                        setSelectedMemberCount(selectedMemberCount + 1);
-                      }}
-                    >
-                      <Text style={styles.countButtonText}>+</Text>
-                    </TouchableOpacity>
+                    {/* Remaining slots message */}
+
+                    {/* Action Buttons */}
                   </View>
 
-                  {/* Remaining slots message */}
-
-                  {/* Action Buttons */}
+                  {/* 3D Human Figures Icon */}
+                  <View style={styles.addMemberCardRight}>
+                    <Image
+                      source={require('../../assets/icons/AddUser.png')}
+                      style={styles.addUserIcon3D}
+                    />
+                  </View>
                 </View>
-
-
-                {/* 3D Human Figures Icon */}
-                <View style={styles.addMemberCardRight}>
-                  <Image
-                    source={require('../../assets/icons/AddUser.png')}
-                    style={styles.addUserIcon3D}
-                  />
-                </View>
-              </View>
-              <Text style={styles.remainingSlotsText}>
-                {Math.max(
-                  0,
-                  (profileData?.members_allow || 0) -
-                    (profileData?.current_members || 0),
-                ) === 0 && Math.max(
-                  0,
-                  (profileData?.child_allow || 0) -
-                    (profileData?.current_child || 0),
-                ) === 0
-                  ? 'No members or children available'
-                  : `You can create ${Math.max(
-                      0,
-                      (profileData?.members_allow || 0) -
-                        (profileData?.current_members || 0),
-                    )} more Member${
-                      Math.max(
+                <Text
+                  style={[
+                    styles.remainingSlotsText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  {Math.max(
+                    0,
+                    (profileData?.members_allow || 0) -
+                      (profileData?.current_members || 0),
+                  ) === 0 &&
+                  Math.max(
+                    0,
+                    (profileData?.child_allow || 0) -
+                      (profileData?.current_child || 0),
+                  ) === 0
+                    ? 'No members or children available'
+                    : `You can create ${Math.max(
                         0,
                         (profileData?.members_allow || 0) -
                           (profileData?.current_members || 0),
-                      ) !== 1
-                        ? 's'
-                        : ''
-                    }${
-                      Math.max(
-                        0,
-                        (profileData?.members_allow || 0) -
-                          (profileData?.current_members || 0),
-                      ) > 0 && Math.max(
-                        0,
-                        (profileData?.child_allow || 0) -
-                          (profileData?.current_child || 0),
-                      ) > 0
-                        ? ' and '
-                        : ''
-                    }${
-                      Math.max(
-                        0,
-                        (profileData?.child_allow || 0) -
-                          (profileData?.current_child || 0),
-                      ) > 0
-                        ? ` ${Math.max(
-                            0,
-                            (profileData?.child_allow || 0) -
-                              (profileData?.current_child || 0),
-                          )} more Child${
+                      )} more Member${
+                        Math.max(
+                          0,
+                          (profileData?.members_allow || 0) -
+                            (profileData?.current_members || 0),
+                        ) !== 1
+                          ? 's'
+                          : ''
+                      }${
+                        Math.max(
+                          0,
+                          (profileData?.members_allow || 0) -
+                            (profileData?.current_members || 0),
+                        ) > 0 &&
+                        Math.max(
+                          0,
+                          (profileData?.child_allow || 0) -
+                            (profileData?.current_child || 0),
+                        ) > 0
+                          ? ' and '
+                          : ''
+                      }${
+                        Math.max(
+                          0,
+                          (profileData?.child_allow || 0) -
+                            (profileData?.current_child || 0),
+                        ) > 0
+                          ? ` ${Math.max(
+                              0,
+                              (profileData?.child_allow || 0) -
+                                (profileData?.current_child || 0),
+                            )} more Child${
                               Math.max(
                                 0,
                                 (profileData?.child_allow || 0) -
@@ -638,72 +1011,182 @@ const ProfileScreen = () => {
                                 ? 'ren'
                                 : ''
                             }`
-                        : ''
-                    }`}
-              </Text>
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                  onPress={handleAddMemberPayment}
-                  style={[
-                    styles.actionButton,
-                    styles.addButton,
-                    // Make Add button full width when Create button is hidden
+                          : ''
+                      }`}
+                </Text>
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    onPress={handleAddMemberPayment}
+                    style={[
+                      styles.actionButton,
+                      styles.addButton,
+                      {
+                        backgroundColor:
+                          theme === 'dark'
+                            ? '#DF8A5D'
+                            : colors.Orangeaccentcolor,
+                        borderColor:
+                          theme === 'dark'
+                            ? '#DF8A5D'
+                            : colors.Orangeaccentcolor,
+                      },
+                      // Make Add button full width when Create button is hidden
+                      Math.max(
+                        0,
+                        (profileData?.members_allow || 0) -
+                          (profileData?.current_members || 0),
+                      ) === 0 &&
+                        Math.max(
+                          0,
+                          (profileData?.child_allow || 0) -
+                            (profileData?.current_child || 0),
+                        ) === 0 &&
+                        styles.fullWidthButton,
+                    ]}
+                    disabled={isProcessingPayment}
+                  >
+                    <Text
+                      style={[
+                        styles.actionButtonText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.white,
+                        },
+                      ]}
+                    >
+                      {isProcessingPayment ? 'Processing...' : 'Add'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Only show Create button if there are remaining member or child slots */}
+                  {(Math.max(
+                    0,
+                    (profileData?.members_allow || 0) -
+                      (profileData?.current_members || 0),
+                  ) > 0 ||
                     Math.max(
-                      0,
-                      (profileData?.members_allow || 0) -
-                        (profileData?.current_members || 0),
-                    ) === 0 && Math.max(
                       0,
                       (profileData?.child_allow || 0) -
                         (profileData?.current_child || 0),
-                    ) === 0 && styles.fullWidthButton,
-                  ]}
-                  disabled={isProcessingPayment}
-                >
-                  <Text style={styles.actionButtonText}>
-                    {isProcessingPayment ? 'Processing...' : 'Add'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Only show Create button if there are remaining member or child slots */}
-                {(Math.max(
-                  0,
-                  (profileData?.members_allow || 0) -
-                    (profileData?.current_members || 0),
-                ) > 0 || Math.max(
-                  0,
-                  (profileData?.child_allow || 0) -
-                    (profileData?.current_child || 0),
-                ) > 0) && (
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('AddNewMember')}
-                    style={[styles.actionButton, styles.createButton]}
-                    disabled={isProcessingPayment}
-                  >
-                    <Text style={styles.actionButtonText}>Create</Text>
-                  </TouchableOpacity>
-                )}
+                    ) > 0) && (
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('AddNewMember')}
+                      style={[
+                        styles.actionButton,
+                        styles.createButton,
+                        {
+                          backgroundColor:
+                            theme === 'dark' ? 'transparent' : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.primaryBlue,
+                        },
+                      ]}
+                      disabled={isProcessingPayment}
+                    >
+                      <Text
+                        style={[
+                          styles.actionButtonText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.primaryBlue,
+                          },
+                        ]}
+                      >
+                        Create
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </ImageBackground>
 
             <ImageBackground
-              source={require('../../assets/image/DarkBackground.png')}
+              source={
+                theme === 'dark'
+                  ? require('../../assets/image/DarkBackground.png')
+                  : require('../../assets/image/LightBackground.png')
+              }
               blurRadius={12}
-              style={styles.membersCard}
-              imageStyle={styles.membersBgImage}
+              style={[
+                styles.membersCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.white,
+                },
+              ]}
+              imageStyle={[
+                styles.membersBgImage,
+                styles.membersCardImage,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.white,
+                },
+              ]}
             >
-              <View style={styles.membersOverlay} />
-              <View style={styles.membersInner}>
+              <View
+                style={[
+                  styles.membersOverlay,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.transparent : colors.DarkNavy,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.membersInner,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.transparent : colors.DarkNavy,
+                  },
+                ]}
+              >
                 <View style={styles.membersContent}>
-                  <Text style={styles.membersTitle}>
+                  <Text
+                    style={[
+                      styles.membersTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.surface,
+                      },
+                    ]}
+                  >
                     Browse all added members
                   </Text>
                   <TouchableOpacity
-                    style={styles.membersButton}
+                    style={[
+                      styles.membersButton,
+                      {
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.borderColor
+                            : colors.surface,
+                      },
+                    ]}
                     activeOpacity={0.7}
                     onPress={() => navigation.navigate('MemberManagement')}
                   >
-                    <Text style={styles.membersButtonText}>Manage Members</Text>
+                    <Text
+                      style={[
+                        styles.membersButtonText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.surface,
+                        },
+                      ]}
+                    >
+                      Manage Members
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <Image
@@ -724,7 +1207,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minHeight: '100%',
     // backgroundColor: '#202945',
-    paddingTop: responsiveWidth('22'), // Add space for sticky header
+    paddingTop: responsiveWidth('19'), // Add space for sticky header
     paddingBottom: 32,
   },
   loadingContainer: {
@@ -736,6 +1219,10 @@ const styles = StyleSheet.create({
     color: '#F6EFD9',
     ...font.buttonLarge,
   },
+  lottieAnimation: {
+    width: 264,
+    height: 264,
+  },
   stickyHeaderContainer: {
     position: 'absolute',
     top: 0,
@@ -743,7 +1230,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1000,
     paddingTop: responsiveWidth('3'),
-    paddingBottom: responsiveWidth('2'),
+    // paddingBottom: responsiveWidth('2'),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -823,11 +1310,6 @@ const styles = StyleSheet.create({
     tintColor: '#DF8A5D',
     resizeMode: 'contain',
   },
-  profileInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
   profileInfoCol: {
     flex: 1,
     marginRight: 12,
@@ -846,6 +1328,7 @@ const styles = StyleSheet.create({
   birthChartCard: {
     backgroundColor: 'rgba(238, 229, 202, 1)',
     borderRadius: 16,
+    borderWidth: 0.2,
     flexDirection: 'row',
     alignItems: 'center',
     padding: responsiveWidth('4'),
@@ -956,24 +1439,31 @@ const styles = StyleSheet.create({
 
   membersCardMain: {
     borderRadius: 16,
+    overflow: 'hidden',
     // padding: responsiveWidth('1'),
     marginTop: responsiveWidth('0.5%'),
     marginBottom: responsiveWidth('5%'),
     borderWidth: 0.2,
     borderColor: '#EEE5CA',
-    overflow: 'hidden',
+  },
+  membersCardMainImage: {
+    borderRadius: 16,
   },
 
   membersCard: {
     borderRadius: 16,
-    marginHorizontal: 8,
+    overflow: 'hidden',
+    // marginHorizontal: 8,
     // marginTop: responsiveWidth('1%'),
     borderWidth: 0.2,
     borderColor: '#EEE5CA',
-    overflow: 'hidden',
     marginBottom: responsiveWidth('15%'),
     paddingHorizontal: responsiveWidth('5'),
-    paddingVertical: Platform.OS === 'android' ? responsiveWidth('2') : responsiveWidth('0'),
+    paddingVertical:
+      Platform.OS === 'android' ? responsiveWidth('1') : responsiveWidth('0'),
+  },
+  membersCardImage: {
+    borderRadius: 16,
   },
   membersBgImage: {
     borderRadius: 16,
@@ -989,37 +1479,50 @@ const styles = StyleSheet.create({
 
   newMembersCard: {
     borderRadius: 16,
-    padding: responsiveWidth('4'),
+    overflow: 'hidden',
+    // padding: responsiveWidth('4'),
     marginBottom: responsiveWidth('5%'),
     borderWidth: 0.2,
     borderColor: '#EEE5CA',
-    overflow: 'hidden',
+  },
+  newMembersCardImage: {
+    borderRadius: 16,
   },
   newMembersBgImage: {
     borderRadius: 16,
     opacity: 0.7,
   },
   newMmembersOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    // position: 'absolute',
+    // top: 0,
+    // left: 0,
+    // right: 0,
+    // bottom: 0,
+    padding: responsiveWidth('4'),
   },
 
   // New Profile Card Styles
   profileHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: responsiveWidth('4'),
-    marginTop: responsiveWidth('4'),
+    // marginBottom: responsiveWidth('4'),
+    marginTop: responsiveWidth('3'),
   },
   profileAvatar: {
+    width: 75,
+    height: 75,
+    resizeMode: 'contain',
+  },
+  profileAvatarContainer: {
+    paddingTop: 7,
     width: 60,
     height: 60,
-    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 50,
+    backgroundColor: color.themeTextWhite,
     marginRight: responsiveWidth('4'),
-    resizeMode: 'cover',
+    overflow: 'hidden',
   },
   profileNameText: {
     color: color.themeTextWhite,
@@ -1031,15 +1534,20 @@ const styles = StyleSheet.create({
     letterSpacing: -0.24,
   },
   emailSection: {
-    marginBottom: responsiveWidth('4'),
+    // marginBottom: responsiveWidth('4'),
+    flex: 1,
   },
   emailLabel: {
     color: color.themeTextWhite,
     // ...font.bodySmall,
-    fontSize: 14,
+    fontSize: 14, 
     fontFamily: fontFamily.regular,
     fontWeight: '400',
-    marginBottom: 4,
+
+  },
+  emailValueContainer: {
+    flex: 1,
+    width: '100%',
   },
   emailValue: {
     color: color.themeTextWhite,
@@ -1047,6 +1555,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.regular,
     fontWeight: '500',
+    flexShrink: 1,
+    width: '100%',
   },
   infoGridContainer: {
     flexDirection: 'row',
@@ -1060,9 +1570,7 @@ const styles = StyleSheet.create({
   infoColumnRight: {
     flex: 1,
   },
-  infoItem: {
-    marginBottom: responsiveWidth('3'),
-  },
+ 
   infoLabel: {
     color: color.themeTextWhite,
     // ...font.body,
@@ -1078,16 +1586,18 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '500',
   },
-  genderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  genderIconContainer: {
+    // marginLeft: 6,
+    flex: 1.7,
   },
+ 
   genderIcon: {
     width: 20,
     height: 20,
-    marginLeft: 6,
+    // paddingLeft: 10,
     resizeMode: 'contain',
     tintColor: '#DF8A5D',
+    // marginLe: 6,
   },
   // Modal styles
   modalBackdrop: {
@@ -1138,11 +1648,11 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 1,
+    elevation: 2,
   },
   countButtonDisabled: {
     backgroundColor: '#666666',
@@ -1223,7 +1733,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     // justifyContent: 'space-between',
     // alignSelf: 'center',
-    paddingVertical: Platform.OS === 'android' ? responsiveWidth('2.5') : responsiveWidth('0'),
+    paddingVertical:
+      Platform.OS === 'android' ? responsiveWidth('2.5') : responsiveWidth('0'),
     // paddingHorizontal: responsiveWidth('3'),
   },
   membersContent: {
@@ -1300,6 +1811,42 @@ const styles = StyleSheet.create({
   },
   fullWidthButton: {
     flex: 1,
+  },
+  // New Profile Card Redesigned Styles
+  profileInfoList: {
+    marginTop: responsiveWidth('2'),
+    marginBottom: Platform.OS === 'ios' ? responsiveWidth('2.5') : responsiveWidth('1.5'),
+  },
+  profileInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    // marginBottom: responsiveWidth('2.5'),
+    paddingVertical: responsiveWidth('0.5'),
+  },
+  profileInfoLabel: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400' as const,
+    color: color.themeTextWhite,
+    flex: 0.29,
+    textAlign: 'left',
+  },
+  profileInfoValue: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    
+    fontWeight: '500' as const,
+    color: color.themeTextWhite,
+    flex: 0.71,
+    textAlign: 'left',
+  },
+  genderValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    flex: 0.71,
+    flexWrap: 'nowrap',
   },
 });
 

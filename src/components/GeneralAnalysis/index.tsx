@@ -15,6 +15,7 @@ import {
   color,
 } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../context/ThemeContext';
 
 interface GeneralAnalysisProps {
   selectedMemberId?: string;
@@ -22,6 +23,7 @@ interface GeneralAnalysisProps {
 
 const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) => {
   const navigation = useNavigation<any>();
+  const { theme, colors } = useTheme();
 
   const handleCardPress = (cardValue: string) => {
     // if (cardId === 1 && selectedMemberId) {
@@ -153,21 +155,32 @@ const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) =
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container,{
+      backgroundColor: theme === 'dark' ? colors.primary : colors.DarkNavy,
+      borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+    }]}>
       <View style={styles.content}>
         <View style={styles.cardsGrid}>
           {cards.map(card => (
             <TouchableOpacity 
               key={card.id} 
-              style={styles.card}
+              style={[styles.card,{
+                backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.surface,
+                borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+                boxShadow: theme === 'dark' ? '' : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
+              }]}
               onPress={() => handleCardPress(card.value)}
               activeOpacity={0.7}
             >
               <View style={styles.cardIconContainer}>
                 <Image source={card.icon} style={styles.cardIcon} />
               </View>
-              <Text style={styles.cardText}>{card.title}</Text>
-              <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
+              <Text style={[styles.cardText,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>{card.title}</Text>
+              <Text style={[styles.cardSubtitle,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>{card.subtitle}</Text>
             </TouchableOpacity>
           ))}
         </View>

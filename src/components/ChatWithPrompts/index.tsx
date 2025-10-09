@@ -25,6 +25,8 @@ import serviceFactory from '../../services/serviceFactory';
 import { useNavigation } from '@react-navigation/native';
 import { icons } from '../../assets';
 import UserService from '../../services/user/user.service';
+import { useTheme } from '../../context/ThemeContext';
+import LottieView from 'lottie-react-native';
 
 interface ChatWithPromptsProps {
   userId: string;
@@ -57,6 +59,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const [selectedCardTitle, setSelectedCardTitle] = useState(cardTitles);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const navigation = useNavigation<any>();
+  const { theme, colors } = useTheme();
 
   // Timer effect for loading time
   useEffect(() => {
@@ -671,6 +674,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       source={require('../../assets/icons/Dropdown.png')} 
       style={[
         styles.arrowIcon,
+        {
+          tintColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+        },
         { transform: [{ rotate: isExpanded ? '180deg' : '0deg' }] }
       ]} 
     />
@@ -680,8 +686,16 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     return (
       <MainContainer>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F2994A" />
-          <Text style={styles.loadingText}>Loading predictions...</Text>
+          {/* <ActivityIndicator size="large" color={theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy} />
+          <Text style={[styles.loadingText,{
+            color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+          }]}>Loading predictions...</Text> */}
+          <LottieView
+            source={require('../../assets/lottie/loader-Animation-1.json')}
+            autoPlay
+            loop
+            style={styles.lottieAnimation}
+          />
         </View>
       </MainContainer>
     );
@@ -696,36 +710,98 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         onPress={() => showDropdown && setShowDropdown(false)}
       > */}
       {/* Header with back button */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor:
+              theme === 'dark' ? colors.transparent : colors.surface,
+            borderColor:
+              theme === 'dark'
+                ? colors.themeBorderDropdown
+                : colors.borderColor,
+          },
+        ]}
+      >
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backBtn}
             activeOpacity={0.7}
           >
-            <Image source={icons.Icback} style={styles.backIcon} />
+            <Image
+              source={icons.Icback}
+              style={[
+                styles.backIcon,
+                {
+                  tintColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{_tab}</Text>
-          </View>
-          {_tab === 'LifeNow' && (
-            <TouchableOpacity 
-              style={styles.headerRight}
-              onPress={() => setShowNoteModal(true)}
-              // activeOpacity={0.7}
+            <Text
+              style={[
+                styles.headerTitle,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
             >
-              <Image
-                source={icons.IcrightNote}
-                style={styles.headerRightIcon}
-              />
-            </TouchableOpacity>
-          )}
+              {_tab}
+            </Text>
+          </View>
+          <View style={styles.headerRight}>
+            {_tab === 'LifeNow' && (
+              <TouchableOpacity
+                onPress={() => setShowNoteModal(true)}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={icons.IcrightNote}
+                  style={[
+                    styles.headerRightIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
       {/* cardTitles dropdown section */}
-      <View style={styles.dropdownContainer}>
+      <View
+        style={[
+          styles.dropdownContainer,
+          {
+            backgroundColor:
+              theme === 'dark' ? colors.transparent : colors.surface,
+            borderColor:
+              theme === 'dark'
+                ? colors.themeBorderDropdown
+                : colors.borderColor,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={styles.dropdownButton}
+          style={[
+            styles.dropdownButton,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.cardBackground : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
           onPress={() => {
             if (_tab !== 'SnapCast') {
               setShowDropdown(!showDropdown);
@@ -733,7 +809,15 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           }}
           activeOpacity={0.7}
         >
-          <Text style={styles.dropdownButtonText}>
+          <Text
+            style={[
+              styles.dropdownButtonText,
+              {
+                color:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              },
+            ]}
+          >
             {getCurrentCardOptions().find(
               card => card.value === selectedCardTitle,
             )?.title || selectedCardTitle}
@@ -742,30 +826,54 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         </TouchableOpacity>
 
         {showDropdown && (
-          <View style={styles.dropdownList}>
+          <View
+            style={[
+              styles.dropdownList,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.cardBackground : colors.white,
+              },
+            ]}
+          >
             <ScrollView
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
-              style={styles.dropdownScrollView}
+              style={[
+                styles.dropdownScrollView,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : colors.white,
+                },
+              ]}
             >
               {getCurrentCardOptions().map((card, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[
                     styles.dropdownItem,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.cardBackground : colors.white,
+                        borderBottomColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+                    },
                     selectedCardTitle === card.value &&
                       styles.dropdownItemSelected,
                   ]}
                   onPress={() => {
-                    
-                    handleCardTitleSelect(card.value)
-                      // setExpandedTopic(null);
+                    handleCardTitleSelect(card.value);
+                    // setExpandedTopic(null);
                   }}
                   activeOpacity={0.7}
                 >
                   <Text
                     style={[
                       styles.dropdownItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
                       selectedCardTitle === card.value &&
                         styles.dropdownItemTextSelected,
                     ]}
@@ -808,16 +916,42 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         return (
           <View style={styles.tabsContainer}>
             <ImageBackground
-              source={require('../../assets/image/DarkBackground.png')}
+              source={
+                theme === 'dark'
+                  ? require('../../assets/image/DarkBackground.png')
+                  : require('../../assets/image/LightBackground.png')
+              }
               blurRadius={12}
-              style={styles.tabsBackground}
-              imageStyle={styles.tabsBgImage}
+              style={[
+                styles.tabsBackground,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
+              imageStyle={[
+                styles.tabsBgImage,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : colors.white,
+                },
+              ]}
             >
               <View style={styles.tabsOverlay} />
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tabsScrollContent}
+                contentContainerStyle={[
+                  styles.tabsScrollContent,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                  },
+                ]}
               >
                 {tabOptions.map((option, index) => {
                   const displayText = tabLabels[index].title;
@@ -829,9 +963,14 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                       style={[
                         styles.tabItem,
                         isSelected && styles.tabItemSelected,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.cardBackground
+                              : colors.white,
+                        },
                       ]}
                       onPress={() => {
-                        
                         setSelectedTopicValue(option.value);
                         // Reset expanded topic when changing topic selection
                         setExpandedTopic(null);
@@ -842,6 +981,12 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                         style={[
                           styles.tabText,
                           isSelected && styles.tabTextSelected,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
                         ]}
                       >
                         {displayText}
@@ -863,33 +1008,111 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
             {topics.map(topic => (
               <ImageBackground
                 key={topic.id}
-                source={require('../../assets/image/DarkBackground.png')}
+                source={
+                  theme === 'dark'
+                    ? require('../../assets/image/DarkBackground.png')
+                    : require('../../assets/image/LightBackground.png')
+                }
                 blurRadius={12}
-                style={styles.topicCard}
+                style={[
+                  styles.topicCard,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
                 imageStyle={styles.topicCardBgImage}
               >
                 <View style={styles.topicCardOverlay} />
                 <TouchableOpacity
-                  style={styles.topicHeader}
+                  style={[
+                    styles.topicHeader,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.transparent : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
                   onPress={() => toggleExpanded(topic.id, topic.title)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.topicTitle}>{topic.title}</Text>
+                  <Text
+                    style={[
+                      styles.topicTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {topic.title}
+                  </Text>
                   {renderArrowIcon(expandedTopic === topic.id)}
                 </TouchableOpacity>
 
                 {expandedTopic === topic.id && (
-                  <View style={styles.topicContent}>
+                  <View
+                    style={[
+                      styles.topicContent,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.transparent : colors.white,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeBorderDropdown
+                            : colors.borderColor,
+                      },
+                    ]}
+                  >
                     {loadingTopicId === topic.id ? (
-                      <View style={styles.topicLoadingContainer}>
+                      <View
+                        style={[
+                          styles.topicLoadingContainer,
+                          {
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.transparent
+                                : colors.white,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.themeBorderDropdown
+                                : colors.borderColor,
+                          },
+                        ]}
+                      >
                         <ActivityIndicator size="small" color="#F2994A" />
-                        <Text style={styles.topicLoadingText}>
+                        <Text
+                          style={[
+                            styles.topicLoadingText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
                           Generating AI insights...
                         </Text>
                         <Text
                           style={[
                             styles.topicLoadingText,
                             styles.topicLoadingSubText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
                           ]}
                         >
                           Loading time: {loadingTime}s (may take 30-60 seconds)
@@ -897,7 +1120,17 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                       </View>
                     ) : (
                       // <View style={styles.topicContent}>
-                      <Text style={styles.topicText}>
+                      <Text
+                        style={[
+                          styles.topicText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
                         {topic.content || 'No content available'}
                       </Text>
                       // </View>
@@ -909,7 +1142,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           </View>
         </View>
       </ScrollView>
-      
+
       {/* Note Modal */}
       <Modal
         visible={showNoteModal}
@@ -941,19 +1174,29 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               <Text style={styles.modalText}>
                 Main predictions are prepared by analysing{'\n'}
                 (a) Your running Dasha and{'\n'}
-                (b) Other Planets transiting over that Planet along with the time period. As Transit planets keep moving these combinations will also change. Updates in this section happens every 15 days
+                (b) Other Planets transiting over that Planet along with the
+                time period. As Transit planets keep moving these combinations
+                will also change. Updates in this section happens every 15 days
               </Text>
-              
+
               <Text style={styles.modalSectionTitle}>Explanation Note-2</Text>
               <Text style={styles.modalText}>
                 Subsidiary predictions are prepared by analysing{'\n'}
                 (a) Planets in houses as per your natal chart and{'\n'}
-                (b) Other Planets going over that planet as per the current Transit. The exact degrees of planets of your Natal chart and Degrees of the planet in Transit are considered for identifying the most impactful conjunctions As Transit planets keep moving these combinations will also change. Updates in this section happens every 15 days
+                (b) Other Planets going over that planet as per the current
+                Transit. The exact degrees of planets of your Natal chart and
+                Degrees of the planet in Transit are considered for identifying
+                the most impactful conjunctions As Transit planets keep moving
+                these combinations will also change. Updates in this section
+                happens every 15 days
               </Text>
-              
+
               <Text style={styles.modalSectionTitle}>Disclaimer</Text>
               <Text style={styles.modalText}>
-                Predictions are meant to give you guidance to prepare and take appropriate actions. These are AI-generated and not checked or verified. Please consult your astrologer for more personalized guidance
+                Predictions are meant to give you guidance to prepare and take
+                appropriate actions. These are AI-generated and not checked or
+                verified. Please consult your astrologer for more personalized
+                guidance
               </Text>
             </View>
           </ImageBackground>
@@ -971,6 +1214,8 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop:
       Platform.OS === 'android'
         ? responsiveHeight('0%')
@@ -1000,7 +1245,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flex: 1,
-    textAlign: 'center',
+    // textAlign: 'center',
     // marginLeft: -responsiveWidth('15'),
   },
 
@@ -1009,8 +1254,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: responsiveWidth('3'),
-    // flex: 1,
-    // textAlign: 'center',
+    padding: responsiveWidth(2),
   },
   scrollViewContent: {
     flexGrow: 1,
@@ -1038,6 +1282,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.regular,
     fontFamily: fontFamily.regular,
     marginTop: responsiveHeight(2),
+  },
+  lottieAnimation: {
+    width: 264,
+    height: 264,
   },
   loadingSubText: {
     color: '#F6EFD9',
@@ -1264,13 +1512,14 @@ const styles = StyleSheet.create({
   },
   dropdownScrollView: {
     flex: 1,
+    paddingVertical:responsiveWidth(3)
   },
   dropdownItem: {
     paddingHorizontal: responsiveWidth(4),
     paddingVertical: responsiveHeight(1),
-    borderBottomWidth: 0.2,
+    borderBottomWidth: 1,
     marginHorizontal: responsiveWidth(4),
-    borderBottomColor: 'rgba(238, 229, 202, 1)',
+    
   },
   dropdownItemSelected: {
     backgroundColor: 'rgba(242, 153, 74, 0.1)',

@@ -14,12 +14,14 @@ import IcBall from './icons/Ic-ball.png';
 import Icback from './icons/back.png';
 import IcrightNote from './icons/note-right.png';
 import Icclose from './icons/close.png';
+// import splashLight from './image/SplashScreenLight.png';
 
 
 ;
 
 export const icons = {
   Ic_splash_Screen: splash,
+  // Ic_splash_Screen_Light: splashLight,
   Ic_google: gicons,
   icHomeActive: homeActive,
   icHome: icHome,

@@ -6,7 +6,10 @@
     <color name="custom_picker_accent">#223149</color>
     <color name="custom_picker_primary">#223149</color>
     <color name="custom_picker_primary_dark">#223149</color>
-    <color name="custom_picker_control_highlight">#223149</color>
-    <color name="custom_picker_control_activated">#223149</color>
+    <color name="custom_picker_control_highlight">#DF8A5D</color>
+    <color name="custom_picker_control_activated">#FF8C00</color>
+    <color name="custom_picker_selected_date">#DF8A5D</color>
+    <color name="custom_picker_selected_text">#FFFFFF</color>
+    <color name="custom_picker_weekday_text">#FFFFFF</color>
 </resources>
 

@@ -17,6 +17,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 
 import { MainContainer } from '../../components/common/mainContainer';
 import { responsiveWidth, font, fontFamily, color } from '../../constant/theme';
@@ -27,15 +28,26 @@ import moment from 'moment';
 import { useProfileData } from '../../hooks/useProfileData';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
-import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
+import {
+  useRoute,
+  RouteProp,
+  useNavigation,
+  useFocusEffect,
+} from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useTheme } from '../../context/ThemeContext';
+import { baseURL } from '../../utils/http';
 
 type RootStackParamList = {
   NakshatraScreen: { userId: string };
   AddNewMember: undefined;
+  ChatScreen: undefined;
 };
 
-type NakshatraScreenRouteProp = RouteProp<RootStackParamList, 'NakshatraScreen'>;
+type NakshatraScreenRouteProp = RouteProp<
+  RootStackParamList,
+  'NakshatraScreen'
+>;
 type NakshatraScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
 const NakshatraScreen = () => {
@@ -43,6 +55,7 @@ const NakshatraScreen = () => {
   const navigation = useNavigation<NakshatraScreenNavigationProp>();
   const userService = serviceFactory.get<UserService>('UserService');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const { theme, colors } = useTheme();
 
   const [chartDetails, setChartDetails] = useState<any>(null);
   const [dashaData, setDashaData] = useState<any[]>([]);
@@ -56,27 +69,27 @@ const NakshatraScreen = () => {
   const { membersData, loading, error, refreshProfileData } = useProfileData();
 
   // Filter members based on search query
-  const filteredMembers = membersData?.filter((member: any) =>
-    member.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredMembers =
+    membersData?.filter((member: any) =>
+      member.full_name?.toLowerCase().includes(searchQuery.toLowerCase()),
+    ) || [];
 
   // Helper function to get primary member ID
   const getPrimaryMemberId = () => {
     if (!membersData || membersData.length === 0) {
       return null;
     }
-    
+
     // Look for a member with primary_member field set to true
     const primaryMember = membersData.find(
       (member: any) =>
         member.primary_mamber === 'True' || member.primary_mamber === true,
     );
 
-    
     if (primaryMember) {
       return primaryMember.id || primaryMember._id;
     }
-    
+
     // If no primary_member field found, assume first member is primary
     const firstMember = membersData[0];
 
@@ -179,23 +192,22 @@ const NakshatraScreen = () => {
 
   // Function to get planet icon from chartDetails.planets_icon array
   const getPlanetIconFromAPI = (planetName: string) => {
-    console.log(
-      'planetName===>getPlanetIconFromAPI',
-      chartDetails,
-    );
-    
-    if (!chartDetails?.planets_icon || !Array.isArray(chartDetails.planets_icon)) {
+    console.log('planetName===>getPlanetIconFromAPI', chartDetails);
+
+    if (
+      !chartDetails?.planets_icon ||
+      !Array.isArray(chartDetails.planets_icon)
+    ) {
       return require('../../assets/icons/Moon.png'); // Fallback icon
     }
 
     const planetIcon = chartDetails.planets_icon.find(
-      (icon: any) => icon.name.toLowerCase() === planetName.toLowerCase()
+      (icon: any) => icon.name.toLowerCase() === planetName.toLowerCase(),
     );
-    
 
     if (planetIcon && planetIcon.path) {
       // Return the path as a URI for remote images
-      return { uri: `https://astrology.hcshub.in/api/${planetIcon.path}` };
+      return { uri: `${baseURL}/${planetIcon.path}` };
     }
 
     return require('../../assets/icons/Saturn.png'); // Fallback icon
@@ -203,8 +215,7 @@ const NakshatraScreen = () => {
 
   // Function to get planet icon based on planet name (keeping as fallback)
   const getPlanetIcon = (planetName: string) => {
-
-    console.log('planetName===>getPlanetIcon', planetName)
+    console.log('planetName===>getPlanetIcon', planetName);
 
     // Try to get icon from API first
     const apiIcon = getPlanetIconFromAPI(planetName);
@@ -223,11 +234,11 @@ const NakshatraScreen = () => {
 
     // Mapping for display names
     const dashaDisplayNames: { [key: string]: string } = {
-      'MahaDasha': 'Maha dasha',
-      'AntarDasha': 'Antar dasha',
-      'PratyantarDasha': 'Pratyantar dasha',
-      'SookshmaDasha': 'Sookshma dasha',
-      'PranDasha': 'Pran dasha'
+      MahaDasha: 'Maha dasha',
+      AntarDasha: 'Antar dasha',
+      PratyantarDasha: 'Pratyantar dasha',
+      SookshmaDasha: 'Sookshma dasha',
+      PranDasha: 'Pran dasha',
     };
 
     // Check MahaDasha (major)
@@ -236,7 +247,6 @@ const NakshatraScreen = () => {
         (period: any) => isCurrentPeriod(period.start, period.end),
       );
       if (activeMajor) {
-
         console.log(
           'getPlanetIcon(activeMajor.planet)',
           getPlanetIcon(activeMajor.planet),
@@ -349,19 +359,27 @@ const NakshatraScreen = () => {
       console.log('Nakshatra screen focused - refreshing data');
       // Refresh profile data (which includes members data)
       refreshProfileData();
-    }, [refreshProfileData])
+    }, [refreshProfileData]),
   );
 
   if (loading) {
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        style={{ flex: 1, backgroundColor: '#202945' }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+        style={{ flex: 1, backgroundColor: colors.background }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
         <MainContainer>
           <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading Nakshatra...</Text>
+            <LottieView
+              source={require('../../assets/lottie/loader-Animation-1.json')}
+              autoPlay
+              loop
+              style={styles.lottieAnimation}
+            />
+            {/* <Text style={[styles.loadingText, { color: colors.textPrimary }]}>
+              Loading Nakshatra...
+            </Text> */}
           </View>
         </MainContainer>
       </KeyboardAvoidingView>
@@ -373,43 +391,120 @@ const NakshatraScreen = () => {
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        style={{ flex: 1, backgroundColor: '#202945' }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+        style={{ flex: 1, backgroundColor: colors.background }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
         <MainContainer>
           {/* Header */}
           <View style={styles.headerContainer}>
             {/* <Image
-              source={require('../../assets/icons/Subtract.png')}
+              source={colors.subtractIcon}
               style={styles.headerIcon}
             /> */}
-            <Text style={styles.headerText}>Charts</Text>
+            <Text
+              style={[
+                styles.headerText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Charts
+            </Text>
           </View>
 
           {/* Empty State Card */}
           <ImageBackground
-            source={require('../../assets/image/DarkBackground.png')}
+            source={
+              theme === 'dark'
+                ? require('../../assets/image/DarkBackground.png')
+                : require('../../assets/image/LightBackground.png')
+            }
             blurRadius={12}
-            style={styles.membersCard}
-            imageStyle={styles.membersBgImage}
+            style={[
+              styles.membersCard,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.surface : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+            imageStyle={[
+              styles.membersBgImage,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.surface : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
           >
-            <View style={styles.membersOverlay} />
+            <View
+              style={[
+                styles.membersOverlay,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.white,
+                },
+              ]}
+            />
             <View style={styles.emptyStateContainer}>
-              <View style={styles.emptyStateContent}>
+              <View
+                style={[
+                  styles.emptyStateContent,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.surface : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+              >
                 <Text
                   style={[
                     styles.emptyStateTitle,
-                   
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
                   ]}
                 >
                   Add your details to generate your charts
                 </Text>
                 <TouchableOpacity
-                  style={styles.emptyStateButton}
+                  style={[
+                    styles.emptyStateButton,
+                    {
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.borderColor
+                          : colors.primaryBlue,
+                    },
+                  ]}
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('AddNewMember')}
                 >
-                  <Text style={styles.emptyStateButtonText}>
+                  <Text
+                    style={[
+                      styles.emptyStateButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.borderColor
+                            : colors.primaryBlue,
+                      },
+                    ]}
+                  >
                     Add New Member
                   </Text>
                 </TouchableOpacity>
@@ -428,22 +523,36 @@ const NakshatraScreen = () => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-      style={{ flex: 1, backgroundColor: '#202945' }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
       <MainContainer>
         {/* Header */}
         <View style={styles.headerContainer}>
           {/* <Image
-            source={require('../../assets/icons/Subtract.png')}
+            source={colors.subtractIcon}
             style={styles.headerIcon}
           /> */}
-          <Text style={styles.headerText}>Charts</Text>
+          <Text style={[styles.headerText, { color: colors.textPrimary }]}>
+            Charts
+          </Text>
         </View>
 
         {/* Profile member dropdown */}
         <View
-          style={[styles.profileCard, { position: 'relative', zIndex: 99999 }]}
+          style={[
+            styles.profileCard,
+            {
+              position: 'relative',
+              zIndex: 99999,
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
         >
           <Image
             source={require('../../assets/icons/profile-icons.png')}
@@ -454,7 +563,17 @@ const NakshatraScreen = () => {
               style={styles.input}
               onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
             >
-              <Text style={styles.selectedMemberText}>
+              <Text
+                style={[
+                  styles.selectedMemberText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
                 {selectedMemberId
                   ? membersData?.find((m: any) => m.id === selectedMemberId)
                       ?.full_name || 'Select Member'
@@ -479,14 +598,46 @@ const NakshatraScreen = () => {
                   setSearchQuery('');
                 }}
               >
-                <View style={styles.modalDropdownContainer}>
-                  <View style={styles.dropdownContainer}>
+                <View
+                  style={[
+                    styles.modalDropdownContainer,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.dropdownContainer,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavy : colors.white,
+                        borderColor: colors.borderColor,
+                      },
+                    ]}
+                  >
                     {/* Search Input */}
-                    <View style={styles.searchContainer}>
+                    <View
+                      style={[
+                        styles.searchContainer,
+                        {
+                          backgroundColor:
+                            theme === 'dark' ? colors.DarkNavy : colors.white,
+                        },
+                      ]}
+                    >
                       <TextInput
-                        style={styles.searchInput}
+                        style={[
+                          styles.searchInput,
+                          {
+                            backgroundColor: colors.cardBackground,
+                            color: colors.textPrimary,
+                            borderColor: colors.borderColor,
+                          },
+                        ]}
                         placeholder="Search members..."
-                        placeholderTextColor="#496CA8"
+                        placeholderTextColor={colors.grayText}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                         autoFocus={true}
@@ -499,7 +650,10 @@ const NakshatraScreen = () => {
                         keyExtractor={item => item.id.toString()}
                         renderItem={({ item }) => (
                           <TouchableOpacity
-                            style={styles.dropdownItem}
+                            style={[
+                              styles.dropdownItem,
+                              { borderBottomColor: colors.borderColor },
+                            ]}
                             onPress={() => {
                               setSelectedMemberId(item.id);
                               setIsMemberDropdownOpen(false);
@@ -507,7 +661,12 @@ const NakshatraScreen = () => {
                             }}
                             activeOpacity={0.7}
                           >
-                            <Text style={styles.dropdownItemText}>
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                { color: colors.textPrimary },
+                              ]}
+                            >
                               {item.full_name}
                             </Text>
                           </TouchableOpacity>
@@ -520,7 +679,12 @@ const NakshatraScreen = () => {
                         scrollEventThrottle={16}
                       />
                     ) : (
-                      <Text style={styles.noResultsText}>
+                      <Text
+                        style={[
+                          styles.noResultsText,
+                          { color: colors.textPrimary },
+                        ]}
+                      >
                         {searchQuery
                           ? 'No members found matching your search'
                           : 'No members found'}
@@ -536,20 +700,44 @@ const NakshatraScreen = () => {
             style={styles.arrowIconContainer}
             onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
           >
-          <Image
-            source={require('../../assets/icons/Dropdown.png')}
-            style={[styles.arrowIcon, { transform: [{ rotate: isMemberDropdownOpen ? '180deg' : '0deg' }] }]}
-          />
+            <Image
+              source={require('../../assets/icons/Dropdown.png')}
+              style={[
+                styles.arrowIcon,
+                {
+                  tintColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  transform: [
+                    { rotate: isMemberDropdownOpen ? '180deg' : '0deg' },
+                  ],
+                },
+              ]}
+            />
           </TouchableOpacity>
         </View>
 
         {/* Tab Button Section */}
         <View style={styles.tabContainer}>
-          <View style={styles.tabButtonWrapper}>
+          <View
+            style={[
+              styles.tabButtonWrapper,
+              {
+                backgroundColor: colors.cardBackground,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+          >
             <TouchableOpacity
               style={[
                 styles.tabButton,
                 selectedTab === 'Charts' && styles.tabButtonActive,
+                {
+                  borderBottomColor:
+                    theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                },
               ]}
               onPress={() => handleTabChange('Charts')}
               activeOpacity={0.8}
@@ -557,8 +745,16 @@ const NakshatraScreen = () => {
               <Text
                 style={
                   selectedTab === 'Charts'
-                    ? styles.tabButtonTextActive
-                    : styles.tabButtonText
+                    ? [
+                        styles.tabButtonTextActive,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.accent
+                              : colors.Orangeaccentcolor,
+                        },
+                      ]
+                    : [styles.tabButtonText, { color: colors.textPrimary }]
                 }
               >
                 Charts
@@ -568,6 +764,10 @@ const NakshatraScreen = () => {
               style={[
                 styles.tabButton,
                 selectedTab === 'Dasha' && styles.tabButtonActive,
+                {
+                  borderBottomColor:
+                    theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                },
               ]}
               onPress={() => handleTabChange('Dasha')}
               activeOpacity={0.8}
@@ -575,8 +775,16 @@ const NakshatraScreen = () => {
               <Text
                 style={
                   selectedTab === 'Dasha'
-                    ? styles.tabButtonTextActive
-                    : styles.tabButtonText
+                    ? [
+                        styles.tabButtonTextActive,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.accent
+                              : colors.Orangeaccentcolor,
+                        },
+                      ]
+                    : [styles.tabButtonText, { color: colors.textPrimary }]
                 }
               >
                 Dasha
@@ -598,17 +806,93 @@ const NakshatraScreen = () => {
           style={styles.tabContentContainer}
         >
           {/* Dasha Overview */}
+          {/* Astro AI Chat Card */}
+          <View
+            style={[
+              styles.astroCard,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.primary : colors.DarkNavy,
+              },
+            ]}
+          >
+            <View style={styles.astroContent}>
+              <Text
+                style={[
+                  styles.astroTitle,
+                  {
+                    color:
+                      theme === 'dark' ? colors.DarkNavy : colors.surface,
+                  },
+                ]}
+              >
+                Ask questions about your life, career, relationships
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.astroButton,
+                  { backgroundColor: colors.Orangeaccentcolor },
+                ]}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('ChatScreen')}
+              >
+                <Text
+                  style={[styles.astroButtonText, { color: colors.white }]}
+                >
+                  Chat with Astro AI
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Image
+              source={require('../../assets/image/Ai-robot.png')}
+              style={styles.astroImage}
+            />
+          </View>
+          
+
 
           {selectedTab === 'Dasha' && (
             <ImageBackground
-              source={require('../../assets/image/DarkBackground.png')}
+              source={
+                theme === 'dark'
+                  ? require('../../assets/image/DarkBackground.png')
+                  : require('../../assets/image/LightBackground.png')
+              }
               blurRadius={12}
-              style={styles.membersCard}
+              style={[
+                styles.membersCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.white,
+                  borderColor: colors.borderColor,
+                },
+              ]}
               imageStyle={styles.membersBgImage}
             >
               <View style={styles.membersOverlay} />
-              <View style={styles.dashaContainer}>
-                <Text style={styles.dashaTitle}>Current Dasha Overview</Text>
+              <View
+                style={[
+                  styles.dashaContainer,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.transparent : colors.white,
+                    borderColor: colors.borderColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.dashaTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Current Dasha Overview
+                </Text>
                 <View style={styles.dashaCardsRow}>
                   <ScrollView
                     horizontal
@@ -619,11 +903,67 @@ const NakshatraScreen = () => {
                     ref={dashaScrollRef}
                   >
                     {dashaData.map(dasha => (
-                      <View key={dasha.id} style={styles.dashaCard}>
+                      <View
+                        key={dasha.id}
+                        style={[
+                          styles.dashaCard,
+                          {
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.DarkNavyBlue
+                                : colors.white,
+                            boxShadow:
+                              theme === 'dark' ? '' : '0px 0px 5px #DF8A5D',
+
+                            shadowColor: theme === 'dark' ? '#000' : '',
+                            shadowOffset: {
+                              width: theme === 'dark' ? 0 : 0,
+                              height: theme === 'dark' ? 2 : 0,
+                            },
+                            shadowOpacity: theme === 'dark' ? 0.4 : 0,
+                            shadowRadius: theme === 'dark' ? 3 : 0,
+                            elevation: theme === 'dark' ? 3 : 0,
+                          },
+                        ]}
+                      >
                         <Image source={dasha.icon} style={styles.dashaIcon} />
-                        <Text style={styles.dashaType}>{dasha.type}</Text>
-                        <Text style={styles.dashaPlanet}>{dasha.planet}</Text>
-                        <Text style={styles.dashaDates}>
+                        <Text
+                          style={[
+                            styles.dashaType,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {dasha.type}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.dashaPlanet,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {dasha.planet}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.dashaDates,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
                           {dasha.startDate}
                           {'\n'}
                           {dasha.endDate}
@@ -657,7 +997,6 @@ const NakshatraScreen = () => {
               </View>
             </ImageBackground>
           )}
-
           {selectedTab === 'Charts' && (
             // <View>
             <ChartsScreen
@@ -691,16 +1030,20 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     minHeight: '100%',
-    backgroundColor: '#202945',
     paddingBottom: 32,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    // backgroundColor: color.DarkNavy,
+  },
+  lottieAnimation: {
+    width: 264,
+    height: 264,
+    marginBottom: 20,
   },
   loadingText: {
-    color: '#F6EFD9',
     ...font.buttonLarge,
   },
   topBar: {
@@ -757,19 +1100,15 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   input: {
-    backgroundColor: '#223149',
     // borderRadius: 12,
     // paddingHorizontal: 16,
     // paddingVertical: 14,
-    color: color.themeTextWhite,
     fontSize: 16,
     fontFamily: fontFamily.regular,
     // marginBottom: 16,
     // borderWidth: 1,
-    borderColor: '#496CA8',
   },
   selectedMemberText: {
-    color: color.themeTextWhite,
     // ...font.bodySmall,
     // fontSize: 18,
     // fontWeight: '500',
@@ -804,7 +1143,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: responsiveWidth('3'),
-    marginBottom: responsiveWidth('2'),
+    // marginBottom: responsiveWidth('2'),
   },
   logoIcon: {
     fontSize: 36,
@@ -813,7 +1152,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerText: {
-    color: color.themeTextWhite,
     fontSize: 24,
     marginTop: responsiveWidth('10'),
     fontFamily: fontFamily.regular,
@@ -821,14 +1159,12 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(34, 49, 73, 0.9)',
     borderRadius: 10,
     padding: responsiveWidth('2'),
-    marginTop: responsiveWidth('3'),
+    marginTop: responsiveWidth('1.5'),
     marginHorizontal: responsiveWidth('3'),
     marginBottom: 24,
     borderWidth: 2,
-    borderColor: color.themeBorderDropdown,
   },
   profileIcon: {
     width: responsiveWidth('7%'),
@@ -854,6 +1190,8 @@ const styles = StyleSheet.create({
   },
   dashaContainer: {
     // backgroundColor: 'rgba(34, 49, 73, 0.2)',
+    padding:
+      Platform.OS === 'android' ? responsiveWidth('2%') : responsiveWidth('2'),
     // borderWidth: 0.2,
     // borderColor: '#EEE5CA',
     // borderRadius: 10,
@@ -864,7 +1202,10 @@ const styles = StyleSheet.create({
 
   membersCard: {
     borderRadius: 16,
-    padding: Platform.OS === 'android' ? responsiveWidth('2%') : responsiveWidth('0'),
+    // paddingVertical:
+    //   Platform.OS === 'android' ? 0  : responsiveWidth('0'),
+    justifyContent: 'center',
+    alignItems: 'center',
     // paddingVertical: responsiveWidth('4%'),
     marginTop: responsiveWidth('2%'),
     marginHorizontal: responsiveWidth('3'),
@@ -891,7 +1232,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     // lineHeight: 30,
     letterSpacing: -0.14,
-    color: color.themeTextWhite,
     // textAlignVertical: 'center',
     textAlignVertical: 'center',
     // marginTop: responsiveWidth('2'),
@@ -905,15 +1245,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: responsiveWidth('2'),
+    paddingVertical: responsiveWidth('2'),
   },
   dashaCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(34, 49, 73, 1)',
     borderRadius: 16,
     padding: responsiveWidth('1'),
     paddingVertical: responsiveWidth('3'),
     marginRight: 16,
     width: responsiveWidth('37%'),
+    // borderWidth: 0.2,
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.4,
+    // shadowRadius: 3,
+    // elevation: 3,
   },
   dashaIcon: {
     width: responsiveWidth('10'),
@@ -923,7 +1272,6 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   dashaType: {
-    color: color.themeTextWhite,
     fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
     // ...font.mini,
     fontSize: 14,
@@ -931,7 +1279,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dashaPlanet: {
-    color: color.themeTextWhite,
     // fontWeight: '600',
     // ...font.mini,
     fontSize: 14,
@@ -939,7 +1286,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dashaDates: {
-    color: color.themeTextWhite,
     fontSize: 14,
     fontFamily: fontFamily.regular,
     textAlign: 'center',
@@ -953,10 +1299,8 @@ const styles = StyleSheet.create({
   },
   tabButtonWrapper: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(32, 41, 69, 0.7)',
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: color.themeBorderDropdown,
     overflow: 'hidden',
   },
   tabButton: {
@@ -966,12 +1310,11 @@ const styles = StyleSheet.create({
     paddingVertical: responsiveWidth('1.5'),
   },
   tabButtonActive: {
-    backgroundColor: 'transparent',
+    // backgroundColor: 'transparent',
     borderBottomWidth: 3,
-    borderBottomColor: 'rgba(223, 138, 93, 1)',
+    // borderBottomColor: colors.Orangeaccentcolor,
   },
   tabButtonText: {
-    color: color.themeTextWhite,
     fontFamily: fontFamily.regular,
     // fontWeight: '600',
     fontSize: 16,
@@ -980,7 +1323,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
   tabButtonTextActive: {
-    color: '#F2994A',
     fontFamily: fontFamily.regular,
     // fontWeight: '600',
     fontSize: 16,
@@ -1131,11 +1473,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   dropdownContainer: {
-    backgroundColor: '#223149',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#496CA8',
-    maxHeight: 200,
+    maxHeight: 230,
     elevation: 10, // For Android shadow
     shadowColor: '#000', // For iOS shadow
     shadowOffset: {
@@ -1149,18 +1489,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#496CA8',
   },
   searchInput: {
-    backgroundColor: '#1A2332',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#F6EFD9',
     fontSize: 16,
     fontFamily: fontFamily.regular,
     borderWidth: 1,
-    borderColor: '#496CA8',
   },
   flatListStyle: {
     maxHeight: 200,
@@ -1169,15 +1505,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#496CA8',
   },
   dropdownItemText: {
-    color: '#F6EFD9',
     fontSize: 16,
     fontFamily: fontFamily.regular,
   },
   noResultsText: {
-    color: '#F6EFD9',
     fontSize: 16,
     fontFamily: fontFamily.regular,
     textAlign: 'center',
@@ -1196,15 +1529,13 @@ const styles = StyleSheet.create({
   },
   emptyStateTitle: {
     fontFamily: fontFamily.regular,
-    fontWeight: '500',
-    fontSize: 16,
+    // fontWeight: '500',
+    fontSize: 14,
     // lineHeight: 30,
     letterSpacing: -0.14,
-    color: color.themeTextWhite,
     textAlignVertical: 'center',
   },
   emptyStateButton: {
-    borderColor: color.themeTextWhite,
     borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 14,
@@ -1214,19 +1545,71 @@ const styles = StyleSheet.create({
   },
   emptyStateButtonText: {
     fontFamily: fontFamily.regular,
-    color: color.themeTextWhite,
     // fontWeight: '600',
     fontSize: 12,
   },
   emptyStateImage: {
-    width: responsiveWidth('30%'),
-    height: responsiveWidth('30%'),
+    width: 100,
+    height: 100,
     resizeMode: 'contain',
     marginLeft: 10,
+    marginRight: 10,
   },
   arrowIconContainer: {
     // flex: 1,
     alignSelf: 'center',
+  },
+  astroCard: {
+    borderRadius: 16,
+    marginHorizontal: responsiveWidth('3'),
+    marginTop: responsiveWidth('1.5'),
+    marginBottom: responsiveWidth('4'),
+    flexDirection: 'row',
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 4,
+    // elevation: 3,
+  },
+  astroContent: {
+    flex: 1,
+    padding: responsiveWidth('3'),
+    // paddingBottom: responsiveWidth('2'),
+  },
+  astroTitle: {
+    // ...font.subtitleLarge,
+    fontSize: 18,
+    fontFamily: fontFamily.regular,
+    lineHeight: 30,
+    marginBottom: responsiveWidth('2'),
+    // paddingBottom: responsiveWidth('2'),
+    // letterSpacing: -0.14,
+    textAlignVertical: 'center',
+  },
+  astroButton: {
+    borderRadius: 10,
+    paddingVertical: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // width: responsiveHeight('15'),
+    paddingHorizontal: 14,
+    marginTop: responsiveWidth('1'),
+    alignSelf: 'flex-start',
+  },
+  astroButtonText: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as const,
+  },
+  astroImage: {
+    width: responsiveWidth('30%'),
+    height: responsiveWidth('30%'),
+    resizeMode: 'contain',
+    // marginLeft: responsiveWidth('4'),
+    marginRight: responsiveWidth('2'),
   },
 });
 

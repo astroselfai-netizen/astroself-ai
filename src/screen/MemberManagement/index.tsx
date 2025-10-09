@@ -19,9 +19,13 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 import { useProfileData } from '../../hooks/useProfileData';
-import { responsiveWidth, font, fontFamily, color } from '../../constant/theme';
+import { responsiveWidth, fontFamily, color } from '../../constant/theme';
+import { useTheme } from '../../context/ThemeContext';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
+import LottieView from 'lottie-react-native';
+import { useDispatch } from 'react-redux';
+import { setMembersUpdated } from '../../state/slices/appSlice';
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -37,7 +41,7 @@ type MemberManagementNavigationProp = StackNavigationProp<
   'Register'
 >;
 
-const handleTogglePrimary = async (memberId: string, refreshProfileData: () => Promise<void>, setTogglingMember: (id: string | null) => void, setLocalMembersData: (data: any[]) => void, currentMembersData: any[]) => {
+const handleTogglePrimary = async (memberId: string, refreshProfileData: () => Promise<void>, setTogglingMember: (id: string | null) => void, setLocalMembersData: (data: any[]) => void, currentMembersData: any[], dispatch: any) => {
   try {
     console.log('Toggling primary member for ID:', memberId);
     setTogglingMember(memberId);
@@ -53,6 +57,9 @@ const handleTogglePrimary = async (memberId: string, refreshProfileData: () => P
     const response = await userService.setPrimaryMember(memberId);
     console.log('Primary member set successfully:', response);
     
+    // Set flag to indicate members data has been updated
+    dispatch(setMembersUpdated(true));
+    
     // Refresh the profile data to get the latest from server
     console.log('Starting profile data refresh...');
     await refreshProfileData();
@@ -67,7 +74,7 @@ const handleTogglePrimary = async (memberId: string, refreshProfileData: () => P
 };
 
 const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: { item: any, navigation: any, togglingMember: string | null, onToggle: () => void }) => {
-
+  const { theme, colors } = useTheme();
   console.log('MemberItem rendering for:', item.full_name, 'primary_mamber:', item.primary_mamber);
   
   // Extract name from API response
@@ -95,48 +102,139 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
   const birthDate = formatBirthDate(item.birth_data);
   const birthTime = formatBirthTime(item.birth_data);
   const location = item.birthplace || 'Location not specified';
-  const profession = item.what_do_you_do || 'Profession not specified';
   
   return (
     <ImageBackground
-      source={require('../../assets/image/DarkBackground.png')}
+      source={
+        theme === 'dark'
+          ? require('../../assets/image/DarkBackground.png')
+          : require('../../assets/image/LightBackground.png')
+      }
       blurRadius={12}
-      style={styles.newMembersCard}
-      imageStyle={styles.newMembersBgImage}
+      style={[
+        styles.newMembersCard,
+        {
+          backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+          borderColor:
+            theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+        },
+      ]}
+      imageStyle={[
+        styles.newMembersBgImage,
+        {
+          backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+          borderColor:
+            theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+        },
+      ]}
     >
-      <View style={styles.newMmembersOverlay} />
-      <View style={styles.memberCard}>
+      <View
+        style={[
+          styles.newMmembersOverlay,
+          {
+            backgroundColor:
+              theme === 'dark' ? colors.transparent : colors.white,
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.memberCard,
+          {
+            backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+            borderColor:
+              theme === 'dark'
+                ? colors.themeBorderDropdown
+                : colors.borderColor,
+          },
+        ]}
+      >
         {/* Top Row - Name and Action Icons */}
         <View style={styles.cardTopRow}>
-          <View style={styles.nameContainer}>
+          <View style={[styles.nameContainer,
+           item.primary_mamber === 'True' && { alignItems: 'center' },
+          ]}>
             <Image
               source={require('../../assets/icons/profile-icons.png')}
               style={styles.profileIcon}
             />
-            <Text style={styles.memberName}>{memberName}</Text>
-            {item.primary_mamber === "True" && (
-              <View style={styles.primaryMemberLabel}>
-                <Text style={styles.primaryMemberText}>Primary Member</Text>
-              </View>
-            )}
+            <View style={styles.memberNameContainer}>
+              <Text
+                style={[
+                  styles.memberName,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {memberName}
+              </Text>
+              {item.primary_mamber === 'True' && (
+                <View style={styles.primaryMemberLabel}>
+                  <Text
+                    style={[
+                      styles.primaryMemberText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.white,
+                      },
+                    ]}
+                  >
+                    Primary Member
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
           <View style={styles.actionIcons}>
-            <TouchableOpacity onPress={() => navigation.navigate('HomeScreen', { screen: 'NakshatraScreen', params: { userId: item.id || item._id } })} style={styles.iconButton}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('HomeScreen', {
+                  screen: 'NakshatraScreen',
+                  params: { userId: item.id || item._id },
+                })
+              }
+              style={styles.iconButton}
+            >
               <Image
                 source={require('../../assets/icons/ZodiacWheel.png')}
-                style={[styles.actionIcon,{
-                  width: responsiveWidth(6),
-                  height: responsiveWidth(6),
-                }]}
+                style={[
+                  styles.actionIcon,
+                  {
+                    tintColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                  {
+                    width: responsiveWidth(6),
+                    height: responsiveWidth(6),
+                  },
+                ]}
               />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => navigation.navigate('HomeScreen', { screen: 'ChatScreen' })}
+              onPress={() =>
+                navigation.navigate('HomeScreen', { screen: 'ChatScreen' })
+              }
               style={styles.iconButton}
             >
               <Image
                 source={require('../../assets/icons/Chat-inactive.png')}
-                style={styles.actionIcon}
+                style={[
+                  styles.actionIcon,
+                  {
+                    tintColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
               />
             </TouchableOpacity>
           </View>
@@ -155,7 +253,17 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
                 style={styles.detailIcon}
               />
             </View>
-            <Text style={styles.detailText}>{birthDate}</Text>
+            <Text
+              style={[
+                styles.detailText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              {birthDate}
+            </Text>
           </View>
           <View style={[styles.detailItem]}>
             <View style={styles.iconContainer}>
@@ -165,7 +273,17 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
                 style={styles.detailIcon}
               />
             </View>
-            <Text style={styles.detailText}>{birthTime}</Text>
+            <Text
+              style={[
+                styles.detailText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              {birthTime}
+            </Text>
           </View>
           {/* <View style={[styles.detailItem, styles.lastDetailItem]}>
             <View style={styles.iconContainer}>
@@ -193,14 +311,34 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
               source={require('../../assets/icons/office-building.png')}
               style={styles.detailIcon}
             />
-            <Text style={styles.detailText}>{location}</Text>
+            <Text
+              style={[
+                styles.detailText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              {location}
+            </Text>
           </View>
         </View>
 
         {/* Primary Member Toggle Row */}
         <View style={styles.toggleRow}>
           <View style={styles.toggleContainer}>
-            <Text style={styles.toggleLabel}>Set as Primary Member</Text>
+            <Text
+              style={[
+                styles.toggleLabel,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Set as Primary Member
+            </Text>
             <PrimaryMemberSwitch
               item={item}
               togglingMember={togglingMember}
@@ -223,6 +361,7 @@ const PrimaryMemberSwitch = React.memo(({
   togglingMember: string | null, 
   onToggle: () => void 
 }) => {
+  const { theme, colors } = useTheme();
   console.log('Switch rendering for:', item.full_name, 'primary_mamber:', item.primary_mamber);
   
   return (
@@ -231,11 +370,11 @@ const PrimaryMemberSwitch = React.memo(({
       onValueChange={onToggle}
       disabled={togglingMember === (item.id || item._id)}
       trackColor={{
-        false: 'rgba(255, 255, 255, 0.2)',
-        true: 'rgba(223, 138, 93, 1)'
+        false: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+        true: colors.Orangeaccentcolor
       }}
       thumbColor={item.primary_mamber === "True" ? '#FFFFFF' : '#FFFFFF'}
-      ios_backgroundColor="rgba(255, 255, 255, 0.2)"
+      // ios_backgroundColor={theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'}
       style={[
         styles.switch,
         togglingMember === (item.id || item._id) && styles.switchLoading
@@ -246,6 +385,8 @@ const PrimaryMemberSwitch = React.memo(({
 
 const MemberManagement = () => {
   const navigation = useNavigation<MemberManagementNavigationProp>();
+  const { theme, colors } = useTheme();
+  const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const [togglingMember, setTogglingMember] = useState<string | null>(null);
   const [localMembersData, setLocalMembersData] = useState<any[]>([]);
@@ -261,8 +402,8 @@ const MemberManagement = () => {
 
   // Memoized toggle handler to prevent unnecessary re-renders
   const handleTogglePrimaryMemo = React.useCallback((memberId: string) => {
-    return handleTogglePrimary(memberId, refreshProfileData, setTogglingMember, setLocalMembersData, localMembersData);
-  }, [refreshProfileData, localMembersData]);
+    return handleTogglePrimary(memberId, refreshProfileData, setTogglingMember, setLocalMembersData, localMembersData, dispatch);
+  }, [refreshProfileData, localMembersData, dispatch]);
 
   // Filter members based on search query
   const filteredMembers = useMemo(() => {
@@ -298,14 +439,19 @@ const MemberManagement = () => {
   // Log the full members data to see the structure
   console.log('Full membersData:', JSON.stringify(membersData, null, 2));
 
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar 
+        barStyle={theme === 'dark' ? "light-content" : "dark-content"} 
+        backgroundColor="transparent" 
+        translucent={true} 
+      />
 
       {/* Background with texture */}
       <View style={styles.backgroundContainer}>
         <Image
-          source={require('../../assets/image/DarkBackground.png')}
+          source={theme === 'dark' ? require('../../assets/image/DarkBackground.png') : require('../../assets/image/LightBackground.png')}
           style={styles.backgroundImage}
           resizeMode="cover"
         />
@@ -319,20 +465,23 @@ const MemberManagement = () => {
         >
           <Image
             source={require('../../assets/icons/back.png')}
-            style={styles.backIcon}
+            style={[styles.backIcon, { tintColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Manager Members</Text>
+        <Text style={[styles.headerTitle, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>Manager Members</Text>
         <View style={styles.placeholder} />
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
+        <View style={[styles.searchBar, {
+          backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+          borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor
+        }]}>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}
             placeholder="Search family members..."
-            placeholderTextColor={color.themeTextWhite}
+            placeholderTextColor={theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -343,29 +492,38 @@ const MemberManagement = () => {
               onPress={() => setSearchQuery('')}
               style={styles.clearButton}
             >
-              <Text style={styles.clearButtonText}>✕</Text>
+              <Text style={[styles.clearButtonText, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>✕</Text>
             </TouchableOpacity>
           ) : (
             <Image
               source={require('../../assets/icons/search-alt.png')}
-              style={styles.searchIcon}
+              style={[styles.searchIcon, { tintColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}
             />
           )}
         </View>
       </View>
 
       {/* Family Members List */}
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+        <LottieView
+          source={require('../../assets/lottie/loader-Animation-1.json')}
+          autoPlay
+          loop
+          style={styles.lottieAnimation}
+        />
+        </View>
+      ) : (   
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
       >
-        {loading ? (
-          <Text style={styles.loadingText}>Loading family members...</Text>
-        ) : error ? (
-          <Text style={styles.errorText}>Error: {error}</Text>
+        { error ? (
+          <Text style={[styles.errorText, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>Error: {error}</Text>
         ) : filteredMembers.length === 0 ? (
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyText, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>
             {searchQuery.trim()
               ? 'No members found matching your search'
               : 'No family members found'}
@@ -390,7 +548,7 @@ const MemberManagement = () => {
             onRefresh={refreshProfileData}
           />
         )}
-      </ScrollView>
+      </ScrollView>)}
 
       {/* Floating Action Button */}
       {/* <TouchableOpacity onPress={() => navigation.navigate('AddNewMember')} style={styles.fab}>
@@ -533,7 +691,7 @@ const styles = StyleSheet.create({
   },
   nameContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // alignItems: 'center',
     flex: 1,
     // marginRight: responsiveWidth('2'),
   },
@@ -550,17 +708,29 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     flex: 1,
   },
+  memberNameContainer: {
+    // flexDirection: 'row',
+    // justifyContent: "flex-start",
+    // alignItems: "flex-start",
+    // alignItems: 'center',
+    // flex: 1,
+  },
   primaryMemberLabel: {
     backgroundColor: 'rgba(223, 138, 93, 1)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    // paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 12,
-    marginLeft: 8,
+    // marginLeft: 8,
   },
   primaryMemberText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
+    
+    // paddingVertical: 4,
+    
     fontFamily: fontFamily.regular,
   },
   actionIcons: {
@@ -643,6 +813,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fontFamily.regular,
     paddingVertical: 40,
+  },
+  lottieAnimation: {
+    width: 264,
+    height: 264,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorText: {
     color: '#FF6B6B',

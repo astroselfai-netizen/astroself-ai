@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Login from '../screen/login';
@@ -37,13 +38,19 @@ import SettingsScreen from '../screen/Settings';
 import HomeIcon from '../assets/icons/back.png'; // Placeholder, replace with actual Home icon
 import ChatIcon from '../assets/icons/Show.png'; // Placeholder, replace with actual Chat icon
 import ProfileIcon from '../assets/image/profile.png'; // Placeholder, replace with actual Profile icon
-import NakshatraIcon from '../assets/icons/Subtract.png'; // Placeholder, replace with actual Nakshatra icon
+// NakshatraIcon will be handled by theme context
 import SettingsIcon from '../assets/icons/googleColor.png'; // Placeholder, replace with actual Settings icon
 import BasicDeatil from '../screen/BasicDeatil';
 import AddNewMember from '../screen/AddNewMember';
 import MemberManagement from '../screen/MemberManagement';
 import NotificationScreen from '../screen/Notification';
 import ChatWithPromptsScreen from '../screen/ChatWithPrompts';
+import PrivacyPolicyScreen from '../screen/PrivacyPolicy';
+import TermsAndConditions from '../screen/TermsAndConditions';
+import AboutUsScreen from '../screen/AboutUs';
+import ResourcesScreen from '../screen/Resources';
+import ResourcesDetailsScreen from '../screen/ResourcesDetails';
+import PaidPlanScreen from '../screen/PaidPlan';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -72,7 +79,12 @@ function MainNavigator() {
           component={NotificationScreen}
         />
         <Stack.Screen name="ChatWithPrompts" component={ChatWithPromptsScreen} />
-
+        <Stack.Screen name="PrivacyPolicyScreen" component={PrivacyPolicyScreen} />
+        <Stack.Screen name="TermsAndConditions" component={TermsAndConditions} />
+        <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
+        <Stack.Screen name="ResourcesScreen" component={ResourcesScreen} />
+        <Stack.Screen name="ResourcesDetailsScreen" component={ResourcesDetailsScreen} />
+        <Stack.Screen name="PaidPlanScreen" component={PaidPlanScreen} />
         {/* <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="OTPVerification" component={OTPVerification} />
        
@@ -84,12 +96,13 @@ function MainNavigator() {
 }
 
 function MyTabs() {
+  const { colors, theme } = useTheme();
+  
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
-      enabled
       style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
       <Tab.Navigator
         screenOptions={{
@@ -105,13 +118,14 @@ function MyTabs() {
             // marginRight:responsiveWidth('2%'),
             // marginBottom:responsiveWidth('5%'),
             borderWidth: 1,
-            borderColor: '#EEE5CA',
+            borderColor:
+              theme === 'dark' ? colors.borderColor : colors.surfaceOpacity,
             paddingBottom: 0,
             paddingTop: responsiveWidth('5%'),
           },
           tabBarBackground: () => (
             <Image
-              source={require('../assets/image/tabBg.png')}
+              source={colors.backgroundImage}
               style={{
                 width: '100%',
                 height: '100%',
@@ -137,14 +151,20 @@ function MyTabs() {
                   style={[
                     styles.iconStyle,
                     {
-                      tintColor: focused ? '#DF8A5D' : '#EEE5CA',
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
                     },
                   ]}
                 />
                 <Text
                   style={[
                     styles.tabLabel,
-                    { color: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 >
                   Home
@@ -163,13 +183,21 @@ function MyTabs() {
                   source={focused ? icons.IcChatActive : icons.icChat}
                   style={[
                     styles.iconStyle,
-                    { tintColor: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 />
                 <Text
                   style={[
                     styles.tabLabel,
-                    { color: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 >
                   Predictions
@@ -190,13 +218,21 @@ function MyTabs() {
                   }
                   style={[
                     styles.iconStyle,
-                    { tintColor: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 />
                 <Text
                   style={[
                     styles.tabLabel,
-                    { color: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 >
                   Profile
@@ -219,16 +255,24 @@ function MyTabs() {
                   }
                   style={[
                     styles.iconStyle,
-                    { tintColor: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 />
                 <Text
                   style={[
                     styles.tabLabel,
-                    { color: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 >
-                  charts
+                  Charts
                 </Text>
               </View>
             ),
@@ -246,13 +290,21 @@ function MyTabs() {
                   }
                   style={[
                     styles.iconStyle,
-                    { tintColor: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 />
                 <Text
                   style={[
                     styles.tabLabel,
-                    { color: focused ? '#DF8A5D' : '#EEE5CA' },
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
                   ]}
                 >
                   Settings
@@ -289,7 +341,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
     width: responsiveWidth('20%'),
-    color: color.white,
   },
   iconStyle: {
     height: responsiveWidth(7),

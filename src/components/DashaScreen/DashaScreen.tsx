@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, Image, ImageBackground, ScrollView } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import {
   responsiveWidth,
@@ -10,6 +10,8 @@ import {
 } from '../../constant/theme';
 import { DashaScreenProps, DashaPeriod } from '../../types/api';
 import moment from 'moment';
+import { useTheme } from '../../context/ThemeContext';
+import { baseURL } from '../../utils/http';
 
 // Planet icon mapping (fallback)
 const planetIcons: { [key: number]: any } = {
@@ -68,6 +70,7 @@ const DashaScreen = ({
   dashaDetails,
   planets_icon,
 }: DashaScreenPropsWithIcons) => {
+  const { theme, colors } = useTheme();
   const [selectedDashaType, setSelectedDashaType] = useState('major');
   const [currentDashaData, setCurrentDashaData] = useState<DashaTableItem[]>(
     [],
@@ -165,7 +168,7 @@ const DashaScreen = ({
 
       if (planetIcon && planetIcon.path) {
         // Return the path as a URI for remote images
-        return { uri: `https://astrology.hcshub.in/api/${planetIcon.path}` };
+        return { uri: `${baseURL}/${planetIcon.path}` };
       }
 
       return planetIcons[planetId] || planetIcons[6]; // Fallback icon
@@ -248,13 +251,47 @@ const DashaScreen = ({
   return (
     <View>
       {/* Enhanced Dropdown for Dasha Type Selection */}
-      <View style={styles.dropdownContainer}>
+      <View style={[styles.dropdownContainer]}>
         <Dropdown
-          style={[styles.dropdown, isFocus && styles.dropdownFocused]}
-          placeholderStyle={styles.placeholderStyle}
-          selectedTextStyle={styles.selectedTextStyle}
-          inputSearchStyle={styles.inputSearchStyle}
-          iconStyle={styles.iconStyle}
+          style={[
+            styles.dropdown,
+            isFocus && styles.dropdownFocused,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+          placeholderStyle={[
+            styles.placeholderStyle,
+            {
+              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+            },
+          ]}
+          selectedTextStyle={[
+            styles.selectedTextStyle,
+            {
+              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+            },
+          ]}
+          inputSearchStyle={[
+            styles.inputSearchStyle,
+            {
+              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.white,
+            },
+          ]}
+          iconStyle={[
+            styles.iconStyle,
+            {
+              tintColor:
+                theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+            },
+          ]}
           data={dashaTypes}
           search={false}
           maxHeight={300}
@@ -273,26 +310,139 @@ const DashaScreen = ({
               source={require('../../assets/icons/Dropdown.png')}
               style={[
                 styles.dropdownIcon,
+                {
+                  tintColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
                 { transform: [{ rotate: isFocus ? '180deg' : '0deg' }] },
               ]}
             />
           )}
-          containerStyle={styles.dropdownContainerStyle}
-          itemTextStyle={styles.dropdownItemText}
-          itemContainerStyle={styles.dropdownItemContainer}
-          activeColor="#1B294B"
+          containerStyle={[
+            styles.dropdownContainerStyle,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+          itemTextStyle={[
+            styles.dropdownItemText,
+            {
+              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+            },
+          ]}
+          itemContainerStyle={[
+            // styles.dropdownItemContainer,
+            {
+              backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+              borderBottomColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+              marginHorizontal: responsiveWidth(1.5),
+              marginTop: responsiveWidth(1.5),
+              marginBottom: responsiveWidth(1.5),
+              marginVertical: responsiveWidth(0.5),
+              borderRadius: responsiveWidth(2),
+            },
+          ]}
+          activeColor={
+            theme === 'dark'
+              ? colors.Orangeaccentcolor
+              : colors.Orangeaccentcolor
+          }
+          renderItem={(item, selected) => (
+            <View
+              style={[
+                styles.dropdownItemContainer,
+                {
+                  backgroundColor: selected
+                    ? theme === 'dark'
+                      ? colors.Orangeaccentcolor
+                      : colors.Orangeaccentcolor
+                    : theme === 'dark'
+                    ? colors.surface
+                    : colors.white,
+                  borderBottomColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.dropdownItemText,
+                  {
+                    color: selected
+                      ? colors.white
+                      : theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {item.label}
+              </Text>
+            </View>
+          )}
         />
       </View>
 
+      {/* Dasha Table */}
+
       <ImageBackground
-        source={require('../../assets/image/DarkBackground.png')}
+        source={
+          theme === 'dark'
+            ? require('../../assets/image/DarkBackground.png')
+            : require('../../assets/image/LightBackground.png')
+        }
         blurRadius={12}
-        style={styles.newMembersCard}
-        imageStyle={styles.newMembersBgImage}
+        style={[
+          styles.newMembersCard,
+          {
+            backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+            borderColor:
+              theme === 'dark' ? colors.borderColor : colors.borderColor,
+          },
+        ]}
+        imageStyle={[
+          styles.newMembersBgImage,
+          {
+            backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+            borderColor:
+              theme === 'dark' ? colors.borderColor : colors.borderColor,
+          },
+        ]}
       >
         <View style={styles.newMmembersOverlay} />
-        <View style={styles.container}>
-          <Text style={styles.title}>{selectedDashaLabel}</Text>
+        <View
+          style={[
+            styles.container,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.DarkNavy,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.title,
+              {
+                color: theme === 'dark' ? colors.themeTextWhite : colors.white,
+              },
+            ]}
+          >
+            {selectedDashaLabel}
+          </Text>
 
           {/* Current Time Display */}
           {/* <View style={styles.currentTimeContainer}>
@@ -302,67 +452,155 @@ const DashaScreen = ({
           */}
           {/* tableBox for dasha table */}
           <View style={styles.tableBox}>
-            <View style={styles.dashaTable}>
-              <View style={styles.dashaTableHeader}>
-                <Text style={styles.dashaHeaderPlanet}>Planet</Text>
-                <Text style={styles.dashaHeaderFrom}>From</Text>
-                <Text style={styles.dashaHeaderTo}>To</Text>
-              </View>
-              <View style={styles.tableBody}>
-                {currentDashaData.length > 0 ? (
-                  currentDashaData.map((item: DashaTableItem) => (
-                    <View
-                      key={item.id}
-                      style={[
-                        styles.dashaTableRow,
-                        item.isActive && styles.activeTableRow,
-                        item.id === currentDashaData.length - 1 &&
-                          styles.lastTableRow,
-                      ]}
-                    >
-                      {/* {item.isActive && (
-                        <View style={styles.activeIndicator} />
-                      )} */}
-                      <View style={styles.dashaCellPlanet}>
-                        {/* <Image source={item.icon} style={styles.dashaPlanetIcon} /> */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.tableScrollContainer}
+              contentContainerStyle={styles.tableScrollContent}
+            >
+              <View
+                style={[
+                  styles.dashaTable,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.surface : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.dashaTableHeader,
+                    {
+                      backgroundColor:
+                        theme === 'dark'
+                          ? colors.tabaleHeder
+                          : colors.tabaleHeder,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dashaHeaderPlanet,
+                      {
+                        color: theme === 'dark' ? '#23304D' : colors.white,
+                      },
+                    ]}
+                  >
+                    Planet
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dashaHeaderFrom,
+                      {
+                        color: theme === 'dark' ? '#23304D' : colors.white,
+                      },
+                    ]}
+                  >
+                    From
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dashaHeaderTo,
+                      {
+                        color: theme === 'dark' ? '#23304D' : colors.white,
+                      },
+                    ]}
+                  >
+                    To
+                  </Text>
+                </View>
+                <View style={styles.tableBody}>
+                  {currentDashaData.length > 0 ? (
+                    currentDashaData.map((item: DashaTableItem) => (
+                      <View
+                        key={item.id}
+                        style={[
+                          styles.dashaTableRow,
+                          {
+                            backgroundColor:
+                              theme === 'dark' ? '#EFE6D0' : colors.white,
+                            borderBottomColor:
+                              theme === 'dark' ? '#CFCFCF' : colors.borderColor,
+                          },
+                          item.isActive && styles.activeTableRow,
+                          item.id === currentDashaData.length - 1 &&
+                            styles.lastTableRow,
+                        ]}
+                      >
+                        {/* {item.isActive && (
+                           <View style={styles.activeIndicator} />
+                         )} */}
+                        <View style={styles.dashaCellPlanet}>
+                          {/* <Image source={item.icon} style={styles.dashaPlanetIcon} /> */}
+                          <Text
+                            style={[
+                              styles.dashaCellPlanetText,
+                              {
+                                color:
+                                  theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                              },
+                              item.isActive && styles.activeText,
+                            ]}
+                          >
+                            {item.planet}
+                          </Text>
+                        </View>
                         <Text
                           style={[
-                            styles.dashaCellPlanetText,
+                            styles.dashaCellFrom,
+                            {
+                              color:
+                                theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                            },
                             item.isActive && styles.activeText,
                           ]}
                         >
-                          {item.planet}
+                          {formatDateForDisplay(item.from)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.dashaCellTo,
+                            {
+                              color:
+                                theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                            },
+                            item.isActive && styles.activeText,
+                          ]}
+                        >
+                          {formatDateForDisplay(item.to)}
                         </Text>
                       </View>
+                    ))
+                  ) : (
+                    <View style={styles.noDataContainer}>
                       <Text
                         style={[
-                          styles.dashaCellFrom,
-                          item.isActive && styles.activeText,
+                          styles.noDataText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
                         ]}
                       >
-                        {formatDateForDisplay(item.from)}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.dashaCellTo,
-                          item.isActive && styles.activeText,
-                        ]}
-                      >
-                        {formatDateForDisplay(item.to)}
+                        {!dashaDetails
+                          ? 'Loading dasha data...'
+                          : 'No dasha data available for selected type'}
                       </Text>
                     </View>
-                  ))
-                ) : (
-                  <View style={styles.noDataContainer}>
-                    <Text style={styles.noDataText}>
-                      {!dashaDetails
-                        ? 'Loading dasha data...'
-                        : 'No dasha data available for selected type'}
-                    </Text>
-                  </View>
-                )}
+                  )}
+                </View>
               </View>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </ImageBackground>
@@ -434,10 +672,15 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   dropdownItemContainer: {
-    backgroundColor: '#1B294B',
-    borderBottomWidth: 1,
+    // backgroundColor: '#1B294B',
+    // borderBottomWidth: 1,
+    // marginTop: responsiveWidth(5),
     borderRadius: 10,
-    borderBottomColor: color.themeBorderDropdown,
+    // borderBottomColor: color.themeBorderDropdown,
+    paddingVertical: responsiveWidth(2.5),
+    // marginVertical: responsiveWidth(5),
+    // paddingHorizontal: responsiveWidth(2),
+    marginHorizontal: responsiveWidth(2),
   },
   dropdownItemText: {
     color: color.themeTextWhite,
@@ -474,7 +717,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D6C295',
     paddingVertical: 10,
     paddingHorizontal: 8,
-    minWidth: responsiveWidth('30'),
+    minWidth: responsiveWidth('100'),
   },
   dashaHeaderPlanet: {
     flex: 0.4, // Reduced planet column width
@@ -515,6 +758,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#CFCFCF',
     backgroundColor: '#EFE6D0',
+    minWidth: responsiveWidth('100'),
   },
   activeTableRow: {
     backgroundColor: '#496CA8',
@@ -641,6 +885,12 @@ const styles = StyleSheet.create({
   },
   dropdownFocused: {
     borderColor: '#496CA8',
+  },
+  tableScrollContainer: {
+    flex: 1,
+  },
+  tableScrollContent: {
+    flexGrow: 1,
   },
 });
 

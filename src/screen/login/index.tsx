@@ -15,7 +15,7 @@ import {
   Animated,
   Image,
 } from 'react-native';
-import { responsiveHeight, responsiveWidth, font, color } from '../../constant/theme';
+import { responsiveHeight, responsiveWidth, color } from '../../constant/theme';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import serviceFactory from '../../services/serviceFactory';
@@ -29,10 +29,12 @@ import Toast from 'react-native-toast-message';
 // import Bg from '../../assets/svgs/bg.svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MainContainer } from '../../components/common/mainContainer';
+import { AuthContainer } from '../../components/common/AuthContainer';
 import { icons } from '../../assets';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setUser, setUserToken } from '../../state/slices/appSlice';
+import { RootState } from '../../state/store';
+import { useTheme } from '../../context/ThemeContext';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -40,6 +42,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   HomeScreen: undefined;
   ContinueWithOtp: undefined;
+  AddNewMember: undefined;
   // Add other screens as needed
 };
 
@@ -76,12 +79,26 @@ const validationSchema = Yup.object().shape({
 const Login = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const dispatch = useDispatch();
+  const { theme, colors } = useTheme();
+  const membersData = useSelector((state: RootState) => state.app.members);
   // Ensure serviceFactory is initialized
   React.useEffect(() => {
     serviceFactory.create();
   }, []);
   const userService = serviceFactory.get<UserService>('UserService');
   const googleAuthService = serviceFactory.get<GoogleAuthService>('GoogleAuthService');
+
+  // Helper function to navigate based on members data
+  const navigateAfterAuth = (current_members: number) => {
+    console.log('Checking members data for navigation:', membersData);
+    if (current_members === 0) {
+      console.log('No members found, navigating to AddNewMember');
+      navigation.replace('AddNewMember');
+    } else {
+      console.log('Members found, navigating to HomeScreen');
+      navigation.replace('HomeScreen');
+    }
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -110,7 +127,13 @@ const Login = () => {
           //   topOffset: 60,
           //   visibilityTime: 3000,
           // });
-          navigation.replace('HomeScreen');
+
+          console.log('data.data', data.data.current_members);
+
+          // Wait a bit for the profile data to be loaded, then check members
+          setTimeout(() => {
+            navigateAfterAuth(data.data.current_members);
+          }, 1000);
         } else {
           Toast.show({
             type: 'error',
@@ -183,7 +206,12 @@ const Login = () => {
           visibilityTime: 3000,
         });
 
-        navigation.replace('HomeScreen');
+        console.log('result.isNewUser', result?.user?.current_members);
+
+        // Wait a bit for the profile data to be loaded, then check members
+        setTimeout(() => {
+          navigateAfterAuth(result?.user?.current_members);
+        }, 1000);
       } else {
         Toast.show({
           type: 'error',
@@ -274,9 +302,9 @@ const Login = () => {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       style={{ height: responsiveHeight('100%'), justifyContent: 'center' }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer>
+      <AuthContainer>
         {/* <Animated.View style={{ paddingBottom: keyboardHeight }}> */}
         <ScrollView
           style={styles.scrollViewContent}
@@ -288,7 +316,11 @@ const Login = () => {
             <View style={styles.logoRow}>
               {/* Placeholder for astrology icon */}
               <Image
-                source={require('../../assets/icons/Subtract.png')}
+                source={
+                  theme === 'dark'
+                    ? require('../../assets/icons/Subtract-dark.png')
+                    : require('../../assets/icons/Subtract-light.png')
+                }
                 style={styles.astroIcon}
               />
             </View>
@@ -303,9 +335,24 @@ const Login = () => {
           {/* Login Form */}
           <View style={styles.formContainer}>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.Orangeaccentcolor,
+                      color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
               placeholder="Email"
-              placeholderTextColor="#B0B3C7"
+              placeholderTextColor={
+                theme === 'dark'
+                  ? colors.placeholderTextColor
+                  : colors.themelightText
+              }
               keyboardType="email-address"
               autoCapitalize="none"
               value={formik.values.email}
@@ -315,7 +362,21 @@ const Login = () => {
             {formik.touched.email && formik.errors.email && (
               <Text style={styles.errorText}>{formik.errors.email}</Text>
             )}
-            <View style={styles.passwordInputContainer}>
+            <View
+              style={[
+                styles.passwordInputContainer,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.Orangeaccentcolor,
+
+                      
+                },
+              ]}
+            >
               <TextInput
                 style={[
                   styles.input,
@@ -323,10 +384,21 @@ const Login = () => {
                     flex: 1,
                     marginBottom: 0,
                     borderWidth: 0,
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.Orangeaccentcolor,
+                        color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                   },
                 ]}
                 placeholder="Password"
-                placeholderTextColor="#B0B3C7"
+                placeholderTextColor={
+                  theme === 'dark'
+                    ? colors.placeholderTextColor
+                    : colors.themelightText
+                }
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 value={formik.values.password}
@@ -361,7 +433,19 @@ const Login = () => {
               <Text style={styles.errorText}>{formik.errors.general}</Text>
             )}
             <TouchableOpacity onPress={handleForgotPassword}>
-              <Text style={styles.forgotPassword}>Forgot Password?</Text>
+              <Text
+                style={[
+                  styles.forgotPassword,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              >
+                Forgot Password?
+              </Text>
             </TouchableOpacity>
             {/* Login Button */}
             <TouchableOpacity
@@ -379,35 +463,131 @@ const Login = () => {
             {/* Continue with OTP */}
             <TouchableOpacity
               onPress={() => navigation.navigate('ContinueWithOtp')}
-              style={styles.otpButton}
+              style={[
+                styles.otpButton,
+                {
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.Orangeaccentcolor
+                      : colors.primaryBlue,
+                },
+              ]}
             >
-              <Text style={styles.otpButtonText}>Continue with OTP</Text>
+              <Text
+                style={[
+                  styles.otpButtonText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.primaryBlue,
+                  },
+                ]}
+              >
+                Continue with OTP
+              </Text>
             </TouchableOpacity>
             {/* Divider */}
             <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.orText}>OR</Text>
-              <View style={styles.divider} />
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.orText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              >
+                OR
+              </Text>
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              />
             </View>
             {/* Google Login */}
-            <TouchableOpacity 
-              style={styles.googleButton}
+            <TouchableOpacity
+              style={[
+                styles.googleButton,
+                {
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.primaryBlue,
+                },
+              ]}
               onPress={handleGoogleLogin}
             >
               <Image source={icons.Ic_google} style={styles.googleG} />
-              <Text style={styles.googleButtonText}>Login with Google</Text>
+              <Text
+                style={[
+                  styles.googleButtonText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.primaryBlue,
+                  },
+                ]}
+              >
+                Login with Google
+              </Text>
             </TouchableOpacity>
             {/* Register Link */}
             <View style={styles.registerRow}>
-              <Text style={styles.registerText}>Don't have account? </Text>
+              <Text
+                style={[
+                  styles.registerText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              >
+                Don't have account?{' '}
+              </Text>
               <TouchableOpacity onPress={handleRegister}>
-                <Text style={styles.registerNowText}>Register Now</Text>
+                <Text
+                  style={[
+                    styles.registerNowText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.Orangeaccentcolor
+                          : colors.Orangeaccentcolor,
+                    },
+                  ]}
+                >
+                  Register Now
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
         {/* </Animated.View> */}
-      </MainContainer>
+      </AuthContainer>
     </KeyboardAvoidingView>
   );
 };
@@ -554,7 +734,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EEE5CA',
+    // borderColor: '#EEE5CA',
     borderRadius: 10,
     paddingVertical: responsiveWidth('2.5'),
     justifyContent: 'center',

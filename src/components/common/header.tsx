@@ -15,6 +15,7 @@ import {
 import {color, font, responsiveWidth} from '../../constant/theme';
 import {icons} from '../../assets';
 import {useNavigation, useRoute} from '@react-navigation/native';
+import { useTheme } from '../../context/ThemeContext';
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
@@ -45,6 +46,7 @@ const Header: React.FC<ButtonProps> = ({
   cutomReightContainer,
 }: any) => {
   const navigation = useNavigation();
+  const { theme, colors } = useTheme();
   const route = useRoute();
   const [isNavigating, setIsNavigating] = React.useState(false);
 
@@ -76,7 +78,7 @@ const Header: React.FC<ButtonProps> = ({
             style={[styles.iconContainer, { marginRight: responsiveWidth(2) }]}
             onPress={handleBackPress}
           >
-            <Image source={icons.icBack} style={[styles.iconStyle]} />
+            <Image source={icons.icBack} style={[styles.iconStyle ,{tintColor: theme === 'dark' ? colors.textPrimary : colors.DarkNavy}]} />
           </TouchableOpacity>
         ) : null}
 
@@ -87,11 +89,11 @@ const Header: React.FC<ButtonProps> = ({
           >
             <Image
               source={LeftIcon}
-              style={[styles.leftIconStyle]}
+              style={[styles.leftIconStyle ,{tintColor: theme === 'dark' ? colors.textPrimary : colors.DarkNavy}]}
             />
           </TouchableOpacity>
         ) : null}
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={[styles.headerTitle ,{color: theme === 'dark' ? colors.textPrimary : colors.DarkNavy}]}>{title}</Text>
         {rightIcon ? (
           <TouchableOpacity
             style={[styles.iconContainer, rightIconContainerStyle]}
@@ -99,7 +101,7 @@ const Header: React.FC<ButtonProps> = ({
           >
             <Image
               source={rightIcon}
-              style={[styles.iconStyle, rightIconStyle]}
+              style={[styles.iconStyle, rightIconStyle ,{tintColor: theme === 'dark' ? colors.textPrimary : colors.DarkNavy}]}
             />
           </TouchableOpacity>
         ) : null}
@@ -118,11 +120,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: responsiveWidth(4),
     paddingTop: responsiveWidth(1),
-    paddingBottom: responsiveWidth(2),
+    // paddingBottom: responsiveWidth(2),
   },
   headerTitle: {
     ...font.h5,
-    color: color.black,
+    // color: color.black,
     flex: 1,
   },
   iconStyle: {

@@ -18,13 +18,19 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { StackActions } from '@react-navigation/native';
 import { MainContainer } from '../../components/common/mainContainer';
 import Toast from 'react-native-toast-message';
 import { responsiveWidth, fontFamily, color } from '../../constant/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import DatePicker from 'react-native-date-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import UserService from '../../services/user/user.service';
 import serviceFactory from '../../services/serviceFactory';
+import { useTheme } from '../../context/ThemeContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { setMembersUpdated } from '../../state/slices/appSlice';
+import { RootState } from '../../state/store';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -58,9 +64,12 @@ interface DropdownItem {
 
 const AddNewMember = () => {
   const navigation = useNavigation<BasicDeatilNavigationProp>();
+  const { theme, colors } = useTheme();
+  const dispatch = useDispatch();
   const userService = serviceFactory.get<UserService>('UserService');
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showPredictionTypeModal, setShowPredictionTypeModal] = useState(false);
+ const members = useSelector((state: RootState) => state.app.members);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -75,7 +84,7 @@ const AddNewMember = () => {
   const [isPlaceDropdownOpen, setIsPlaceDropdownOpen] = useState(false);
 
   const genderOptions = ['Male', 'Female', 'Other'];
-  const predictionTypeOptions = ["Bullet","Paragraph"];
+  const predictionTypeOptions = ['Bullet', 'Paragraph'];
 
   // Search places using Google Places API
   const searchPlaces = async (query: string) => {
@@ -126,7 +135,7 @@ const AddNewMember = () => {
 
   // Filter places based on search
   const filteredPlaces = getDropdownData().filter(item =>
-    item.label.toLowerCase().includes(searchQuery.toLowerCase())
+    item.label.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const validationSchema = Yup.object().shape({
@@ -145,6 +154,7 @@ const AddNewMember = () => {
     placeOfBirthDisplay: Yup.string()
       .trim()
       .required('Please select your place of birth'),
+    whatDoYouDo: Yup.string().trim(),
   });
 
   const formik = useFormik({
@@ -157,6 +167,7 @@ const AddNewMember = () => {
       timeOfBirth: '',
       placeOfBirth: null,
       placeOfBirthDisplay: '',
+      whatDoYouDo: '',
     },
     validationSchema,
     onSubmit: async (values, helpers) => {
@@ -227,7 +238,7 @@ const AddNewMember = () => {
           year: dateObj.getFullYear(),
           hour: timeObj.getHours(),
           min: timeObj.getMinutes(),
-          what_do_you_do: 'study',
+          what_do_you_do: values.whatDoYouDo,
           marital_status: 'single',
           children: 'no',
           health_issues_if_any: '-',
@@ -258,8 +269,11 @@ const AddNewMember = () => {
           visibilityTime: 3000,
         });
 
-        // Navigate to next screen or go back
-        navigation.goBack();
+        // Set flag to indicate members data has been updated
+        dispatch(setMembersUpdated(true));
+
+        // Navigate to HomeScreen after adding a member
+        navigation.dispatch(StackActions.replace('HomeScreen'));
       } catch (error: any) {
         console.error('Error submitting birth data:', error);
         const errorMessage = error?.message || 'Something went wrong.';
@@ -316,7 +330,7 @@ const AddNewMember = () => {
 
     const time = new Date();
     time.setHours(hour24, tempMinute, 0, 0);
-    
+
     setSelectedTime(time);
     formik.setFieldValue('timeOfBirth', formatTime(time));
     setShowTimePicker(false);
@@ -366,7 +380,7 @@ const AddNewMember = () => {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       style={styles.container}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       enabled
     >
       <MainContainer>
@@ -383,22 +397,85 @@ const AddNewMember = () => {
             >
               <Image
                 source={require('../../assets/icons/back.png')}
-                style={styles.backIcon}
+                style={[
+                  styles.backIcon,
+                  {
+                    tintColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
               />
             </TouchableOpacity>
             <View style={styles.backIconWrap}>
-              <Text style={styles.topBarText}>Add New Member</Text>
+              <Text
+                style={[
+                  styles.topBarText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Add New Member
+              </Text>
             </View>
           </View>
 
           {/* Form */}
           <View style={styles.formContainer}>
+            {/* Form Container Title */}
+            {/* {members?.length === 0 && ( */}
+              {/* <View
+                style={[
+                  styles.formContainerTitle,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.formContainerTitleText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Add your details to generate your charts
+                </Text>
+              </View> */}
+            {/* )} */}
+
             {/* First Name */}
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer]}>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
                 placeholder="First Name"
-                placeholderTextColor={color.themeTextWhite}
+                placeholderTextColor={
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy
+                }
                 value={formik.values.firstName}
                 onChangeText={formik.handleChange('firstName')}
                 onBlur={formik.handleBlur('firstName')}
@@ -411,9 +488,25 @@ const AddNewMember = () => {
             {/* Last Name */}
             <View style={styles.inputContainer}>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
                 placeholder="Last Name"
-                placeholderTextColor={color.themeTextWhite}
+                placeholderTextColor={
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy
+                }
                 value={formik.values.lastName}
                 onChangeText={formik.handleChange('lastName')}
                 onBlur={formik.handleBlur('lastName')}
@@ -426,13 +519,31 @@ const AddNewMember = () => {
             {/* Gender */}
             <View style={styles.inputContainer}>
               <TouchableOpacity
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
                 onPress={() => setShowGenderModal(true)}
               >
                 <Text
                   style={[
                     styles.inputText,
-                    !formik.values.gender && styles.placeholderText,
+                    {
+                      color: formik.values.gender
+                        ? theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy
+                        : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                    },
                   ]}
                 >
                   {formik.values.gender || 'Gender'}
@@ -441,6 +552,12 @@ const AddNewMember = () => {
                   source={require('../../assets/icons/Dropdown.png')}
                   style={[
                     styles.dropdownIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
                     { marginRight: responsiveWidth('0') },
                   ]}
                 />
@@ -453,13 +570,31 @@ const AddNewMember = () => {
             {/* Prediction Type */}
             <View style={styles.inputContainer}>
               <TouchableOpacity
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
                 onPress={() => setShowPredictionTypeModal(true)}
               >
                 <Text
                   style={[
                     styles.inputText,
-                    !formik.values.predictionType && styles.placeholderText,
+                    {
+                      color: formik.values.predictionType
+                        ? theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy
+                        : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                    },
                   ]}
                 >
                   {formik.values.predictionType || 'Prediction Type'}
@@ -468,6 +603,12 @@ const AddNewMember = () => {
                   source={require('../../assets/icons/Dropdown.png')}
                   style={[
                     styles.dropdownIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
                     { marginRight: responsiveWidth('0') },
                   ]}
                 />
@@ -483,20 +624,46 @@ const AddNewMember = () => {
             {/* Date of Birth */}
             <View style={styles.inputContainer}>
               <TouchableOpacity
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
                 onPress={() => setShowDatePicker(true)}
               >
                 <Text
                   style={[
                     styles.inputText,
-                    !formik.values.dateOfBirth && styles.placeholderText,
+                    {
+                      color: formik.values.dateOfBirth
+                        ? theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy
+                        : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                    },
                   ]}
                 >
                   {formik.values.dateOfBirth || 'Date of Birth'}
                 </Text>
                 <Image
                   source={require('../../assets/icons/date-pikar.png')}
-                  style={styles.calendarIcon}
+                  style={[
+                    styles.calendarIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
                 />
               </TouchableOpacity>
               {formik.touched.dateOfBirth && formik.errors.dateOfBirth && (
@@ -509,20 +676,46 @@ const AddNewMember = () => {
             {/* Time of Birth */}
             <View style={styles.inputContainer}>
               <TouchableOpacity
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
                 onPress={() => setShowTimePicker(true)}
               >
                 <Text
                   style={[
                     styles.inputText,
-                    !formik.values.timeOfBirth && styles.placeholderText,
+                    {
+                      color: formik.values.timeOfBirth
+                        ? theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy
+                        : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                    },
                   ]}
                 >
                   {formik.values.timeOfBirth || 'Time of Birth'}
                 </Text>
                 <Image
                   source={require('../../assets/icons/time_piker.png')}
-                  style={styles.clockIcon}
+                  style={[
+                    styles.clockIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
                 />
               </TouchableOpacity>
               {formik.touched.timeOfBirth && formik.errors.timeOfBirth && (
@@ -535,7 +728,17 @@ const AddNewMember = () => {
             {/* Place of Birth */}
             <View style={styles.inputContainer}>
               <TouchableOpacity
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
                 onPress={() => {
                   setIsPlaceDropdownOpen(!isPlaceDropdownOpen);
                   if (!isPlaceDropdownOpen && searchQuery.trim()) {
@@ -547,13 +750,28 @@ const AddNewMember = () => {
                 <View style={styles.inputContent}>
                   <Image
                     source={require('../../assets/icons/location.png')}
-                    style={styles.dropdownIcon}
+                    style={[
+                      styles.dropdownIcon,
+                      {
+                        tintColor:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
                   />
                   <Text
                     style={[
                       styles.inputText,
-                      !formik.values.placeOfBirthDisplay &&
-                        styles.placeholderText,
+                      {
+                        color: formik.values.placeOfBirthDisplay
+                          ? theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy
+                          : theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                      },
                     ]}
                   >
                     {formik.values.placeOfBirthDisplay || 'Place of Birth'}
@@ -568,6 +786,10 @@ const AddNewMember = () => {
                         { rotate: isPlaceDropdownOpen ? '180deg' : '0deg' },
                       ],
                       marginLeft: -responsiveWidth('5'),
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
                     },
                   ]}
                 />
@@ -575,12 +797,48 @@ const AddNewMember = () => {
 
               {/* Custom Place Dropdown */}
               {isPlaceDropdownOpen && (
-                <View style={styles.dropdownListContainer}>
+                <View
+                  style={[
+                    styles.dropdownListContainer,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.cardBackground : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                >
                   <View style={styles.dropdownHeader}>
                     <TextInput
-                      style={styles.dropdownSearchInput}
+                      style={[
+                        styles.dropdownSearchInput,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.cardBackground
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeBorderDropdown
+                              : colors.borderColor,
+                          borderBottomColor:
+                            theme === 'dark'
+                              ? 'rgba(73, 108, 168, 0.3)'
+                              : colors.borderColor,
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
                       placeholder="Search places..."
-                      placeholderTextColor={color.themeTextWhite}
+                      placeholderTextColor={
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy
+                      }
                       value={searchQuery}
                       onChangeText={text => {
                         setSearchQuery(text);
@@ -602,6 +860,12 @@ const AddNewMember = () => {
                         key={item.value}
                         style={[
                           styles.dropdownItem,
+                          {
+                            borderBottomColor:
+                              theme === 'dark'
+                                ? 'rgba(73, 108, 168, 0.3)'
+                                : colors.borderColor,
+                          },
                           index === filteredPlaces.length - 1 && {
                             borderBottomWidth: 0,
                           },
@@ -612,7 +876,17 @@ const AddNewMember = () => {
                         }}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.dropdownItemText}>
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
                           {item.label}
                         </Text>
                       </TouchableOpacity>
@@ -628,13 +902,69 @@ const AddNewMember = () => {
               )}
             </View>
 
+            {/* What Do You Do */}
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[
+                  styles.textAreaInput,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+                placeholder="What do you do? (Tell us about your profession, studies, or occupation)"
+                placeholderTextColor={
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy
+                }
+                value={formik.values.whatDoYouDo}
+                onChangeText={formik.handleChange('whatDoYouDo')}
+                onBlur={formik.handleBlur('whatDoYouDo')}
+                multiline={true}
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+              {formik.touched.whatDoYouDo && formik.errors.whatDoYouDo && (
+                <Text style={styles.errorText}>
+                  {formik.errors.whatDoYouDo}
+                </Text>
+              )}
+            </View>
+
             {/* Save Button */}
             <TouchableOpacity
-              style={styles.saveButton}
+              style={[
+                styles.saveButton,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.Orangeaccentcolor
+                      : colors.Orangeaccentcolor,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
               onPress={formik.handleSubmit}
               disabled={formik.isSubmitting}
             >
-              <Text style={styles.saveButtonText}>
+              <Text
+                style={[
+                  styles.saveButtonText,
+                  {
+                    color:
+                      theme === 'dark' ? colors.themeTextWhite : colors.white,
+                  },
+                ]}
+              >
                 {formik.isSubmitting ? 'Saving...' : 'Add New Member'}
               </Text>
             </TouchableOpacity>
@@ -654,24 +984,69 @@ const AddNewMember = () => {
           style={styles.modalBackdrop}
           onPress={() => setShowGenderModal(false)}
         >
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHandle,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.borderColor,
+                },
+              ]}
+            />
             <FlatList
               data={genderOptions}
               keyExtractor={item => item}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.modalItem}
+                  style={[
+                    styles.modalItem,
+                    formik.values.gender === item && styles.selectedModalItem,
+                  ]}
                   onPress={() => {
                     formik.setFieldValue('gender', item);
                     setShowGenderModal(false);
                   }}
                 >
-                  <Text style={styles.modalItemText}>{item}</Text>
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                      formik.values.gender === item &&
+                        styles.selectedModalItemText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
                 </TouchableOpacity>
               )}
               ItemSeparatorComponent={() => (
-                <View style={styles.modalSeparator} />
+                <View
+                  style={[
+                    styles.modalSeparator,
+                    {
+                      backgroundColor:
+                        theme === 'dark'
+                          ? 'rgba(34, 49, 73, 1)'
+                          : colors.borderColor,
+                    },
+                  ]}
+                />
               )}
               contentContainerStyle={{ paddingBottom: 16 }}
             />
@@ -691,24 +1066,70 @@ const AddNewMember = () => {
           style={styles.modalBackdrop}
           onPress={() => setShowPredictionTypeModal(false)}
         >
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHandle,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.borderColor,
+                },
+              ]}
+            />
             <FlatList
               data={predictionTypeOptions}
               keyExtractor={item => item}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.modalItem}
+                  style={[
+                    styles.modalItem,
+                    formik.values.predictionType === item &&
+                      styles.selectedModalItem,
+                  ]}
                   onPress={() => {
                     formik.setFieldValue('predictionType', item);
                     setShowPredictionTypeModal(false);
                   }}
                 >
-                  <Text style={styles.modalItemText}>{item}</Text>
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                      formik.values.predictionType === item &&
+                        styles.selectedModalItemText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
                 </TouchableOpacity>
               )}
               ItemSeparatorComponent={() => (
-                <View style={styles.modalSeparator} />
+                <View
+                  style={[
+                    styles.modalSeparator,
+                    {
+                      backgroundColor:
+                        theme === 'dark'
+                          ? 'rgba(34, 49, 73, 1)'
+                          : colors.borderColor,
+                    },
+                  ]}
+                />
               )}
               contentContainerStyle={{ paddingBottom: 16 }}
             />
@@ -716,29 +1137,53 @@ const AddNewMember = () => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Native Date Picker */}
+      {/* Native Date Picker for Android */}
       {showDatePicker && Platform.OS !== 'ios' && (
-        <DateTimePicker
-          value={selectedDate || new Date()}
+        <DatePicker
+          modal
+          open={showDatePicker}
+          date={selectedDate || new Date()}
           mode="date"
-          display="default"
+          // textColor={theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy} // 👈 text ka color change
+          // fadeToColor={theme === 'dark' ? colors.DarkNavy : colors.white} // 👈 background fade color
+          // dividerColor={theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy} // 👈 wheel ke bich ka divider
           maximumDate={new Date()}
-          onChange={(event: any, date?: Date) => {
-            // Android returns an event type: 'dismissed' | 'set'
+          theme={'light'}
+          onConfirm={date => {
             setShowDatePicker(false);
-            if (event?.type === 'set' && date) {
-              setSelectedDate(date);
-              formik.setFieldValue('dateOfBirth', formatDate(date));
-            }
+            setSelectedDate(date);
+            formik.setFieldValue('dateOfBirth', formatDate(date));
+          }}
+          onCancel={() => {
+            setShowDatePicker(false);
           }}
         />
       )}
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal transparent animationType="fade">
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalSheet}>
+            <View
+              style={[
+                styles.modalSheet,
+                {
+                  backgroundColor: theme === 'dark' ? '#34495E' : colors.white,
+                },
+              ]}
+            >
               <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
-                <Text style={styles.modalTitle}>Select Date of Birth</Text>
+                <Text
+                  style={[
+                    styles.modalTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Select Date of Birth
+                </Text>
               </View>
               <DateTimePicker
                 value={iosTempDate || selectedDate || new Date()}
@@ -748,7 +1193,7 @@ const AddNewMember = () => {
                 onChange={(event: any, date?: Date) => {
                   if (date) setIosTempDate(date);
                 }}
-                themeVariant="dark"
+                themeVariant={theme === 'dark' ? 'dark' : 'light'}
                 style={{ alignSelf: 'stretch' }}
               />
               <View
@@ -764,7 +1209,19 @@ const AddNewMember = () => {
                     setIosTempDate(null);
                   }}
                 >
-                  <Text style={styles.modalItemText}>Cancel</Text>
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -775,7 +1232,19 @@ const AddNewMember = () => {
                     setIosTempDate(null);
                   }}
                 >
-                  <Text style={styles.modalItemText}>Done</Text>
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Done
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -783,169 +1252,65 @@ const AddNewMember = () => {
         </Modal>
       )}
 
-      {/*  Time Picker  android */}
+      {/* Time Picker for Android */}
       {showTimePicker && Platform.OS !== 'ios' && (
-        <Modal transparent >
-          <TouchableOpacity
-            activeOpacity={1}
-            style={styles.modalBackdrop}
-            onPress={() => setShowTimePicker(false)}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              style={styles.modalSheet}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View style={styles.modalHandle} />
-              <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
-                <Text style={styles.modalTitle}>Select Time of Birth</Text>
-              </View>
-              <View style={styles.timePickerContainer}>
-                <View style={styles.timePickerRow}>
-                  {/* Hour Picker */}
-                  <View style={styles.timePickerColumn}>
-                    {/* <Text style={styles.timePickerLabel}>Hour</Text> */}
-                    <View style={styles.timePickerWrapper}>
-                      <View style={styles.timePickerCenterIndicator} />
-                      <ScrollView
-                        style={styles.timePickerScroll}
-                        showsVerticalScrollIndicator={false}
-                        snapToInterval={40}
-                        decelerationRate="fast"
-                        contentContainerStyle={styles.timePickerContent}
-                        contentOffset={{ x: 0, y: (tempHour - 1) * 40 }}
-                      >
-                        {generateHours().map((hour) => (
-                          <TouchableOpacity
-                            key={hour}
-                            style={[
-                              styles.timePickerItem,
-                              tempHour === hour && styles.timePickerItemSelected,
-                            ]}
-                            onPress={() => setTempHour(hour)}
-                          >
-                            <Text
-                              style={[
-                                styles.timePickerItemText,
-                                tempHour === hour && styles.timePickerItemTextSelected,
-                              ]}
-                            >
-                              {hour.toString().padStart(2, '0')}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </View>
-
-                  {/* Minute Picker */}
-                  <View style={styles.timePickerColumn}>
-                    {/* <Text style={styles.timePickerLabel}>Minute</Text> */}
-                    <View style={styles.timePickerWrapper}>
-                      <View style={styles.timePickerCenterIndicator} />
-                      <ScrollView
-                        style={styles.timePickerScroll}
-                        showsVerticalScrollIndicator={false}
-                        snapToInterval={40}
-                        decelerationRate="fast"
-                        contentContainerStyle={styles.timePickerContent}
-                        contentOffset={{ x: 0, y: tempMinute * 40 }}
-                      >
-                        {generateMinutes().map((minute) => (
-                          <TouchableOpacity
-                            key={minute}
-                            style={[
-                              styles.timePickerItem,
-                              tempMinute === minute && styles.timePickerItemSelected,
-                            ]}
-                            onPress={() => setTempMinute(minute)}
-                          >
-                            <Text
-                              style={[
-                                styles.timePickerItemText,
-                                tempMinute === minute && styles.timePickerItemTextSelected,
-                              ]}
-                            >
-                              {minute.toString().padStart(2, '0')}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </View>
-
-                  {/* AM/PM Picker */}
-                  <View style={styles.timePickerColumn}>
-                    {/* <Text style={styles.timePickerLabel}>Period</Text> */}
-                    <View style={styles.timePickerWrapper}>
-                      <View style={styles.timePickerCenterIndicator} />
-                      <ScrollView
-                        style={styles.timePickerScroll}
-                        showsVerticalScrollIndicator={false}
-                        snapToInterval={40}
-                        decelerationRate="fast"
-                        contentContainerStyle={styles.timePickerContent}
-                        contentOffset={{ x: 0, y: tempAmPm === 'AM' ? 0 : 40 }}
-                      >
-                        {generateAmPm().map((period) => (
-                          <TouchableOpacity
-                            key={period}
-                            style={[
-                              styles.timePickerItem,
-                              tempAmPm === period && styles.timePickerItemSelected,
-                            ]}
-                            onPress={() => setTempAmPm(period)}
-                          >
-                            <Text
-                              style={[
-                                styles.timePickerItemText,
-                                tempAmPm === period && styles.timePickerItemTextSelected,
-                              ]}
-                            >
-                              {period}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.modalButtonContainer}>
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={handleTimeCancel}
-                >
-                  <Text style={styles.modalButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalButtonPrimary]}
-                  onPress={handleTimeConfirm}
-                >
-                  <Text style={[styles.modalButtonText, styles.modalButtonTextPrimary]}>Done</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
+        <DatePicker
+          modal
+          open={showTimePicker}
+          date={selectedTime || new Date()}
+          // textColor={theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy} // 👈 text ka color change
+          // fadeToColor={theme === 'dark' ? colors.DarkNavy : colors.white} // 👈 background fade color
+          // dividerColor={
+          //   theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy
+          // } // 👈 wheel ke bich ka divider
+          mode="time"
+          // is24Hour={false}
+          theme={'light'}
+          onConfirm={time => {
+            setShowTimePicker(false);
+            setSelectedTime(time);
+            formik.setFieldValue('timeOfBirth', formatTime(time));
+          }}
+          onCancel={() => {
+            setShowTimePicker(false);
+          }}
+        />
       )}
       {showTimePicker && Platform.OS === 'ios' && (
         <Modal transparent animationType="fade">
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalSheet}>
+            <View
+              style={[
+                styles.modalSheet,
+                {
+                  backgroundColor: theme === 'dark' ? '#34495E' : colors.white,
+                },
+              ]}
+            >
               <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
-                <Text style={styles.modalTitle}>Select Time of Birth</Text>
+                <Text
+                  style={[
+                    styles.modalTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Select Time of Birth
+                </Text>
               </View>
               <DateTimePicker
                 value={iosTempTime || selectedTime || new Date()}
                 mode="time"
                 display="spinner"
                 is24Hour={false}
-               
                 onChange={(event: any, time?: Date) => {
                   if (time) setIosTempTime(time);
                 }}
-                themeVariant="dark"
+                themeVariant={'light'}
                 style={{ alignSelf: 'stretch' }}
               />
               <View
@@ -961,7 +1326,19 @@ const AddNewMember = () => {
                     setIosTempTime(null);
                   }}
                 >
-                  <Text style={styles.modalItemText}>Cancel</Text>
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -972,7 +1349,19 @@ const AddNewMember = () => {
                     setIosTempTime(null);
                   }}
                 >
-                  <Text style={styles.modalItemText}>Done</Text>
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Done
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1031,6 +1420,20 @@ const styles = StyleSheet.create({
   formContainer: {
     paddingHorizontal: 20,
   },
+  formContainerTitle: {
+    marginBottom: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formContainerTitleText: {
+    fontSize: 18,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+  },
   inputContainer: {
     marginBottom: 20,
   },
@@ -1048,6 +1451,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  textAreaInput: {
+    backgroundColor: 'rgba(34, 49, 73, 1)',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: responsiveWidth('2.5'),
+    borderWidth: 2,
+    fontFamily: fontFamily.regular,
+    fontSize: 16,
+    color: color.themeTextWhite,
+    borderColor: '#rgba(73, 108, 168, 1)',
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
   inputContent: {
     flexDirection: 'row',
@@ -1110,14 +1526,13 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     // backgroundColor: 'rgba(0,0,0,0.5)',
-   
-  //  bottom: 0,
-  // marginBottom: -10,
-    
+
+    //  bottom: 0,
+    // marginBottom: -10,
+
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#34495E',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: '60%',
@@ -1128,11 +1543,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(34, 49, 73, 1)',
     marginVertical: 12,
   },
   modalTitle: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
@@ -1143,14 +1556,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
+  selectedModalItem: {
+    backgroundColor: color.Orangeaccentcolor,
+    borderRadius: 8,
+    marginHorizontal: 16,
+  },
   modalItemText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontFamily: fontFamily.regular,
   },
+  selectedModalItemText: {
+    fontWeight: '600',
+    color: color.white,
+  },
   modalSeparator: {
     height: 1,
-    backgroundColor: '#5DADE2',
     marginHorizontal: 20,
   },
   dropdownContainer: {
@@ -1181,10 +1601,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   dropdownListContainer: {
-    backgroundColor: 'rgba(34, 49, 73, 1)',
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#rgba(73, 108, 168, 1)',
     position: 'absolute',
     top: '100%',
     left: 0,
@@ -1204,14 +1622,12 @@ const styles = StyleSheet.create({
   dropdownItem: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(73, 108, 168, 0.3)',
   },
   dropdownSelectedItem: {
     padding: 16,
     backgroundColor: 'rgba(73, 108, 168, 0.1)',
   },
   dropdownItemText: {
-    color: 'white',
     fontSize: 16,
     fontFamily: fontFamily.regular,
   },
@@ -1246,14 +1662,11 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(73, 108, 168, 0.3)',
   },
   dropdownSearchInput: {
-    backgroundColor: 'rgba(34, 49, 73, 1)',
-    color: 'white',
     fontSize: 16,
     fontFamily: fontFamily.regular,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(73, 108, 168, 0.3)',
   },
   datePickerContainer: {
     paddingHorizontal: 20,
@@ -1355,7 +1768,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 49, 73, 1)',
   },
   modalButtonText: {
-    color:'#FFFFFF',
+    color: '#FFFFFF',
     fontSize: 16,
     fontFamily: fontFamily.regular,
     fontWeight: '600',

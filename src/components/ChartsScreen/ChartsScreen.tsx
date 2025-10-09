@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
   color,
 } from '../../constant/theme';
 import { SvgXml } from 'react-native-svg';
+import { useTheme } from '../../context/ThemeContext';
+import LottieView from 'lottie-react-native';
 
 interface ChartDetails {
   D1: string;
@@ -38,12 +40,78 @@ interface ChartsScreenProps {
 
 export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const [svgLoadingStates, setSvgLoadingStates] = useState<{[key: string]: boolean}>({
+    D1: true,
+    D9: true,
+    D10: true,
+    D60: true,
+  });
+  const { theme, colors } = useTheme();
+  const scrollViewRefdash = useRef<ScrollView>(null);
 
   console.log('chartDetails===>', chartDetails?.planets_positions);
 
+  // Reset loading states when chartDetails change
+  useEffect(() => {
+    if (chartDetails) {
+      setSvgLoadingStates({
+        D1: true,
+        D9: true,
+        D10: true,
+        D60: true,
+      });
+
+      // Set timeout to hide loading indicators after SVG should be loaded
+      const timeouts: ReturnType<typeof setTimeout>[] = [];
+      
+      chartList.forEach((chart, index) => {
+        if (chart.svg) {
+          const timeout = setTimeout(() => {
+            console.log(`Loading completed for ${chart.key}`);
+            setSvgLoadingStates(prev => ({
+              ...prev,
+              [chart.key]: false,
+            }));
+          }, 200 + (index * 50)); // Very short timeout, stagger the loading completion
+          timeouts.push(timeout);
+        } else {
+          // If no SVG data, immediately set loading to false
+          setSvgLoadingStates(prev => ({
+            ...prev,
+            [chart.key]: false,
+          }));
+        }
+      });
+
+      // Cleanup timeouts
+      return () => {
+        timeouts.forEach(timeout => clearTimeout(timeout));
+      };
+    }
+  }, [chartDetails]);
+
+  // Additional effect to handle SVG loading based on SVG content
+  useEffect(() => {
+    if (chartDetails) {
+      chartList.forEach((chart, index) => {
+        if (chart.svg && chart.svg.length > 0) {
+          // Set a very short timeout to allow SVG to render
+          const timeout = setTimeout(() => {
+            setSvgLoadingStates(prev => ({
+              ...prev,
+              [chart.key]: false,
+            }));
+          }, 100 + (index * 20));
+          
+          return () => clearTimeout(timeout);
+        }
+      });
+    }
+  }, [chartDetails?.D1, chartDetails?.D9, chartDetails?.D10, chartDetails?.D60]);
+
+
   // Function to convert full zodiac sign names to short names
-  const getZodiacShortName = (signName: string): string => {
+  const getZodiacShortName = (signName: string): string => { // eslint-disable-line @typescript-eslint/no-unused-vars
     const zodiacMap: { [key: string]: string } = {
       Aries: 'AR',
       Taurus: 'TA',
@@ -119,7 +187,7 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
     const cardWidth = responsiveWidth('87') + responsiveWidth('5'); // full width cards
     const scrollToX = index * cardWidth;
 
-    scrollViewRef.current?.scrollTo({
+    scrollViewRefdash.current?.scrollTo({
       x: scrollToX,
       animated: true,
     });
@@ -151,14 +219,46 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
         </View>
       </View> */}
 
-      <View style={styles.mainContainer}>
+      <View
+        style={[
+          styles.mainContainer,
+          {
+            backgroundColor:
+              theme === 'dark' ? colors.themeTextWhite : colors.white,
+            borderColor:
+              theme === 'dark'
+                ? colors.themeBorderDropdown
+                : colors.borderColor,
+          },
+        ]}
+      >
         {/* <Text style={styles.title}>Charts</Text> */}
         <ScrollView
-          ref={scrollViewRef}
+          ref={scrollViewRefdash}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chartsCarousel}
-          style={styles.chartsScrollView}
+          contentContainerStyle={[
+            styles.chartsCarousel,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.themeTextWhite : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+          style={[
+            styles.chartsScrollView,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.themeTextWhite : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           pagingEnabled={true}
@@ -166,18 +266,63 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
         >
           {chartList.map(chart => (
             <View key={chart.key} style={styles.chartCard}>
-              <Text style={styles.chartLabel}>{chart.label}</Text>
+              <Text
+                style={[
+                  styles.chartLabel,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.DarkNavy
+                        : colors.themeTextWhite,
+                  },
+                ]}
+              >
+                {chart.label}
+              </Text>
               {chart.svg ? (
-                <SvgXml
-                  xml={chart.svg}
-                  width={responsiveWidth('87')}
-                  height={responsiveWidth('87')}
-                  style={styles.chartImage}
-                  preserveAspectRatio="xMidYMid meet"
-                  viewBox="0 0 350 350"
-                />
+                <View style={styles.chartImageContainer}>
+                  {svgLoadingStates[chart.key] && (
+                    <View style={styles.loadingContainer}>
+                      <LottieView
+                        source={require('../../assets/lottie/loader-Animation-1.json')}
+                        autoPlay
+                        loop
+                        style={styles.lottieAnimation}
+                      />
+                    </View>
+                  )}
+                  <SvgXml
+                    xml={chart.svg}
+                    width={responsiveWidth('87')}
+                    height={responsiveWidth('87')}
+                    style={[
+                      styles.chartImage,
+                      svgLoadingStates[chart.key] && styles.hiddenSvg,
+                    ]}
+                    preserveAspectRatio="xMidYMid meet"
+                    viewBox="0 0 350 350"
+                    onLayout={() => {
+                      // Additional fallback to ensure loading state is cleared
+                      setTimeout(() => {
+                        setSvgLoadingStates(prev => ({
+                          ...prev,
+                          [chart.key]: false,
+                        }));
+                      }, 100);
+                    }}
+                  />
+                </View>
               ) : (
-                <></>
+                <View style={styles.chartImageContainer}>
+                  <View style={styles.loadingContainer}>
+                    <LottieView
+                      source={require('../../assets/lottie/loader-Animation-1.json')}
+                      autoPlay
+                      loop
+                      style={styles.lottieAnimation}
+                    />
+                  </View>
+                </View>
               )}
             </View>
           ))}
@@ -194,6 +339,12 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
               <View
                 style={[
                   styles.paginationDot,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.DarkNavy
+                        : colors.themeTextWhite,
+                  },
                   index === currentIndex && styles.paginationDotActive,
                 ]}
               />
@@ -231,48 +382,174 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
         </View>
       </View> */}
 
-      {/* Dasha Overview */}
+      {/* Dasha Overview table */}
       <ImageBackground
-        source={require('../../assets/image/DarkBackground.png')}
+        source={
+          theme === 'dark'
+            ? require('../../assets/image/DarkBackground.png')
+            : require('../../assets/image/LightBackground.png')
+        }
         blurRadius={12}
-        style={styles.membersCard}
-        imageStyle={styles.membersBgImage}
+        style={[
+          styles.membersCard,
+          {
+            backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+            borderColor:
+              theme === 'dark' ? colors.borderColor : colors.borderColor,
+          },
+        ]}
+        imageStyle={[
+          styles.membersBgImage,
+          {
+            backgroundColor: theme === 'dark' ? colors.surface : colors.white,
+            borderColor:
+              theme === 'dark' ? colors.borderColor : colors.borderColor,
+          },
+        ]}
       >
         {/* <View style={styles.membersOverlay} /> */}
-        <View style={styles.dashaCardContainer}>
-          <Text style={styles.dashaTitle}>Lagna-Chart Overview</Text>
-          <View style={styles.dashaTable}>
-            <View style={styles.dashaTableHeader}>
-              <Text style={styles.dashaHeaderHouse}>House</Text>
-              <Text style={styles.dashaHeaderPlanet}>Planet</Text>
-              <Text style={styles.dashaHeaderSign}>Sign</Text>
-              <Text style={styles.dashaHeaderDegree}>Degree & Nakshatra</Text>
-              {/* <Text style={styles.dashaHeaderAwastha}>Awastha</Text> */}
-            </View>
-            <View style={styles.tableBody}>
-              {finalDashaData.map((row, idx) => (
-                <View
-                  key={row.house + idx}
+        <View style={[styles.dashaCardContainer]}>
+          <Text
+            style={[
+              styles.dashaTitle,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.surface : colors.DarkNavy,
+                color: theme === 'dark' ? colors.themeTextWhite : colors.white,
+              },
+            ]}
+          >
+            Lagna-Chart Overview
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tableScrollContainer}
+            contentContainerStyle={styles.tableScrollContent}
+          >
+            <View
+              style={[
+                styles.dashaTable,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.surface : colors.white,
+                  borderColor:
+                    theme === 'dark' ? colors.borderColor : colors.borderColor,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.dashaTableHeader,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.tabaleHeder : colors.tabaleHeder,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+              >
+                <Text
                   style={[
-                    styles.dashaTableRow,
-                    idx === finalDashaData.length - 1 && styles.lastTableRow,
+                    styles.dashaHeaderHouse,
+                    { color: theme === 'dark' ? '#23304D' : colors.white },
                   ]}
                 >
-                  <Text style={styles.dashaCellHouse}>{row.house}</Text>
-                  <Text style={styles.dashaCellPlanet}>
-                    {row.planet}
-                    {row.isRetro ? ' (R)' : ''}
-                  </Text>
-                  <View style={styles.dashaCellSign}>
-                    <Text style={styles.dashaSignIcon}>{row.signIcon}</Text>
-                    {/* <Image source={row.signIcon} style={styles.dashaSignIcon} /> */}
+                  House
+                </Text>
+                <Text
+                  style={[
+                    styles.dashaHeaderPlanet,
+                    { color: theme === 'dark' ? '#23304D' : colors.white },
+                  ]}
+                >
+                  Planet
+                </Text>
+                <Text
+                  style={[
+                    styles.dashaHeaderSign,
+                    { color: theme === 'dark' ? '#23304D' : colors.white },
+                  ]}
+                >
+                  Sign
+                </Text>
+                <Text
+                  style={[
+                    styles.dashaHeaderDegree,
+                    { color: theme === 'dark' ? '#23304D' : colors.white },
+                  ]}
+                >
+                  Degree & Nakshatra
+                </Text>
+                {/* <Text style={styles.dashaHeaderAwastha}>Awastha</Text> */}
+              </View>
+              <View style={[styles.tableBody]}>
+                {finalDashaData.map((row, idx) => (
+                  <View
+                    key={row.house + idx}
+                    style={[
+                      styles.dashaTableRow,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? '#EFE6D0' : colors.white,
+                        borderBottomColor:
+                          theme === 'dark' ? '#CFCFCF' : colors.borderColor,
+                      },
+                      idx === finalDashaData.length - 1 && styles.lastTableRow,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dashaCellHouse,
+                        {
+                          color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {row.house}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dashaCellPlanet,
+                        {
+                          color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {row.planet}
+                      {row.isRetro ? ' (R)' : ''}
+                    </Text>
+                    <View style={styles.dashaCellSign}>
+                      <Text
+                        style={[
+                          styles.dashaSignIcon,
+                          {
+                            color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        {row.signIcon}
+                      </Text>
+                      {/* <Image source={row.signIcon} style={styles.dashaSignIcon} /> */}
+                    </View>
+                    <Text
+                      style={[
+                        styles.dashaCellDegree,
+                        {
+                          color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {row.degree}
+                    </Text>
+                    {/* <Text style={styles.dashaCellAwastha}>{row.planetAwastha}</Text> */}
                   </View>
-                  <Text style={styles.dashaCellDegree}>{row.degree}</Text>
-                  {/* <Text style={styles.dashaCellAwastha}>{row.planetAwastha}</Text> */}
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </ImageBackground>
     </View>
@@ -292,6 +569,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: responsiveWidth('2'),
     margin: responsiveWidth('2'),
+    
+
     marginBottom: responsiveWidth('5'),
     // margin: 10,
   },
@@ -305,19 +584,49 @@ const styles = StyleSheet.create({
   chartsScrollView: {},
   chartsCarousel: {
     paddingHorizontal: responsiveWidth('2'),
+    height: responsiveWidth('93'),
+    // width: responsiveWidth('100'),
     alignItems: 'center',
   },
   chartCard: {
     width: responsiveWidth('87'),
+    
+    // height: responsiveWidth('93'),
     alignItems: 'center',
     marginRight: responsiveWidth('5'),
   },
-  chartImage: {
+  chartImageContainer: {
     width: responsiveWidth('87'),
     height: responsiveWidth('87'),
     marginBottom: responsiveWidth('1'),
     borderRadius: 16,
     backgroundColor: '#fff',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chartImage: {
+    width: responsiveWidth('87'),
+    height: responsiveWidth('87'),
+    borderRadius: 16,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+  },
+  hiddenSvg: {
+    opacity: 0,
+  },
+  lottieAnimation: {
+    width: responsiveWidth('50'),
+    height: responsiveWidth('50'),
   },
   chartLabel: {
     color: '#23304D',
@@ -326,7 +635,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 0,
     textAlignVertical: 'center',
-    marginBottom: responsiveWidth('3'),
+    // marginBottom: responsiveWidth('0'),
   },
 
   card: {
@@ -342,7 +651,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#333',
   },
-  dashaCardContainer: {},
+  dashaCardContainer: {
+  
+  },
 
   membersCard: {
     borderRadius: 16,
@@ -350,7 +661,7 @@ const styles = StyleSheet.create({
     marginHorizontal: responsiveWidth('3'),
     marginBottom: 24,
     borderWidth: 0.2,
-    borderColor: '#EEE5CA',
+    // borderColor: '#EEE5CA',
   },
   membersBgImage: {
     borderRadius: 16,
@@ -366,9 +677,11 @@ const styles = StyleSheet.create({
   dashaTitle: {
     color: color.themeTextWhite,
     fontSize: 18,
-    marginLeft: responsiveWidth('4'),
-    marginVertical: responsiveWidth('3'),
-    marginBottom: responsiveWidth('3'),
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingLeft: responsiveWidth('4'),
+    paddingVertical: responsiveWidth('3'),
+    // marginBottom: responsiveWidth('3'),
     fontFamily: fontFamily.regular,
   },
   dashaTable: {
@@ -384,7 +697,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D6C295',
     paddingVertical: 10,
     paddingHorizontal: 8,
-    minWidth: responsiveWidth('30'),
+    minWidth: responsiveWidth('100'),
   },
   dashaTableRow: {
     flexDirection: 'row',
@@ -394,6 +707,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#CFCFCF',
     backgroundColor: '#EFE6D0',
+    minWidth: responsiveWidth('100'),
   },
   dashaHeaderHouse: {
     width: responsiveWidth('15'),
@@ -505,4 +819,11 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
+  tableScrollContainer: {
+    flex: 1,
+  },
+  tableScrollContent: {
+    flexGrow: 1,
+  },
 });
+

@@ -18,7 +18,7 @@ export enum HttpStatusCode {
   NETWORK_CONNECT_TIMEOUT = 599,
 }
 
-const baseURL = __DEV__
+export const baseURL = __DEV__
   ? Platform.select({
       android: 'https://astrology.hcshub.in/api',
       ios: 'https://astrology.hcshub.in/api',

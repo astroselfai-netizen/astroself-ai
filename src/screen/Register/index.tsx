@@ -27,16 +27,18 @@ import UserService from '../../services/user/user.service';
 import GoogleAuthService from '../../services/googleAuthService';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setUser, setUserToken } from '../../state/slices/appSlice';
+import { RootState } from '../../state/store';
 
 // import Bigball from '../../assets/svgs/bigball.svg';
 // import IcBall from '../../assets/svgs/icBall.svg';
 // import Bg from '../../assets/svgs/bg.svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MainContainer } from '../../components/common/mainContainer';
+import { AuthContainer } from '../../components/common/AuthContainer';
 import { icons } from '../../assets';
+import { useTheme } from '../../context/ThemeContext';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -44,6 +46,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   HomeScreen: undefined;
   ContinueWithOtp: undefined;
+  AddNewMember: undefined;
   // Add other screens as needed
 };
 
@@ -57,7 +60,9 @@ type LoginScreenNavigationProp = StackNavigationProp<
 
 const Register = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
+  const { theme, colors } = useTheme();
   const dispatch = useDispatch();
+  const membersData = useSelector((state: RootState) => state.app.members);
   const [showPassword, setShowPassword] = useState(false);
   const [countryCode, setCountryCode] = useState('+91');
   const [isCcModalVisible, setIsCcModalVisible] = useState(false);
@@ -75,6 +80,18 @@ const Register = () => {
   };
 
   const countryCodes = COUNTRY_CODES;
+
+  // Helper function to navigate based on members data
+  const navigateAfterAuth = (current_members: number) => {
+    console.log('Checking members data for navigation:', membersData);
+    if (current_members === 0) {
+      console.log('No members found, navigating to AddNewMember');
+      navigation.replace('AddNewMember');
+    } else {
+      console.log('Members found, navigating to HomeScreen');
+      navigation.replace('HomeScreen');
+    }
+  };
 
   React.useEffect(() => {
     serviceFactory.create();
@@ -158,9 +175,12 @@ const Register = () => {
             topOffset: 60,
             visibilityTime: 3000,
           });
-          // After successful registration, go directly to Home like login flow
+          // After successful registration, check members data and navigate accordingly
           if (data?.access_token) {
-            navigation.replace('HomeScreen');
+            // Wait a bit for the profile data to be loaded, then check members
+            setTimeout(() => {
+              navigateAfterAuth(data.data.current_members);
+            }, 1000);
           } else {
             // Fallback: if token missing, go to Login
             navigation.navigate('Login');
@@ -225,7 +245,10 @@ const Register = () => {
           visibilityTime: 3000,
         });
 
-        navigation.replace('HomeScreen');
+        // Wait a bit for the profile data to be loaded, then check members
+        setTimeout(() => {
+          navigateAfterAuth(result?.user?.current_members);
+        }, 1000);
       } else {
         Toast.show({
           type: 'error',
@@ -253,9 +276,9 @@ const Register = () => {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       style={{ flex: 1, backgroundColor: '#202945' }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer>
+      <AuthContainer>
         {/* Sticky Header */}
         <View style={styles.stickyHeader}>
           <TouchableOpacity
@@ -264,15 +287,30 @@ const Register = () => {
           >
             <Image
               source={require('../../assets/icons/back.png')}
-              style={styles.backIcon}
+              style={[
+                styles.backIcon,
+                {
+                  tintColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
             />
           </TouchableOpacity>
           <View style={styles.backIconWrap}>
-
-          <Text style={styles.createAccountText}>Create an Account</Text>
+            <Text
+              style={[
+                styles.createAccountText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Create an Account
+            </Text>
           </View>
         </View>
-        
+
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -281,7 +319,7 @@ const Register = () => {
           {/* Title */}
           <View style={styles.titleWrap}>
             <Image
-              source={require('../../assets/icons/Subtract.png')}
+              source={require('../../assets/icons/Subtract-dark.png')}
               style={styles.sunIcon}
             />
           </View>
@@ -295,9 +333,22 @@ const Register = () => {
           {/* Form */}
           <View style={styles.formContainer}>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.Orangeaccentcolor,
+                      color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
               placeholder="First name"
-              placeholderTextColor="#EEE5CA"
+              placeholderTextColor={
+                theme === 'dark' ? colors.themeTextWhite : colors.themelightText
+              }
               value={formik.values.firstName}
               onChangeText={formik.handleChange('firstName')}
               onBlur={formik.handleBlur('firstName')}
@@ -306,9 +357,22 @@ const Register = () => {
               <Text style={styles.errorText}>{formik.errors.firstName}</Text>
             )}
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.Orangeaccentcolor,
+                      color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
               placeholder="Last name"
-              placeholderTextColor="#EEE5CA"
+              placeholderTextColor={
+                theme === 'dark' ? colors.themeTextWhite : colors.themelightText
+              }
               value={formik.values.lastName}
               onChangeText={formik.handleChange('lastName')}
               onBlur={formik.handleBlur('lastName')}
@@ -317,9 +381,22 @@ const Register = () => {
               <Text style={styles.errorText}>{formik.errors.lastName}</Text>
             )}
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.Orangeaccentcolor,
+                      color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
               placeholder="Email"
-              placeholderTextColor="#EEE5CA"
+              placeholderTextColor={
+                theme === 'dark' ? colors.themeTextWhite : colors.themelightText
+              }
               keyboardType="email-address"
               autoCapitalize="none"
               value={formik.values.email}
@@ -332,15 +409,54 @@ const Register = () => {
             <View style={styles.phoneRow}>
               <TouchableOpacity
                 onPress={() => setIsCcModalVisible(true)}
-                style={styles.ccButton}
+                style={[
+                  styles.ccButton,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.Orangeaccentcolor,
+                        color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  },
+                ]}
                 activeOpacity={0.8}
               >
-                <Text style={styles.ccText}>{countryCode}</Text>
+                <Text
+                  style={[
+                    styles.ccText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  {countryCode}
+                </Text>
               </TouchableOpacity>
               <TextInput
-                style={[styles.input, styles.phoneInput]}
+                style={[
+                  styles.input,
+                  styles.phoneInput,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.Orangeaccentcolor,
+                        color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  },
+                ]}
                 placeholder="Mobile"
-                placeholderTextColor="#EEE5CA"
+                placeholderTextColor={
+                  theme === 'dark'
+                    ? colors.themeTextWhite
+                    : colors.themelightText
+                }
                 keyboardType="phone-pad"
                 value={formik.values.phone}
                 onChangeText={formik.handleChange('phone')}
@@ -350,14 +466,41 @@ const Register = () => {
             {formik.touched.phone && formik.errors.phone && (
               <Text style={styles.errorText}>{formik.errors.phone}</Text>
             )}
-            <View style={styles.passwordInputContainer}>
+            <View
+              style={[
+                styles.passwordInputContainer,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.Orangeaccentcolor,
+                },
+              ]}
+            >
               <TextInput
                 style={[
                   styles.input,
-                  { flex: 1, marginBottom: 0, borderWidth: 0 },
+                  {
+                    flex: 1,
+                    marginBottom: 0,
+                    borderWidth: 0,
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.Orangeaccentcolor,
+                        color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  },
                 ]}
                 placeholder="Password"
-                placeholderTextColor={color.themeTextWhite}
+                placeholderTextColor={
+                  theme === 'dark'
+                    ? colors.themeTextWhite
+                    : colors.themelightText
+                }
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 value={formik.values.password}
@@ -371,11 +514,30 @@ const Register = () => {
                 <View style={styles.eyeIconWrapper}>
                   <Image
                     source={require('../../assets/icons/Show.png')}
-                    style={styles.eyeIcon}
+                    style={[
+                      styles.eyeIcon,
+                      {
+                        tintColor:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.themelightText,
+                      },
+                    ]}
                   />
                   {!showPassword && (
                     <View style={styles.crossLineContainer}>
-                      <View style={[styles.crossLine, styles.crossLine1]} />
+                      <View
+                        style={[
+                          styles.crossLine,
+                          styles.crossLine1,
+                          {
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.themelightText,
+                          },
+                        ]}
+                      />
                       {/* <View style={[styles.crossLine, styles.crossLine2]} /> */}
                     </View>
                   )}
@@ -385,7 +547,7 @@ const Register = () => {
             {formik.touched.password && formik.errors.password && (
               <Text style={styles.errorText}>{formik.errors.password}</Text>
             )}
-            
+
             {/* Password Strength Indicator */}
             {/* {formik.values.password.length > 0 && (
               <View style={styles.passwordStrengthContainer}>
@@ -436,32 +598,96 @@ const Register = () => {
                 {formik.isSubmitting ? 'Please wait...' : 'Create an Account'}
               </Text>
             </TouchableOpacity>
-            
+
             {/* Divider */}
             <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.orText}>OR</Text>
-              <View style={styles.divider} />
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.orText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              >
+                OR
+              </Text>
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              />
             </View>
-            
+
             {/* Google Signup */}
-            <TouchableOpacity 
-              style={styles.googleButton}
+            <TouchableOpacity
+              style={[
+                styles.googleButton,
+                {
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.primaryBlue,
+                },
+              ]}
               onPress={handleGoogleSignup}
             >
               <Image source={icons.Ic_google} style={styles.googleIcon} />
-              <Text style={styles.googleButtonText}>Sign up with Google</Text>
+              <Text
+                style={[
+                  styles.googleButtonText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.primaryBlue,
+                  },
+                ]}
+              >
+                Sign up with Google
+              </Text>
             </TouchableOpacity>
           </View>
           {/* Footer */}
           <View style={styles.footerWrap}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text
+              style={[
+                styles.footerText,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.themelightText,
+                },
+              ]}
+            >
+              Already have an account?{' '}
+            </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginLink}>Login</Text>
+              <Text style={[styles.loginLink]}>Login</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </MainContainer>
+      </AuthContainer>
       <Modal
         visible={isCcModalVisible}
         transparent
@@ -470,27 +696,83 @@ const Register = () => {
       >
         <TouchableOpacity
           activeOpacity={1}
-          style={styles.modalBackdrop}
+          style={[styles.modalBackdrop]}
           onPress={() => setIsCcModalVisible(false)}
         >
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHandle,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.DarkNavy,
+                },
+              ]}
+            />
             <FlatList
               data={countryCodes}
               keyExtractor={item => `${item.name}-${item.dialCode}`}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.ccItem}
+                  style={[
+                    styles.ccItem,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                    },
+                  ]}
                   onPress={() => {
                     setCountryCode(item.dialCode);
                     setIsCcModalVisible(false);
                   }}
                 >
-                  <Text style={styles.ccItemText}>{item.name}</Text>
-                  <Text style={styles.ccItemCode}>{item.dialCode}</Text>
+                  <Text
+                    style={[
+                      styles.ccItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {item.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.ccItemCode,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {item.dialCode}
+                  </Text>
                 </TouchableOpacity>
               )}
-              ItemSeparatorComponent={() => <View style={styles.ccSeparator} />}
+              ItemSeparatorComponent={() => (
+                <View
+                  style={[
+                    styles.ccSeparator,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                    },
+                  ]}
+                />
+              )}
               contentContainerStyle={{ paddingBottom: 12 }}
             />
           </View>
@@ -699,7 +981,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    // backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   modalSheet: {

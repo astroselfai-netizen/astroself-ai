@@ -16,6 +16,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import UserService from '../../services/user/user.service';
 import { CurrentDashaTimeResponse } from '../../types/api';
+import { useTheme } from '../../context/ThemeContext';
 
 interface CurrentSituationProps {
   // Define any props that the CurrentSituation component might need
@@ -24,6 +25,7 @@ interface CurrentSituationProps {
 
 const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId }) => {
   const navigation = useNavigation<any>();
+  const { theme, colors } = useTheme();
   const [dashaData, setDashaData] = useState<CurrentDashaTimeResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +102,16 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId })
   ];
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme === 'dark' ? colors.primary : colors.DarkNavy,
+          borderColor:
+            theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+        },
+      ]}
+    >
       <View style={styles.content}>
         {/* {error && (
           <View style={styles.errorContainer}>
@@ -112,20 +123,56 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId })
         )} */}
         <View style={styles.cardsGrid}>
           {cards.map(card => (
-            <TouchableOpacity 
-              key={card.id} 
-              style={[styles.card, loading && card.id === 1 && styles.loadingCard]} 
+            <TouchableOpacity
+              key={card.id}
+              style={[
+                styles.card,
+                loading && card.id === 1 && styles.loadingCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.surface,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                  boxShadow:
+                    theme === 'dark'
+                      ? ''
+                      : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
+                },
+              ]}
               onPress={() => !loading && handleCardPress(card.value)}
               disabled={loading && card.id === 1}
             >
               <View style={styles.cardIconContainer}>
                 {loading && card.id === 1 ? (
-                  <ActivityIndicator size="small" color={color.themeTextWhite} />
+                  <ActivityIndicator
+                    size="small"
+                    color={color.themeTextWhite}
+                  />
                 ) : (
-                  <Image source={card.icon} style={{width: responsiveWidth(15), height: responsiveWidth(15)}} />
+                  <Image
+                    source={card.icon}
+                    style={{
+                      width: responsiveWidth(15),
+                      height: responsiveWidth(15),
+                    }}
+                  />
                 )}
               </View>
-              <Text style={styles.cardText}>{card.title}</Text>
+              <Text
+                style={[
+                  styles.cardText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {card.title}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>

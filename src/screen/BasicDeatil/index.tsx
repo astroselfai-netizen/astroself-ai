@@ -127,7 +127,7 @@ const BasicDeatil = () => {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       style={styles.container}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
       <MainContainer>
         <ScrollView
@@ -331,13 +331,21 @@ const BasicDeatil = () => {
               keyExtractor={item => item}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.modalItem}
+                  style={[
+                    styles.modalItem,
+                    formik.values.gender === item && styles.selectedModalItem
+                  ]}
                   onPress={() => {
                     formik.setFieldValue('gender', item);
                     setShowGenderModal(false);
                   }}
                 >
-                  <Text style={styles.modalItemText}>{item}</Text>
+                  <Text style={[
+                    styles.modalItemText,
+                    formik.values.gender === item && styles.selectedModalItemText
+                  ]}>
+                    {item}
+                  </Text>
                 </TouchableOpacity>
               )}
               ItemSeparatorComponent={() => (
@@ -476,13 +484,21 @@ const BasicDeatil = () => {
               keyExtractor={item => item}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.modalItem}
+                  style={[
+                    styles.modalItem,
+                    formik.values.occupation === item && styles.selectedModalItem
+                  ]}
                   onPress={() => {
                     formik.setFieldValue('occupation', item);
                     setShowOccupationModal(false);
                   }}
                 >
-                  <Text style={styles.modalItemText}>{item}</Text>
+                  <Text style={[
+                    styles.modalItemText,
+                    formik.values.occupation === item && styles.selectedModalItemText
+                  ]}>
+                    {item}
+                  </Text>
                 </TouchableOpacity>
               )}
               ItemSeparatorComponent={() => (
@@ -631,10 +647,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
+  selectedModalItem: {
+    backgroundColor: '#FF8C00',
+    borderRadius: 8,
+    marginHorizontal: 16,
+  },
   modalItemText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontFamily: fontFamily.regular,
+  },
+  selectedModalItemText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   modalSeparator: {
     height: 1,

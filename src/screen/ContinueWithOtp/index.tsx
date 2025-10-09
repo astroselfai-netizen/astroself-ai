@@ -17,17 +17,22 @@ import {
 import { responsiveHeight, responsiveWidth, fontFamily, color } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MainContainer } from '../../components/common/mainContainer';
+import { AuthContainer } from '../../components/common/AuthContainer';
 import { icons } from '../../assets';
 import UserService from '../../services/user/user.service';
 import { useDispatch } from 'react-redux';
 import { setUser, setUserToken } from '../../state/slices/appSlice';
+import { useTheme } from '../../context/ThemeContext';
+import { Toast } from 'react-native-toast-message/lib/src/Toast';
+import serviceFactory from '../../services/serviceFactory';
+import GoogleAuthService from '../../services/googleAuthService';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
   Register: undefined; // Register screen
   ForgotPassword: undefined;
   HomeScreen: undefined;
+  AddNewMember: undefined;
   // Add other screens as needed
 };
 
@@ -38,6 +43,9 @@ type LoginScreenNavigationProp = StackNavigationProp<
 >;
 
 const ContinueWithOtp = () => {
+  const { theme, colors } = useTheme();
+    const googleAuthService =
+      serviceFactory.get<GoogleAuthService>('GoogleAuthService');
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const dispatch = useDispatch();
   const [email, setEmail] = useState('');
@@ -130,6 +138,14 @@ const ContinueWithOtp = () => {
     }
   };
 
+  const navigateAfterAuth = (current_members: number) => {
+    if (current_members === 0) {
+      navigation.navigate('AddNewMember');
+    } else {
+      navigation.navigate('HomeScreen');
+    }
+  };
+
   const handleLogin = async () => {
     if (!isOtpComplete) return;
     
@@ -147,7 +163,9 @@ const ContinueWithOtp = () => {
         if (response.access_token) {
           dispatch(setUserToken(response.access_token));
         }
-        navigation.navigate('HomeScreen');
+        setTimeout(() => {
+          navigateAfterAuth(response.data.current_members);
+        }, 1000);
       }
       
       // Alert.alert(
@@ -206,13 +224,73 @@ const ContinueWithOtp = () => {
     };
   }, [isOtpActive, countdown]);
 
+ const handleGoogleLogin = async () => {
+   try {
+     const result = await googleAuthService.signInWithGoogle();
+
+     if (result.success) {
+       // Use the user data from your backend API
+       const userData = result.user;
+       const token = result.token || result.idToken;
+
+       // Dispatch user data to Redux state
+       dispatch(setUser(userData));
+       if (token) {
+         dispatch(setUserToken(token));
+       }
+
+       const message = result.isNewUser
+         ? 'Welcome! Your account has been created with Google.'
+         : 'Welcome back! You have successfully logged in with Google.';
+
+       Toast.show({
+         type: 'success',
+         text1: result.isNewUser
+           ? 'Registration Successful'
+           : 'Login Successful',
+         text2: message,
+         position: 'top',
+         topOffset: 60,
+         visibilityTime: 3000,
+       });
+
+       setTimeout(() => {
+         navigateAfterAuth(result?.user?.current_members);
+       }, 1000);
+
+       // navigation.replace('HomeScreen');
+      //  navigation.navigate('HomeScreen');
+     } else {
+       Toast.show({
+         type: 'error',
+         text1: 'Google Login Failed',
+         text2:
+           result.error || 'Failed to login with Google. Please try again.',
+         position: 'top',
+         topOffset: 60,
+         visibilityTime: 3000,
+       });
+     }
+   } catch (error: any) {
+     console.log('Google Login Error:', error);
+     Toast.show({
+       type: 'error',
+       text1: 'Error',
+       text2: 'Something went wrong with Google login. Please try again.',
+       position: 'top',
+       topOffset: 60,
+       visibilityTime: 3000,
+     });
+   }
+ };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       style={{ flex: 1, backgroundColor: '#202945' }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer>
+      <AuthContainer>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -223,20 +301,38 @@ const ContinueWithOtp = () => {
             <TouchableOpacity onPress={handleBack}>
               <Image
                 source={require('../../assets/icons/back.png')}
-                style={styles.backBtn}
+                style={[
+                  styles.backBtn,
+                  {
+                    tintColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
               />
             </TouchableOpacity>
             <View style={styles.backIconWrap}>
-
-            <Text style={styles.headerTitle}>Continue with OTP</Text>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Continue with OTP
+              </Text>
             </View>
-
           </View>
 
           {/* Astroself logo and OTP illustration */}
           <View style={styles.headerContainer}>
             <Image
-              source={require('../../assets/icons/Subtract.png')}
+              source={require('../../assets/icons/Subtract-dark.png')}
               style={styles.astroIcon}
             />
             <Image
@@ -250,10 +346,22 @@ const ContinueWithOtp = () => {
             <TextInput
               style={[
                 styles.input,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.Orangeaccentcolor,
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
                 email.length > 0 && !isEmailValid && styles.inputError,
               ]}
               placeholder="Enter Email"
-              placeholderTextColor="#B0B3C7"
+              placeholderTextColor={
+                theme === 'dark' ? colors.themeTextWhite : colors.themelightText
+              }
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -281,7 +389,21 @@ const ContinueWithOtp = () => {
                   <TextInput
                     key={idx}
                     ref={otpRefs[idx]}
-                    style={styles.otpBox}
+                    style={[
+                      styles.otpBox,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavy : colors.white,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeBorderDropdown
+                            : colors.Orangeaccentcolor,
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
                     keyboardType="number-pad"
                     maxLength={1}
                     value={digit}
@@ -298,7 +420,19 @@ const ContinueWithOtp = () => {
               onPress={() => navigation.navigate('ForgotPassword')}
               style={styles.forgotPasswordBtn}
             >
-              <Text style={styles.forgotPassword}>Forgot Password?</Text>
+              <Text
+                style={[
+                  styles.forgotPassword,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              >
+                Forgot Password?
+              </Text>
             </TouchableOpacity>
 
             {/* Login Button - visible after first send (during and after countdown) */}
@@ -306,6 +440,16 @@ const ContinueWithOtp = () => {
               <TouchableOpacity
                 style={[
                   styles.loginButton,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.Orangeaccentcolor
+                        : colors.Orangeaccentcolor,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.Orangeaccentcolor,
+                  },
                   (!isOtpComplete || isVerifying) && styles.loginButtonDisabled,
                 ]}
                 onPress={handleLogin}
@@ -322,12 +466,32 @@ const ContinueWithOtp = () => {
               <TouchableOpacity
                 style={[
                   styles.otpButton,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.Orangeaccentcolor
+                        : colors.Orangeaccentcolor,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.Orangeaccentcolor
+                        : colors.Orangeaccentcolor,
+                  },
                   (!isEmailValid || isLoading) && styles.otpButtonDisabled,
                 ]}
                 onPress={handleSendOtp}
                 disabled={!isEmailValid || isLoading}
               >
-                <Text style={styles.otpButtonText}>
+                <Text
+                  style={[
+                    styles.otpButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : color.themeTextWhite,
+                    },
+                  ]}
+                >
                   {isLoading ? 'Sending...' : 'Send OTP'}
                 </Text>
               </TouchableOpacity>
@@ -336,7 +500,17 @@ const ContinueWithOtp = () => {
             {/* Countdown during active OTP window */}
             {isOtpActive ? (
               <View style={styles.resendRow}>
-                <Text style={styles.resendText}>
+                <Text
+                  style={[
+                    styles.resendText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.themelightText,
+                    },
+                  ]}
+                >
                   Time remaining:{' '}
                   {String(Math.floor(countdown / 60)).padStart(2, '0')}:
                   {String(countdown % 60).padStart(2, '0')}
@@ -347,7 +521,19 @@ const ContinueWithOtp = () => {
             {/* After first send, when not active, show Resend OTP text (not button) */}
             {!isOtpActive && hasSentOnce ? (
               <View style={styles.resendRow}>
-                <Text style={styles.resendText}>Didn't receive the code? </Text>
+                <Text
+                  style={[
+                    styles.resendText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.themelightText,
+                    },
+                  ]}
+                >
+                  Didn't receive the code?{' '}
+                </Text>
                 <TouchableOpacity
                   onPress={handleResendOtp}
                   disabled={isLoading}
@@ -356,6 +542,7 @@ const ContinueWithOtp = () => {
                     style={[
                       styles.resendLink,
                       isLoading && styles.resendLinkDisabled,
+                      // { color: theme === 'dark' ? colors.themeTextWhite : colors.themelightText},
                     ]}
                   >
                     {isLoading ? 'Sending...' : 'Resend OTP'}
@@ -366,20 +553,76 @@ const ContinueWithOtp = () => {
 
             {/* Divider */}
             <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.orText}>OR</Text>
-              <View style={styles.divider} />
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.orText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              >
+                OR
+              </Text>
+              <View
+                style={[
+                  styles.divider,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.themelightText,
+                  },
+                ]}
+              />
             </View>
 
             {/* Google Login */}
-            <TouchableOpacity style={styles.googleButton}>
+            <TouchableOpacity
+              onPress={handleGoogleLogin}
+              style={[
+                styles.googleButton,
+                {
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.primaryBlue,
+                },
+              ]}
+            >
               {/* <Text style={styles.googleG}>G</Text> */}
               <Image source={icons.Ic_google} style={styles.googleG} />
-              <Text style={styles.googleButtonText}> Login with Google</Text>
+              <Text
+                style={[
+                  styles.googleButtonText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.primaryBlue,
+                  },
+                ]}
+              >
+                {' '}
+                Login with Google
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </MainContainer>
+      </AuthContainer>
     </KeyboardAvoidingView>
   );
 };

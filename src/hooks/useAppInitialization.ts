@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setUser, setUserToken } from '../state/slices/appSlice';
+import { setUser, setUserToken, setMembers } from '../state/slices/appSlice';
 import serviceFactory from '../services/serviceFactory';
+import UserService from '../services/user/user.service';
 
 export const useAppInitialization = () => {
   const dispatch = useDispatch();
@@ -31,6 +32,30 @@ export const useAppInitialization = () => {
             // Dispatch user data to Redux state
             dispatch(setUser(userData));
             dispatch(setUserToken(userToken));
+            
+            // Fetch profile data including members immediately
+            try {
+              const userService = new UserService();
+              const profileResponse = await userService.getProfileData(userData._id || userData.user_id, 0);
+              
+              if (profileResponse.status && profileResponse.data.user_details) {
+                console.log('Profile data fetched during app initialization');
+                console.log('Members data length:', profileResponse.data.data?.length);
+                console.log('Members data:', profileResponse.data.data);
+                
+                // Update user data with latest profile info
+                dispatch(setUser(profileResponse.data.user_details));
+                // Set members data
+                dispatch(setMembers(profileResponse.data.data as any));
+                
+                console.log('Profile and members data loaded successfully during app initialization');
+              }
+            } catch (profileError) {
+              console.error('Error fetching profile data during app initialization:', profileError);
+              // Don't clear user data if profile fetch fails, just log the error
+              // The user can still use the app, profile data will be fetched later
+            }
+            
             console.log('App initialized with user data from storage');
           } catch (parseError) {
             console.error('Error parsing user data from storage:', parseError);

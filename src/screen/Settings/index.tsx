@@ -18,13 +18,11 @@ import {
   responsiveWidth,
   fontFamily,
   responsiveHeight,
-  font,
-  color,
 } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
-import { icons } from '../../assets';
+import { useTheme } from '../../context/ThemeContext';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -33,6 +31,11 @@ export type RootStackParamList = {
   HomeScreen: undefined;
   ContinueWithOtp: undefined;
   ForgotPasswordOtp: undefined;
+  PrivacyPolicyScreen: undefined; // Privacy Policy screen
+  TermsAndConditions: undefined; // Terms and Conditions screen
+  AboutUsScreen: undefined; // About Us screen
+  ResourcesScreen: undefined; // Resources screen
+  PaidPlanScreen: undefined; // Paid Plan screen
   // Add other screens as needed
 };
 
@@ -50,9 +53,13 @@ const settingsList = [
         icon: require('../../assets/icons/notification.png'),
         label: 'Notification',
       },
-      // { icon: require('../../assets/icons/Security.png'), label: 'Security' },
+      { icon: require('../../assets/icons/PaidPlan.png'), label: 'Paid Plan' },
       {
-        icon: require('../../assets/icons/EditThem.png'),
+        icon: require('../../assets/icons/Resources.png'),
+        label: 'Resources',
+      },
+      {
+        icon: require('../../assets/icons/LanguageIcon.png'),
         label: 'Language',
         right: 'English (US)',
       },
@@ -72,10 +79,10 @@ const settingsList = [
         icon: require('../../assets/icons/document.png'),
         label: 'Privacy & Policy',
       },
-      // {
-      //   icon: require('../../assets/icons/Terms-of-Services.png'),
-      //   label: 'Terms of Services',
-      // },
+      {
+        icon: require('../../assets/icons/Terms-of-Services.png'),
+        label: 'Terms of Services',
+      },
       { icon: require('../../assets/icons/About-us.png'), label: 'About us' },
     ],
   },
@@ -83,7 +90,13 @@ const settingsList = [
 
 const SettingsScreen = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
-  const [darkMode, setDarkMode] = useState(true);
+  const { theme, toggleTheme, colors } = useTheme();
+  const [darkMode, setDarkMode] = useState(theme === 'dark');
+
+  // Sync local state with theme context
+  React.useEffect(() => {
+    setDarkMode(theme === 'dark');
+  }, [theme]);
 
   const handleLogout = async () => {
     try {
@@ -95,17 +108,42 @@ const SettingsScreen = () => {
     }
   };
 
+  const handleThemeToggle = () => {
+    toggleTheme();
+  };
+
+  const handlePrivacyPolicyPress = () => {
+    navigation.navigate('PrivacyPolicyScreen');
+  };
+
+  const handleTermsOfServicesPress = () => {
+    navigation.navigate('TermsAndConditions');
+  };
+
+  const handleAboutUsPress = () => {
+    navigation.navigate('AboutUsScreen');
+  };
+
+  const handleResourcesPress = (label: string) => {
+    // console.log('label', label);
+    if (label === 'Resources') {
+      navigation.navigate('ResourcesScreen');
+    } else if (label === 'Paid Plan') {
+      navigation.navigate('PaidPlanScreen');
+    }
+  };
+
   return (
-    <View style={styles.safeArea}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar
-        barStyle="light-content"
+        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent={true}
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.container}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
         <MainContainer>
           <ScrollView
@@ -121,38 +159,84 @@ const SettingsScreen = () => {
               >
                 <Image source={icons.Icback} style={styles.backIcon} />
               </TouchableOpacity> */}
-              <View
-                style={{
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  flex: 1,
-                }}
-              >
-                <Text style={styles.headerTitle}>Settings</Text>
+              <View style={styles.headerCenter}>
+                <Text
+                  style={[styles.headerTitle, { color: colors.textPrimary }]}
+                >
+                  Settings
+                </Text>
               </View>
             </View>
 
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>General</Text>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                General
+              </Text>
               {settingsList[0].data.map((item, idx) => (
                 <TouchableOpacity
                   key={idx}
                   style={styles.row}
                   activeOpacity={0.7}
+                  onPress={() => handleResourcesPress(item.label)}
                   disabled={item.isSwitch}
                 >
-                  <View style={styles.iconWrap}>
-                    <Image source={item.icon} style={styles.icon} />
+                  <View style={[styles.iconWrap]}>
+                    <Image
+                      source={item.icon}
+                      style={[
+                        styles.icon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    />
                   </View>
-                  <Text style={styles.label}>{item.label}</Text>
+                  <Text
+                    style={[
+                      styles.label,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
                   {item.right && (
-                    <Text style={styles.rightText}>{item.right}</Text>
+                    <Text
+                      style={[
+                        styles.rightText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {item.right}
+                    </Text>
                   )}
                   {item.isSwitch && (
                     <Switch
                       value={darkMode}
-                      onValueChange={setDarkMode}
-                      trackColor={{ false: '#767577', true: '#DF8A5D' }}
+                      onValueChange={handleThemeToggle}
+                      trackColor={{ false: '#767577', true: colors.accent }}
                       thumbColor={darkMode ? '#fff' : '#f4f3f4'}
                       style={styles.switch}
                     />
@@ -161,25 +245,89 @@ const SettingsScreen = () => {
               ))}
             </View>
 
-            <View style={styles.divider} />
+            <View
+              style={[
+                styles.divider,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.surfaceOpacity
+                      : colors.primaryBlue,
+                },
+              ]}
+            />
 
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>About</Text>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                About
+              </Text>
               {settingsList[1].data.map((item, idx) => (
                 <TouchableOpacity
                   key={idx}
                   style={styles.row}
                   activeOpacity={0.7}
+                  onPress={
+                    item.label === 'Privacy & Policy'
+                      ? handlePrivacyPolicyPress
+                      : item.label === 'Terms of Services'
+                      ? handleTermsOfServicesPress
+                      : item.label === 'About us'
+                      ? handleAboutUsPress
+                      : undefined
+                  }
                 >
-                  <View style={styles.iconWrap}>
-                    <Image source={item.icon} style={styles.icon} />
+                  <View style={[styles.iconWrap]}>
+                    <Image
+                      source={item.icon}
+                      style={[
+                        styles.icon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    />
                   </View>
-                  <Text style={styles.label}>{item.label}</Text>
+                  <Text
+                    style={[
+                      styles.label,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <View style={styles.divider} />
+            <View
+              style={[
+                styles.divider,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.surfaceOpacity
+                      : colors.primaryBlue,
+                },
+              ]}
+            />
 
             {/* <TouchableOpacity style={styles.deactivateBtn} activeOpacity={0.7}>
               <Image
@@ -195,9 +343,11 @@ const SettingsScreen = () => {
             >
               <Image
                 source={require('../../assets/icons/Log-out.png')}
-                style={styles.logoutIcon}
+                style={[styles.logoutIcon, { tintColor: colors.accent }]}
               />
-              <Text style={styles.logoutText}>Logout</Text>
+              <Text style={[styles.logoutText, { color: colors.accent }]}>
+                Logout
+              </Text>
             </TouchableOpacity>
           </ScrollView>
         </MainContainer>
@@ -209,7 +359,6 @@ const SettingsScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#202945',
   },
   scrollViewContent: {
     flexGrow: 1,
@@ -242,8 +391,12 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     tintColor: '#F6EFD9',
   },
+  headerCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+  },
   headerTitle: {
-    color: color.themeTextWhite,
     fontSize: 24,
     fontFamily: fontFamily.regular,
     // fontWeight: '600',
@@ -254,7 +407,6 @@ const styles = StyleSheet.create({
     // marginBottom: 16,
   },
   sectionTitle: {
-    color: color.themeTextWhite,
     // ...font.body,
     fontSize: 14,
     fontWeight: '600',
@@ -274,8 +426,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor:
-      Platform.OS === 'android' ? 'rgba(255,255,255,0.05)' : 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -284,17 +434,14 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     resizeMode: 'contain',
-    tintColor: color.themeTextWhite,
   },
   label: {
-    color: color.themeTextWhite,
     // ...font.body,
     fontSize: 14,
     fontFamily: fontFamily.regular,
     flex: 1,
   },
   rightText: {
-    color: color.themeTextWhite,
     // ...font.body,
     fontSize: 14,
     fontFamily: fontFamily.regular,
@@ -321,7 +468,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     resizeMode: 'contain',
-    tintColor: '#DF8A5D',
+    // tintColor: '#DF8A5D',
     marginRight: 10,
   },
   deactivateText: {
@@ -346,7 +493,6 @@ const styles = StyleSheet.create({
     marginRight: 20,
   },
   logoutText: {
-    color: '#DF8A5D',
     // ...font.body,
     fontSize: 14,
     fontFamily: fontFamily.regular,
