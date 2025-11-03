@@ -20,11 +20,15 @@ export enum HttpStatusCode {
 
 export const baseURL = __DEV__
   ? Platform.select({
-      android: 'https://astrology.hcshub.in/api',
-      ios: 'https://astrology.hcshub.in/api',
-      default: 'https://astrology.hcshub.in/api',
+      android: 'https://uat.astroself.ai/api',
+      ios: 'https://uat.astroself.ai/api',
+      default: 'https://uat.astroself.ai/api',
     })
-  : 'https://astrology.hcshub.in/api'; // Production URL
+  : Platform.select({
+      android: 'https://uat.astroself.ai/api',
+      ios: 'https://uat.astroself.ai/api',
+      default: 'https://uat.astroself.ai/api',
+    }); // Production URL
 
 // Create Axios instance with default headers
 const http = axios.create({
@@ -32,7 +36,7 @@ const http = axios.create({
   timeout: 30000, // Increased timeout to 30 seconds
   headers: {
     "Content-Type": "application/json",
-    Accept: "application/json",
+    "Accept": "application/json",
   },
 });
 

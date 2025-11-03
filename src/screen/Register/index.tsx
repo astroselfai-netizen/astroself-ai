@@ -47,6 +47,7 @@ export type RootStackParamList = {
   HomeScreen: undefined;
   ContinueWithOtp: undefined;
   AddNewMember: undefined;
+  BasicDeatil: undefined;
   // Add other screens as needed
 };
 

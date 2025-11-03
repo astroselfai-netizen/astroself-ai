@@ -1,7 +1,11 @@
 module.exports = {
   project: {
     ios: {},
-    android: {},
+    android: {
+      sourceDir: './android',
+      appName: 'app',
+      packageName: 'com.astroself.ai',
+    },
   },
   assets: ['./src/assets/fonts/'],
 };

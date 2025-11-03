@@ -66,7 +66,7 @@
 -dontwarn com.google.android.apps.nbu.paisa.inapp.client.api.WalletUtils
 
 # Keep your app's main classes
--keep class com.astroself.** { *; }
+-keep class com.astroself.ai.** { *; }
 
 # Keep all classes that might be accessed via reflection
 -keepattributes *Annotation*

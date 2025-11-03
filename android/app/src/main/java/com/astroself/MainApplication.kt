@@ -1,4 +1,4 @@
-package com.astroself
+package com.astroself.ai
 
 import android.app.Application
 import com.facebook.react.PackageList

@@ -20,7 +20,7 @@ import {
 import LottieView from 'lottie-react-native';
 
 import { MainContainer } from '../../components/common/mainContainer';
-import { responsiveWidth, font, fontFamily, color } from '../../constant/theme';
+import { responsiveWidth, font, fontFamily, color, responsiveHeight } from '../../constant/theme';
 import ChartsScreen from '../../components/ChartsScreen/ChartsScreen';
 import DashaScreen from '../../components/DashaScreen/DashaScreen';
 import moment from 'moment';
@@ -41,7 +41,7 @@ import { baseURL } from '../../utils/http';
 type RootStackParamList = {
   NakshatraScreen: { userId: string };
   AddNewMember: undefined;
-  ChatScreen: undefined;
+  ChatScreen: { userId: string };
 };
 
 type NakshatraScreenRouteProp = RouteProp<
@@ -716,6 +716,58 @@ const NakshatraScreen = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Dasha Overview */}
+        {/* Astro AI Chat Card */}
+        <View
+          style={[
+            styles.astroCard,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.primary : colors.DarkNavy,
+            },
+          ]}
+        >
+          <View style={styles.astroContent}>
+            <View style={styles.astroContentLeft}>
+              {' '}
+              <Text
+                style={[
+                  styles.astroTitle,
+                  {
+                    color: theme === 'dark' ? colors.DarkNavy : colors.surface,
+                  },
+                ]}
+              >
+                Gain clarity on your life, career & relationships
+              </Text>
+            </View>
+            <View style={styles.astroContentRight}>
+              <TouchableOpacity
+                style={[
+                  styles.astroButton,
+                  { backgroundColor: colors.Orangeaccentcolor },
+                ]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (selectedMemberId) {
+                    navigation.navigate('ChatScreen', { userId: selectedMemberId });
+                  } else {
+                    Alert.alert('Error', 'Please select a member first');
+                  }
+                }}
+              >
+                <Text style={[styles.astroButtonText, { color: colors.white }]}>
+                 See Predictions
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {/* <Image
+            source={require('../../assets/image/Ai-robot.png')}
+            style={styles.astroImage}
+          /> */}
+        </View>
+
         {/* Tab Button Section */}
         <View style={styles.tabContainer}>
           <View
@@ -805,52 +857,6 @@ const NakshatraScreen = () => {
           }
           style={styles.tabContentContainer}
         >
-          {/* Dasha Overview */}
-          {/* Astro AI Chat Card */}
-          <View
-            style={[
-              styles.astroCard,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.primary : colors.DarkNavy,
-              },
-            ]}
-          >
-            <View style={styles.astroContent}>
-              <Text
-                style={[
-                  styles.astroTitle,
-                  {
-                    color:
-                      theme === 'dark' ? colors.DarkNavy : colors.surface,
-                  },
-                ]}
-              >
-                Ask questions about your life, career, relationships
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.astroButton,
-                  { backgroundColor: colors.Orangeaccentcolor },
-                ]}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate('ChatScreen')}
-              >
-                <Text
-                  style={[styles.astroButtonText, { color: colors.white }]}
-                >
-                  Chat with Astro AI
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <Image
-              source={require('../../assets/image/Ai-robot.png')}
-              style={styles.astroImage}
-            />
-          </View>
-          
-
-
           {selectedTab === 'Dasha' && (
             <ImageBackground
               source={
@@ -1463,19 +1469,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     justifyContent: 'flex-start',
+    // overflow: 'hidden',
     alignItems: 'center',
     paddingTop:
-      Platform.OS === 'ios' ? responsiveWidth('40') : responsiveWidth('30'), // Adjust this value to position below the button
+      Platform.OS === 'ios' ? responsiveWidth('40') : responsiveHeight('11'), // Adjust this value to position below the button
   },
   modalDropdownContainer: {
     width: '92%',
+    overflow: 'hidden',
+    borderRadius: 10,
     maxWidth: responsiveWidth('92'),
     alignSelf: 'center',
   },
   dropdownContainer: {
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: 0.2,
     maxHeight: 230,
+    overflow: 'hidden',
     elevation: 10, // For Android shadow
     shadowColor: '#000', // For iOS shadow
     shadowOffset: {
@@ -1488,7 +1498,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.2,
   },
   searchInput: {
     borderRadius: 8,
@@ -1496,7 +1506,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     fontFamily: fontFamily.regular,
-    borderWidth: 1,
+    borderWidth: 0.2,
   },
   flatListStyle: {
     maxHeight: 200,
@@ -1504,7 +1514,7 @@ const styles = StyleSheet.create({
   dropdownItem: {
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: 0.5,
+    borderBottomWidth: 0.2,
   },
   dropdownItemText: {
     fontSize: 16,
@@ -1560,33 +1570,50 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   astroCard: {
+    // flex:0.5,
+    // width: '100%',
+    flexDirection: 'row',
+    // justifyContent: "space-between",
+    alignItems: 'center',
     borderRadius: 16,
     marginHorizontal: responsiveWidth('3'),
-    marginTop: responsiveWidth('1.5'),
-    marginBottom: responsiveWidth('4'),
-    flexDirection: 'row',
+    // marginTop: responsiveWidth(''),
+    marginBottom: responsiveWidth('5'),
+    // flexDirection: 'row',
+    // flex: 1,
+    // justifyContent: 'center',
+    // alignItems: 'center',
     // shadowColor: '#000',
     // shadowOffset: {
     //   width: 0,
     //   height: 2,
+    // flexWrap: 'wrap',
     // },
     // shadowOpacity: 0.1,
     // shadowRadius: 4,
     // elevation: 3,
   },
   astroContent: {
-    flex: 1,
-    padding: responsiveWidth('3'),
+    // flex: 1,
+    width: '100%',
+    // flexWrap: 'wrap',
+    flexDirection: 'row',
+    justifyContent: "space-between",
+    alignItems: 'center',
+    paddingVertical: responsiveWidth('1'),
+    paddingHorizontal: responsiveWidth('3'),
     // paddingBottom: responsiveWidth('2'),
   },
+  astroContentLeft: {
+    width: '60%',
+  },
+  astroContentRight: {
+  },
   astroTitle: {
-    // ...font.subtitleLarge,
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: fontFamily.regular,
     lineHeight: 30,
     marginBottom: responsiveWidth('2'),
-    // paddingBottom: responsiveWidth('2'),
-    // letterSpacing: -0.14,
     textAlignVertical: 'center',
   },
   astroButton: {
@@ -1596,7 +1623,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     // width: responsiveHeight('15'),
     paddingHorizontal: 14,
-    marginTop: responsiveWidth('1'),
+    // marginTop: responsiveWidth('1'),
     alignSelf: 'flex-start',
   },
   astroButtonText: {

@@ -24,10 +24,11 @@ import { RootState } from './src/state/store';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
 import { useNotifications } from './src/hooks/useNotifications';
 import PermissionRequestModal from './src/components/PermissionRequestModal';
-import NotificationBanner from './src/components/NotificationBanner';
+// import NotificationBanner from './src/components/NotificationBanner';
 import permissionChecker from './src/utils/permissionChecker';
 import CrashlyticsService from './src/services/crashlyticsService';
 import { ThemeProvider } from './src/context/ThemeContext';
+
 // import iOSDebugInfo from './src/components/iOSDebugInfo';
 // Enable optimized screens
 enableScreens();
@@ -39,6 +40,8 @@ LogBox.ignoreAllLogs();
 function App() {
   // Initialize app with user data from AsyncStorage
   useAppInitialization();
+
+  
   
   // Initialize push notifications
   const { fcmToken, isNotificationEnabled, isLoading } = useNotifications();
@@ -107,7 +110,7 @@ function App() {
           {/* <View key={keyState}> */}
           <MainNavigator />
           {/* </View> */}
-          <Toast />
+          <Toast  />
           
           {/* Notification Banner */}
           {/* <NotificationBanner

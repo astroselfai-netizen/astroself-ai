@@ -23,6 +23,7 @@ class GoogleAuthService extends Service {
   private configureGoogleSignIn() {
     GoogleSignin.configure({
       iosClientId: '1061722426474-h0pi8l8lecf8mcba76er53ffc21ho48v.apps.googleusercontent.com',
+      // androidClientId: '1061722426474-3aivdpu11tr8i1h52a54ovkrv8ls021p.apps.googleusercontent.com',
       webClientId:
         Platform.OS === 'ios'
           ? '1061722426474-h0pi8l8lecf8mcba76er53ffc21ho48v.apps.googleusercontent.com' // iOS web client ID

@@ -442,6 +442,9 @@ export default class UserService extends Service {
       if (mainHeading === "Snapshot Prediction") {
         topic = "Snapshot Prediction";
       }
+      if (mainHeading === "Your Personality") {
+        topic = 'Blended Predictions';
+      }
 
       console.log('mainHeading---->399', mainHeading);
       console.log('topic---->400', topic);
@@ -455,7 +458,7 @@ export default class UserService extends Service {
 
 
         const axiosResponse = await http.get(
-          `house/categorize?user_id=${userId}&main_heading=${encodeURIComponent(
+          `house/categorize?user_id=${'68d270d48cfd6790177aa4fd'}&main_heading=${encodeURIComponent(
             mainHeading,
           )}&topic=${encodeURIComponent(topic)}`,
           {
@@ -748,17 +751,30 @@ export default class UserService extends Service {
   async getGenerateHeadingAiResponse(
     userId: string,
     topic: string,
-    subTopic: string
+    subTopic: string,
+    current_plan: string
+
   ): Promise<Api.AIResponse> {
     try {
-      console.log('Fetching AI response for userId:', userId, 'topic:', topic, 'subTopic:', subTopic);
+      console.log(
+        'Fetching AI response for userId:',
+        userId,
+        'topic:',
+        topic,
+        'subTopic:',
+        subTopic,
+        'plan:',
+        current_plan,
+      );
 
       if (subTopic === 'Your tendencies') {
         console.log('subTopic---->702', subTopic);
         subTopic = 'about_house';
       }
 
-      const fullUrl = `house/get-sub-topic-analysis/data/topic/generate/?user_id=${userId}&plan=eternal_path&topic=${encodeURIComponent(
+    
+
+      const fullUrl = `house/get-sub-topic-analysis/data/topic/generate/?user_id=${userId}&plan=${current_plan}&topic=${encodeURIComponent(
         topic,
       )}&sub_topic=${encodeURIComponent(subTopic)}`;
       
@@ -795,12 +811,26 @@ export default class UserService extends Service {
       throw new Error('Invalid response format from AI response API');
     } catch (error: any) {
       console.error('Get AI response error in service:', error);
+      console.log('Error response data:', error.response?.data);
       
       // Handle specific error cases
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         throw new Error('Request timed out. The AI response is taking longer than expected. Please try again.');
       } else if (error.response?.status === 400) {
-        throw new Error('Invalid request parameters.');
+        // Handle plan access errors specifically
+        const errorDetail = error.response?.data?.detail;
+
+        console.log('errorDetail---->662', errorDetail);
+
+        if (errorDetail && errorDetail.includes('does not allow access to level')) {
+          // const planMatch = errorDetail.match(/Plan '([^']+)' does not allow access to level (\d+)/);
+          // if (planMatch) {
+            // const [, planName, level] = planMatch;
+            throw new Error(`${errorDetail}`);
+          // }
+        }
+        // Handle other 400 errors
+        throw new Error(errorDetail || 'Invalid request parameters. Please check your input and try again.');
       } else if (error.response?.status === 401) {
         throw new Error('Authentication failed. Please login again.');
       } else if (error.response?.status === 404) {

@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import UserService from '../../services/user/user.service';
 import { CurrentDashaTimeResponse } from '../../types/api';
 import { useTheme } from '../../context/ThemeContext';
+import LottieView from 'lottie-react-native';
 
 interface CurrentSituationProps {
   // Define any props that the CurrentSituation component might need
@@ -82,22 +83,37 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId })
   };
   const cards = [
     {
-      id: 1,
-      title: loading ? 'Loading...' : getAntardashaTitle(),
-      value: 'Antardasha',
-      icon: require('../../assets/icons/chatIcons/Antardasha-chat.png'),
+      id: 4,
+      title: 'Snapshot Prediction',
+      value: 'Snapshot Prediction',
+      subtitle: 'Future, Glimpse',
+      icon: require('../../assets/icons/SnapshotPrediction/SnapshotPrediction.png'),
     },
     {
-      id: 2,
-      title: 'Life on the Horizon',
-      value: 'Life on the Horizon',
-      icon: require('../../assets/icons/chatIcons/Mahadasha-refined-analysis-chat.png'),
+      id: 5,
+      title: 'Your Personality',
+      value: 'Your Personality',
+      subtitle: '',
+      icon: require('../../assets/icons/GeneralAnalysis/SnapshotPrediction.png'),
     },
+
+    // {
+    //   id: 2,
+    //   title: 'Life on the Horizon',
+    //   value: 'Life on the Horizon',
+    //   icon: require('../../assets/icons/chatIcons/Mahadasha-refined-analysis-chat.png'),
+    // },
     {
       id: 3,
       title: 'Life at the Moment',
       value: 'Life at the Moment',
       icon: require('../../assets/icons/chatIcons/Antardasha-refined-analysis-chat.png'),
+    },
+    {
+      id: 1,
+      title: loading ? 'Loading...' : getAntardashaTitle(),
+      value: 'Antardasha',
+      icon: require('../../assets/icons/chatIcons/Antardasha-chat.png'),
     },
   ];
 
@@ -146,9 +162,11 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId })
             >
               <View style={styles.cardIconContainer}>
                 {loading && card.id === 1 ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={color.themeTextWhite}
+                 <LottieView
+                    source={require('../../assets/lottie/loader-Animation-1.json')}
+                    autoPlay
+                    loop
+                    style={styles.lottieAnimation}
                   />
                 ) : (
                   <Image
@@ -213,6 +231,11 @@ const styles = StyleSheet.create({
     // marginBottom: responsiveHeight(1),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  lottieAnimation: {
+    width: responsiveWidth(10),
+    height: responsiveWidth(10),
+    // marginBottom: 20,
   },
   cardIcon: {
     width: responsiveWidth(10),

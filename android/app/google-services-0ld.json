@@ -1,0 +1,70 @@
+{
+  "project_info": {
+    "project_number": "1061722426474",
+    "project_id": "astroself-b6835",
+    "storage_bucket": "astroself-b6835.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1061722426474:android:2fd65a19b917d558b54e13",
+        "android_client_info": {
+          "package_name": "com.astroself"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1061722426474-40iil307cok5q8vg95gk5nt7rg3b45tn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astroself",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "1061722426474-ct9j88udomg2lmquju30kuvofquiarli.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astroself",
+            "certificate_hash": "dabcd0ca9129df16db8e3acb36bd33af2dc78bee"
+          }
+        },
+        {
+          "client_id": "1061722426474-gaadk8russlblm231ql0n9r6cbqvhh3f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astroself",
+            "certificate_hash": "fc0181177b65cfa86fb3928b4f55f3cb440979e9"
+          }
+        },
+        {
+          "client_id": "1061722426474-3aivdpu11tr8i1h52a54ovkrv8ls021p.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnjQB8ll3mWB91RYxmbkXo2riwnY6MnFM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1061722426474-3aivdpu11tr8i1h52a54ovkrv8ls021p.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1061722426474-h0pi8l8lecf8mcba76er53ffc21ho48v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.astroself"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

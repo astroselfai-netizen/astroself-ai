@@ -253,14 +253,14 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   backBtn: {
-    position: 'absolute',
-    left: responsiveWidth('3'),
-    padding: 8,
-    top:
-      Platform.OS === 'android'
-        ? responsiveWidth('11.5%')
-        : responsiveWidth('2%'),
-    zIndex: 1,
+      // position: 'absolute',
+      left: responsiveWidth('5'),
+      // padding: 8,
+      // top:
+      //   Platform.OS === 'android'
+      //     ? responsiveWidth('11.5%')
+      //     : responsiveWidth('2%'),
+      // zIndex: 1,
   },
   backIcon: {
     width: responsiveWidth(5),

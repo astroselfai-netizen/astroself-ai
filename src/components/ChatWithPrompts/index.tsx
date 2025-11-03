@@ -27,12 +27,14 @@ import { icons } from '../../assets';
 import UserService from '../../services/user/user.service';
 import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
+import { useProfileData } from '../../hooks/useProfileData';
 
 interface ChatWithPromptsProps {
   userId: string;
   cardTitles?: string;
   tab?: string;
   planet?: string;
+  current_plan?: string;
 }
 
 interface PredictionTopic {
@@ -47,6 +49,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   cardTitles,
   tab: _tab,
   planet,
+  current_plan,
 }) => {
   const [topics, setTopics] = useState<PredictionTopic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +63,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const [showNoteModal, setShowNoteModal] = useState(false);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
-
+  
   // Timer effect for loading time
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -132,7 +135,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   // Card options for Current Situation
   const currentSituationCards = [
     { title: planet || 'Antardasha', subtitle: 'General Analysis', value: 'Antardasha' },
-    { title: 'Life on the Horizon', subtitle: 'Life on the Horizon', value: 'Life on the Horizon' },
+    // { title: 'Life on the Horizon', subtitle: 'Life on the Horizon', value: 'Life on the Horizon' },
+    { title: 'Snapshot Prediction', subtitle: 'Future, Glimpse', value: 'Snapshot Prediction' },
+    { title: 'Your Personality', subtitle: '', value: 'Your Personality' },
     { title: 'Life at the Moment', subtitle: 'Life at the Moment', value: 'Life at the Moment' },
   ];
 
@@ -199,6 +204,12 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
             mainHeading = 'Your Personality';
             break;
 
+          case 'Snapshot Prediction':
+            mainHeading = 'Snapshot Prediction';
+            break;
+          case 'Your Personality':
+            mainHeading = 'Your Personality';
+            break;
           case 'Life on the Horizon':
             mainHeading = 'Life on the Horizon';
             break;
@@ -270,6 +281,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         case 'Your Tendencies':
           apiTopic = 'Your Tendencies';
           break;
+
         case 'Summary':
           apiTopic = 'General';
           break;
@@ -335,6 +347,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
         console.log('apiTopic---->228', mainHeading);
         console.log('apiTopic---->229', apiTopic);
+
+
 
         response = await userService.getBlendedPredictions(
           userId,
@@ -418,10 +432,15 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           topicTitle || 'General Analysis',
         );
       } else {
+
+        // userId = profileData;
+      //  const plan = profileData?.current_plan;
+        // console.log('userId---->435', plan);
         aiResponse = await userService.getGenerateHeadingAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
           selectedCardTitle || 'General Analysis',
           topicTitle || 'about_house',
+          current_plan || 'cosmic_foundation',
         );
       }
 
@@ -630,8 +649,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
       // Set error content with retry option
       const errorMessage = error.message || 'Unknown error';
-      const errorContent =
-        'Error loading content: ' + errorMessage + '\n\nTap to retry.';
+      const errorContent = errorMessage;
+       
 
       setTopics(prevTopics =>
         prevTopics.map(t =>
@@ -646,7 +665,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     } finally {
       setLoadingTopicId(null);
     }
-  }, [expandedTopic, topics, userId, selectedCardTitle, userService]);
+  }, [expandedTopic, topics, userId, selectedCardTitle, userService, current_plan]);
 
   useEffect(() => {
     if (userId) {
@@ -896,8 +915,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           selectedCardTitle?.includes('Current predictions') ||
           _tab?.includes('SnapCast') ||
           selectedCardTitle?.includes('Additional Predictions') ||
-          selectedCardTitle?.includes('Life on the Horizon') ||
-          selectedCardTitle?.includes('Life at the Moment');
+          // selectedCardTitle?.includes('Life on the Horizon') ||
+          selectedCardTitle?.includes('Life at the Moment') ||
+          selectedCardTitle?.includes('Your Personality');
 
         // Don't render tabs if they should be hidden
         if (shouldHideTabs) {

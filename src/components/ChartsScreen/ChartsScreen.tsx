@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderPlanet: {
-    width: responsiveWidth('20'),
+    width: responsiveWidth('25'),
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderSign: {
-    width: responsiveWidth('20'),
+    width: responsiveWidth('25'),
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderDegree: {
-    width: responsiveWidth('40'),
+    width: responsiveWidth('45'),
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellPlanet: {
-    width: responsiveWidth('20'),
+    width: responsiveWidth('25'),
     color: '#23304D',
     fontSize: 14,
     fontFamily: fontFamily.regular,
@@ -767,12 +767,12 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellSign: {
-    width: responsiveWidth('20'),
+    width: responsiveWidth('25'),
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
   dashaSignIcon: {
-    width: responsiveWidth('20'),
+    width: responsiveWidth('25'),
     color: '#23304D',
     fontSize: 14,
     fontFamily: fontFamily.regular,
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellDegree: {
-    width: responsiveWidth('40'),
+    width: responsiveWidth('45'),
     color: '#23304D',
     fontSize: 14,
     textAlign: 'left',

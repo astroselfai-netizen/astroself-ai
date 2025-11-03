@@ -315,6 +315,14 @@ const PaidPlanScreen = () => {
         </View>
       </View>
 
+      <View style={styles.imageContainer} >
+        <Image
+          source={require('../../assets/image/PaidPlanImage.png')}
+          resizeMode="contain"
+          style={styles.imagePaidPlan}
+        />
+      </View>
+
       <ImageBackground
         source={
           theme === 'dark'
@@ -993,7 +1001,7 @@ const PaidPlanScreen = () => {
                 </View>
 
                 {/* Separator Line */}
-                <View
+                {/* <View
                   style={[
                     styles.freePlanSeparator,
                     {
@@ -1003,7 +1011,7 @@ const PaidPlanScreen = () => {
                           : colors.Orangeaccentcolor,
                     },
                   ]}
-                />
+                /> */}
               </View>
             )}
           </View>
@@ -1034,15 +1042,29 @@ const styles = StyleSheet.create({
     position: 'relative',
     minHeight: 50,
   },
+  imageContainer: {
+    // width: '90%',
+    height:180,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: responsiveWidth(4),
+    // marginHorizontal: responsiveWidth(4),
+    // backgroundColor: colors.transparent,
+  },
+  imagePaidPlan: {
+    width: '92%',
+    height: "100%",
+    resizeMode: 'contain',
+  },
   backBtn: {
-    position: 'absolute',
-    left: 16,
-    padding: 8,
-    top:
-      Platform.OS === 'android'
-        ? responsiveWidth('11.5%')
-        : responsiveWidth('1.5%'),
-    zIndex: 1,
+    // position: 'absolute',
+    left: responsiveWidth('2'),
+    // padding: 8,
+    // top:
+    //   Platform.OS === 'android'
+    //     ? responsiveWidth('11.5%')
+    //     : responsiveWidth('1.5%'),
+    // zIndex: 1,
   },
   backIcon: {
     width: responsiveWidth(5),

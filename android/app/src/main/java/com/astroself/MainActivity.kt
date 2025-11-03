@@ -1,4 +1,4 @@
-package com.astroself
+package com.astroself.ai
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

@@ -51,6 +51,11 @@ import AboutUsScreen from '../screen/AboutUs';
 import ResourcesScreen from '../screen/Resources';
 import ResourcesDetailsScreen from '../screen/ResourcesDetails';
 import PaidPlanScreen from '../screen/PaidPlan';
+import FaqsScreen from '../screen/Faqs';
+import ReportScreen from '../screen/Report';
+import HelpCenterScreen from '../screen/HelpCenter';
+import DashboardTasksScreen from '../screen/DashboardTasks';
+import EditAllTaskSelectionScreen from '../screen/EditAllTaskSelection';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -78,13 +83,33 @@ function MainNavigator() {
           name="NotificationScreen"
           component={NotificationScreen}
         />
-        <Stack.Screen name="ChatWithPrompts" component={ChatWithPromptsScreen} />
-        <Stack.Screen name="PrivacyPolicyScreen" component={PrivacyPolicyScreen} />
-        <Stack.Screen name="TermsAndConditions" component={TermsAndConditions} />
+        <Stack.Screen
+          name="ChatWithPrompts"
+          component={ChatWithPromptsScreen}
+        />
+        <Stack.Screen
+          name="PrivacyPolicyScreen"
+          component={PrivacyPolicyScreen}
+        />
+        <Stack.Screen
+          name="TermsAndConditions"
+          component={TermsAndConditions}
+        />
         <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
         <Stack.Screen name="ResourcesScreen" component={ResourcesScreen} />
-        <Stack.Screen name="ResourcesDetailsScreen" component={ResourcesDetailsScreen} />
+        <Stack.Screen
+          name="ResourcesDetailsScreen"
+          component={ResourcesDetailsScreen}
+        />
         <Stack.Screen name="PaidPlanScreen" component={PaidPlanScreen} />
+        <Stack.Screen name="FaqsScreen" component={FaqsScreen} />
+        <Stack.Screen name="ReportScreen" component={ReportScreen} />
+        <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
+        <Stack.Screen
+          name="DashboardTasksScreen"
+          component={DashboardTasksScreen}
+        />
+        <Stack.Screen name="EditAllTaskSelectionScreen" component={EditAllTaskSelectionScreen} />
         {/* <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="OTPVerification" component={OTPVerification} />
        

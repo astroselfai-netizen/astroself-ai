@@ -1829,7 +1829,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '400' as const,
     color: color.themeTextWhite,
-    flex: 0.29,
+    flex: 0.31,
     textAlign: 'left',
   },
   profileInfoValue: {
@@ -1838,14 +1838,14 @@ const styles = StyleSheet.create({
     
     fontWeight: '500' as const,
     color: color.themeTextWhite,
-    flex: 0.71,
+    flex: 0.69,
     textAlign: 'left',
   },
   genderValueContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    flex: 0.71,
+    flex: 0.69,
     flexWrap: 'nowrap',
   },
 });

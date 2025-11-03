@@ -48,6 +48,8 @@ export type RootStackParamList = {
   NotificationScreen: undefined;
   AddNewMember: undefined;
   ProfileScreen: undefined;
+  ReportScreen: undefined;
+  DashboardTasksScreen: undefined;
 };
 
 type HomeScreenNavigationProp = StackNavigationProp<
@@ -349,9 +351,9 @@ const HomeScreen = () => {
                 <Header
                   title=""
                   rightIconContainerStyle={{}}
-                  rightIcon={require('../../assets/icons/Ic-ball.png')}
+                  // rightIcon={require('../../assets/icons/Ic-ball.png')}
                   LeftIcon={colors.subtractIcon}
-                  onPressRight={() => navigation.navigate('NotificationScreen')}
+                  // onPressRight={() => navigation.navigate('NotificationScreen')}
                 />
               </View>
             </ImageBackground>
@@ -403,7 +405,7 @@ const HomeScreen = () => {
                 styles.mahadashaCard,
                 {
                   backgroundColor:
-                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                    theme === 'dark' ? colors.cardBackground : colors.white,
                   borderColor:
                     theme === 'dark'
                       ? colors.borderColor
@@ -623,7 +625,63 @@ const HomeScreen = () => {
                 )}
               </View>
             </ImageBackground>
-            {/* Astro AI Chat Card */}
+
+            {/* daily actions Card */}
+            <View
+              style={[
+                styles.astroCard,
+                {
+                  borderWidth: 0.2,
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.borderColor
+                      : colors.surfaceOpacity,
+                },
+              ]}
+            >
+              <View style={[styles.astroContent,{
+                backgroundColor:
+                  theme === 'dark' ? colors.transparentBg : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.borderColor
+                    : colors.surfaceOpacity,
+              }]}>
+                <Text
+                  style={[
+                    styles.astroTitle,
+                    {
+                      color:
+                        theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Level up your Karma with simple daily actions.
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.astroButton,
+                    { backgroundColor: colors.Orangeaccentcolor },
+                  ]}
+                  // activeOpacity={0.7}
+                  onPress={() => navigation.navigate('DashboardTasksScreen')}
+                >
+                  <Text
+                    style={[styles.astroButtonText, { color: colors.white }]}
+                  >
+                    Dashboard
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Image
+                source={require('../../assets/icons/Dashboard-daliy-action.png')}
+                style={styles.astroImage}
+              />
+            </View>
+
+            {/* Report Card */}
             <View
               style={[
                 styles.astroCard,
@@ -640,6 +698,55 @@ const HomeScreen = () => {
                     {
                       color:
                         theme === 'dark' ? colors.DarkNavy : colors.surface,
+                    },
+                  ]}
+                >
+                  Buy and Download your personalized report today.
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.astroButton,
+                    { backgroundColor: colors.Orangeaccentcolor },
+                  ]}
+                  // activeOpacity={0.7}
+                  onPress={() => navigation.navigate('ReportScreen')}
+                >
+                  <Text
+                    style={[styles.astroButtonText, { color: colors.white }]}
+                  >
+                    Buy Now
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Image
+                source={require('../../assets/image/report-icon.png')}
+                style={styles.reportImage}
+              />
+            </View>
+
+            {/* Astro AI Chat Card */}
+            <View
+              style={[
+                styles.astroCard,
+
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.borderColor
+                      : colors.surfaceOpacity,
+                  borderWidth: 0.2,
+                },
+              ]}
+            >
+              <View style={styles.astroContent}>
+                <Text
+                  style={[
+                    styles.astroTitle,
+                    {
+                      color:
+                        theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
                     },
                   ]}
                 >
@@ -671,9 +778,7 @@ const HomeScreen = () => {
                 styles.membersCard,
                 {
                   backgroundColor:
-                    theme === 'dark'
-                      ? colors.cardBackground
-                      : colors.surfaceOpacity,
+                    theme === 'dark' ? colors.primary : colors.DarkNavy,
                 },
               ]}
             >
@@ -684,9 +789,7 @@ const HomeScreen = () => {
                       styles.membersTitle,
                       {
                         color:
-                          theme === 'dark'
-                            ? colors.textPrimary
-                            : colors.DarkNavy,
+                          theme === 'dark' ? colors.DarkNavy : colors.surface,
                       },
                     ]}
                   >
@@ -696,10 +799,9 @@ const HomeScreen = () => {
                     style={[
                       styles.membersButton,
                       {
-                        borderColor:
-                          theme === 'dark'
-                            ? colors.borderColor
-                            : colors.primaryBlue,
+                        backgroundColor: colors.Orangeaccentcolor,
+                        // borderColor:
+                        //   theme === 'dark' ? colors.surface : colors.surface,
                       },
                     ]}
                     activeOpacity={0.7}
@@ -709,10 +811,7 @@ const HomeScreen = () => {
                       style={[
                         styles.membersButtonText,
                         {
-                          color:
-                            theme === 'dark'
-                              ? colors.textPrimary
-                              : colors.primaryBlue,
+                          color: colors.white,
                         },
                       ]}
                     >
@@ -936,6 +1035,7 @@ const styles = StyleSheet.create({
   astroCard: {
     borderRadius: 16,
     marginHorizontal: 8,
+    overflow: 'hidden',
     marginTop: 20,
     flexDirection: 'row',
     shadowColor: '#000',
@@ -949,6 +1049,7 @@ const styles = StyleSheet.create({
   },
   astroContent: {
     flex: 1,
+
     padding: responsiveWidth('3'),
     // paddingBottom: responsiveWidth('2'),
   },
@@ -984,6 +1085,14 @@ const styles = StyleSheet.create({
     // marginLeft: responsiveWidth('4'),
     marginRight: responsiveWidth('2'),
   },
+  reportImage: {
+    width: responsiveWidth('32%'),
+    height: responsiveWidth('32%'),
+    resizeMode: 'contain',
+    // marginLeft: responsiveWidth('4'),
+    // marginRight: responsiveWidth('2'),
+  },
+
   membersCard: {
     borderRadius: 16,
     marginHorizontal: 8,
@@ -1050,7 +1159,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
   membersButton: {
-    borderWidth: 1,
+    // borderWidth: 1,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',

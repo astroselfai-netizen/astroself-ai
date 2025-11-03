@@ -74,12 +74,12 @@ const SplashScreen = () => {
             console.log('No token found, navigating to Login');
             navigation.dispatch(StackActions.replace('Login'));
           }
-        }, 2000); // 2 second delay
+        }, 500); // 2 second delay
       } catch (error) {
         console.error('Error checking auth:', error);
         setTimeout(() => {
           navigation.dispatch(StackActions.replace('Login'));
-        }, 2000); // 2 second delay
+        }, 1000); // 2 second delay
       }
     };
 

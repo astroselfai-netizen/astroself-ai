@@ -36,6 +36,8 @@ export type RootStackParamList = {
   AboutUsScreen: undefined; // About Us screen
   ResourcesScreen: undefined; // Resources screen
   PaidPlanScreen: undefined; // Paid Plan screen
+  FaqsScreen: undefined; // Faqs screen
+  HelpCenterScreen: undefined; // Help Center screen
   // Add other screens as needed
 };
 
@@ -49,36 +51,41 @@ const settingsList = [
   {
     section: 'General',
     data: [
-      {
-        icon: require('../../assets/icons/notification.png'),
-        label: 'Notification',
-      },
+      // {
+      //   icon: require('../../assets/icons/notification.png'),
+      //   label: 'Notification',
+      // },
       { icon: require('../../assets/icons/PaidPlan.png'), label: 'Paid Plan' },
       {
         icon: require('../../assets/icons/Resources.png'),
         label: 'Resources',
       },
-      {
-        icon: require('../../assets/icons/LanguageIcon.png'),
-        label: 'Language',
-        right: 'English (US)',
-      },
+      // {
+      //   icon: require('../../assets/icons/LanguageIcon.png'),
+      //   label: 'Language',
+      //   right: 'English (US)',
+      // },
       {
         icon: require('../../assets/icons/Dark-Mode.png'),
         label: 'Dark Mode',
         isSwitch: true,
       },
       { icon: require('../../assets/icons/info.png'), label: 'Help Center' },
-      { icon: require('../../assets/icons/star.png'), label: 'Rate us' },
+      // { icon: require('../../assets/icons/star.png'), label: 'Rate us' },
     ],
   },
   {
     section: 'About',
     data: [
       {
+        icon: require('../../assets/icons/Faqs.png'),
+        label: 'Faqs',
+      },
+      {
         icon: require('../../assets/icons/document.png'),
         label: 'Privacy & Policy',
       },
+
       {
         icon: require('../../assets/icons/Terms-of-Services.png'),
         label: 'Terms of Services',
@@ -131,6 +138,13 @@ const SettingsScreen = () => {
     } else if (label === 'Paid Plan') {
       navigation.navigate('PaidPlanScreen');
     }
+    else if (label === 'Help Center') {
+      navigation.navigate('HelpCenterScreen');
+    }
+  };
+
+  const handleFaqsPress = () => {
+    navigation.navigate('FaqsScreen');
   };
 
   return (
@@ -283,6 +297,8 @@ const SettingsScreen = () => {
                       ? handleTermsOfServicesPress
                       : item.label === 'About us'
                       ? handleAboutUsPress
+                      : item.label === 'Faqs'
+                      ? handleFaqsPress
                       : undefined
                   }
                 >

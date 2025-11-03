@@ -20,7 +20,7 @@ export const useProfileData = () => {
 
   const fetchProfileData = useCallback(async (forceRefresh = false) => {
     try {
-      setLoading(true);
+     
       setError(null);
       
       let userId = user?._id;
@@ -40,11 +40,13 @@ export const useProfileData = () => {
         }
       }
       
+      setLoading(true);
       if (!userId) {
         console.log('No user ID found, skipping profile fetch');
         setLoading(false);
         return;
       }
+       
 
       const userService = new UserService();
       // Add a timestamp parameter to force refresh

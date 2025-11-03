@@ -14,6 +14,7 @@ import {
   FlatList,
   Alert,
   ImageBackground,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {font, responsiveHeight, responsiveWidth, fontFamily, color, fontSize} from '../../constant/theme';
 import { MainContainer } from '../../components/common/mainContainer';
@@ -21,18 +22,27 @@ import { useProfileData } from '../../hooks/useProfileData';
 import CurrentSituation from '../../components/CurrentSituation';
 import GeneralAnalysis from '../../components/GeneralAnalysis';
 import SnapshotPredictions from '../../components/SnapshotPredictions';
-import { useNavigation, useFocusEffect,  } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute, RouteProp,  } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
+import LottieView from 'lottie-react-native';
 
+
+type RootStackParamList = {
+  ChatScreen: { userId: string };
+};
+
+type ChatScreenRouteProp = RouteProp<RootStackParamList, 'ChatScreen'>;
 
 const ChatScreen = () => {
+  const route = useRoute<ChatScreenRouteProp>();
   const [activeTab, setActiveTab] = useState('Current Situation');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
-  const [hasUserSelectedMember, setHasUserSelectedMember] = useState(false);
   const navigation = useNavigation<any>();
   const { theme ,colors} = useTheme();
-  const { membersData, loading, error, refreshProfileData } = useProfileData();
+  const {profileData, membersData, loading, error, refreshProfileData } = useProfileData();
+
+  console.log('profileData===>39', profileData);
 
   // Refresh data every time user comes to this screen
   useFocusEffect(
@@ -41,11 +51,16 @@ const ChatScreen = () => {
       if (refreshProfileData) {
         refreshProfileData();
       }
-      // Reset user selection flag so primary member is shown again
-      setHasUserSelectedMember(false);
-      setSelectedMemberId(null);
     }, [refreshProfileData]),
   );
+
+  // Set selectedMemberId only when userId comes from route params
+  useEffect(() => {
+    if (route.params?.userId && route.params.userId.trim() !== '') {
+      console.log('Setting member from route params:', route.params.userId);
+      setSelectedMemberId(route.params.userId);
+    }
+  }, [route.params?.userId]);
 
   // Show error alert if there's an error
   React.useEffect(() => {
@@ -75,7 +90,7 @@ const ChatScreen = () => {
       membersData &&
       Array.isArray(membersData) &&
       membersData.length > 0 &&
-      !hasUserSelectedMember && // Only set initial selection if user hasn't manually selected
+      // !hasUserSelectedMember && // Only set initial selection if user hasn't manually selected
       !selectedMemberId // Only set if no member is currently selected
     ) {
       // Function to get primary member ID
@@ -114,16 +129,45 @@ const ChatScreen = () => {
       );
       setSelectedMemberId(primaryMemberId);
     }
-  }, [membersData, hasUserSelectedMember]);
+  }, [membersData]);
 
   // Navigate to Nakshatra screen
   const handleNakshatraNavigation = () => {
     if (selectedMemberId) {
-      navigation.navigate('NakshatraScreen', { userId: selectedMemberId });
+      navigation.navigate('NakshatraScreen', {
+        userId: selectedMemberId,
+        current_plan: profileData?.current_plan,
+      });
     } else {
       Alert.alert('Error', 'Please select a member first');
     }
   };
+
+
+ if (loading) {
+   return (
+     <KeyboardAvoidingView
+       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+       style={{ flex: 1, backgroundColor: '#202945' }}
+       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
+     >
+       <MainContainer>
+         <View style={styles.loadingContainer}>
+           <LottieView
+             source={require('../../assets/lottie/loader-Animation-1.json')}
+             autoPlay
+             loop
+             style={styles.lottieAnimation}
+           />
+           {/* <Text style={[styles.loadingText,{
+              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+            }]}>Loading profile...</Text> */}
+         </View>
+       </MainContainer>
+     </KeyboardAvoidingView>
+   );
+ }
+
 
   // Show empty state if no members data
   if (!membersData || membersData.length === 0) {
@@ -398,7 +442,6 @@ const ChatScreen = () => {
                             style={styles.dropdownItem}
                             onPress={() => {
                               setSelectedMemberId(item.id || item._id);
-                              setHasUserSelectedMember(true); // Mark that user has manually selected
                               setIsMemberDropdownOpen(false);
                             }}
                             activeOpacity={0.7}
@@ -1155,6 +1198,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  lottieAnimation: {
+    width: 264,
+    height: 264,
+    // marginBottom: 20,
   },
   loadingText: {
     color: '#F6EFD9',

@@ -69,6 +69,7 @@ const AddNewMember = () => {
   const userService = serviceFactory.get<UserService>('UserService');
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showPredictionTypeModal, setShowPredictionTypeModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
  const members = useSelector((state: RootState) => state.app.members);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -142,7 +143,7 @@ const AddNewMember = () => {
     firstName: Yup.string().trim().required('Please enter your first name'),
     lastName: Yup.string().trim().required('Please enter your last name'),
     gender: Yup.string().required('Please select your gender'),
-    predictionType: Yup.string().required('Please select prediction type'),
+    predictionType: Yup.string().nullable().notRequired().default('bullet'),
     dateOfBirth: Yup.string().required('Please select your date of birth'),
     timeOfBirth: Yup.string().required('Please select your time of birth'),
     placeOfBirth: Yup.object()
@@ -429,7 +430,7 @@ const AddNewMember = () => {
           <View style={styles.formContainer}>
             {/* Form Container Title */}
             {/* {members?.length === 0 && ( */}
-              {/* <View
+            {/* <View
                 style={[
                   styles.formContainerTitle,
                   {
@@ -568,7 +569,7 @@ const AddNewMember = () => {
             </View>
 
             {/* Prediction Type */}
-            <View style={styles.inputContainer}>
+            {/* <View style={styles.inputContainer}>
               <TouchableOpacity
                 style={[
                   styles.input,
@@ -619,7 +620,7 @@ const AddNewMember = () => {
                     {formik.errors.predictionType}
                   </Text>
                 )}
-            </View>
+            </View> */}
 
             {/* Date of Birth */}
             <View style={styles.inputContainer}>
@@ -802,7 +803,7 @@ const AddNewMember = () => {
                     styles.dropdownListContainer,
                     {
                       backgroundColor:
-                        theme === 'dark' ? colors.cardBackground : colors.white,
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
                       borderColor:
                         theme === 'dark'
                           ? colors.themeBorderDropdown
@@ -816,9 +817,7 @@ const AddNewMember = () => {
                         styles.dropdownSearchInput,
                         {
                           backgroundColor:
-                            theme === 'dark'
-                              ? colors.cardBackground
-                              : colors.white,
+                            theme === 'dark' ? colors.DarkNavy : colors.white,
                           borderColor:
                             theme === 'dark'
                               ? colors.themeBorderDropdown
@@ -953,7 +952,7 @@ const AddNewMember = () => {
                       : colors.borderColor,
                 },
               ]}
-              onPress={formik.handleSubmit}
+              onPress={() => setShowConfirmModal(true)}
               disabled={formik.isSubmitting}
             >
               <Text
@@ -1368,6 +1367,98 @@ const AddNewMember = () => {
           </View>
         </Modal>
       )}
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View
+            style={[
+              styles.confirmModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.confirmModalTitle,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Are you sure?
+            </Text>
+            <Text
+              style={[
+                styles.confirmModalMessage,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Please check your details. Only Personal details can be edited
+              later — all other fields are final
+            </Text>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  styles.confirmButtonYes,
+                  {
+                    backgroundColor: colors.Orangeaccentcolor,
+                  },
+                ]}
+                onPress={() => {
+                  setShowConfirmModal(false);
+                  formik.handleSubmit();
+                }}
+              >
+                <Text
+                  style={[
+                    styles.confirmButtonText,
+                    { color: colors.white },
+                  ]}
+                >
+                  Yes
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  styles.confirmButtonNo,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavyBlue : colors.DarkNavy,
+                  },
+                ]}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text
+                  style={[
+                    styles.confirmButtonText,
+                    { color: colors.white },
+                  ]}
+                >
+                  No
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -1775,6 +1866,56 @@ const styles = StyleSheet.create({
   },
   modalButtonTextPrimary: {
     color: '#FFFFFF',
+  },
+  confirmModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmModalContainer: {
+    width: '85%',
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  confirmModalTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    fontFamily: fontFamily.regular,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  confirmModalMessage: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmButtonYes: {
+    marginRight: 6,
+  },
+  confirmButtonNo: {
+    marginLeft: 6,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: fontFamily.regular,
   },
 });
 

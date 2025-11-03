@@ -75,7 +75,8 @@ const handleTogglePrimary = async (memberId: string, refreshProfileData: () => P
 
 const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: { item: any, navigation: any, togglingMember: string | null, onToggle: () => void }) => {
   const { theme, colors } = useTheme();
-  console.log('MemberItem rendering for:', item.full_name, 'primary_mamber:', item.primary_mamber);
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  console.log('MemberItem rendering for:', item);
   
   // Extract name from API response
   const memberName = item.full_name || 
@@ -102,6 +103,7 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
   const birthDate = formatBirthDate(item.birth_data);
   const birthTime = formatBirthTime(item.birth_data);
   const location = item.birthplace || 'Location not specified';
+  const whatDoYouDo = item.what_do_you_do || '';
   
   return (
     <ImageBackground
@@ -151,9 +153,12 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
       >
         {/* Top Row - Name and Action Icons */}
         <View style={styles.cardTopRow}>
-          <View style={[styles.nameContainer,
-           item.primary_mamber === 'True' && { alignItems: 'center' },
-          ]}>
+          <View
+            style={[
+              styles.nameContainer,
+              item.primary_mamber === 'True' && { alignItems: 'center' },
+            ]}
+          >
             <Image
               source={require('../../assets/icons/profile-icons.png')}
               style={styles.profileIcon}
@@ -192,6 +197,31 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
             </View>
           </View>
           <View style={styles.actionIcons}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('ReportScreen', {
+                  userId: item.id || item._id,
+                })
+              }
+              style={styles.iconButton}
+            >
+              <Image
+                source={require('../../assets/icons/Report.png')}
+                style={[
+                  styles.actionIcon,
+                  {
+                    tintColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                  {
+                    width: responsiveWidth(6),
+                    height: responsiveWidth(6),
+                  },
+                ]}
+              />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() =>
                 navigation.navigate('HomeScreen', {
@@ -240,7 +270,6 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
           </View>
         </View>
         <View style={styles.divider} />
-
         {/* Middle Row - Birth Date and Time */}
         <View style={styles.cardMiddleRow}>
           <View
@@ -295,7 +324,6 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
             <Text style={styles.detailText}>{profession}</Text>
           </View> */}
         </View>
-
         {/* Bottom Row - Location and Profession */}
         <View style={styles.cardBottomRow}>
           <View
@@ -324,9 +352,8 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
             </Text>
           </View>
         </View>
-
         {/* Primary Member Toggle Row */}
-        <View style={styles.toggleRow}>
+        {/* <View style={styles.toggleRow}>
           <View style={styles.toggleContainer}>
             <Text
               style={[
@@ -345,7 +372,56 @@ const MemberItem = React.memo(({ item, navigation, togglingMember, onToggle }: {
               onToggle={onToggle}
             />
           </View>
-        </View>
+        </View> */}
+        {/* what_do_you_do */}
+        {whatDoYouDo ? (
+          <View style={styles.whatDoYouDoContainer}>
+            <View style={[styles.iconContainer,{
+              // justifyContent: "flex-start",
+              // alignItems: 'flex-start',
+            }]}>
+              <Image
+                source={require('../../assets/icons/briefcase.png')}
+                style={styles.detailIcon}
+              />
+            </View>
+            <View style={styles.whatDoYouDoTextContainer}>
+            <Text
+              style={[
+                styles.detailText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+              numberOfLines={isExpanded ? undefined : 4}
+            >
+              {whatDoYouDo}
+            </Text>
+            {whatDoYouDo.length > 100 && (
+              <TouchableOpacity
+                onPress={() => setIsExpanded(!isExpanded)}
+                style={styles.readMoreButton}
+              >
+                <Text
+                  style={[
+                    styles.readMoreText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.Orangeaccentcolor
+                          : colors.Orangeaccentcolor,
+                    },
+                  ]}
+                >
+                  {isExpanded ? 'Read less' : 'Read more'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            </View>
+            </View>
+          ) : null}
+        {/* </View> */}
       </View>
     </ImageBackground>
   );
@@ -468,7 +544,7 @@ const MemberManagement = () => {
             style={[styles.backIcon, { tintColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}
           />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>Manager Members</Text>
+        <Text style={[styles.headerTitle, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>Manage Members</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -806,6 +882,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(238, 229, 202, 1)',
     marginBottom: responsiveWidth('3'),
     // marginHorizontal: 20,
+  },
+  whatDoYouDoContainer: {
+    marginTop: responsiveWidth('2'),
+    paddingHorizontal: responsiveWidth('2'),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  whatDoYouDoTextContainer: {
+    flex: 1,
+    // flexDirection: 'row',
+    // alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  readMoreButton: {
+    marginTop: responsiveWidth('1'),
+    alignSelf: 'flex-start',
+  },
+  readMoreText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600',
   },
   loadingText: {
     color: '#FFFFFF',
