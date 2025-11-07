@@ -14,6 +14,7 @@ import {
   KeyboardEvent,
   Animated,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { responsiveHeight, responsiveWidth, color } from '../../constant/theme';
 import { useFormik } from 'formik';
@@ -110,6 +111,7 @@ const Login = () => {
     validationSchema,
     onSubmit: async values => {
       console.log('values.email==>1', values.email, values.password);
+      setIsLoading(true);
       try {
         console.log('values.email==>', values.email, values.password);
 
@@ -167,6 +169,8 @@ const Login = () => {
           visibilityTime: 3000,
         });
         formik.setErrors({ general: errorMessage });
+      } finally {
+        setIsLoading(false);
       }
     },
   });
@@ -239,6 +243,7 @@ const Login = () => {
   const [, setKeyboardVisible] = useState(false);
   const [keyboardHeight] = useState(new Animated.Value(0));
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -311,6 +316,8 @@ const Login = () => {
           style={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          scrollEnabled={!isLoading}
+          pointerEvents={isLoading ? 'none' : 'auto'}
         >
           {/* Top Logo and Title */}
           <View style={styles.headerContainer}>
@@ -359,6 +366,7 @@ const Login = () => {
               value={formik.values.email}
               onChangeText={formik.handleChange('email')}
               onBlur={formik.handleBlur('email')}
+              editable={!isLoading}
             />
             {formik.touched.email && formik.errors.email && (
               <Text style={styles.errorText}>{formik.errors.email}</Text>
@@ -405,10 +413,12 @@ const Login = () => {
                 value={formik.values.password}
                 onChangeText={formik.handleChange('password')}
                 onBlur={formik.handleBlur('password')}
+                editable={!isLoading}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIconContainer}
+                disabled={isLoading}
               >
                 <View style={styles.eyeIconWrapper}>
                   <Image
@@ -433,7 +443,11 @@ const Login = () => {
             {formik.errors.general && (
               <Text style={styles.errorText}>{formik.errors.general}</Text>
             )}
-            <TouchableOpacity onPress={handleForgotPassword}>
+            <TouchableOpacity 
+              onPress={handleForgotPassword}
+              disabled={isLoading}
+              style={isLoading && styles.disabledTouchable}
+            >
               <Text
                 style={[
                   styles.forgotPassword,
@@ -442,6 +456,7 @@ const Login = () => {
                       theme === 'dark'
                         ? colors.themeTextWhite
                         : colors.themelightText,
+                    opacity: isLoading ? 0.5 : 1,
                   },
                 ]}
               >
@@ -457,9 +472,22 @@ const Login = () => {
                 formik.handleSubmit();
                 // navigation.navigate("HomeScreen")
               }}
-              style={styles.loginButton}
+              style={[
+                styles.loginButton,
+                isLoading && styles.loginButtonDisabled,
+              ]}
+              disabled={isLoading}
             >
-              <Text style={styles.loginButtonText}>Login</Text>
+              {isLoading ? (
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator size="small" color={color.themeTextWhite} />
+                  <Text style={[styles.loginButtonText, styles.loadingText]}>
+                    Logging in...
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
             </TouchableOpacity>
             {/* Continue with OTP */}
             <TouchableOpacity
@@ -472,7 +500,9 @@ const Login = () => {
                       ? colors.Orangeaccentcolor
                       : colors.primaryBlue,
                 },
+                isLoading && styles.loginButtonDisabled,
               ]}
+              disabled={isLoading}
             >
               <Text
                 style={[
@@ -536,8 +566,10 @@ const Login = () => {
                       ? colors.themeTextWhite
                       : colors.primaryBlue,
                 },
+                isLoading && styles.loginButtonDisabled,
               ]}
               onPress={handleGoogleLogin}
+              disabled={isLoading}
             >
               <Image source={icons.Ic_google} style={styles.googleG} />
               <Text
@@ -569,7 +601,11 @@ const Login = () => {
               >
                 Don't have account?{' '}
               </Text>
-              <TouchableOpacity onPress={handleRegister}>
+              <TouchableOpacity 
+                onPress={handleRegister}
+                disabled={isLoading}
+                style={isLoading && styles.disabledTouchable}
+              >
                 <Text
                   style={[
                     styles.registerNowText,
@@ -578,6 +614,7 @@ const Login = () => {
                         theme === 'dark'
                           ? colors.Orangeaccentcolor
                           : colors.Orangeaccentcolor,
+                      opacity: isLoading ? 0.5 : 1,
                     },
                   ]}
                 >
@@ -779,6 +816,20 @@ const styles = StyleSheet.create({
     color: 'red',
     marginBottom: responsiveWidth('1'),
     marginTop: -responsiveWidth('2.5'),
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  loaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginLeft: 8,
+  },
+  disabledTouchable: {
+    opacity: 0.5,
   },
 });
 

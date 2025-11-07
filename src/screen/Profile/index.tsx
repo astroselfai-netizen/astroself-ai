@@ -21,9 +21,8 @@ import { useProfileData } from '../../hooks/useProfileData';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
-import { setMembersUpdated } from '../../state/slices/appSlice';
 import PaymentService from '../../services/payment/payment.service';
 import serviceFactory from '../../services/serviceFactory';
 import RazorpayCheckout from 'react-native-razorpay';
@@ -61,6 +60,7 @@ const ProfileScreen = () => {
     const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { profileData, membersData, loading, error, refreshProfileData } = useProfileData();
   const { colors, theme } = useTheme();
+  const user = useSelector((state: RootState) => state.app.user);
   // const dispatch = useDispatch();
   // const membersUpdated = useSelector((state: RootState) => state.app.membersUpdated);
   const paymentService = serviceFactory.get<PaymentService>('PaymentService');
@@ -172,6 +172,48 @@ const ProfileScreen = () => {
       return primaryMember.email;
     }
     return profileData?.email || 'No email';
+  };
+
+  const getDisplayPhone = React.useCallback(async () => {
+    // Check if phone is in profileData
+    if ((profileData as any)?.phone) {
+      return (profileData as any).phone;
+    }
+    // Try to get from user data
+    if ((user as any)?.phone) {
+      return (user as any).phone;
+    }
+    // Try AsyncStorage
+    try {
+      const userDataString = await AsyncStorage.getItem('USER_DATA');
+      if (userDataString) {
+        const userData = JSON.parse(userDataString);
+        if (userData.phone) {
+          return userData.phone;
+        }
+      }
+    } catch (err) {
+      console.error('Error reading phone from storage:', err);
+    }
+    return 'Not available';
+  }, [profileData, user]);
+  
+  const [displayPhone, setDisplayPhone] = React.useState<string>('Not available');
+  
+  React.useEffect(() => {
+    getDisplayPhone().then(phone => setDisplayPhone(phone));
+  }, [getDisplayPhone]);
+
+  const getDisplayMembershipPlan = () => {
+    if (profileData?.current_plan) {
+      // Format the plan name - convert snake_case to Title Case
+      const planName = profileData.current_plan
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+      return planName;
+    }
+    return 'No plan';
   };
 
   const getDisplayGender = () => {
@@ -504,12 +546,12 @@ const ProfileScreen = () => {
               >
                 {/* Profile Header Row */}
                 <View style={styles.profileHeaderRow}>
-                  <View style={styles.profileAvatarContainer}>
+                  {/* <View style={styles.profileAvatarContainer}>
                     <Image
                       source={getProfileImageSource()}
                       style={styles.profileAvatar}
                     />
-                  </View>
+                  </View> */}
                   <Text
                     style={[
                       styles.profileNameText,
@@ -525,9 +567,110 @@ const ProfileScreen = () => {
                   </Text>
                 </View>
 
-                {/* Profile Information List */}
-                <View style={styles.profileInfoList}>
-                  {/* Email */}
+                {/* Profile Information List - New Design */}
+                <View style={styles.profileInfoListNew}>
+                  {/* Email Section */}
+                  <View style={styles.profileInfoEmailSection}>
+                    <Text
+                      style={[
+                        styles.profileInfoLabelNew,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Email
+                    </Text>
+                    <Text
+                      style={[
+                        styles.profileInfoValueNew,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {getDisplayEmail()}
+                    </Text>
+                  </View>
+
+                  {/* Bottom Row: Phone Number and Membership Plan */}
+                  <View style={styles.profileInfoBottomRow}>
+                    {/* Phone Number */}
+                    <View style={styles.profileInfoBottomItem}>
+                      <Text
+                        style={[
+                          styles.profileInfoLabelNew,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Phone Number
+                      </Text>
+                      <Text
+                        style={[
+                          styles.profileInfoValueNew,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {displayPhone}
+                      </Text>
+                    </View>
+
+                    {/* Membership Plan */}
+                    <View style={[styles.profileInfoBottomItem, styles.profileInfoBottomItemLast]}>
+                      <Text
+                        style={[
+                          styles.profileInfoLabelNew,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Membership Plan
+                      </Text>
+                      <Text
+                        style={[
+                          styles.profileInfoValueNew,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {getDisplayMembershipPlan()}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Old Profile Information List - Commented Out */}
+                {/* <View style={styles.profileInfoList}>
                   <View style={styles.profileInfoRow}>
                     <Text
                       style={[
@@ -559,37 +702,6 @@ const ProfileScreen = () => {
                     </Text>
                   </View>
 
-                  {/* Occupation */}
-                  {/* <View style={styles.profileInfoRow}>
-                    <Text
-                      style={[
-                        styles.profileInfoLabel,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Occupation:
-                    </Text>
-                    <Text
-                      style={[
-                        styles.profileInfoValue,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      {getDisplayOccupation()}
-                    </Text>
-                  </View> */}
-
-                  {/* Gender */}
                   <View style={styles.profileInfoRow}>
                     <Text
                       style={[
@@ -613,7 +725,6 @@ const ProfileScreen = () => {
                               theme === 'dark'
                                 ? colors.themeTextWhite
                                 : colors.DarkNavy,
-                                
                           },
                         ]}
                       >
@@ -628,7 +739,6 @@ const ProfileScreen = () => {
                     </View>
                   </View>
 
-                  {/* Date of Birth */}
                   <View style={styles.profileInfoRow}>
                     <Text
                       style={[
@@ -658,7 +768,6 @@ const ProfileScreen = () => {
                     </Text>
                   </View>
 
-                  {/* Time of Birth */}
                   <View style={styles.profileInfoRow}>
                     <Text
                       style={[
@@ -688,7 +797,6 @@ const ProfileScreen = () => {
                     </Text>
                   </View>
 
-                  {/* Place of Birth */}
                   <View style={styles.profileInfoRow}>
                     <Text
                       style={[
@@ -708,25 +816,23 @@ const ProfileScreen = () => {
                       ellipsizeMode="tail"
                       style={[
                         styles.profileInfoValue,
-
                         {
                           color:
                             theme === 'dark'
                               ? colors.themeTextWhite
                               : colors.DarkNavy,
-                              
                         },
                       ]}
                     >
                       : {getDisplayBirthplace()}
                     </Text>
                   </View>
-                </View>
+                </View> */}
               </View>
             </ImageBackground>
 
             {/* Birth Chart Card */}
-            <View
+            {/* <View
               style={[
                 styles.birthChartCard,
                 {
@@ -766,7 +872,7 @@ const ProfileScreen = () => {
                 source={require('../../assets/icons/ZodiacWheel-main.png')}
                 style={styles.zodiacWheel}
               />
-            </View>
+            </View> */}
 
             {/* Add New Member Card */}
             <ImageBackground
@@ -1527,10 +1633,10 @@ const styles = StyleSheet.create({
   profileNameText: {
     color: color.themeTextWhite,
     // ...font.h6,
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '500',
     fontFamily: fontFamily.regular,
-    lineHeight: 36,
+    lineHeight: 26,
     letterSpacing: -0.24,
   },
   emailSection: {
@@ -1847,6 +1953,37 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     flex: 0.69,
     flexWrap: 'nowrap',
+  },
+  // New Profile Information Layout Styles (matching image design)
+  profileInfoListNew: {
+    marginTop: responsiveWidth('3'),
+    marginBottom: Platform.OS === 'ios' ? responsiveWidth('2.5') : responsiveWidth('1.5'),
+  },
+  profileInfoEmailSection: {
+    marginBottom: responsiveWidth('2'),
+  },
+  profileInfoBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  profileInfoBottomItem: {
+    flex: 1,
+  },
+  profileInfoBottomItemLast: {
+    marginRight: 0,
+    alignItems: 'flex-end',
+  },
+  profileInfoLabelNew: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400' as const,
+    marginBottom: responsiveWidth('1'),
+  },
+  profileInfoValueNew: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500' as const,
   },
 });
 

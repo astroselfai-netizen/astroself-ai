@@ -10,11 +10,15 @@ import { color, fontFamily, responsiveHeight, responsiveWidth } from '../../cons
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 
+import { useSelector } from 'react-redux';
+import { RootState } from '../../state/store';
+
 interface SnapshotPredictionsProps {
   selectedMemberId?: string;
 }
 
 const SnapshotPredictions: React.FC<SnapshotPredictionsProps> = ({ selectedMemberId }) => {
+  const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
 

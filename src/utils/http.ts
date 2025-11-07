@@ -33,7 +33,7 @@ export const baseURL = __DEV__
 // Create Axios instance with default headers
 const http = axios.create({
   baseURL,
-  timeout: 30000, // Increased timeout to 30 seconds
+  // timeout: 60000, // Increased timeout to 30 seconds
   headers: {
     "Content-Type": "application/json",
     "Accept": "application/json",

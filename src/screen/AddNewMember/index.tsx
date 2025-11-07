@@ -31,6 +31,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useDispatch, useSelector } from 'react-redux';
 import { setMembersUpdated } from '../../state/slices/appSlice';
 import { RootState } from '../../state/store';
+import { checkAndUpdateMemberCreationTimestamp } from '../../hooks/useMemberCreationTimestamp';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -125,6 +126,8 @@ const AddNewMember = () => {
 
   // Convert places to dropdown format
   const getDropdownData = (): DropdownItem[] => {
+
+
     return places.map(place => ({
       label: place.structured_formatting.secondary_text
         ? `${place.structured_formatting.main_text}, ${place.structured_formatting.secondary_text}`
@@ -261,6 +264,20 @@ const AddNewMember = () => {
 
         console.log('Birth data creation response:', response);
 
+        // Store timestamp when member is created to show infoContainer for 2 minutes
+        const timestamp = Date.now();
+        await AsyncStorage.setItem('MEMBER_CREATED_TIMESTAMP', timestamp.toString());
+        
+        // Immediately check and update Redux state for 2-minute timer
+        const remainingTime = await checkAndUpdateMemberCreationTimestamp();
+        
+        // Set timer to hide after 2 minutes
+        if (remainingTime > 0) {
+          setTimeout(async () => {
+            await checkAndUpdateMemberCreationTimestamp();
+          }, remainingTime);
+        }
+
         Toast.show({
           type: 'success',
           text1: 'Member Added Successfully',
@@ -371,7 +388,7 @@ const AddNewMember = () => {
     formik.setFieldValue('placeOfBirth', location);
 
     // Also store the display name for the dropdown
-    formik.setFieldValue('placeOfBirthDisplay', item.label);
+    formik.setFieldValue('placeOfBirthDisplay', item.value);
 
     setSearchQuery('');
     setPlaces([]);
@@ -1309,7 +1326,7 @@ const AddNewMember = () => {
                 onChange={(event: any, time?: Date) => {
                   if (time) setIosTempTime(time);
                 }}
-                themeVariant={'light'}
+                themeVariant={theme === 'dark' ? 'dark' : 'light'}
                 style={{ alignSelf: 'stretch' }}
               />
               <View
@@ -1390,9 +1407,7 @@ const AddNewMember = () => {
                 styles.confirmModalTitle,
                 {
                   color:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.DarkNavy,
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
@@ -1403,9 +1418,7 @@ const AddNewMember = () => {
                 styles.confirmModalMessage,
                 {
                   color:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.DarkNavy,
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
@@ -1427,10 +1440,7 @@ const AddNewMember = () => {
                 }}
               >
                 <Text
-                  style={[
-                    styles.confirmButtonText,
-                    { color: colors.white },
-                  ]}
+                  style={[styles.confirmButtonText, { color: colors.white }]}
                 >
                   Yes
                 </Text>
@@ -1442,15 +1452,14 @@ const AddNewMember = () => {
                   {
                     backgroundColor:
                       theme === 'dark' ? colors.DarkNavyBlue : colors.DarkNavy,
+                      borderColor:
+                        theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                   },
                 ]}
                 onPress={() => setShowConfirmModal(false)}
               >
                 <Text
-                  style={[
-                    styles.confirmButtonText,
-                    { color: colors.white },
-                  ]}
+                  style={[styles.confirmButtonText, { color: colors.white }]}
                 >
                   No
                 </Text>
@@ -1911,6 +1920,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonNo: {
     marginLeft: 6,
+    borderWidth: 1,
   },
   confirmButtonText: {
     fontSize: 16,

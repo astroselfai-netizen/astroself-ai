@@ -318,7 +318,7 @@ const PaidPlanScreen = () => {
       <View style={styles.imageContainer} >
         <Image
           source={require('../../assets/image/PaidPlanImage.png')}
-          resizeMode="contain"
+          resizeMode="cover"
           style={styles.imagePaidPlan}
         />
       </View>
@@ -1043,18 +1043,24 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   imageContainer: {
-    // width: '90%',
-    height:180,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // width: '92%',
+    // width:408,
+    height:98,
+    borderRadius: 8,
+    // justifyContent: 'center',
+    // alignItems: 'center',
+    overflow: "hidden",
     marginBottom: responsiveWidth(4),
-    // marginHorizontal: responsiveWidth(4),
+    marginHorizontal: responsiveWidth(4),
     // backgroundColor: colors.transparent,
   },
   imagePaidPlan: {
-    width: '92%',
+    width: '100%',
     height: "100%",
-    resizeMode: 'contain',
+    borderRadius: 8,
+    // marginHorizontal: responsiveWidth(4),
+    // overflow: 'hidden',
+    resizeMode: "cover",
   },
   backBtn: {
     // position: 'absolute',

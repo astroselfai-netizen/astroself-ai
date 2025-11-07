@@ -10,6 +10,8 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
 import {
   fontFamily,
@@ -20,12 +22,10 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../state/store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import taskService from '../../services/task/task.service';
 import { Task } from '../../services/task/task.service';
 import LottieView from 'lottie-react-native';
+import { useProfileData } from '../../hooks/useProfileData';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -60,55 +60,125 @@ const EditAllTaskSelectionScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<EditAllTaskSelectionScreenNavigationProp>();
   const route = useRoute<EditAllTaskSelectionScreenRouteProp>();
-  const user = useSelector((state: RootState) => state.app.user);
+  const { membersData } = useProfileData();
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [heading, setHeading] = useState<string>('Tasks You Should Perform Daily');
   const [userId, setUserId] = useState<string | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Get userId from route params, Redux, or AsyncStorage
+  // Set selectedMemberId only when userId comes from route params
   useEffect(() => {
-    const getUserId = async () => {
-      let id = route.params?.userId || user?._id;
-      
-      if (!id) {
-        try {
-          const userDataString = await AsyncStorage.getItem('USER_DATA');
-          if (userDataString) {
-            const userData = JSON.parse(userDataString);
-            id = userData._id;
-          }
-        } catch (error) {
-          console.error('Error reading user data from storage:', error);
+    if (route.params?.userId && route.params.userId.trim() !== '') {
+      console.log('Setting member from route params:', route.params.userId);
+      const memberId = route.params.userId;
+      setSelectedMemberId(memberId);
+      setUserId(memberId);
+      setIsInitialized(true);
+    }
+  }, [route.params?.userId]);
+
+  // Set selectedMemberId based on primary member from membersData (only initially)
+  useEffect(() => {
+    if (
+      !isInitialized &&
+      membersData &&
+      Array.isArray(membersData) &&
+      membersData.length > 0 &&
+      !route.params?.userId // Don't override if route params has userId
+    ) {
+      // Function to get primary member ID
+      const getPrimaryMemberId = () => {
+        console.log('Looking for primary member in membersData:', membersData);
+
+        // Look for a member with primary_mamber field set to "True"
+        const primaryMember = membersData.find((member: any) => {
+          console.log(
+            'Checking member:',
+            member.full_name,
+            'primary_mamber:',
+            member.primary_mamber,
+          );
+          return member.primary_mamber === 'True';
+        });
+
+        if (primaryMember) {
+          console.log('Found primary member:', primaryMember);
+          return primaryMember.id || primaryMember._id;
         }
-      }
-      
-      setUserId(id || null);
-      if (route.params?.heading) {
-        setHeading(route.params.heading);
-      }
-    };
 
-    getUserId();
-  }, [route.params, user]);
+        // If no primary_mamber == "True" found, use first member
+        const firstMember = membersData[0];
+        console.log(
+          'No primary member found, using first member:',
+          firstMember,
+        );
+        return firstMember?.id || firstMember?._id || null;
+      };
 
-  // Fetch tasks from API
+      const primaryMemberId = getPrimaryMemberId();
+      if (primaryMemberId) {
+        console.log(
+          'Setting initial selection to primary member:',
+          primaryMemberId,
+        );
+        setSelectedMemberId(primaryMemberId);
+        setUserId(primaryMemberId);
+        setIsInitialized(true);
+      }
+    }
+  }, [membersData, isInitialized, route.params?.userId]);
+
+  // Update userId when selectedMemberId changes (from dropdown)
+  useEffect(() => {
+    if (selectedMemberId) {
+      setUserId(selectedMemberId);
+    }
+  }, [selectedMemberId]);
+
+  // Fetch tasks from API - use selectedMemberId or userId
   useEffect(() => {
     const fetchTasks = async () => {
-      if (!userId) {
+      // Use selectedMemberId if available, otherwise fallback to userId
+      const memberIdToUse = selectedMemberId || userId;
+      
+      if (!memberIdToUse) {
+        console.log('No member ID available, skipping fetch');
         setLoading(false);
         return;
       }
+
+      console.log('Fetching tasks for memberId:', memberIdToUse);
 
       try {
         setLoading(true);
         const currentHeading = route.params?.heading || heading;
         const response = await taskService.getTaskActivity(
-          userId,
+          memberIdToUse,
           currentHeading,
         );
+        
+        console.log('Tasks fetched successfully:', response);
+        
+        // Check if response has insights and it's an array
+        if (!response || !response.insights || !Array.isArray(response.insights)) {
+          console.log('No insights found in response, setting empty tasks');
+          setTasks([]);
+          setLoading(false);
+          return;
+        }
+
+        // Check if insights array is empty
+        if (response.insights.length === 0) {
+          console.log('Empty insights array, setting empty tasks');
+          setTasks([]);
+          setLoading(false);
+          return;
+        }
         
         // Map API response to component task structure
         const mappedTasks: TaskItem[] = response.insights.map((task: Task, index: number) => ({
@@ -128,20 +198,31 @@ const EditAllTaskSelectionScreen = () => {
         }
       } catch (error: any) {
         console.error('Error fetching tasks:', error);
-        // Alert.alert(
-        //   'Error',
-        //   error?.message || 'Failed to load tasks. Please try again.',
-        //   [{ text: 'OK' }],
-        // );
+        
+        // Handle 404 or any error - set empty tasks array to show "No tasks found"
+        setTasks([]);
+        
+        // Check if it's a 404 error
+        if (error?.response?.status === 404 || error?.status === 404) {
+          console.log('404 error: No tasks found for this member');
+        } else {
+          console.log('Error fetching tasks:', error?.message || 'Unknown error');
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    if (userId) {
+    // Fetch when selectedMemberId is available (this is the primary source)
+    if (selectedMemberId) {
+      console.log('Triggering fetchTasks, selectedMemberId:', selectedMemberId);
+      fetchTasks();
+    } else if (!isInitialized && userId) {
+      // Fallback: if initialization hasn't happened yet but userId exists, use it
+      console.log('Triggering fetchTasks with userId fallback:', userId);
       fetchTasks();
     }
-  }, [userId, heading, route.params?.heading]);
+  }, [selectedMemberId, userId, heading, route.params?.heading, isInitialized]);
 
   const toggleTaskSelection = (taskId: number) => {
     setTasks(prevTasks =>
@@ -180,13 +261,15 @@ const EditAllTaskSelectionScreen = () => {
       }));
 
       await taskService.updateTaskActivity({
-        user_id: userId,
+        user_id: selectedMemberId || userId || '',
         heading: 'Tasks You Should Perform Daily',
         insights: insights,
       });
 
       Alert.alert('Success', 'Tasks updated successfully', [
-        { text: 'OK', onPress: () => {} },
+        { text: 'OK', onPress: () => {
+          navigation.goBack();
+        } },
       ]);
     } catch (error: any) {
       console.error('Error updating tasks:', error);
@@ -251,7 +334,7 @@ const EditAllTaskSelectionScreen = () => {
                 theme === 'dark'
                   ? colors.Orangeaccentcolor
                   : colors.Orangeaccentcolor,
-              opacity: (saving || loading) ? 0.5 : 1,
+              opacity: saving || loading ? 0.5 : 1,
             },
           ]}
         >
@@ -272,6 +355,159 @@ const EditAllTaskSelectionScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Profile member dropdown */}
+      <View
+        style={[
+          styles.profileCardContainer,
+          {
+            backgroundColor:
+              theme === 'dark' ? colors.DarkNavy : colors.white,
+            borderColor:
+              theme === 'dark' ? colors.themeBorderDropdown : colors.white,
+          },
+        ]}
+      >
+        <Image
+          source={require('../../assets/icons/profile-icons.png')}
+          style={styles.profileIcon as any}
+        />
+        <View
+          style={[
+            styles.dropdownWrapper,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.input,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.surfaceOpacity,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+            onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
+          >
+            <Text
+              style={[
+                styles.selectedMemberText,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              {selectedMemberId
+                ? membersData?.find(
+                    (m: any) => (m.id || m._id) === selectedMemberId,
+                  )?.full_name || 'Select Member'
+                : 'Select Member'}
+            </Text>
+          </TouchableOpacity>
+
+          <Modal
+            visible={isMemberDropdownOpen}
+            transparent={true}
+            animationType="none"
+            onRequestClose={() => setIsMemberDropdownOpen(false)}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setIsMemberDropdownOpen(false)}
+            >
+              <View style={styles.modalDropdownContainer}>
+                <View
+                  style={[
+                    styles.dropdownContainer,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                >
+                  {membersData && membersData.length > 0 ? (
+                    <FlatList
+                      data={membersData}
+                      keyExtractor={item => (item.id || item._id).toString()}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            console.log('item.id --->', item.id);
+                            
+                            setSelectedMemberId(item.id || item._id);
+                            setIsMemberDropdownOpen(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {item.full_name}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      showsVerticalScrollIndicator={true}
+                      bounces={false}
+                      keyboardShouldPersistTaps="handled"
+                      style={styles.flatListStyle}
+                      removeClippedSubviews={false}
+                      scrollEventThrottle={16}
+                    />
+                  ) : (
+                    <Text style={styles.noResultsText}>No members found</Text>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        </View>
+        <TouchableOpacity
+          style={styles.arrowIconContainer}
+          onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
+        >
+          <Image
+            source={require('../../assets/icons/Dropdown.png')}
+            style={[
+              styles.arrowIcon as any,
+              {
+                transform: [
+                  { rotate: isMemberDropdownOpen ? '180deg' : '0deg' },
+                ],
+                marginRight: -responsiveWidth('1.5%'),
+                tintColor:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              },
+            ]}
+          />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
@@ -289,135 +525,133 @@ const EditAllTaskSelectionScreen = () => {
 
           {loading ? (
             <View style={styles.loadingContainer}>
-             <LottieView
-              source={require('../../assets/lottie/loader-Animation-1.json')}
-              autoPlay
-              loop
-              style={styles.lottieAnimation}
-            />
+              <LottieView
+                source={require('../../assets/lottie/loader-Animation-1.json')}
+                autoPlay
+                loop
+                style={styles.lottieAnimation}
+              />
             </View>
           ) : tasks.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text
-                style={[
-                  styles.emptyText,
-                  { color: colors.themeTextWhite },
-                ]}
+                style={[styles.emptyText, { color: colors.themeTextWhite }]}
               >
                 No tasks found
               </Text>
             </View>
           ) : (
             tasks.map((task, index) => (
-            <View
-              key={task.id}
-              style={[
-                styles.taskCard,
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.DarkNavy : colors.white,
-                  borderColor:
-                    theme === 'dark'
-                      ? colors.primaryBlue
-                      : colors.surfaceOpacity,
-                },
-              ]}
-            >
-              <View style={styles.taskCardHeader}>
-                <Text
-                  style={[
-                    styles.taskDescription,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  {index + 1}. {task.description}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => toggleTaskSelection(task.id)}
-                  activeOpacity={0.7}
-                  style={styles.checkboxContainer}
-                >
-                  {task.selected ? (
-                    <View
-                      style={[
-                        styles.checkboxChecked,
-                        {
-                          backgroundColor: colors.Orangeaccentcolor,
-                        },
-                      ]}
-                    >
-                      <Text style={styles.checkmark}>✓</Text>
-                    </View>
-                  ) : (
-                    <View
-                      style={[
-                        styles.checkboxUnchecked,
-                        {
-                          backgroundColor:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.white,
-                          borderColor: colors.Orangeaccentcolor,
-                        },
-                      ]}
-                    />
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* Frequency Buttons */}
-              <View style={styles.frequencyButtonsContainer}>
-                {(['Daily', 'Weekly', 'Monthly'] as const).map(freq => (
-                  <TouchableOpacity
-                    key={freq}
-                    onPress={() => updateTaskFrequency(task.id, freq)}
+              <View
+                key={task.id}
+                style={[
+                  styles.taskCard,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.primaryBlue
+                        : colors.surfaceOpacity,
+                  },
+                ]}
+              >
+                <View style={styles.taskCardHeader}>
+                  <Text
                     style={[
-                      styles.frequencyButton,
-                      task.frequency === freq
-                        ? styles.frequencyButtonSelected
-                        : styles.frequencyButtonUnselected,
+                      styles.taskDescription,
                       {
-                        backgroundColor:
-                          task.frequency === freq
-                            ? colors.Orangeaccentcolor
-                            : theme === 'dark'
-                            ? colors.DarkNavy
-                            : colors.white,
-                        borderColor:
-                          task.frequency === freq
-                            ? colors.Orangeaccentcolor
-                            : theme === 'dark'
-                            ? colors.borderColor
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
                             : colors.DarkNavy,
                       },
                     ]}
-                    activeOpacity={0.7}
                   >
-                    <Text
+                    {index + 1}. {task.description}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => toggleTaskSelection(task.id)}
+                    activeOpacity={0.7}
+                    style={styles.checkboxContainer}
+                  >
+                    {task.selected ? (
+                      <View
+                        style={[
+                          styles.checkboxChecked,
+                          {
+                            backgroundColor: colors.Orangeaccentcolor,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.checkmark}>✓</Text>
+                      </View>
+                    ) : (
+                      <View
+                        style={[
+                          styles.checkboxUnchecked,
+                          {
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.white,
+                            borderColor: colors.Orangeaccentcolor,
+                          },
+                        ]}
+                      />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Frequency Buttons */}
+                <View style={styles.frequencyButtonsContainer}>
+                  {(['Daily', 'Weekly', 'Monthly'] as const).map(freq => (
+                    <TouchableOpacity
+                      key={freq}
+                      onPress={() => updateTaskFrequency(task.id, freq)}
                       style={[
-                        styles.frequencyButtonText,
+                        styles.frequencyButton,
+                        task.frequency === freq
+                          ? styles.frequencyButtonSelected
+                          : styles.frequencyButtonUnselected,
                         {
-                          color:
+                          backgroundColor:
                             task.frequency === freq
-                              ? colors.white
+                              ? colors.Orangeaccentcolor
                               : theme === 'dark'
-                              ? colors.themeTextWhite
+                              ? colors.DarkNavy
+                              : colors.white,
+                          borderColor:
+                            task.frequency === freq
+                              ? colors.Orangeaccentcolor
+                              : theme === 'dark'
+                              ? colors.borderColor
                               : colors.DarkNavy,
                         },
                       ]}
+                      activeOpacity={0.7}
                     >
-                      {freq}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.frequencyButtonText,
+                          {
+                            color:
+                              task.frequency === freq
+                                ? colors.white
+                                : theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        {freq}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
-          )))}
+            ))
+          )}
         </View>
       </ScrollView>
     </MainContainer>
@@ -427,6 +661,7 @@ const EditAllTaskSelectionScreen = () => {
 const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
+    paddingHorizontal: responsiveWidth(4),
     paddingBottom: Platform.OS === 'android' ? 32 : 32,
   },
   headerRow: {
@@ -608,7 +843,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   pointsSection: {
-    paddingHorizontal: responsiveWidth(4),
     marginBottom: responsiveWidth(3),
     marginTop: responsiveWidth(3),
   },
@@ -738,6 +972,99 @@ const styles = StyleSheet.create({
   lottieAnimation: {
     width: 264,
     height: 264,
+  },
+  profileCardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 49, 73, 0.9)',
+    borderRadius: 10,
+    paddingHorizontal: responsiveWidth('2'),
+    paddingVertical: responsiveWidth('1'),
+    marginHorizontal: responsiveWidth(4),
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#496CA8',
+    position: 'relative',
+    zIndex: 99999,
+  },
+  dropdownWrapper: {
+    zIndex: 999,
+    flex: 1,
+  },
+  profileIcon: {
+    width: responsiveWidth('7%'),
+    height: responsiveWidth('7%'),
+    marginRight: responsiveWidth('3'),
+  },
+  input: {
+    backgroundColor: '#223149',
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    borderColor: '#496CA8',
+  },
+  selectedMemberText: {
+    color: '#F6EFD9',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+  },
+  arrowIcon: {
+    width: responsiveWidth('7%'),
+    height: responsiveWidth('7%'),
+    resizeMode: 'contain',
+    tintColor: '#F6EFD9',
+  },
+  arrowIconContainer: {
+    padding: responsiveWidth(1),
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop:
+      Platform.OS === 'ios' ? responsiveWidth('42') : responsiveWidth('29'),
+  },
+  modalDropdownContainer: {
+    width: '90%',
+    maxWidth: responsiveWidth('90'),
+    alignSelf: 'center',
+  },
+  dropdownContainer: {
+    backgroundColor: '#223149',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#496CA8',
+    maxHeight: 200,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  flatListStyle: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#496CA8',
+  },
+  dropdownItemText: {
+    color: '#F6EFD9',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+  },
+  noResultsText: {
+    color: '#F6EFD9',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    paddingVertical: 10,
   },
 });
 

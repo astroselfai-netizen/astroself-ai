@@ -27,7 +27,9 @@ import { icons } from '../../assets';
 import UserService from '../../services/user/user.service';
 import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
-import { useProfileData } from '../../hooks/useProfileData';
+import { Api } from '../../types/api';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../state/store';
 
 interface ChatWithPromptsProps {
   userId: string;
@@ -51,18 +53,54 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   planet,
   current_plan,
 }) => {
+  const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const [topics, setTopics] = useState<PredictionTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTopicId, setLoadingTopicId] = useState<string | null>(null);
   const [loadingTime, setLoadingTime] = useState<number>(0);
   const userService = serviceFactory.get<UserService>('UserService');
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
-  const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
+  const [_hasAutoExpanded, setHasAutoExpanded] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCardTitle, setSelectedCardTitle] = useState(cardTitles);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const membersData = useSelector((state: RootState) => state.app.members);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
+  const [userData, setUserData] = useState<Api.User.Res.Detail | null>(null);
+  
+  // Check if current member is a child (age between 15-18 years)
+  const isCurrentMemberChild = React.useMemo(() => {
+    if (!userId || !membersData || !Array.isArray(membersData)) {
+      return false;
+    }
+    
+    const currentMember = membersData.find(
+      (m: any) => (m.id || m._id) === userId || (m.id || m._id)?.toString() === userId?.toString()
+    );
+    
+    if (!currentMember || !currentMember.birth_data) {
+      return false;
+    }
+    
+    const { year, month, day } = currentMember.birth_data;
+    if (!year || !month || !day) {
+      return false;
+    }
+    
+    // Calculate age
+    const birthDate = new Date(year, month - 1, day);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    // Check if age is between 15 and 18 (inclusive)
+    return age >= 15 && age <= 18;
+  }, [userId, membersData]);
   
   // Timer effect for loading time
   useEffect(() => {
@@ -667,6 +705,60 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     }
   }, [expandedTopic, topics, userId, selectedCardTitle, userService, current_plan]);
 
+  // Helper function to format birth date as "Month Day, Year" (e.g., "May 20, 1995")
+  const formatBirthDate = (birthData: any): string => {
+    if (!birthData || !birthData.day || !birthData.month || !birthData.year) {
+      return 'N/A';
+    }
+    
+    const { day, month, year } = birthData;
+    // Create a Date object (month is 0-indexed in Date constructor)
+    const date = new Date(year, month - 1, day);
+    
+    // Format as "Month Day, Year" (e.g., "May 20, 1995")
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Get user data from membersData based on userId
+  useEffect(() => {
+    if (!userId || !membersData || !Array.isArray(membersData)) {
+      return;
+    }
+
+    // Find the member whose id or _id matches userId
+    const member = membersData.find(
+      (m: any) => (m.id || m._id) === userId || (m.id || m._id)?.toString() === userId?.toString()
+    );
+
+    if (member) {
+
+      console.log('member---->687', member);
+      // Transform member data to match the expected user data structure
+      setUserData({
+        _id: member.id || member._id,
+        email: member.email || '',
+        first_name: member.first_name || '',
+        last_name: member.last_name || '',
+        current_plan: member.current_plan || '',
+        complete_profile: member.complete_profile || false,
+        members_allow: member.members_allow || 0,
+        current_members: member.current_members || 0,
+        child_allow: member.child_allow || 0,
+        current_child: member.current_child || 0,
+        age: member.age || '',
+        birth_data: member.birth_data || {},
+        birthplace: member.birthplace || '',
+        created_at: member.created_at || '',
+        gender: member.gender || '',
+        user_id: member.user_id || '',
+      } as Api.User.Res.Detail);
+    }
+  }, [userId, membersData]);
+
   useEffect(() => {
     if (userId) {
       fetchBlendedPredictions();
@@ -796,6 +888,30 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         </View>
       </View>
       {/* cardTitles dropdown section */}
+
+      {/* user name and birth details section */}
+      {userData && (
+        <View style={[styles.userInfoContainer,{
+          backgroundColor: theme === 'dark' ? colors.cardBackground : colors.white,
+          borderColor: theme === 'dark' ? colors.themeTextWhite : colors.borderColor,
+        }]}>
+          <Text style={[styles.userName,{
+            color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+          }]}>
+            {userData.first_name && userData.last_name
+              ? `${userData.first_name} ${userData.last_name}`
+              : userData.first_name || 'User'}
+          </Text>
+          <View style={styles.birthDateContainer}>
+            <Text style={[styles.birthDate,{
+              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+            }]}>
+              {formatBirthDate(userData.birth_data)}
+            </Text>
+          </View>
+        </View>
+      )}
+
       <View
         style={[
           styles.dropdownContainer,
@@ -865,7 +981,20 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 },
               ]}
             >
-              {getCurrentCardOptions().map((card, index) => (
+              {getCurrentCardOptions().map((card, index) => {
+                // Disable cards except "Snapshot Prediction" when showInfoContainer is true (only for LifeNow tab)
+                const isDisabledByInfoContainer = showInfoContainer && 
+                                  _tab === 'LifeNow' && 
+                                  card.value !== 'Snapshot Prediction';
+                
+                // Disable "Life at the Moment" and "Antardasha" (General Analysis) if member is a child (only for LifeNow tab)
+                const isDisabledByChild = isCurrentMemberChild && 
+                                  _tab === 'LifeNow' && 
+                                  (card.value === 'Life at the Moment' || card.value === 'Antardasha');
+                
+                const isDisabled = isDisabledByInfoContainer || isDisabledByChild;
+                
+                return (
                 <TouchableOpacity
                   key={index}
                   style={[
@@ -873,16 +1002,20 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                     {
                       backgroundColor:
                         theme === 'dark' ? colors.cardBackground : colors.white,
-                        borderBottomColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+                      borderBottomColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+                      opacity: isDisabled ? 0.5 : 1,
                     },
                     selectedCardTitle === card.value &&
                       styles.dropdownItemSelected,
                   ]}
                   onPress={() => {
-                    handleCardTitleSelect(card.value);
-                    // setExpandedTopic(null);
+                    if (!isDisabled) {
+                      handleCardTitleSelect(card.value);
+                      // setExpandedTopic(null);
+                    }
                   }}
                   activeOpacity={0.7}
+                  disabled={isDisabled}
                 >
                   <Text
                     style={[
@@ -892,6 +1025,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                           theme === 'dark'
                             ? colors.themeTextWhite
                             : colors.DarkNavy,
+                        opacity: isDisabled ? 0.5 : 1,
                       },
                       selectedCardTitle === card.value &&
                         styles.dropdownItemTextSelected,
@@ -900,7 +1034,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                     {card.title} {card.subtitle}
                   </Text>
                 </TouchableOpacity>
-              ))}
+                );
+              })}
             </ScrollView>
           </View>
         )}
@@ -1173,25 +1308,35 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       >
         <View style={styles.modalOverlay}>
           <ImageBackground
-            source={require('../../assets/image/DarkBackground.png')}
+            source={ theme === 'dark' ? require('../../assets/image/DarkBackground.png') : require('../../assets/image/LightBackground.png')}
             blurRadius={12}
             style={styles.modalContainer}
             imageStyle={styles.modalBgImage}
           >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Note</Text>
+              <Text style={[styles.modalTitle,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>Note</Text>
               <TouchableOpacity
                 onPress={() => setShowNoteModal(false)}
                 // style={styles.closeButton}
                 // activeOpacity={0.7}
               >
-                <Image source={icons.Icclose} style={styles.closeButtonImage} />
+                <Image source={icons.Icclose} style={[styles.closeButtonImage,{
+                  tintColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                }]} />
               </TouchableOpacity>
             </View>
-            <View style={styles.modalDivider} />
+            <View style={[styles.modalDivider,{
+              backgroundColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+            }]} />
             <View style={styles.modalContent}>
-              <Text style={styles.modalSectionTitle}>Explanation Note-1</Text>
-              <Text style={styles.modalText}>
+              <Text style={[styles.modalSectionTitle,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>Explanation Note-1</Text>
+              <Text style={[styles.modalText,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>
                 Main predictions are prepared by analysing{'\n'}
                 (a) Your running Dasha and{'\n'}
                 (b) Other Planets transiting over that Planet along with the
@@ -1199,8 +1344,12 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 will also change. Updates in this section happens every 15 days
               </Text>
 
-              <Text style={styles.modalSectionTitle}>Explanation Note-2</Text>
-              <Text style={styles.modalText}>
+              <Text style={[styles.modalSectionTitle,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>Explanation Note-2</Text>
+              <Text style={[styles.modalText,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>
                 Subsidiary predictions are prepared by analysing{'\n'}
                 (a) Planets in houses as per your natal chart and{'\n'}
                 (b) Other Planets going over that planet as per the current
@@ -1211,8 +1360,12 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 happens every 15 days
               </Text>
 
-              <Text style={styles.modalSectionTitle}>Disclaimer</Text>
-              <Text style={styles.modalText}>
+              <Text style={[styles.modalSectionTitle,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>Disclaimer</Text>
+              <Text style={[styles.modalText,{
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              }]}>
                 Predictions are meant to give you guidance to prepare and take
                 appropriate actions. These are AI-generated and not checked or
                 verified. Please consult your astrologer for more personalized
@@ -1652,6 +1805,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.regular,
     fontWeight: '600',
+  },
+  // User Info Container styles
+  userInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    // backgroundColor: '#283044',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: responsiveWidth(4),
+    paddingVertical: responsiveWidth(1.5),
+    marginHorizontal: responsiveWidth(4),
+    marginBottom: responsiveHeight(2),
+    marginTop: responsiveHeight(1),
+  },
+  userName: {
+    color: '#E0E0D8',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+    flex: 1,
+  },
+  birthDateContainer: {
+    // backgroundColor: '#283044',
+    // borderRadius: 6,
+    // borderWidth: 1,
+    // borderColor: '#5078B8',
+    paddingHorizontal: responsiveWidth(3),
+    paddingVertical: responsiveHeight(0.8),
+    minWidth: responsiveWidth(25),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  birthDate: {
+    color: '#E0E0D8',
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
   },
 });
 

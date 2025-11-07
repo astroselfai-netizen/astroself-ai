@@ -25,6 +25,8 @@ import SnapshotPredictions from '../../components/SnapshotPredictions';
 import { useNavigation, useFocusEffect, useRoute, RouteProp,  } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../state/store';
 
 
 type RootStackParamList = {
@@ -38,11 +40,56 @@ const ChatScreen = () => {
   const [activeTab, setActiveTab] = useState('Current Situation');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
+  const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const navigation = useNavigation<any>();
   const { theme ,colors} = useTheme();
   const {profileData, membersData, loading, error, refreshProfileData } = useProfileData();
 
-  console.log('profileData===>39', profileData);
+  console.log('profileData===>39', membersData);
+
+  // Check if selected member is a child (age between 15-18 years)
+  const isSelectedMemberChild = React.useMemo(() => {
+    if (!selectedMemberId || !membersData || !Array.isArray(membersData)) {
+      return false;
+    }
+    
+    const selectedMember = membersData.find(
+      (m: any) => (m.id || m._id) === selectedMemberId
+    );
+    
+    if (!selectedMember || !selectedMember.birth_data) {
+      return false;
+    }
+    
+    const { year, month, day } = selectedMember.birth_data;
+    if (!year || !month || !day) {
+      return false;
+    }
+    
+    // Calculate age
+    const birthDate = new Date(year, month - 1, day);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    // Check if age is between 15 and 18 (inclusive)
+    return age >= 15 && age <= 18;
+  }, [selectedMemberId, membersData]);
+
+  // Switch to Current Situation tab if General Analysis is active when showInfoContainer becomes true or if member is child
+  useEffect(() => {
+    if (showInfoContainer && activeTab === 'General Analysis') {
+      setActiveTab('Current Situation');
+    }
+    // If selected member is a child and General Analysis tab is active, switch to Current Situation
+    if (isSelectedMemberChild && activeTab === 'General Analysis') {
+      setActiveTab('Current Situation');
+    }
+  }, [showInfoContainer, activeTab, isSelectedMemberChild]);
 
   // Refresh data every time user comes to this screen
   useFocusEffect(
@@ -480,22 +527,50 @@ const ChatScreen = () => {
             style={styles.arrowIconContainer}
             onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
           >
-          <Image
-            source={require('../../assets/icons/Dropdown.png')}
+            <Image
+              source={require('../../assets/icons/Dropdown.png')}
+              style={[
+                styles.arrowIcon as any,
+                {
+                  transform: [
+                    { rotate: isMemberDropdownOpen ? '180deg' : '0deg' },
+                  ],
+                  marginRight: -responsiveWidth('1.5%'),
+                  tintColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {showInfoContainer && (
+          <View
             style={[
-              styles.arrowIcon as any,
+              styles.infoContainer,
               {
-                transform: [
-                  { rotate: isMemberDropdownOpen ? '180deg' : '0deg' },
-                ],
-                marginRight: -responsiveWidth('1.5%'),
-                tintColor:
-                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                backgroundColor:
+                  theme === 'dark'
+                    ? colors.Orangeaccentcolor
+                    : colors.Orangeaccentcolor,
               },
             ]}
-          />
-         </TouchableOpacity>
-        </View>
+          >
+            <Text
+              style={[
+                styles.infoText,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.transparentWhite,
+                },
+              ]}
+            >
+              Enjoy your snapshot predictions while we get your chart analysed.
+            </Text>
+          </View>
+        )}
 
         {/* Greeting Section Card */}
         <ImageBackground
@@ -634,9 +709,17 @@ const ChatScreen = () => {
                     : 'Not Available'}
                 </Text>
               </View>
-              <View style={[styles.detailSeparator,{
-                backgroundColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]} />
+              <View
+                style={[
+                  styles.detailSeparator,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              />
               <View style={styles.detailItem}>
                 <Text
                   style={[
@@ -743,7 +826,7 @@ const ChatScreen = () => {
             ]}
             style={styles.tabsScrollView}
           >
-             {/* <TouchableOpacity
+            {/* <TouchableOpacity
                style={[
                  styles.tab,
                  activeTab === 'Snapshot Predictions' && {
@@ -776,71 +859,94 @@ const ChatScreen = () => {
                </Text>
              </TouchableOpacity> */}
 
-             <TouchableOpacity
-               style={[
-                 styles.tab,
-                 activeTab === 'Current Situation' && {
-                   ...styles.activeTab,
-                   borderBottomColor: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
-                 },
-                 {
-                   backgroundColor:
-                     theme === 'dark' ? colors.transparent : colors.white,
-                   borderColor:
-                     theme === 'dark'
-                       ? colors.themeBorderDropdown
-                       : colors.borderColor,
-                 },
-               ]}
-               onPress={() => setActiveTab('Current Situation')}
-             >
-               <Text
-                 style={[
-                   styles.tabText,
-                   {
-                     color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                   },
-                   activeTab === 'Current Situation' && {
-                     color: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
-                   },
-                 ]}
-               >
-                 Life now
-               </Text>
-             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'Current Situation' && {
+                  ...styles.activeTab,
+                  borderBottomColor:
+                    theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                },
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
+              onPress={() => setActiveTab('Current Situation')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                  activeTab === 'Current Situation' && {
+                    color:
+                      theme === 'dark'
+                        ? colors.accent
+                        : colors.Orangeaccentcolor,
+                  },
+                ]}
+              >
+                Life now
+              </Text>
+            </TouchableOpacity>
 
-             <TouchableOpacity
-               style={[
-                 styles.tab,
-                 activeTab === 'General Analysis' && {
-                   ...styles.activeTab,
-                   borderBottomColor: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
-                 },
-                 {
-                   backgroundColor:
-                     theme === 'dark' ? colors.transparent : colors.white,
-                   borderColor:
-                     theme === 'dark'
-                       ? colors.themeBorderDropdown
-                       : colors.borderColor,
-                 },
-               ]}
-               onPress={() => setActiveTab('General Analysis')}
-             >
-               <Text
-                 style={[
-                   styles.tabText,
-                   {
-                     color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                   },
-                   activeTab === 'General Analysis' && {
-                     color: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
-                   },
-                 ]}
-               >
-                 Life view
-               </Text>
-             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'General Analysis' && {
+                  ...styles.activeTab,
+                  borderBottomColor:
+                    theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                },
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                  opacity: showInfoContainer || isSelectedMemberChild ? 0.5 : 1,
+                },
+              ]}
+              onPress={() => {
+                if (!showInfoContainer && !isSelectedMemberChild) {
+                  setActiveTab('General Analysis');
+                }
+              }}
+              disabled={showInfoContainer || isSelectedMemberChild}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                  activeTab === 'General Analysis' && {
+                    color:
+                      theme === 'dark'
+                        ? colors.accent
+                        : colors.Orangeaccentcolor,
+                  },
+                  (showInfoContainer || isSelectedMemberChild) && {
+                    opacity: 0.5,
+                  },
+                ]}
+              >
+                Life view
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </ImageBackground>
 
@@ -849,7 +955,10 @@ const ChatScreen = () => {
           {activeTab === 'Snapshot Predictions' ? (
             <SnapshotPredictions selectedMemberId={selectedMemberId || ''} />
           ) : activeTab === 'Current Situation' ? (
-            <CurrentSituation selectedMemberId={selectedMemberId || ''} />
+            <CurrentSituation
+              selectedMemberId={selectedMemberId || ''}
+              isChild={isSelectedMemberChild}
+            />
           ) : (
             <GeneralAnalysis selectedMemberId={selectedMemberId || ''} />
           )}
@@ -947,6 +1056,15 @@ const styles = StyleSheet.create({
 
     tintColor: color.themeTextWhite,
     // transform: [{ rotate: '270deg' }],
+  },
+  infoContainer: {
+    padding: responsiveWidth(2),
+    borderRadius: 8,
+    marginBottom: responsiveHeight(2),
+  },
+  infoText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
   },
   modalOverlay: {
     flex: 1,

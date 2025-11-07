@@ -110,13 +110,12 @@ const AboutUsScreen = () => {
             ]}
           >
             {/* <View style={styles.topBanner}> */}
-            
-                <Image
-                  source={require('../../assets/icons/About-us-img.png')}
-                  style={styles.zodiacWheel}
-                />
-            
-              
+
+            <Image
+              source={require('../../assets/icons/About-us-img.png')}
+              style={styles.zodiacWheel}
+            />
+
             {/* </View> */}
 
             {/* Main Content - No Card, Direct on Background */}
@@ -146,7 +145,7 @@ const AboutUsScreen = () => {
                 </Text>
 
                 <Text
-                  style={[styles.introText, { color: colors.themeTextWhite , }]}
+                  style={[styles.introText, { color: colors.themeTextWhite }]}
                 >
                   Our team of expert astrologers, supported by advanced digital
                   tools, ensures that every prediction and reading is
@@ -184,23 +183,18 @@ const AboutUsScreen = () => {
                     unlocking clarity, confidence, & harmony in their personal &
                     spiritual journey.
                   </Text>
-                </View>
-                <View style={styles.visionImageContainer}>
-                  <Image
-                    source={require('../../assets/image/Vision.png')}
-                    style={styles.visionImage}
-                  />
+
+                  <View style={styles.visionImageContainer}>
+                    <Image
+                      source={require('../../assets/image/Vision.png')}
+                      style={styles.visionImage}
+                    />
+                  </View>
                 </View>
               </View>
 
               {/* Mission Section */}
               <View style={styles.missionSection}>
-                <View style={styles.missionImageContainer}>
-                  <Image
-                    source={require('../../assets/image/Mission.png')}
-                    style={styles.missionImage}
-                  />
-                </View>
                 <View style={styles.missionContent}>
                   <Text
                     style={[
@@ -220,6 +214,12 @@ const AboutUsScreen = () => {
                     deliver simple, accurate guidance that helps people realize
                     their potential & live in harmony.
                   </Text>
+                  <View style={styles.missionImageContainer}>
+                    <Image
+                      source={require('../../assets/image/Mission.png')}
+                      style={styles.missionImage}
+                    />
+                  </View>
                 </View>
               </View>
             </View>
@@ -370,9 +370,10 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   visionImageContainer: {
-    width: 170,
-    height: 170,
+    width: "105%",
+    height: 120,
     marginTop: 10,
+    // marginRight: 15,
     borderRadius: 8,
     boxShadow: '3px 3px 3px 0px rgba(0, 0, 0, 0.35)',
   },
@@ -389,8 +390,8 @@ const styles = StyleSheet.create({
     // marginBottom: 20,
   },
   missionImageContainer: {
-    width: 170,
-    height: 170,
+    width: "100%",
+    height: 120,
     marginTop: 5,
     marginRight: 15,
     borderRadius: 8,

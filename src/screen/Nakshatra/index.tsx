@@ -723,7 +723,11 @@ const NakshatraScreen = () => {
             styles.astroCard,
             {
               backgroundColor:
-                theme === 'dark' ? colors.primary : colors.DarkNavy,
+                theme === 'dark' ? colors.DarkNavy : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
             },
           ]}
         >
@@ -734,7 +738,7 @@ const NakshatraScreen = () => {
                 style={[
                   styles.astroTitle,
                   {
-                    color: theme === 'dark' ? colors.DarkNavy : colors.surface,
+                    color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                   },
                 ]}
               >
@@ -1572,10 +1576,11 @@ const styles = StyleSheet.create({
   astroCard: {
     // flex:0.5,
     // width: '100%',
+    borderWidth: 0.2,
     flexDirection: 'row',
     // justifyContent: "space-between",
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 10,
     marginHorizontal: responsiveWidth('3'),
     // marginTop: responsiveWidth(''),
     marginBottom: responsiveWidth('5'),

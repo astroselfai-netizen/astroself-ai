@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import {
   responsiveWidth,
@@ -18,18 +17,22 @@ import UserService from '../../services/user/user.service';
 import { CurrentDashaTimeResponse } from '../../types/api';
 import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../state/store';
 
 interface CurrentSituationProps {
   // Define any props that the CurrentSituation component might need
   selectedMemberId?: string;
+  isChild?: boolean;
 }
 
-const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId }) => {
+const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false }) => {
+  const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
   const [dashaData, setDashaData] = useState<CurrentDashaTimeResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
 
   const fetchDashaData = useCallback(async () => {
     if (!selectedMemberId) return;
@@ -71,6 +74,11 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId })
   };
 
   const handleCardPress = (cardValue: string) => {
+    // Prevent navigation to disabled cards
+    if (showInfoContainer && cardValue !== 'Snapshot Prediction') {
+      return;
+    }
+    
     console.log('cardTitle-->24', cardValue);
     console.log('selectedMemberId-->25', selectedMemberId);
     // Navigate to ChatWithPrompts screen for General Analysis
@@ -138,7 +146,15 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId })
           </View>
         )} */}
         <View style={styles.cardsGrid}>
-          {cards.map(card => (
+          {cards.map(card => {
+            // Cards to disable when showInfoContainer is true: Your Personality (id: 5), Life at the Moment (id: 3), Active Planet (id: 1)
+            // Also disable Life at the Moment (id: 3) and Active Planet (id: 1) if member is a child
+            const isDisabledByInfoContainer = showInfoContainer && (card.id === 5 || card.id === 3 || card.id === 1);
+            const isDisabledByChild = isChild && (card.id === 3 || card.id === 1); // Life at the Moment and Active Planet
+            const isDisabled = isDisabledByInfoContainer || isDisabledByChild;
+            const isCardDisabled = (loading && card.id === 1) || isDisabled;
+            
+            return (
             <TouchableOpacity
               key={card.id}
               style={[
@@ -155,10 +171,11 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId })
                     theme === 'dark'
                       ? ''
                       : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
+                  opacity: isDisabled ? 0.5 : 1,
                 },
               ]}
-              onPress={() => !loading && handleCardPress(card.value)}
-              disabled={loading && card.id === 1}
+              onPress={() => !isCardDisabled && handleCardPress(card.value)}
+              disabled={isCardDisabled}
             >
               <View style={styles.cardIconContainer}>
                 {loading && card.id === 1 ? (
@@ -186,13 +203,15 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId })
                       theme === 'dark'
                         ? colors.themeTextWhite
                         : colors.DarkNavy,
+                    opacity: isDisabled ? 0.5 : 1,
                   },
                 ]}
               >
                 {card.title}
               </Text>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
       </View>
     </View>

@@ -38,6 +38,8 @@ export type RootStackParamList = {
   PaidPlanScreen: undefined; // Paid Plan screen
   FaqsScreen: undefined; // Faqs screen
   HelpCenterScreen: undefined; // Help Center screen
+  ReportScreen: undefined; // Report screen
+  PurchasedHistoryScreen: undefined; // Purchased History screen
   // Add other screens as needed
 };
 
@@ -57,6 +59,10 @@ const settingsList = [
       // },
       { icon: require('../../assets/icons/PaidPlan.png'), label: 'Paid Plan' },
       {
+        icon: require('../../assets/icons/Reports-Plans.png'),
+        label: 'Reports',
+      },
+      {
         icon: require('../../assets/icons/Resources.png'),
         label: 'Resources',
       },
@@ -65,6 +71,10 @@ const settingsList = [
       //   label: 'Language',
       //   right: 'English (US)',
       // },
+      {
+        icon: require('../../assets/icons/Purchased-History.png'),
+        label: 'Purchased History',
+      },
       {
         icon: require('../../assets/icons/Dark-Mode.png'),
         label: 'Dark Mode',
@@ -140,6 +150,12 @@ const SettingsScreen = () => {
     }
     else if (label === 'Help Center') {
       navigation.navigate('HelpCenterScreen');
+    }
+    else if (label === 'Reports') {
+       navigation.navigate('ReportScreen');
+    }
+    else if (label === 'Purchased History') {
+      navigation.navigate('PurchasedHistoryScreen');
     }
   };
 

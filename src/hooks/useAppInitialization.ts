@@ -4,9 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setUser, setUserToken, setMembers } from '../state/slices/appSlice';
 import serviceFactory from '../services/serviceFactory';
 import UserService from '../services/user/user.service';
+import { useMemberCreationTimestamp } from './useMemberCreationTimestamp';
 
 export const useAppInitialization = () => {
   const dispatch = useDispatch();
+  
+  // Initialize member creation timestamp checking (runs globally)
+  useMemberCreationTimestamp();
 
   useEffect(() => {
     const initializeApp = async () => {

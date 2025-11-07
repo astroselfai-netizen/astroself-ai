@@ -10,6 +10,8 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
 import {
   fontFamily,
@@ -21,11 +23,9 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
 import { ProgressChart } from 'react-native-chart-kit';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../state/store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import taskService from '../../services/task/task.service';
+import taskService, { Task } from '../../services/task/task.service';
 import LottieView from 'lottie-react-native';
+import { useProfileData } from '../../hooks/useProfileData';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -34,7 +34,7 @@ export type RootStackParamList = {
   HomeScreen: undefined;
   ContinueWithOtp: undefined;
   ForgotPasswordOtp: undefined;
-  EditAllTaskSelectionScreen: undefined;
+  EditAllTaskSelectionScreen: { userId?: string };
   DashboardTasksScreen: undefined;
   };
 
@@ -56,7 +56,7 @@ interface TaskItem {
 const DashboardTasksScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<DashboardTasksScreenNavigationProp>();
-  const user = useSelector((state: RootState) => state.app.user);
+  const { membersData } = useProfileData();
   const [selectedTab, setSelectedTab] = useState<'Today' | 'Weekly' | 'Monthly'>('Today');
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -68,49 +68,104 @@ const DashboardTasksScreen = () => {
     const today = new Date();
     return `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
   });
-  const [isEditMode, setIsEditMode] = useState(true);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Get userId from Redux or AsyncStorage
+  // Set selectedMemberId based on primary member from membersData (only initially)
   useEffect(() => {
-    const getUserId = async () => {
-      let id = user?._id;
-      
-      if (!id) {
-        try {
-          const userDataString = await AsyncStorage.getItem('USER_DATA');
-          if (userDataString) {
-            const userData = JSON.parse(userDataString);
-            id = userData._id;
-          }
-        } catch (error) {
-          console.error('Error reading user data from storage:', error);
-        }
-      }
-      
-      setUserId(id || null);
-    };
+    if (
+      !isInitialized &&
+      membersData &&
+      Array.isArray(membersData) &&
+      membersData.length > 0
+    ) {
+      // Function to get primary member ID
+      const getPrimaryMemberId = () => {
+        console.log('Looking for primary member in membersData:', membersData);
 
-    getUserId();
-  }, [user]);
+        // Look for a member with primary_mamber field set to "True"
+        const primaryMember = membersData.find((member: any) => {
+          console.log(
+            'Checking member:',
+            member.full_name,
+            'primary_mamber:',
+            member.primary_mamber,
+          );
+          return member.primary_mamber === 'True';
+        });
+
+        if (primaryMember) {
+          console.log('Found primary member:', primaryMember);
+          return primaryMember.id || primaryMember._id;
+        }
+
+        // If no primary_mamber == "True" found, use first member
+        const firstMember = membersData[0];
+        console.log(
+          'No primary member found, using first member:',
+          firstMember,
+        );
+        return firstMember?.id || firstMember?._id || null;
+      };
+
+      const primaryMemberId = getPrimaryMemberId();
+      if (primaryMemberId) {
+        console.log(
+          'Setting initial selection to primary member:',
+          primaryMemberId,
+        );
+        setSelectedMemberId(primaryMemberId);
+        setUserId(primaryMemberId);
+        setIsInitialized(true);
+      }
+    }
+  }, [membersData, isInitialized]);
+
+  // Update userId when selectedMemberId changes (from dropdown)
+  useEffect(() => {
+    if (selectedMemberId) {
+      setUserId(selectedMemberId);
+    }
+  }, [selectedMemberId]);
 
   // Fetch selected tasks from API
   const fetchTasks = useCallback(async () => {
-    if (!userId) {
+    // Use selectedMemberId if available, otherwise fallback to userId
+    const memberIdToUse = selectedMemberId || userId;
+    
+    if (!memberIdToUse) {
+      console.log('No member ID available, skipping fetch');
       setLoading(false);
       return;
     }
 
+    console.log('Fetching tasks for memberId:', memberIdToUse);
+
     try {
       setLoading(true);
-      console.log('userId-->', userId);
+      console.log('userId-->', memberIdToUse);
       
-      const response = await taskService.getSelectedTasks(userId);
+      const response = await taskService.getSelectedTasks(memberIdToUse);
       
-      // Check if selected_data is null or empty array
-      if (!response.selected_data || response.selected_data.length === 0) {
+      console.log('Tasks fetched successfully:', response);
+      
+      // Check if response has selected_data and it's an array
+      if (!response || !response.selected_data || !Array.isArray(response.selected_data)) {
+        console.log('No selected_data found in response, setting empty tasks');
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Check if selected_data array is empty
+      if (response.selected_data.length === 0) {
+        console.log('Empty selected_data array, setting empty tasks');
+        setTasks([]);
         setLoading(false);
         // Navigate to EditAllTaskSelectionScreen if no tasks are selected
-        navigation.replace('EditAllTaskSelectionScreen');
+        // navigation.replace('EditAllTaskSelectionScreen');
         return;
       }
       
@@ -120,19 +175,21 @@ const DashboardTasksScreen = () => {
       let taskIdCounter = 1;
 
       response.selected_data.forEach((data) => {
-        data.selected_insights.forEach((insight) => {
-          allTasks.push({
-            id: taskIdCounter++,
-            description: insight.task,
-            type: (insight.track === 'Daily' || insight.track === 'Weekly' || insight.track === 'Monthly')
-              ? (insight.track as 'Daily' | 'Weekly' | 'Monthly')
-              : '',
-            completed: insight.status === 'Done',
-            status: insight.status,
-            track: insight.track,
-            heading: data.heading,
+        if (data.selected_insights && Array.isArray(data.selected_insights)) {
+          data.selected_insights.forEach((insight) => {
+            allTasks.push({
+              id: taskIdCounter++,
+              description: insight.task,
+              type: (insight.track === 'Daily' || insight.track === 'Weekly' || insight.track === 'Monthly')
+                ? (insight.track as 'Daily' | 'Weekly' | 'Monthly')
+                : '',
+              completed: insight.status === 'Done',
+              status: insight.status,
+              track: insight.track,
+              heading: data.heading,
+            });
           });
-        });
+        }
       });
 
       setTasks(allTasks);
@@ -140,43 +197,51 @@ const DashboardTasksScreen = () => {
     } catch (error: any) {
       console.error('Error fetching selected tasks:', error);
       
+      // Handle 404 or any error - set empty tasks array
+      setTasks([]);
+      
       // Check if it's a 404 error or user not found error
-      const is404Error = error?.response?.status === 404;
+      const is404Error = error?.response?.status === 404 || error?.status === 404;
       const errorMessage = error?.response?.data?.detail || error?.message || '';
       const isUserNotFound = errorMessage.includes('User not found in task_and_activity collection');
       
       if (is404Error || isUserNotFound) {
-        setLoading(false);
+        console.log('404 error or user not found: No tasks found for this member');
         // Navigate to EditAllTaskSelectionScreen if user not found or 404
-        navigation.replace('EditAllTaskSelectionScreen');
-        return;
+        // navigation.replace('EditAllTaskSelectionScreen');
+      } else {
+        // For other errors, show alert
+        Alert.alert(
+          'Error',
+          error?.message || 'Failed to load tasks. Please try again.',
+          [{ text: 'OK' }],
+        );
       }
-      
-      // For other errors, show alert
-      Alert.alert(
-        'Error',
-        error?.message || 'Failed to load tasks. Please try again.',
-        [{ text: 'OK' }],
-      );
     } finally {
       setLoading(false);
     }
-  }, [userId, navigation]);
+  }, [selectedMemberId, userId]);
 
-  // Fetch tasks when userId is available (initial load)
+  // Fetch tasks when selectedMemberId or userId is available
   useEffect(() => {
-    if (userId) {
+    // Fetch when selectedMemberId is available (this is the primary source)
+    if (selectedMemberId) {
+      console.log('Triggering fetchTasks, selectedMemberId:', selectedMemberId);
+      fetchTasks();
+    } else if (!isInitialized && userId) {
+      // Fallback: if initialization hasn't happened yet but userId exists, use it
+      console.log('Triggering fetchTasks with userId fallback:', userId);
       fetchTasks();
     }
-  }, [userId, fetchTasks]);
+  }, [selectedMemberId, userId, fetchTasks, isInitialized]);
 
   // Refetch tasks when screen comes into focus (e.g., when navigating back)
   useFocusEffect(
     useCallback(() => {
-      if (userId) {
+      if (selectedMemberId || userId) {
         fetchTasks();
       }
-    }, [userId, fetchTasks])
+    }, [selectedMemberId, userId, fetchTasks])
   );
 
   // Filter tasks based on status
@@ -213,7 +278,9 @@ const DashboardTasksScreen = () => {
   };
 
   const handleDone = async () => {
-    if (!userId) {
+    const memberIdToUse = selectedMemberId || userId;
+    
+    if (!memberIdToUse) {
       Alert.alert('Error', 'User ID not found');
       return;
     }
@@ -233,19 +300,61 @@ const DashboardTasksScreen = () => {
 
       // Update each heading via API
       const updatePromises = Object.entries(tasksByHeading).map(async ([heading, headingTasks]) => {
-        const insights = headingTasks.map(task => ({
-          task: task.description,
-          selected: true, // All tasks in selected_data are selected
-          status: task.status || 'pending',
-          track: (task.track === 'Daily' || task.track === 'Weekly' || task.track === 'Monthly' || task.track === '')
-            ? task.track as 'Daily' | 'Weekly' | 'Monthly' | ''
-            : '',
-        }));
+        // First, fetch all tasks for this heading from API
+        let allTasksFromAPI: Task[] = [];
+        try {
+          const apiResponse = await taskService.getTaskActivity(memberIdToUse, heading);
+          if (apiResponse && apiResponse.insights && Array.isArray(apiResponse.insights)) {
+            allTasksFromAPI = apiResponse.insights;
+          }
+        } catch (error) {
+          console.log('Error fetching tasks for heading:', heading, error);
+          // If fetch fails, continue with just the updated tasks
+        }
+
+        // Create a map of updated tasks by description for quick lookup
+        const updatedTasksMap = new Map<string, TaskItem>();
+        headingTasks.forEach(task => {
+          updatedTasksMap.set(task.description, task);
+        });
+
+        // Merge: Use updated tasks if they exist, otherwise keep original tasks
+        const mergedInsights: Task[] = allTasksFromAPI.map((apiTask: Task) => {
+          const updatedTask = updatedTasksMap.get(apiTask.task);
+          if (updatedTask) {
+            // This task was updated, use the updated values but preserve selected from API
+            return {
+              task: updatedTask.description,
+              selected: apiTask.selected !== undefined ? apiTask.selected : true, // Preserve selected status from API
+              status: updatedTask.status || 'pending',
+              track: (updatedTask.track === 'Daily' || updatedTask.track === 'Weekly' || updatedTask.track === 'Monthly' || updatedTask.track === '')
+                ? updatedTask.track as 'Daily' | 'Weekly' | 'Monthly' | ''
+                : '',
+            };
+          }
+          // This task was not updated, keep original
+          return apiTask;
+        });
+
+        // Add any new tasks that are not in the API response
+        const existingTaskDescriptions = new Set(allTasksFromAPI.map(t => t.task));
+        headingTasks.forEach(task => {
+          if (!existingTaskDescriptions.has(task.description)) {
+            mergedInsights.push({
+              task: task.description,
+              selected: true,
+              status: task.status || 'pending',
+              track: (task.track === 'Daily' || task.track === 'Weekly' || task.track === 'Monthly' || task.track === '')
+                ? task.track as 'Daily' | 'Weekly' | 'Monthly' | ''
+                : '',
+            });
+          }
+        });
 
         return taskService.updateTaskActivity({
-          user_id: userId,
+          user_id: memberIdToUse,
           heading: heading,
-          insights: insights,
+          insights: mergedInsights,
         });
       });
 
@@ -389,7 +498,6 @@ const DashboardTasksScreen = () => {
         backgroundColor="transparent"
         translucent={true}
       />
-
       {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity
@@ -422,7 +530,7 @@ const DashboardTasksScreen = () => {
           </Text>
         </View>
         <TouchableOpacity
-          onPress={() => navigation.navigate('EditAllTaskSelectionScreen')}
+          onPress={() => navigation.navigate('EditAllTaskSelectionScreen', { userId: selectedMemberId || undefined })}
           style={styles.editBtn}
         >
           <Image
@@ -432,6 +540,157 @@ const DashboardTasksScreen = () => {
               {
                 tintColor:
                   theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
+              },
+            ]}
+          />
+        </TouchableOpacity>
+      </View>
+      {/* Profile member dropdown */}
+      <View
+        style={[
+          styles.profileCardContainer,
+          {
+            backgroundColor:
+              theme === 'dark' ? colors.DarkNavy : colors.white,
+            borderColor:
+              theme === 'dark' ? colors.themeBorderDropdown : colors.white,
+          },
+        ]}
+      >
+        <Image
+          source={require('../../assets/icons/profile-icons.png')}
+          style={styles.profileIcon as any}
+        />
+        <View
+          style={[
+            styles.dropdownWrapper,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.white,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.input,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.surfaceOpacity,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+            onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
+          >
+            <Text
+              style={[
+                styles.selectedMemberText,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              {selectedMemberId
+                ? membersData?.find(
+                    (m: any) => (m.id || m._id) === selectedMemberId,
+                  )?.full_name || 'Select Member'
+                : 'Select Member'}
+            </Text>
+          </TouchableOpacity>
+
+          <Modal
+            visible={isMemberDropdownOpen}
+            transparent={true}
+            animationType="none"
+            onRequestClose={() => setIsMemberDropdownOpen(false)}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setIsMemberDropdownOpen(false)}
+            >
+              <View style={styles.modalDropdownContainer}>
+                <View
+                  style={[
+                    styles.dropdownContainer,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                >
+                  {membersData && membersData.length > 0 ? (
+                    <FlatList
+                      data={membersData}
+                      keyExtractor={item => (item.id || item._id).toString()}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            console.log('item.id --->', item.id);
+                            setSelectedMemberId(item.id || item._id);
+                            setIsMemberDropdownOpen(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {item.full_name}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      showsVerticalScrollIndicator={true}
+                      bounces={false}
+                      keyboardShouldPersistTaps="handled"
+                      style={styles.flatListStyle}
+                      removeClippedSubviews={false}
+                      scrollEventThrottle={16}
+                    />
+                  ) : (
+                    <Text style={styles.noResultsText}>No members found</Text>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        </View>
+        <TouchableOpacity
+          style={styles.arrowIconContainer}
+          onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
+        >
+          <Image
+            source={require('../../assets/icons/Dropdown.png')}
+            style={[
+              styles.arrowIcon as any,
+              {
+                transform: [
+                  { rotate: isMemberDropdownOpen ? '180deg' : '0deg' },
+                ],
+                marginRight: -responsiveWidth('1.5%'),
+                tintColor:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
               },
             ]}
           />
@@ -500,49 +759,12 @@ const DashboardTasksScreen = () => {
               </View>
             </View>
 
-            {/* Karmic Action Section */}
-            <View style={styles.actionSection}>
-              <Text
-                style={[
-                  styles.actionText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Your Karmic Action for{' '}
+            {/* Karmic Action Section - only show if tasks exist */}
+            {tasks.length > 0 && (
+              <View style={styles.actionSection}>
                 <Text
                   style={[
-                    styles.actionDateText,
-                    {
-                      color: colors.Orangeaccentcolor,
-                    },
-                  ]}
-                >
-                  {karmicActionDate}
-                </Text>
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.updateTaskButton,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparentBg : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.surfaceOpacity,
-                  },
-                ]}
-                activeOpacity={0.7}
-                onPress={handleUpdateTask}
-              >
-                <Text
-                  style={[
-                    styles.updateTaskButtonText,
+                    styles.actionText,
                     {
                       color:
                         theme === 'dark'
@@ -551,13 +773,77 @@ const DashboardTasksScreen = () => {
                     },
                   ]}
                 >
-                  Update Task
+                  Your Karmic Action for{' '}
+                  <Text
+                    style={[
+                      styles.actionDateText,
+                      {
+                        color: colors.Orangeaccentcolor,
+                      },
+                    ]}
+                  >
+                    {karmicActionDate}
+                  </Text>
                 </Text>
-              </TouchableOpacity>
-            </View>
+                {isEditMode ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.doneButton,
+                      {
+                        backgroundColor:
+                          theme === 'dark'
+                            ? colors.Orangeaccentcolor
+                            : colors.Orangeaccentcolor,
+                        opacity: saving ? 0.6 : 1,
+                      },
+                    ]}
+                    onPress={handleDone}
+                    disabled={saving}
+                    activeOpacity={0.7}
+                  >
+                    {saving ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <Text style={styles.doneButtonText}>Done</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.updateTaskButton,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.transparentBg : colors.white,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.surfaceOpacity,
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={handleUpdateTask}
+                  >
+                    <Text
+                      style={[
+                        styles.updateTaskButtonText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Update Task
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
-            {/* Karmic Points Section */}
-            {isEditMode ? (
+            {/* Karmic Points Section - only show if tasks exist */}
+            {tasks.length > 0 ? (
+              isEditMode ? (
               // Edit Mode UI
               <View style={styles.pointsSection}>
                 {/* <Text
@@ -662,24 +948,85 @@ const DashboardTasksScreen = () => {
                   >
                     Open Karmic Points
                   </Text>
-                  {openKarmicPoints.map(task => (
+                  {openKarmicPoints && openKarmicPoints.length > 0 ? (
+                    openKarmicPoints.map(task => (
+                      <View
+                        key={task.id}
+                        style={[
+                          styles.taskCard,
+                          {
+                            backgroundColor:
+                              theme === 'dark' ? colors.DarkNavy : colors.white,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.primaryBlue
+                                : colors.surfaceOpacity,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.taskDescription,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {task.description}
+                        </Text>
+                        <View style={styles.taskTagContainer}>
+                          <View
+                            style={[
+                              styles.taskTag,
+                              {
+                                backgroundColor:
+                                  theme === 'dark'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.Orangeaccentcolor,
+                                borderColor:
+                                  theme === 'dark'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.surfaceOpacity,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.taskTagText,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.white,
+                                },
+                              ]}
+                            >
+                              {task.type}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
                     <View
-                      key={task.id}
                       style={[
-                        styles.taskCard,
+                        styles.emptyStateContainer,
                         {
                           backgroundColor:
                             theme === 'dark' ? colors.DarkNavy : colors.white,
                           borderColor:
                             theme === 'dark'
-                              ? colors.primaryBlue
-                              : colors.surfaceOpacity,
+                              ? colors.themeBorderDropdown
+                              : colors.borderColor,
                         },
                       ]}
                     >
                       <Text
                         style={[
-                          styles.taskDescription,
+                          styles.emptyStateText,
                           {
                             color:
                               theme === 'dark'
@@ -688,41 +1035,10 @@ const DashboardTasksScreen = () => {
                           },
                         ]}
                       >
-                        {task.description}
+                        No karmic points
                       </Text>
-                      <View style={styles.taskTagContainer}>
-                        <View
-                          style={[
-                            styles.taskTag,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.Orangeaccentcolor
-                                  : colors.Orangeaccentcolor,
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.Orangeaccentcolor
-                                  : colors.surfaceOpacity,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.taskTagText,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.white,
-                              },
-                            ]}
-                          >
-                            {task.type}
-                          </Text>
-                        </View>
-                      </View>
                     </View>
-                  ))}
+                  )}
                 </View>
 
                 <View style={styles.pointsSection}>
@@ -734,25 +1050,86 @@ const DashboardTasksScreen = () => {
                   >
                     Closed Karmic Points
                   </Text>
-                  {closedKarmicPoints.map(task => (
+                  {closedKarmicPoints && closedKarmicPoints.length > 0 ? (
+                    closedKarmicPoints.map(task => (
+                      <View
+                        key={task.id}
+                        style={[
+                          styles.taskCard,
+                          styles.closedTaskCard,
+                          {
+                            backgroundColor:
+                              theme === 'dark' ? colors.DarkNavy : colors.white,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.Orangeaccentcolor
+                                : colors.Orangeaccentcolor,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.taskDescription,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {task.description}
+                        </Text>
+                        <View style={styles.taskTagContainer}>
+                          <View
+                            style={[
+                              styles.taskTag,
+                              {
+                                backgroundColor:
+                                  theme === 'dark'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.Orangeaccentcolor,
+                                borderColor:
+                                  theme === 'dark'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.surfaceOpacity,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.taskTagText,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.white,
+                                },
+                              ]}
+                            >
+                              {task.type}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
                     <View
-                      key={task.id}
                       style={[
-                        styles.taskCard,
-                        styles.closedTaskCard,
+                        styles.emptyStateContainer,
                         {
                           backgroundColor:
                             theme === 'dark' ? colors.DarkNavy : colors.white,
                           borderColor:
                             theme === 'dark'
-                              ? colors.Orangeaccentcolor
-                              : colors.Orangeaccentcolor,
+                              ? colors.themeBorderDropdown
+                              : colors.borderColor,
                         },
                       ]}
                     >
                       <Text
                         style={[
-                          styles.taskDescription,
+                          styles.emptyStateText,
                           {
                             color:
                               theme === 'dark'
@@ -761,71 +1138,46 @@ const DashboardTasksScreen = () => {
                           },
                         ]}
                       >
-                        {task.description}
+                        No karmic points
                       </Text>
-                      <View style={styles.taskTagContainer}>
-                        <View
-                          style={[
-                            styles.taskTag,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.Orangeaccentcolor
-                                  : colors.Orangeaccentcolor,
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.Orangeaccentcolor
-                                  : colors.surfaceOpacity,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.taskTagText,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.white,
-                              },
-                            ]}
-                          >
-                            {task.type}
-                          </Text>
-                        </View>
-                      </View>
                     </View>
-                  ))}
+                  )}
                 </View>
               </>
-            )}
-
-            {/* Done Button - only show in edit mode */}
-            {isEditMode && (
-              <View style={styles.doneButtonContainer}>
-                <TouchableOpacity
+              )
+            ) : (
+              // Empty state when no tasks
+              <View style={styles.pointsSection}>
+                <View
                   style={[
-                    styles.doneButton,
+                    styles.emptyStateContainer,
                     {
                       backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                      borderColor:
                         theme === 'dark'
-                          ? colors.Orangeaccentcolor
-                          : colors.Orangeaccentcolor,
-                      opacity: saving ? 0.6 : 1,
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
                     },
                   ]}
-                  onPress={handleDone}
-                  disabled={saving}
-                  activeOpacity={0.7}
                 >
-                  {saving ? (
-                    <ActivityIndicator size="small" color={colors.white} />
-                  ) : (
-                    <Text style={styles.doneButtonText}>Done</Text>
-                  )}
-                </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.emptyStateText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    No tasks found
+                  </Text>
+                </View>
               </View>
             )}
+
           </>
         )}
       </ScrollView>
@@ -836,6 +1188,7 @@ const DashboardTasksScreen = () => {
 const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
+    paddingHorizontal: responsiveWidth(4),
     paddingBottom: Platform.OS === 'android' ? 32 : 32,
   },
   headerRow: {
@@ -882,7 +1235,6 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   progressSection: {
-    paddingHorizontal: responsiveWidth(4),
     marginBottom: responsiveWidth(5),
   },
   sectionTitle: {
@@ -991,7 +1343,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: responsiveWidth(4),
     marginBottom: responsiveWidth(3),
   },
   actionText: {
@@ -1012,6 +1363,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   updateTaskButtonText: {
     fontSize: 14,
@@ -1019,7 +1372,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   pointsSection: {
-    paddingHorizontal: responsiveWidth(4),
     // marginBottom: responsiveWidth(1),
     // marginTop: responsiveWidth(3),
   },
@@ -1090,16 +1442,29 @@ const styles = StyleSheet.create({
     paddingTop: responsiveHeight(2),
   },
   doneButton: {
-    borderRadius: 12,
-    paddingVertical: responsiveWidth(3),
+    borderRadius: 8,
+    paddingVertical: responsiveWidth(1),
+    paddingHorizontal: responsiveWidth(4),
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
   },
   doneButtonText: {
     fontSize: 16,
     fontFamily: fontFamily.semiBold,
     color: '#FFFFFF',
+  },
+  emptyStateContainer: {
+    borderRadius: 12,
+    padding: responsiveWidth(4),
+    marginBottom: responsiveWidth(3),
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
   },
   loadingContainer: {
     paddingVertical: responsiveHeight(10),
@@ -1115,6 +1480,99 @@ const styles = StyleSheet.create({
   lottieAnimation: {
     width: 264,
     height: 264,
+  },
+  profileCardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 49, 73, 0.9)',
+    borderRadius: 10,
+    paddingHorizontal: responsiveWidth('2'),
+    paddingVertical: responsiveWidth('1'),
+    marginHorizontal: responsiveWidth(4),
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#496CA8',
+    position: 'relative',
+    zIndex: 99999,
+  },
+  dropdownWrapper: {
+    zIndex: 999,
+    flex: 1,
+  },
+  profileIcon: {
+    width: responsiveWidth('7%'),
+    height: responsiveWidth('7%'),
+    marginRight: responsiveWidth('3'),
+  },
+  input: {
+    backgroundColor: '#223149',
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    borderColor: '#496CA8',
+  },
+  selectedMemberText: {
+    color: '#F6EFD9',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+  },
+  arrowIcon: {
+    width: responsiveWidth('7%'),
+    height: responsiveWidth('7%'),
+    resizeMode: 'contain',
+    tintColor: '#F6EFD9',
+  },
+  arrowIconContainer: {
+    padding: responsiveWidth(1),
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop:
+      Platform.OS === 'ios' ? responsiveWidth('42') : responsiveWidth('29'),
+  },
+  modalDropdownContainer: {
+    width: '90%',
+    maxWidth: responsiveWidth('90'),
+    alignSelf: 'center',
+  },
+  dropdownContainer: {
+    backgroundColor: '#223149',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#496CA8',
+    maxHeight: 200,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  flatListStyle: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#496CA8',
+  },
+  dropdownItemText: {
+    color: '#F6EFD9',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+  },
+  noResultsText: {
+    color: '#F6EFD9',
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    paddingVertical: 10,
   },
 });
 

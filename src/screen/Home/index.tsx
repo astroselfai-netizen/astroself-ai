@@ -50,6 +50,7 @@ export type RootStackParamList = {
   ProfileScreen: undefined;
   ReportScreen: undefined;
   DashboardTasksScreen: undefined;
+  PaidPlanScreen: undefined;
 };
 
 type HomeScreenNavigationProp = StackNavigationProp<
@@ -641,14 +642,19 @@ const HomeScreen = () => {
                 },
               ]}
             >
-              <View style={[styles.astroContent,{
-                backgroundColor:
-                  theme === 'dark' ? colors.transparentBg : colors.white,
-                borderColor:
-                  theme === 'dark'
-                    ? colors.borderColor
-                    : colors.surfaceOpacity,
-              }]}>
+              <View
+                style={[
+                  styles.astroContent,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.transparentBg : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.borderColor
+                        : colors.surfaceOpacity,
+                  },
+                ]}
+              >
                 <Text
                   style={[
                     styles.astroTitle,
@@ -663,7 +669,10 @@ const HomeScreen = () => {
                 <TouchableOpacity
                   style={[
                     styles.astroButton,
-                    { backgroundColor: colors.Orangeaccentcolor },
+                    {
+                      backgroundColor: colors.Orangeaccentcolor,
+                      borderColor: colors.Orangeaccentcolor,
+                    },
                   ]}
                   // activeOpacity={0.7}
                   onPress={() => navigation.navigate('DashboardTasksScreen')}
@@ -687,7 +696,11 @@ const HomeScreen = () => {
                 styles.astroCard,
                 {
                   backgroundColor:
-                    theme === 'dark' ? colors.primary : colors.DarkNavy,
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.surfaceOpacity,
                 },
               ]}
             >
@@ -697,24 +710,43 @@ const HomeScreen = () => {
                     styles.astroTitle,
                     {
                       color:
-                        theme === 'dark' ? colors.DarkNavy : colors.surface,
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
                     },
                   ]}
                 >
-                  Buy and Download your personalized report today.
+                  Get your personalized report instantly
                 </Text>
                 <TouchableOpacity
                   style={[
                     styles.astroButton,
-                    { backgroundColor: colors.Orangeaccentcolor },
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.transparentBg : colors.white,
+                    },
+                    {
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
                   ]}
                   // activeOpacity={0.7}
                   onPress={() => navigation.navigate('ReportScreen')}
                 >
                   <Text
-                    style={[styles.astroButtonText, { color: colors.white }]}
+                    style={[
+                      styles.astroButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
                   >
-                    Buy Now
+                    View Reports
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -725,7 +757,7 @@ const HomeScreen = () => {
             </View>
 
             {/* Astro AI Chat Card */}
-            <View
+            {/* <View
               style={[
                 styles.astroCard,
 
@@ -771,14 +803,18 @@ const HomeScreen = () => {
                 source={require('../../assets/image/Ai-robot.png')}
                 style={styles.astroImage}
               />
-            </View>
+            </View> */}
             {/* Manage Members Card */}
             <View
               style={[
                 styles.membersCard,
                 {
                   backgroundColor:
-                    theme === 'dark' ? colors.primary : colors.DarkNavy,
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.surfaceOpacity,
                 },
               ]}
             >
@@ -789,7 +825,9 @@ const HomeScreen = () => {
                       styles.membersTitle,
                       {
                         color:
-                          theme === 'dark' ? colors.DarkNavy : colors.surface,
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
                       },
                     ]}
                   >
@@ -824,6 +862,70 @@ const HomeScreen = () => {
                   style={styles.membersImage}
                 />
               </View>
+            </View>
+            {/* plan and membership card */}
+            <View
+              style={[
+                styles.astroCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.surfaceOpacity,
+                  marginBottom: responsiveWidth('15%'),
+                },
+              ]}
+            >
+              <View style={styles.astroContent}>
+                <Text
+                  style={[
+                    styles.astroTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Unlock exclusive benefits, explore now
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.astroButton,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.transparentBg : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                  // activeOpacity={0.7}
+                  onPress={() => navigation.navigate('PaidPlanScreen')}
+                >
+                  <Text
+                    style={[
+                      styles.astroButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    View Plans
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Image
+                source={require('../../assets/image/View-Plans.png')}
+                style={styles.ViewPlansImage}
+              />
             </View>
             {/* Example MapView (add inside your main render/return, adjust as needed) */}
             {/*
@@ -1036,6 +1138,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginHorizontal: 8,
     overflow: 'hidden',
+    borderWidth: 0.2,
     marginTop: 20,
     flexDirection: 'row',
     shadowColor: '#000',
@@ -1067,6 +1170,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 14,
     justifyContent: 'center',
+    borderWidth: 1,
     alignItems: 'center',
     // width: responsiveHeight('15'),
     paddingHorizontal: 14,
@@ -1078,6 +1182,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '600' as const,
   },
+  ViewPlansImage: {
+    width: responsiveWidth('28%'),
+    height: responsiveWidth('28%'),
+    resizeMode: 'contain',
+    marginVertical: 10,
+    // marginRight: responsiveWidth('2'),
+    // marginLeft: responsiveWidth('4'),
+    // marginRight: responsiveWidth('2'),
+  },
   astroImage: {
     width: responsiveWidth('30%'),
     height: responsiveWidth('30%'),
@@ -1086,8 +1199,8 @@ const styles = StyleSheet.create({
     marginRight: responsiveWidth('2'),
   },
   reportImage: {
-    width: responsiveWidth('32%'),
-    height: responsiveWidth('32%'),
+    width: responsiveWidth('30%'),
+    height: responsiveWidth('30%'),
     resizeMode: 'contain',
     // marginLeft: responsiveWidth('4'),
     // marginRight: responsiveWidth('2'),
@@ -1102,7 +1215,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    marginBottom: responsiveWidth('15%'),
+    // marginBottom: responsiveWidth('15%'),
     paddingVertical: Platform.OS === 'android' ? 10 : responsiveWidth('1'),
     paddingHorizontal: responsiveWidth('3'),
     // paddingTop:  Platform.OS === 'android' ? responsiveWidth('1') : responsiveWidth('0'),

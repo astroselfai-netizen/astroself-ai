@@ -175,7 +175,7 @@ const FaqsScreen = () => {
               },
             ]}
           >
-            Frequently Asked Questions
+           FAQ'S
           </Text>
         </View>
       </View>

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import http from '../../utils/http';
 // import { Api } from '../../types/api';
 
@@ -40,12 +41,18 @@ class BooksService {
 
   async getBooks(skip: number = 0, take: number = 10, limit: number = 10, pageNo: number = 0): Promise<BooksApiResponse> {
     try {
+
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
     
       const response = await http.get(
         `books?skip=${skip}&take=${take}&limit=${limit}&pageNo=${pageNo}`,
         {
           headers: {
             'accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
         },
       );

@@ -385,11 +385,13 @@ export default class UserService extends Service {
   }): Promise<any> {
     try {
       console.log('Creating birth data for member:', birthData);
+      const token = await AsyncStorage.getItem('USER_TOKEN');
 
       const axiosResponse = await http.post('/astrology/birth_data', birthData, {
         headers: {
           accept: 'application/json',
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -456,7 +458,7 @@ export default class UserService extends Service {
         )}&topic=${encodeURIComponent(topic)}`,
       );
 
-
+      const token = await AsyncStorage.getItem('USER_TOKEN');
         const axiosResponse = await http.get(
           `house/categorize?user_id=${'68d270d48cfd6790177aa4fd'}&main_heading=${encodeURIComponent(
             mainHeading,
@@ -464,6 +466,7 @@ export default class UserService extends Service {
           {
             headers: {
               accept: 'application/json',
+              Authorization: `Bearer ${token}`,
             },
           },
         );
@@ -506,7 +509,19 @@ export default class UserService extends Service {
     mainHeading: string
   ): Promise<string[]> {
     try {
-      console.log('Fetching Dasha categorize data for userId:', userId, 'mainHeading:', mainHeading);
+      console.log(
+        'Fetching Dasha categorize data for userId:',
+        userId,
+        'mainHeading:',
+        mainHeading,
+        'Full URL:',
+        `dasha/dasha_categorize?user_id=${userId}&main_heading=${encodeURIComponent(
+          mainHeading,
+        )}`,
+      );
+
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      // console.log('token---->521', token);
 
       const axiosResponse = await http.get(
         `dasha/dasha_categorize?user_id=${userId}&main_heading=${encodeURIComponent(
@@ -515,11 +530,12 @@ export default class UserService extends Service {
         {
           headers: {
             accept: 'application/json',
+            Authorization: `Bearer ${token}`,
           },
         },
       );
 
-      console.log('Dasha categorize data response:', axiosResponse.data);
+      console.log('Dasha categorize data response:', axiosResponse);
 
       if (axiosResponse.data && axiosResponse.data.status === true && Array.isArray(axiosResponse.data.data)) {
         return axiosResponse.data.data;
@@ -561,6 +577,8 @@ export default class UserService extends Service {
     try {
       console.log('Fetching Antardasha data for userId:', userId, 'planet:', planet);
 
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
       const axiosResponse = await http.get(
         `dasha/dasha_active_categorize?user_id=${userId}&main_heading=${encodeURIComponent(
           mainHeading,
@@ -568,6 +586,7 @@ export default class UserService extends Service {
         {
           headers: {
             accept: 'application/json',
+            Authorization: `Bearer ${token}`,
           },
         },
       );
@@ -621,10 +640,12 @@ export default class UserService extends Service {
       console.log('Full Dasha AI API URL:', fullUrl);
       console.log('Base URL:', http.defaults.baseURL);
       console.log('Complete URL:', `${http.defaults.baseURL}/${fullUrl}`);
-      
+
+      const token = await AsyncStorage.getItem('USER_TOKEN');
       const axiosResponse = await http.get(fullUrl, {
         headers: {
           accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         timeout: 100000, // Increase timeout to 100 seconds
       });
@@ -692,10 +713,13 @@ export default class UserService extends Service {
       console.log('Full Antardasha API URL:', fullUrl);
       console.log('Base URL:', http.defaults.baseURL);
       console.log('Complete URL:', `${http.defaults.baseURL}/${fullUrl}`);
+
+      const token = await AsyncStorage.getItem('USER_TOKEN');
       
       const axiosResponse = await http.get(fullUrl, {
         headers: {
           accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         timeout: 100000, // Increase timeout to 100 seconds
       });
@@ -781,11 +805,14 @@ export default class UserService extends Service {
       console.log('Full API URL:', fullUrl);
       console.log('Base URL:', http.defaults.baseURL);
       console.log('Complete URL:', `${http.defaults.baseURL}/${fullUrl}`);
+
+      const token = await AsyncStorage.getItem('USER_TOKEN');
       
       const axiosResponse = await http.get(fullUrl, {
 
         headers: {
           accept: 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         timeout: 100000, // Increase timeout to 100 seconds
       });
@@ -888,6 +915,92 @@ export default class UserService extends Service {
         throw new Error('Authentication failed. Please login again.');
       } else if (error.response?.status === 404) {
         throw new Error('Current dasha time not found for this user.');
+      } else if (error.response?.status >= 500) {
+        throw new Error('Server error. Please try again later.');
+      } else if (error.code === 'NETWORK_ERROR') {
+        throw new Error('Network error. Please check your connection.');
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Updates birth data for a member
+   * @param memberId - The member ID to update
+   * @param birthData - The birth data object containing fields to update
+   * @returns The API response from the birth data update
+   */
+  async updateBirthData(
+    memberId: string,
+    birthData: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      isUpdate: boolean;
+      isProfile: boolean;
+      gender: string;
+      day: number;
+      month: number;
+      year: number;
+      hour: number;
+      min: number;
+      birthplace: string;
+      lat?: string;
+      lon?: string;
+      tzone?: number | null;
+      userId: string;
+      what_do_you_do: string;
+      marital_status?: string | null;
+      children?: string | null;
+      health_issues_if_any?: string | null;
+      main_source_of_finances?: string | null;
+      prediction_type?: string;
+      personalizedDetails?: boolean;
+      profession?: string;
+    }
+  ): Promise<{ status: boolean; message: string }> {
+    try {
+      console.log('Updating birth data for member:', memberId, birthData);
+
+      // Get the auth token from AsyncStorage
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.put(
+        `/astrology/birth_data/${memberId}`,
+        birthData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json, text/plain, */*',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      console.log('Birth data update response:', axiosResponse.data);
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to update birth data'
+      );
+    } catch (error: any) {
+      console.error('Update birth data error in service:', error);
+      
+      // Handle specific error cases
+      if (error.response?.status === 400) {
+        throw new Error('Invalid birth data provided.');
+      } else if (error.response?.status === 401) {
+        throw new Error('Authentication failed. Please login again.');
+      } else if (error.response?.status === 404) {
+        throw new Error('Member not found.');
       } else if (error.response?.status >= 500) {
         throw new Error('Server error. Please try again later.');
       } else if (error.code === 'NETWORK_ERROR') {
