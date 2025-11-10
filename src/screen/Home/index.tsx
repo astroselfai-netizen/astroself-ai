@@ -328,11 +328,11 @@ const HomeScreen = () => {
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      {/* <StatusBar
+      <StatusBar
         barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent={true}
-      /> */}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.container}

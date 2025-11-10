@@ -98,6 +98,14 @@
           }
         },
         {
+          "client_id": "1061722426474-hi20naqi2t806v2a2jibilsk8tho94i8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astroself.ai",
+            "certificate_hash": "b0c365f442c5090278d78d709e5522fecef3e0e6"
+          }
+        },
+        {
           "client_id": "1061722426474-m7vce3rm6mij8bp2dvar8324hg07s7qt.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

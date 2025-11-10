@@ -184,6 +184,7 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
     try {
       const result = await googleAuthService.signInWithGoogle();
       
@@ -237,6 +238,8 @@ const Login = () => {
         topOffset: 60,
         visibilityTime: 3000,
       });
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -244,6 +247,7 @@ const Login = () => {
   const [keyboardHeight] = useState(new Animated.Value(0));
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -316,8 +320,8 @@ const Login = () => {
           style={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          scrollEnabled={!isLoading}
-          pointerEvents={isLoading ? 'none' : 'auto'}
+          scrollEnabled={!isLoading && !isGoogleLoading}
+          pointerEvents={isLoading || isGoogleLoading ? 'none' : 'auto'}
         >
           {/* Top Logo and Title */}
           <View style={styles.headerContainer}>
@@ -366,7 +370,7 @@ const Login = () => {
               value={formik.values.email}
               onChangeText={formik.handleChange('email')}
               onBlur={formik.handleBlur('email')}
-              editable={!isLoading}
+              editable={!isLoading && !isGoogleLoading}
             />
             {formik.touched.email && formik.errors.email && (
               <Text style={styles.errorText}>{formik.errors.email}</Text>
@@ -413,12 +417,12 @@ const Login = () => {
                 value={formik.values.password}
                 onChangeText={formik.handleChange('password')}
                 onBlur={formik.handleBlur('password')}
-                editable={!isLoading}
+                editable={!isLoading && !isGoogleLoading}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIconContainer}
-                disabled={isLoading}
+                disabled={isLoading || isGoogleLoading}
               >
                 <View style={styles.eyeIconWrapper}>
                   <Image
@@ -445,8 +449,8 @@ const Login = () => {
             )}
             <TouchableOpacity 
               onPress={handleForgotPassword}
-              disabled={isLoading}
-              style={isLoading && styles.disabledTouchable}
+              disabled={isLoading || isGoogleLoading}
+              style={(isLoading || isGoogleLoading) && styles.disabledTouchable}
             >
               <Text
                 style={[
@@ -456,7 +460,7 @@ const Login = () => {
                       theme === 'dark'
                         ? colors.themeTextWhite
                         : colors.themelightText,
-                    opacity: isLoading ? 0.5 : 1,
+                    opacity: isLoading || isGoogleLoading ? 0.5 : 1,
                   },
                 ]}
               >
@@ -474,9 +478,9 @@ const Login = () => {
               }}
               style={[
                 styles.loginButton,
-                isLoading && styles.loginButtonDisabled,
+                (isLoading || isGoogleLoading) && styles.loginButtonDisabled,
               ]}
-              disabled={isLoading}
+              disabled={isLoading || isGoogleLoading}
             >
               {isLoading ? (
                 <View style={styles.loaderContainer}>
@@ -500,9 +504,9 @@ const Login = () => {
                       ? colors.Orangeaccentcolor
                       : colors.primaryBlue,
                 },
-                isLoading && styles.loginButtonDisabled,
+                (isLoading || isGoogleLoading) && styles.loginButtonDisabled,
               ]}
-              disabled={isLoading}
+              disabled={isLoading || isGoogleLoading}
             >
               <Text
                 style={[
@@ -566,25 +570,47 @@ const Login = () => {
                       ? colors.themeTextWhite
                       : colors.primaryBlue,
                 },
-                isLoading && styles.loginButtonDisabled,
+                (isLoading || isGoogleLoading) && styles.loginButtonDisabled,
               ]}
               onPress={handleGoogleLogin}
-              disabled={isLoading}
+              disabled={isLoading || isGoogleLoading}
             >
-              <Image source={icons.Ic_google} style={styles.googleG} />
-              <Text
-                style={[
-                  styles.googleButtonText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.primaryBlue,
-                  },
-                ]}
-              >
-                Login with Google
-              </Text>
+              {isGoogleLoading ? (
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator size="small" color={theme === 'dark' ? colors.themeTextWhite : colors.primaryBlue} />
+                  <Text
+                    style={[
+                      styles.googleButtonText,
+                      styles.loadingText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.primaryBlue,
+                      },
+                    ]}
+                  >
+                    Logging in...
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Image source={icons.Ic_google} style={styles.googleG} />
+                  <Text
+                    style={[
+                      styles.googleButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.primaryBlue,
+                      },
+                    ]}
+                  >
+                    Login with Google
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
             {/* Register Link */}
             <View style={styles.registerRow}>
@@ -603,8 +629,8 @@ const Login = () => {
               </Text>
               <TouchableOpacity 
                 onPress={handleRegister}
-                disabled={isLoading}
-                style={isLoading && styles.disabledTouchable}
+                disabled={isLoading || isGoogleLoading}
+                style={(isLoading || isGoogleLoading) && styles.disabledTouchable}
               >
                 <Text
                   style={[
@@ -614,7 +640,7 @@ const Login = () => {
                         theme === 'dark'
                           ? colors.Orangeaccentcolor
                           : colors.Orangeaccentcolor,
-                      opacity: isLoading ? 0.5 : 1,
+                      opacity: isLoading || isGoogleLoading ? 0.5 : 1,
                     },
                   ]}
                 >

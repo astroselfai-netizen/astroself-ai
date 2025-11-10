@@ -14,6 +14,7 @@ import {
   Modal,
   FlatList,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import * as RNLocalize from 'react-native-localize';
 import { COUNTRY_CODES, isoToDialMap } from '../../constant/countryCodes';
@@ -67,6 +68,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [countryCode, setCountryCode] = useState('+91');
   const [isCcModalVisible, setIsCcModalVisible] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Password strength validation
   const getPasswordStrength = (password: string) => {
@@ -219,6 +221,7 @@ const Register = () => {
   });
 
   const handleGoogleSignup = async () => {
+    setIsGoogleLoading(true);
     try {
       const result = await googleAuthService.signInWithGoogle();
       
@@ -270,6 +273,8 @@ const Register = () => {
         topOffset: 60,
         visibilityTime: 3000,
       });
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -316,6 +321,8 @@ const Register = () => {
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          scrollEnabled={!formik.isSubmitting && !isGoogleLoading}
+          pointerEvents={formik.isSubmitting || isGoogleLoading ? 'none' : 'auto'}
         >
           {/* Title */}
           <View style={styles.titleWrap}>
@@ -353,6 +360,7 @@ const Register = () => {
               value={formik.values.firstName}
               onChangeText={formik.handleChange('firstName')}
               onBlur={formik.handleBlur('firstName')}
+              editable={!formik.isSubmitting && !isGoogleLoading}
             />
             {formik.touched.firstName && formik.errors.firstName && (
               <Text style={styles.errorText}>{formik.errors.firstName}</Text>
@@ -377,6 +385,7 @@ const Register = () => {
               value={formik.values.lastName}
               onChangeText={formik.handleChange('lastName')}
               onBlur={formik.handleBlur('lastName')}
+              editable={!formik.isSubmitting && !isGoogleLoading}
             />
             {formik.touched.lastName && formik.errors.lastName && (
               <Text style={styles.errorText}>{formik.errors.lastName}</Text>
@@ -403,6 +412,7 @@ const Register = () => {
               value={formik.values.email}
               onChangeText={formik.handleChange('email')}
               onBlur={formik.handleBlur('email')}
+              editable={!formik.isSubmitting && !isGoogleLoading}
             />
             {formik.touched.email && formik.errors.email && (
               <Text style={styles.errorText}>{formik.errors.email}</Text>
@@ -423,6 +433,7 @@ const Register = () => {
                   },
                 ]}
                 activeOpacity={0.8}
+                disabled={formik.isSubmitting || isGoogleLoading}
               >
                 <Text
                   style={[
@@ -462,6 +473,7 @@ const Register = () => {
                 value={formik.values.phone}
                 onChangeText={formik.handleChange('phone')}
                 onBlur={formik.handleBlur('phone')}
+                editable={!formik.isSubmitting && !isGoogleLoading}
               />
             </View>
             {formik.touched.phone && formik.errors.phone && (
@@ -507,10 +519,12 @@ const Register = () => {
                 value={formik.values.password}
                 onChangeText={formik.handleChange('password')}
                 onBlur={formik.handleBlur('password')}
+                editable={!formik.isSubmitting && !isGoogleLoading}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIconContainer}
+                disabled={formik.isSubmitting || isGoogleLoading}
               >
                 <View style={styles.eyeIconWrapper}>
                   <Image
@@ -592,12 +606,24 @@ const Register = () => {
             )}
             <TouchableOpacity
               onPress={formik.handleSubmit as any}
-              disabled={formik.isSubmitting}
-              style={styles.createAccountButton}
+              disabled={formik.isSubmitting || isGoogleLoading}
+              style={[
+                styles.createAccountButton,
+                (formik.isSubmitting || isGoogleLoading) && styles.loginButtonDisabled,
+              ]}
             >
-              <Text style={styles.createAccountButtonText}>
-                {formik.isSubmitting ? 'Please wait...' : 'Create an Account'}
-              </Text>
+              {formik.isSubmitting ? (
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator size="small" color={color.themeTextWhite} />
+                  <Text style={[styles.createAccountButtonText, styles.loadingText]}>
+                    Please wait...
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.createAccountButtonText}>
+                  Create an Account
+                </Text>
+              )}
             </TouchableOpacity>
 
             {/* Divider */}
@@ -649,23 +675,47 @@ const Register = () => {
                       ? colors.themeTextWhite
                       : colors.primaryBlue,
                 },
+                (formik.isSubmitting || isGoogleLoading) && styles.loginButtonDisabled,
               ]}
               onPress={handleGoogleSignup}
+              disabled={formik.isSubmitting || isGoogleLoading}
             >
-              <Image source={icons.Ic_google} style={styles.googleIcon} />
-              <Text
-                style={[
-                  styles.googleButtonText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.primaryBlue,
-                  },
-                ]}
-              >
-                Sign up with Google
-              </Text>
+              {isGoogleLoading ? (
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator size="small" color={theme === 'dark' ? colors.themeTextWhite : colors.primaryBlue} />
+                  <Text
+                    style={[
+                      styles.googleButtonText,
+                      styles.loadingText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.primaryBlue,
+                      },
+                    ]}
+                  >
+                    Signing up...
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Image source={icons.Ic_google} style={styles.googleIcon} />
+                  <Text
+                    style={[
+                      styles.googleButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.primaryBlue,
+                      },
+                    ]}
+                  >
+                    Sign up with Google
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
           {/* Footer */}
@@ -683,8 +733,20 @@ const Register = () => {
             >
               Already have an account?{' '}
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={[styles.loginLink]}>Login</Text>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('Login')}
+              disabled={formik.isSubmitting || isGoogleLoading}
+            >
+              <Text 
+                style={[
+                  styles.loginLink,
+                  {
+                    opacity: formik.isSubmitting || isGoogleLoading ? 0.5 : 1,
+                  },
+                ]}
+              >
+                Login
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -1116,6 +1178,17 @@ const styles = StyleSheet.create({
   requirementMet: {
     color: '#4CAF50',
     fontWeight: '500',
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  loaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginLeft: 8,
   },
 });
 

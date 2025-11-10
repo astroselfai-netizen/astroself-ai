@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, ImageBackground, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, ImageBackground, ScrollView, TouchableOpacity } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import {
   responsiveWidth,
@@ -239,6 +239,25 @@ const DashaScreen = ({
   useEffect(() => {
     setCurrentDashaData(getCurrentDashaData());
   }, [dashaDetails, selectedDashaType, getCurrentDashaData]);
+
+  // Function to get the next dasha type in hierarchy
+  const getNextDashaType = useCallback((currentType: string): string | null => {
+    const typeIndex = dashaTypes.findIndex(type => type.key === currentType);
+    if (typeIndex === -1 || typeIndex === dashaTypes.length - 1) {
+      return null; // Already at the last level
+    }
+    return dashaTypes[typeIndex + 1].key;
+  }, []);
+
+  // Function to handle active row click
+  const handleActiveRowClick = useCallback((item: DashaTableItem) => {
+    if (item.isActive) {
+      const nextDashaType = getNextDashaType(selectedDashaType);
+      if (nextDashaType) {
+        setSelectedDashaType(nextDashaType);
+      }
+    }
+  }, [selectedDashaType, getNextDashaType]);
 
   // const currentDashaData = getCurrentDashaData();
   const selectedDashaLabel =
@@ -519,30 +538,53 @@ const DashaScreen = ({
                 </View>
                 <View style={styles.tableBody}>
                   {currentDashaData.length > 0 ? (
-                    currentDashaData.map((item: DashaTableItem) => (
-                      <View
-                        key={item.id}
-                        style={[
-                          styles.dashaTableRow,
-                          {
-                            backgroundColor:
-                              theme === 'dark' ? '#EFE6D0' : colors.white,
-                            borderBottomColor:
-                              theme === 'dark' ? '#CFCFCF' : colors.borderColor,
-                          },
-                          item.isActive && styles.activeTableRow,
-                          item.id === currentDashaData.length - 1 &&
-                            styles.lastTableRow,
-                        ]}
-                      >
-                        {/* {item.isActive && (
-                           <View style={styles.activeIndicator} />
-                         )} */}
-                        <View style={styles.dashaCellPlanet}>
-                          {/* <Image source={item.icon} style={styles.dashaPlanetIcon} /> */}
+                    currentDashaData.map((item: DashaTableItem) => {
+                      const RowComponent = item.isActive ? TouchableOpacity : View;
+                      const rowProps = item.isActive
+                        ? {
+                            onPress: () => handleActiveRowClick(item),
+                            activeOpacity: 0.7,
+                          }
+                        : {};
+
+                      return (
+                        <RowComponent
+                          key={item.id}
+                          {...rowProps}
+                          style={[
+                            styles.dashaTableRow,
+                            {
+                              backgroundColor:
+                                theme === 'dark' ? '#EFE6D0' : colors.white,
+                              borderBottomColor:
+                                theme === 'dark' ? '#CFCFCF' : colors.borderColor,
+                            },
+                            item.isActive && styles.activeTableRow,
+                            item.id === currentDashaData.length - 1 &&
+                              styles.lastTableRow,
+                          ]}
+                        >
+                          {/* {item.isActive && (
+                             <View style={styles.activeIndicator} />
+                           )} */}
+                          <View style={styles.dashaCellPlanet}>
+                            {/* <Image source={item.icon} style={styles.dashaPlanetIcon} /> */}
+                            <Text
+                              style={[
+                                styles.dashaCellPlanetText,
+                                {
+                                  color:
+                                    theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                                },
+                                item.isActive && styles.activeText,
+                              ]}
+                            >
+                              {item.planet}
+                            </Text>
+                          </View>
                           <Text
                             style={[
-                              styles.dashaCellPlanetText,
+                              styles.dashaCellFrom,
                               {
                                 color:
                                   theme === 'dark' ? '#23304D' : colors.DarkNavy,
@@ -550,35 +592,23 @@ const DashaScreen = ({
                               item.isActive && styles.activeText,
                             ]}
                           >
-                            {item.planet}
+                            {formatDateForDisplay(item.from)}
                           </Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.dashaCellFrom,
-                            {
-                              color:
-                                theme === 'dark' ? '#23304D' : colors.DarkNavy,
-                            },
-                            item.isActive && styles.activeText,
-                          ]}
-                        >
-                          {formatDateForDisplay(item.from)}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.dashaCellTo,
-                            {
-                              color:
-                                theme === 'dark' ? '#23304D' : colors.DarkNavy,
-                            },
-                            item.isActive && styles.activeText,
-                          ]}
-                        >
-                          {formatDateForDisplay(item.to)}
-                        </Text>
-                      </View>
-                    ))
+                          <Text
+                            style={[
+                              styles.dashaCellTo,
+                              {
+                                color:
+                                  theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                              },
+                              item.isActive && styles.activeText,
+                            ]}
+                          >
+                            {formatDateForDisplay(item.to)}
+                          </Text>
+                        </RowComponent>
+                      );
+                    })
                   ) : (
                     <View style={styles.noDataContainer}>
                       <Text

@@ -63,6 +63,7 @@ const EditAllTaskSelectionScreen = () => {
   const { membersData } = useProfileData();
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [originalTasks, setOriginalTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [heading, setHeading] = useState<string>('Tasks You Should Perform Daily');
@@ -168,6 +169,7 @@ const EditAllTaskSelectionScreen = () => {
         if (!response || !response.insights || !Array.isArray(response.insights)) {
           console.log('No insights found in response, setting empty tasks');
           setTasks([]);
+          setOriginalTasks([]);
           setLoading(false);
           return;
         }
@@ -176,6 +178,7 @@ const EditAllTaskSelectionScreen = () => {
         if (response.insights.length === 0) {
           console.log('Empty insights array, setting empty tasks');
           setTasks([]);
+          setOriginalTasks([]);
           setLoading(false);
           return;
         }
@@ -193,6 +196,7 @@ const EditAllTaskSelectionScreen = () => {
         }));
 
         setTasks(mappedTasks);
+        setOriginalTasks(mappedTasks);
         if (response.heading && response.heading !== currentHeading) {
           setHeading(response.heading);
         }
@@ -201,6 +205,7 @@ const EditAllTaskSelectionScreen = () => {
         
         // Handle 404 or any error - set empty tasks array to show "No tasks found"
         setTasks([]);
+        setOriginalTasks([]);
         
         // Check if it's a 404 error
         if (error?.response?.status === 404 || error?.status === 404) {
@@ -253,12 +258,23 @@ const EditAllTaskSelectionScreen = () => {
       setSaving(true);
       
       // Map component tasks back to API format
-      const insights: Task[] = tasks.map(task => ({
-        task: task.description,
-        selected: task.selected,
-        status: task.status || 'pending',
-        track: task.frequency as 'Daily' | 'Weekly' | 'Monthly' | '',
-      }));
+
+      const insights: Task[] = tasks.map(task => {
+        // Find the original task by description to compare
+        const originalTask = originalTasks.find(
+          orig => orig.description === task.description
+        );
+        
+        // If task was unselected (changed from selected=true to selected=false), set status to pending
+        const wasUnselected = originalTask && originalTask.selected === true && task.selected === false;
+        
+        return {
+          task: task.description,
+          selected: task.selected,
+          status: wasUnselected ? 'pending' : (task.status || 'pending'),
+          track: task.frequency as 'Daily' | 'Weekly' | 'Monthly' | '',
+        };
+      });
 
       await taskService.updateTaskActivity({
         user_id: selectedMemberId || userId || '',

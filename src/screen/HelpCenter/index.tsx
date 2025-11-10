@@ -82,10 +82,8 @@ const HelpCenterScreen = () => {
       </View>
 
       {/* Main Content Card */}
-      <ScrollView
-        contentContainerStyle={styles.scrollViewContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <View
+        style={styles.scrollViewContent}
       >
         <View style={styles.imageContainer}>
           <Image
@@ -258,7 +256,7 @@ const HelpCenterScreen = () => {
             </Text>
           </View>
         </View>
-      </ScrollView>
+      </View>
     </MainContainer>
     // </View>
   );

@@ -172,7 +172,20 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
   ];
 
   // Use actual data if available, otherwise use fallback
-  const finalDashaData = dashaData.length > 0 ? dashaData : fallbackData;
+  const unsortedData = dashaData.length > 0 ? dashaData : fallbackData;
+
+  // Sort data to show house 1 (ascendant) first, then rest in numerical order
+  const finalDashaData = [...unsortedData].sort((a, b) => {
+    const houseA = parseInt(a.house, 10) || 999; // Treat non-numeric as last
+    const houseB = parseInt(b.house, 10) || 999;
+    
+    // House 1 (ascendant) always comes first
+    if (houseA === 1) return -1;
+    if (houseB === 1) return 1;
+    
+    // Rest sorted numerically
+    return houseA - houseB;
+  });
 
   // Handle scroll event to update current index
   const handleScroll = (event: any) => {
