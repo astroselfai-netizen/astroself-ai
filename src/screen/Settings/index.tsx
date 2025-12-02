@@ -57,7 +57,7 @@ const settingsList = [
       //   icon: require('../../assets/icons/notification.png'),
       //   label: 'Notification',
       // },
-      { icon: require('../../assets/icons/PaidPlan.png'), label: 'Paid Plan' },
+      { icon: require('../../assets/icons/PaidPlan.png'), label: 'Paid Plans' },
       {
         icon: require('../../assets/icons/Reports-Plans.png'),
         label: 'Reports',
@@ -145,7 +145,7 @@ const SettingsScreen = () => {
     // console.log('label', label);
     if (label === 'Resources') {
       navigation.navigate('ResourcesScreen');
-    } else if (label === 'Paid Plan') {
+    } else if (label === 'Paid Plans') {
       navigation.navigate('PaidPlanScreen');
     }
     else if (label === 'Help Center') {

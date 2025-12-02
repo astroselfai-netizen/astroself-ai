@@ -22,6 +22,7 @@ import * as Yup from 'yup';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
 import GoogleAuthService from '../../services/googleAuthService';
+import notificationService from '../../services/notificationService';
 // import {InputBox} from '../../components/common/inputBox';
 import Toast from 'react-native-toast-message';
 
@@ -115,7 +116,17 @@ const Login = () => {
       try {
         console.log('values.email==>', values.email, values.password);
 
-        const data = await userService.login(values.email, values.password);
+        // Get FCM token (reuse stored token if available, generate only if needed)
+        let fcmToken: string | null = null;
+        try {
+          fcmToken = await notificationService.getOrCreateFCMToken();
+          console.log('FCM Token for login:', fcmToken);
+        } catch (error) {
+          console.error('Error getting FCM token:', error);
+          // Continue with login even if FCM token fails
+        }
+
+        const data = await userService.login(values.email, values.password, fcmToken || undefined);
 
         if (data && data.access_token) {
           // Dispatch user data to Redux state

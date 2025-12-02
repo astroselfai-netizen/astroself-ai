@@ -119,8 +119,8 @@ android {
         applicationId "com.astroself.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 7
-        versionName "1.6"
+        versionCode 13
+        versionName "1.12"
         
         // Enable bundle splitting for different architectures
         ndk {
@@ -189,17 +189,17 @@ dependencies {
     implementation("com.facebook.react:react-android")
 
      // Import the Firebase BoM
-  implementation platform('com.google.firebase:firebase-bom:34.2.0')
+    implementation platform('com.google.firebase:firebase-bom:34.2.0')
 
 
-  // TODO: Add the dependencies for Firebase products you want to use
-  // When using the BoM, don't specify versions in Firebase dependencies
-  implementation 'com.google.firebase:firebase-analytics'
-  implementation 'com.google.firebase:firebase-auth'
-  implementation 'com.google.firebase:firebase-crashlytics'
+    // TODO: Add the dependencies for Firebase products you want to use
+    // When using the BoM, don't specify versions in Firebase dependencies
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'com.google.firebase:firebase-crashlytics'
 
-  // Add the dependencies for any other desired Firebase products
-  // https://firebase.google.com/docs/android/setup#available-libraries
+    // Add the dependencies for any other desired Firebase products
+    // https://firebase.google.com/docs/android/setup#available-libraries
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

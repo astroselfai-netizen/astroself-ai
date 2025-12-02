@@ -279,6 +279,7 @@ const ReportScreen = () => {
       const isSuccess =
         verifyResponse.success === true ||
         verifyResponse?.status === 'success' ||
+        verifyResponse?.status === true ||
         String(verifyResponse.success) === 'true' ||
         (verifyResponse.message &&
           verifyResponse.message

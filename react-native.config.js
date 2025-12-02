@@ -5,6 +5,7 @@ module.exports = {
       sourceDir: './android',
       appName: 'app',
       packageName: 'com.astroself.ai',
+      
     },
   },
   assets: ['./src/assets/fonts/'],

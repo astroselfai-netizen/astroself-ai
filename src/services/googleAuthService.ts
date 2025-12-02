@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { Service } from './Service';
 import UserService from './user/user.service';
 import serviceFactory from './serviceFactory';
+import notificationService from './notificationService';
 
 class GoogleAuthService extends Service {
   private static instance: GoogleAuthService;
@@ -60,8 +61,18 @@ class GoogleAuthService extends Service {
 
       console.log('userCredential', userCredential);
       
+      // Get FCM token (reuse stored token if available, generate only if needed)
+      let fcmToken: string | null = null;
+      try {
+        fcmToken = await notificationService.getOrCreateFCMToken();
+        console.log('FCM Token for Google login:', fcmToken);
+      } catch (error) {
+        console.error('Error getting FCM token for Google login:', error);
+        // Continue with login even if FCM token fails
+      }
+      
       // Register or login the user with your backend API
-      const apiResponse = await this.registerOrLoginGoogleUser(userCredential.user);
+      const apiResponse = await this.registerOrLoginGoogleUser(userCredential.user, fcmToken || undefined);
       
       if (apiResponse.success) {
         return {
@@ -136,7 +147,7 @@ class GoogleAuthService extends Service {
     }
   }
 
-  public async registerOrLoginGoogleUser(firebaseUser: any): Promise<any> {
+  public async registerOrLoginGoogleUser(firebaseUser: any, fcmToken?: string): Promise<any> {
     try {
       const userService = serviceFactory.get<UserService>('UserService');
       
@@ -153,12 +164,14 @@ class GoogleAuthService extends Service {
       };
 
       console.log('Google User Data:', userData);
+      console.log('FCM Token for Google login API:', fcmToken || 'not provided');
 
       // First try to login (user might already exist)
       try {
         const loginResponse = await userService.login(
           userData.email,
-          userData.password
+          userData.password,
+          fcmToken
         );
 
         console.log('Google User Login Success (Existing User):', loginResponse);
@@ -179,6 +192,7 @@ class GoogleAuthService extends Service {
             email: userData.email,
             phone: userData.phone || '+91', // Default phone if not available
             password: userData.password,
+            fcmToken: fcmToken,
           });
 
           console.log('Google User Registration Success (New User):', registerResponse);
@@ -218,14 +232,10 @@ class GoogleAuthService extends Service {
   }
 
   // Helper method to check if user exists (optional - for future use)
-  private async checkUserExists(email: string): Promise<boolean> {
-    try {
-      // This would require a separate API endpoint to check user existence
-      // For now, we'll rely on the login attempt to determine if user exists
-      return false;
-    } catch (error) {
-      return false;
-    }
+  private async checkUserExists(_email: string): Promise<boolean> {
+    // This would require a separate API endpoint to check user existence
+    // For now, we'll rely on the login attempt to determine if user exists
+    return false;
   }
 }
 

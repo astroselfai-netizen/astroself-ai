@@ -20,14 +20,14 @@ export enum HttpStatusCode {
 
 export const baseURL = __DEV__
   ? Platform.select({
-      android: 'https://uat.astroself.ai/api',
-      ios: 'https://uat.astroself.ai/api',
-      default: 'https://uat.astroself.ai/api',
+      android: 'https://astrouat.astroself.ai/api',
+      ios: 'https://astrouat.astroself.ai/api',
+      default: 'https://astrouat.astroself.ai/api',
     })
   : Platform.select({
-      android: 'https://uat.astroself.ai/api',
-      ios: 'https://uat.astroself.ai/api',
-      default: 'https://uat.astroself.ai/api',
+      android: 'https://astrouat.astroself.ai/api',
+      ios: 'https://astrouat.astroself.ai/api',
+      default: 'https://astrouat.astroself.ai/api',
     }); // Production URL
 
 // Create Axios instance with default headers

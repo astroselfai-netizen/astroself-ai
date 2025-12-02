@@ -45,6 +45,7 @@ export type RootStackParamList = {
   ContinueWithOtp: undefined;
   ForgotPasswordOtp: undefined;
   AddNewMember: undefined;
+  MemberPlanManagement: undefined;
 };
 
 type PaidPlanScreenNavigationProp = StackNavigationProp<
@@ -163,6 +164,7 @@ const PaidPlanScreen = () => {
       const isSuccess =
         verifyResponse.success === true ||
         String(verifyResponse.success) === 'true' ||
+        verifyResponse?.status === 'success' ||
         (verifyResponse.message &&
           verifyResponse.message
             .toLowerCase()
@@ -184,7 +186,7 @@ const PaidPlanScreen = () => {
         });
 
         // Navigate to AddNewMember screen
-        navigation.navigate('AddNewMember');
+        navigation.navigate('MemberPlanManagement');
       } else {
         throw new Error(
           verifyResponse.message || 'Payment verification failed',
@@ -264,7 +266,7 @@ const PaidPlanScreen = () => {
           visibilityTime: 3000,
         });
 
-        navigation.navigate('AddNewMember');
+        navigation.navigate('MemberPlanManagement');
         return;
       }
 
@@ -305,17 +307,16 @@ const PaidPlanScreen = () => {
             style={[
               styles.headerTitle,
               {
-                color:
-                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                color: theme === 'dark' ? colors.white : colors.DarkNavy,
               },
             ]}
           >
-            Paid Plan
+            Paid Plans
           </Text>
         </View>
       </View>
 
-      <View style={styles.imageContainer} >
+      <View style={styles.imageContainer}>
         <Image
           source={require('../../assets/image/PaidPlanImage.png')}
           resizeMode="cover"
@@ -393,8 +394,7 @@ const PaidPlanScreen = () => {
               style={[
                 styles.tabText,
                 {
-                  color:
-                    theme === 'dark' ? colors.white : colors.DarkNavy,
+                  color: theme === 'dark' ? colors.white : colors.DarkNavy,
                 },
                 activeTab === 'free' && {
                   color:
@@ -429,8 +429,7 @@ const PaidPlanScreen = () => {
               style={[
                 styles.tabText,
                 {
-                  color:
-                    theme === 'dark' ? colors.white : colors.DarkNavy,
+                  color: theme === 'dark' ? colors.white : colors.DarkNavy,
                 },
                 activeTab === 'paid' && {
                   color:
@@ -438,7 +437,7 @@ const PaidPlanScreen = () => {
                 },
               ]}
             >
-              Paid Plan
+              Paid Plans
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -475,9 +474,7 @@ const PaidPlanScreen = () => {
                       styles.planTitle,
                       {
                         color:
-                          theme === 'dark'
-                            ? colors.white
-                            : colors.DarkNavy,
+                          theme === 'dark' ? colors.white : colors.DarkNavy,
                       },
                     ]}
                   >
@@ -489,9 +486,7 @@ const PaidPlanScreen = () => {
                         styles.price,
                         {
                           color:
-                            theme === 'dark'
-                              ? colors.white
-                              : colors.DarkNavy,
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
                         },
                       ]}
                     >
@@ -502,9 +497,7 @@ const PaidPlanScreen = () => {
                         styles.priceUnit,
                         {
                           color:
-                            theme === 'dark'
-                              ? colors.white
-                              : colors.DarkNavy,
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
                         },
                       ]}
                     >
@@ -518,10 +511,7 @@ const PaidPlanScreen = () => {
                   style={[
                     styles.planDescription,
                     {
-                      color:
-                        theme === 'dark'
-                          ? colors.white
-                          : colors.DarkNavy,
+                      color: theme === 'dark' ? colors.white : colors.DarkNavy,
                     },
                   ]}
                 >
@@ -554,9 +544,7 @@ const PaidPlanScreen = () => {
                           styles.featureText,
                           {
                             color:
-                              theme === 'dark'
-                                ? colors.white
-                                : colors.DarkNavy,
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
                           },
                         ]}
                       >
@@ -574,9 +562,7 @@ const PaidPlanScreen = () => {
                       styles.disclaimerText,
                       {
                         color:
-                          theme === 'dark'
-                            ? colors.white
-                            : colors.DarkNavy,
+                          theme === 'dark' ? colors.white : colors.DarkNavy,
                       },
                     ]}
                   >
@@ -603,13 +589,11 @@ const PaidPlanScreen = () => {
                       styles.addMemberTitle,
                       {
                         color:
-                          theme === 'dark'
-                            ? colors.white
-                            : colors.DarkNavy,
+                          theme === 'dark' ? colors.white : colors.DarkNavy,
                       },
                     ]}
                   >
-                    Add members and generate charts
+                    Go premium and see your life in a whole new light.
                   </Text>
                   <View
                     style={[
@@ -734,7 +718,7 @@ const PaidPlanScreen = () => {
                       />
                     </View>
                   </View>
-                  <Text
+                  {/* <Text
                     style={[
                       styles.remainingSlotsText,
                       {
@@ -802,7 +786,7 @@ const PaidPlanScreen = () => {
                               }`
                             : ''
                         }`}
-                  </Text>
+                  </Text> */}
                   <View style={styles.buttonContainer}>
                     <TouchableOpacity
                       onPress={handleAddMemberPayment}
@@ -839,9 +823,7 @@ const PaidPlanScreen = () => {
                           styles.actionButtonText,
                           {
                             color:
-                              theme === 'dark'
-                                ? colors.white
-                                : colors.white,
+                              theme === 'dark' ? colors.white : colors.white,
                           },
                         ]}
                       >
@@ -850,7 +832,7 @@ const PaidPlanScreen = () => {
                     </TouchableOpacity>
 
                     {/* Only show Create button if there are remaining member or child slots */}
-                    {(Math.max(
+                    {/* {(Math.max(
                       0,
                       (profileData?.members_allow || 0) -
                         (profileData?.current_members || 0),
@@ -859,9 +841,9 @@ const PaidPlanScreen = () => {
                         0,
                         (profileData?.child_allow || 0) -
                           (profileData?.current_child || 0),
-                      ) > 0) && (
+                      ) > 0) && ( */}
                       <TouchableOpacity
-                        onPress={() => navigation.navigate('AddNewMember')}
+                        onPress={() => navigation.navigate('MemberPlanManagement')}
                         style={[
                           styles.actionButton,
                           styles.createButton,
@@ -887,10 +869,10 @@ const PaidPlanScreen = () => {
                             },
                           ]}
                         >
-                          Create
+                          Manage Plan
                         </Text>
                       </TouchableOpacity>
-                    )}
+                    {/* )} */}
                   </View>
                 </View>
               </View>
@@ -909,9 +891,7 @@ const PaidPlanScreen = () => {
                       styles.planTitle,
                       {
                         color:
-                          theme === 'dark'
-                            ? colors.white
-                            : colors.DarkNavy,
+                          theme === 'dark' ? colors.white : colors.DarkNavy,
                       },
                     ]}
                   >
@@ -924,9 +904,7 @@ const PaidPlanScreen = () => {
                       styles.freePlanTitle,
                       {
                         color:
-                          theme === 'dark'
-                            ? colors.white
-                            : colors.DarkNavy,
+                          theme === 'dark' ? colors.white : colors.DarkNavy,
                       },
                     ]}
                   >
@@ -939,10 +917,7 @@ const PaidPlanScreen = () => {
                   style={[
                     styles.planDescription,
                     {
-                      color:
-                        theme === 'dark'
-                          ? colors.white
-                          : colors.DarkNavy,
+                      color: theme === 'dark' ? colors.white : colors.DarkNavy,
                     },
                   ]}
                 >
@@ -970,9 +945,7 @@ const PaidPlanScreen = () => {
                           styles.featureText,
                           {
                             color:
-                              theme === 'dark'
-                                ? colors.white
-                                : colors.DarkNavy,
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
                           },
                         ]}
                       >
@@ -989,9 +962,7 @@ const PaidPlanScreen = () => {
                       styles.disclaimerText,
                       {
                         color:
-                          theme === 'dark'
-                            ? colors.white
-                            : colors.DarkNavy,
+                          theme === 'dark' ? colors.white : colors.DarkNavy,
                       },
                     ]}
                   >
@@ -1220,19 +1191,19 @@ const styles = StyleSheet.create({
   // Member Management Styles - Matching ProfileScreen
   memberSection: {
     marginBottom: responsiveWidth(2),
-    marginTop: responsiveWidth(2),
+    marginTop: responsiveWidth(1),
   },
   addMemberTitle: {
     fontSize: 18,
     fontFamily: fontFamily.regular,
     lineHeight: 24,
-    marginBottom: 16,
+    // marginBottom: 16,
   },
   addMemberCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    // marginBottom: 12,
   },
   addMemberCardLeft: {
     flex: 1,

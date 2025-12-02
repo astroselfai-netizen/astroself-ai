@@ -156,7 +156,7 @@ const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) =
 
   return (
     <View style={[styles.container,{
-      backgroundColor: theme === 'dark' ? colors.primary : colors.DarkNavy,
+      backgroundColor: theme === 'dark' ? colors.primary : colors.white,
       borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
     }]}>
       <View style={styles.content}>
@@ -167,7 +167,7 @@ const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) =
               style={[styles.card,{
                 backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.surface,
                 borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
-                boxShadow: theme === 'dark' ? '' : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
+                // boxShadow: theme === 'dark' ? '' : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
               }]}
               onPress={() => handleCardPress(card.value)}
               activeOpacity={0.7}

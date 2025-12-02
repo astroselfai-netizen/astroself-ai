@@ -99,6 +99,9 @@ const MemberItem = React.memo(
     onToggle: () => void;
     onEdit: () => void;
   }) => {
+
+    console.log('itemitemitemitem', item);
+
     const { theme, colors } = useTheme();
     const [isExpanded, setIsExpanded] = React.useState(false);
     console.log('MemberItem rendering for:', item);
@@ -144,6 +147,7 @@ const MemberItem = React.memo(
     const birthDate = formatBirthDate(item.birth_data);
     const birthTime = formatBirthTime(item.birth_data);
     const location = item.birthplace || 'Location not specified';
+    const currentPlan = item.current_plan || 'Cosmic Foundation';
     const whatDoYouDo = item.what_do_you_do || '';
 
     return (
@@ -222,7 +226,7 @@ const MemberItem = React.memo(
                 >
                   {memberName}
                 </Text>
-                {item.primary_mamber === 'True' && (
+                {/* {item.primary_mamber === 'True' && (
                   <View style={styles.primaryMemberLabel}>
                     <Text
                       style={[
@@ -238,7 +242,7 @@ const MemberItem = React.memo(
                       Primary Member
                     </Text>
                   </View>
-                )}
+                )} */}
               </View>
             </View>
             <View style={styles.actionIcons}>
@@ -382,6 +386,7 @@ const MemberItem = React.memo(
                 {birthTime}
               </Text>
             </View>
+
             {/* <View style={[styles.detailItem, styles.lastDetailItem]}>
             <View style={styles.iconContainer}>
               <Image
@@ -392,14 +397,14 @@ const MemberItem = React.memo(
             <Text style={styles.detailText}>{profession}</Text>
           </View> */}
           </View>
+
           {/* Bottom Row - Location and Profession */}
           <View style={styles.cardBottomRow}>
             <View
               style={[
                 styles.detailItem,
                 {
-                  width: responsiveWidth('100%'),
-                  marginLeft: -responsiveWidth('0.5'),
+                  // marginLeft: -responsiveWidth('0.5'),
                 },
               ]}
             >
@@ -419,6 +424,35 @@ const MemberItem = React.memo(
                 ]}
               >
                 {location}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.detailItem,
+                {
+                  // width: responsiveWidth('100%'),
+                  marginLeft: -responsiveWidth('0.5'),
+                },
+              ]}
+            >
+              <Image
+                source={require('../../assets/icons/briefcase.png')}
+                style={
+                  styles.detailIcon
+                }
+              />
+              <Text
+                style={[
+                  styles.detailText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {currentPlan}
               </Text>
             </View>
           </View>
@@ -457,7 +491,7 @@ const MemberItem = React.memo(
               >
                 <Image
                   source={require('../../assets/icons/briefcase.png')}
-                  style={styles.detailIcon}
+                  style={[styles.detailIcon]}
                 />
               </View>
               <View style={styles.whatDoYouDoTextContainer}>
@@ -1359,12 +1393,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: responsiveWidth('3'),
-    paddingHorizontal: responsiveWidth('1'),
+    paddingHorizontal: responsiveWidth('2'),
   },
   cardBottomRow: {
+    flex: 1,
+    alignItems: 'center',
+    // gap: responsiveWidth('2'),
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: responsiveWidth('1'),
+    marginBottom: responsiveWidth('3'),
+    paddingHorizontal: responsiveWidth('2.5'),
   },
   detailItem: {
     flexDirection: 'row',
@@ -1379,7 +1417,7 @@ const styles = StyleSheet.create({
     width: responsiveWidth(5),
     height: responsiveWidth(5),
     resizeMode: 'contain',
-    marginRight: responsiveWidth('3'),
+    marginRight: responsiveWidth('1'),
     // marginTop: 2,
   },
   iconContainer: {
@@ -1395,7 +1433,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     color: 'rgba(238, 229, 202, 1)',
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: fontFamily.regular,
     fontWeight: '400',
     fontStyle: 'normal',
@@ -1413,7 +1451,7 @@ const styles = StyleSheet.create({
   },
   whatDoYouDoContainer: {
     marginTop: responsiveWidth('2'),
-    paddingHorizontal: responsiveWidth('2'),
+    paddingHorizontal: responsiveWidth('2.5'),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -1422,6 +1460,7 @@ const styles = StyleSheet.create({
     flex: 1,
     // flexDirection: 'row',
     // alignItems: 'center',
+    marginLeft: responsiveWidth('1'),
     justifyContent: 'flex-start',
   },
   readMoreButton: {
@@ -1501,7 +1540,7 @@ const styles = StyleSheet.create({
     // flex: 1,
     // height: 420,
     // width: '100%',
-// height: '100%',
+    // height: '100%',
     paddingHorizontal: responsiveWidth(4),
   },
   personalDetailsSection: {

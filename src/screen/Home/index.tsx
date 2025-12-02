@@ -12,6 +12,8 @@ import {
   Image,
   ImageBackground,
   StatusBar,
+  Modal,
+  FlatList,
 } from 'react-native';
 import {
   responsiveHeight,
@@ -34,6 +36,7 @@ import { useProfileData } from '../../hooks/useProfileData';
 import { useTheme } from '../../context/ThemeContext';
 import HomeImageSlider from '../../components/HomeImageSlider';
 import { baseURL } from '../../utils/http';
+import LottieView from 'lottie-react-native';
 // Removed BlurView to avoid external dependency for blur
 
 export type RootStackParamList = {
@@ -94,6 +97,10 @@ const HomeScreen = () => {
   const [_currentGroup, setCurrentGroup] = useState(0);
   const { membersData, loading, refreshProfileData } = useProfileData();
   const { theme, colors } = useTheme();
+  const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [titleContainerLayout, setTitleContainerLayout] = useState<{x: number; y: number; width: number; height: number} | null>(null);
+  const titleContainerRef = useRef<View>(null);
 
   // Debug membersData whenever it changes
   useEffect(() => {
@@ -131,7 +138,7 @@ const HomeScreen = () => {
     getUserData();
   }, []);
   const [dashaData, setDashaData] = useState<any[]>([]);
-  const [_dashaLoading, setDashaLoading] = useState(false);
+  const [dashaLoading, setDashaLoading] = useState(false);
   const [_dashaError, setDashaError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -208,6 +215,41 @@ const HomeScreen = () => {
     return name;
   }, [membersData, currentUser]);
 
+  // Helper function to get selected member name or fallback to primary member
+  const getSelectedMemberName = useCallback(() => {
+    if (selectedMemberId && membersData && membersData.length > 0) {
+      const selectedMember = membersData.find(
+        (member: any) => (member.id || member._id) === selectedMemberId
+      );
+      if (selectedMember) {
+        return (
+          // selectedMember.full_name ||
+          // selectedMember.name ||
+          selectedMember.first_name ||
+          'User'
+        );
+      }
+    }
+    return getPrimaryMemberName();
+  }, [selectedMemberId, membersData, getPrimaryMemberName]);
+
+  // Set selectedMemberId based on primary member from membersData (only initially)
+  useEffect(() => {
+    if (
+      membersData &&
+      Array.isArray(membersData) &&
+      membersData.length > 0 &&
+      !selectedMemberId // Only set if no member is currently selected
+    ) {
+      const primaryMemberId = getPrimaryMemberId();
+      console.log(
+        'Setting initial selection to primary member:',
+        primaryMemberId,
+      );
+      setSelectedMemberId(primaryMemberId);
+    }
+  }, [membersData, selectedMemberId, getPrimaryMemberId]);
+
   // Function to fetch dasha data
   const fetchDasha = useCallback(async () => {
     try {
@@ -219,9 +261,9 @@ const HomeScreen = () => {
 
       console.log('userData===>123', membersData);
 
-      // Get primary member ID from membersData
+      // Get selected member ID or fallback to primary member
       const primaryMemberId = getPrimaryMemberId();
-      const memberId = primaryMemberId || userData?._id || userData?.user_id;
+      const memberId = selectedMemberId || primaryMemberId || userData?._id || userData?.user_id;
 
       console.log('Primary member ID:', primaryMemberId);
       console.log('Using member ID for dasha:', memberId);
@@ -276,7 +318,7 @@ const HomeScreen = () => {
     } finally {
       setDashaLoading(false);
     }
-  }, [membersData, userService, getPrimaryMemberId]);
+  }, [membersData, userService, getPrimaryMemberId, selectedMemberId]);
 
   useEffect(() => {
     // Only fetch dasha if membersData is loaded and not in loading state
@@ -384,7 +426,7 @@ const HomeScreen = () => {
                 onPress={() => navigation.navigate('ProfileScreen')}
               >
                 <Text style={[styles.memberNameText, { color: colors.accent }]}>
-                  {getPrimaryMemberName()}
+                  {getSelectedMemberName()}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -447,118 +489,262 @@ const HomeScreen = () => {
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.mahadashaTitle,
-                    {
-                      color:
-                        theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
-                    },
-                  ]}
+                <View
+                  ref={titleContainerRef}
+                  style={styles.mahadashaTitleContainer}
+                  onLayout={() => {
+                    titleContainerRef.current?.measureInWindow(
+                      (x, y, width, height) => {
+                        setTitleContainerLayout({ x, y, width, height });
+                      },
+                    );
+                  }}
                 >
-                  Current Dasha Overview
-                </Text>
+                  <Text
+                    style={[
+                      styles.mahadashaTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.textPrimary
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Dasha Overview
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.arrowIconContainer}
+                    onPress={() => {
+                      // Measure position before opening dropdown
+                      setTimeout(() => {
+                        titleContainerRef.current?.measureInWindow(
+                          (x, y, width, height) => {
+                            setTitleContainerLayout({ x, y, width, height });
+                          },
+                        );
+                      }, 100);
+                      setIsMemberDropdownOpen(!isMemberDropdownOpen);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Image
+                      source={require('../../assets/icons/Dropdown.png')}
+                      style={[
+                        styles.arrowIcon as any,
+                        {
+                          transform: [
+                            {
+                              rotate: isMemberDropdownOpen ? '180deg' : '0deg',
+                            },
+                          ],
+                          marginRight: -responsiveWidth('1.5%'),
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Modal Overlay with Dropdown positioned below title */}
+                <Modal
+                  visible={isMemberDropdownOpen}
+                  transparent={true}
+                  animationType="none"
+                  onRequestClose={() => setIsMemberDropdownOpen(false)}
+                >
+                  <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setIsMemberDropdownOpen(false)}
+                  >
+                    <View
+                      style={[
+                        styles.modalDropdownWrapper,
+                        titleContainerLayout && {
+                          top:
+                            titleContainerLayout.y +
+                            titleContainerLayout.height +
+                            (Platform.OS === 'ios' ? responsiveWidth('3') : 5),
+                          left: titleContainerLayout.x,
+                          width: titleContainerLayout.width,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.dropdownContainer,
+                          {
+                            backgroundColor:
+                              theme === 'dark' ? colors.DarkNavy : colors.white,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.themeBorderDropdown
+                                : colors.borderColor,
+                          },
+                        ]}
+                      >
+                        {membersData && membersData.length > 0 ? (
+                          <FlatList
+                            data={membersData}
+                            keyExtractor={item =>
+                              (item.id || item._id).toString()
+                            }
+                            renderItem={({ item }) => (
+                              <TouchableOpacity
+                                style={styles.dropdownItem}
+                                onPress={() => {
+                                  setSelectedMemberId(item.id || item._id);
+                                  setIsMemberDropdownOpen(false);
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <Text
+                                  style={[
+                                    styles.dropdownItemText,
+                                    {
+                                      color:
+                                        theme === 'dark'
+                                          ? colors.themeTextWhite
+                                          : colors.DarkNavy,
+                                    },
+                                  ]}
+                                >
+                                  {item.full_name}
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                            showsVerticalScrollIndicator={true}
+                            bounces={false}
+                            keyboardShouldPersistTaps="handled"
+                            style={styles.flatListStyle}
+                            removeClippedSubviews={false}
+                            scrollEventThrottle={16}
+                          />
+                        ) : (
+                          <Text style={styles.noResultsText}>
+                            No members found
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </Modal>
 
                 {/* Dasha Data */}
                 {membersData?.length > 0 ? (
                   <>
-                    <ScrollView
-                      ref={scrollRef}
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      style={styles.carouselContainer}
-                      pagingEnabled={false}
-                      onScroll={handleScroll}
-                      scrollEventThrottle={16}
-                    >
-                      {dashaData.map((item, idx) => (
-                        <View
-                          key={item?.planetname + idx}
-                          style={[
-                            styles.carouselCard,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.DarkNavy
-                                  : colors.white,
-                              boxShadow:
-                                theme === 'dark' ? '' : '0px 0px 5px #DF8A5D',
+                    {dashaLoading ? (
+                      <View style={styles.dashaLoadingContainer}>
+                        <LottieView
+                          source={require('../../assets/lottie/loader-Animation-1.json')}
+                          autoPlay
+                          loop
+                          style={styles.dashaLottieAnimation}
+                        />
+                      </View>
+                    ) : (
+                      <ScrollView
+                        ref={scrollRef}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.carouselContainer}
+                        pagingEnabled={false}
+                        onScroll={handleScroll}
+                        scrollEventThrottle={16}
+                      >
+                        {dashaData.map((item, idx) => (
+                          <View
+                            key={item?.planetname + idx}
+                            style={[
+                              styles.carouselCard,
+                              {
+                                backgroundColor:
+                                  theme === 'dark'
+                                    ? colors.DarkNavy
+                                    : colors.white,
+                                boxShadow:
+                                  theme === 'dark' ? '' : '0px 0px 5px #DF8A5D',
 
-                              shadowColor: theme === 'dark' ? '#000' : '',
-                              shadowOffset: {
-                                width: theme === 'dark' ? 0 : 0,
-                                height: theme === 'dark' ? 2 : 0,
-                              },
-                              shadowOpacity: theme === 'dark' ? 0.4 : 0,
-                              shadowRadius: theme === 'dark' ? 3 : 0,
-                              elevation: theme === 'dark' ? 3 : 0,
-                              // borderColor:
-                              //   theme === 'dark'
-                              //     ? colors.themeBorderDropdown
-                              //     : colors.borderColor,
-                            },
-                          ]}
-                        >
-                          <Image
-                            source={{ uri: item.icon }}
-                            style={styles.planetIcon}
-                          />
-                          <Text
-                            style={[
-                              styles.planetName,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.textPrimary
-                                    : colors.DarkNavy,
+                                shadowColor: theme === 'dark' ? '#000' : '',
+                                shadowOffset: {
+                                  width: theme === 'dark' ? 0 : 0,
+                                  height: theme === 'dark' ? 2 : 0,
+                                },
+                                shadowOpacity: theme === 'dark' ? 0.4 : 0,
+                                shadowRadius: theme === 'dark' ? 3 : 0,
+                                elevation: theme === 'dark' ? 3 : 0,
+                                // borderColor:
+                                //   theme === 'dark'
+                                //     ? colors.themeBorderDropdown
+                                //     : colors.borderColor,
                               },
                             ]}
                           >
-                            {item.dashaname}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.planetName,
-                              {
-                                fontWeight: '400',
-                                color:
-                                  theme === 'dark'
-                                    ? colors.textPrimary
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {item.planetname}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.planetDate,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.textPrimary
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {item.start}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.planetDate,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.textPrimary
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {item.end}
-                          </Text>
-                        </View>
-                      ))}
-                    </ScrollView>
+                            <Image
+                              source={{ uri: item.icon }}
+                              style={styles.planetIcon}
+                            />
+                            <Text
+                              style={[
+                                styles.planetName,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.textPrimary
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {item.dashaname}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.planetName,
+                                {
+                                  fontWeight: '400',
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.textPrimary
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {item.planetname}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.planetDate,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.textPrimary
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {item.start}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.planetDate,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.textPrimary
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {item.end}
+                            </Text>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    )}
                     {/* Dots indicator (grouped by 3) */}
                     {/* <View style={styles.dotsContainer}>
                       {Array.from({ length: numGroups }).map((_, idx) => (
@@ -670,15 +856,29 @@ const HomeScreen = () => {
                   style={[
                     styles.astroButton,
                     {
-                      backgroundColor: colors.Orangeaccentcolor,
-                      borderColor: colors.Orangeaccentcolor,
+                      backgroundColor:
+                        theme === 'dark'
+                          ? colors.transparentBg
+                          : colors.Orangeaccentcolor,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.Orangeaccentcolor,
                     },
                   ]}
                   // activeOpacity={0.7}
                   onPress={() => navigation.navigate('DashboardTasksScreen')}
                 >
                   <Text
-                    style={[styles.astroButtonText, { color: colors.white }]}
+                    style={[
+                      styles.astroButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.white,
+                      },
+                    ]}
                   >
                     Dashboard
                   </Text>
@@ -723,13 +923,13 @@ const HomeScreen = () => {
                     styles.astroButton,
                     {
                       backgroundColor:
-                        theme === 'dark' ? colors.transparentBg : colors.white,
-                    },
-                    {
+                        theme === 'dark'
+                          ? colors.transparentBg
+                          : colors.Orangeaccentcolor,
                       borderColor:
                         theme === 'dark'
                           ? colors.themeTextWhite
-                          : colors.DarkNavy,
+                          : colors.Orangeaccentcolor,
                     },
                   ]}
                   // activeOpacity={0.7}
@@ -742,7 +942,7 @@ const HomeScreen = () => {
                         color:
                           theme === 'dark'
                             ? colors.themeTextWhite
-                            : colors.DarkNavy,
+                            : colors.white,
                       },
                     ]}
                   >
@@ -837,9 +1037,14 @@ const HomeScreen = () => {
                     style={[
                       styles.membersButton,
                       {
-                        backgroundColor: colors.Orangeaccentcolor,
-                        // borderColor:
-                        //   theme === 'dark' ? colors.surface : colors.surface,
+                        backgroundColor:
+                          theme === 'dark'
+                            ? colors.transparentBg
+                            : colors.Orangeaccentcolor,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.Orangeaccentcolor,
                       },
                     ]}
                     activeOpacity={0.7}
@@ -849,7 +1054,10 @@ const HomeScreen = () => {
                       style={[
                         styles.membersButtonText,
                         {
-                          color: colors.white,
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.white,
                         },
                       ]}
                     >
@@ -897,11 +1105,13 @@ const HomeScreen = () => {
                     styles.astroButton,
                     {
                       backgroundColor:
-                        theme === 'dark' ? colors.transparentBg : colors.white,
+                        theme === 'dark'
+                          ? colors.transparentBg
+                          : colors.Orangeaccentcolor,
                       borderColor:
                         theme === 'dark'
                           ? colors.themeTextWhite
-                          : colors.DarkNavy,
+                          : colors.Orangeaccentcolor,
                     },
                   ]}
                   // activeOpacity={0.7}
@@ -914,7 +1124,7 @@ const HomeScreen = () => {
                         color:
                           theme === 'dark'
                             ? colors.themeTextWhite
-                            : colors.DarkNavy,
+                            : colors.white,
                       },
                     ]}
                   >
@@ -1059,12 +1269,37 @@ const styles = StyleSheet.create({
   },
   mahadashaInner: {
     padding: responsiveWidth('3'),
+    position: 'relative',
+    zIndex: 1,
+  },
+  mahadashaTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginLeft: responsiveWidth('1'),
+    // marginBottom: 12,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+   
   },
   mahadashaTitle: {
     // ...font.label,
     fontSize: 18,
     fontFamily: fontFamily.regular,
     marginBottom: 12,
+  },
+  arrowIcon: {
+    width: responsiveWidth('7%'),
+    height: responsiveWidth('7%'),
+    resizeMode: 'contain',
+    marginRight: responsiveWidth('5%'),
+    tintColor: color.themeTextWhite,
+    // transform: [{ rotate: '270deg' }],
+  },
+  arrowIconContainer: {
+    marginRight: responsiveWidth(2),
   },
   // absolute: {
   //   position: 'absolute',
@@ -1075,6 +1310,16 @@ const styles = StyleSheet.create({
   //   bottom: 0,
   //   right: 0,
   // },
+  dashaLoadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: responsiveHeight('3'),
+    minHeight: responsiveHeight('15'),
+  },
+  dashaLottieAnimation: {
+    width: 120,
+    height: 120,
+  },
   carouselContainer: {
     flexDirection: 'row',
     // overflow: 'hidden',
@@ -1176,6 +1421,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginTop: responsiveWidth('1'),
     alignSelf: 'flex-start',
+    width: responsiveWidth('38%'),
   },
   astroButtonText: {
     fontSize: 12,
@@ -1272,7 +1518,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
   membersButton: {
-    // borderWidth: 1,
+    borderWidth: 1,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1281,6 +1527,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     // marginTop: responsiveWidth('0.5'),
     alignSelf: 'flex-start',
+    width: responsiveWidth('38%'),
   },
   membersButtonText: {
     fontFamily: fontFamily.regular,
@@ -1371,6 +1618,56 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 14,
+  },
+  // Dropdown styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  modalDropdownWrapper: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 0 : responsiveWidth('25'),
+    left: responsiveWidth('4'),
+    right: responsiveWidth('4'),
+    alignItems: 'flex-start',
+  },
+  dropdownContainer: {
+    width: '100%',
+    backgroundColor: '#223149',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#496CA8',
+    maxHeight: 150,
+    elevation: 10,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  flatListStyle: {
+    maxHeight: 150,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#496CA8',
+  },
+  dropdownItemText: {
+    color: color.themeTextWhite,
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+  },
+  noResultsText: {
+    color: color.themeTextWhite,
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    paddingVertical: 10,
   },
 });
 

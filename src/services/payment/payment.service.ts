@@ -65,6 +65,49 @@ export interface UserReportVerifyResponse {
   data?: any;
 }
 
+export interface PaymentDetailsResponse {
+  status: boolean;
+  data: {
+    _id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    current_plan: string;
+    complete_profile: boolean;
+    members_allow: number;
+    current_members: number;
+    child_allow: number;
+    current_child: number;
+    created_date: string;
+    phone: number;
+    status: boolean;
+    updated_at: string;
+    reports: Array<{
+      user_id: string;
+      order_id: string;
+      status: string;
+      report_type: string;
+      amount: number;
+      currency: string;
+      receipt: string;
+      created_at: string;
+      updated_at: string | null;
+      payment_id: string | null;
+    }>;
+    subscription: {
+      status: string;
+      plan_name: string;
+      members: number;
+      amount: number;
+      start_plan_time: string;
+      end_plan_time: string;
+      payment_id: string;
+      updated_at: string | null;
+    } | null;
+  };
+}
+
 class PaymentService extends Service {
 
 
@@ -180,6 +223,39 @@ class PaymentService extends Service {
         throw new Error('Network error. Please check your connection.');
       } else {
         throw new Error('Something went wrong while verifying user report payment');
+      }
+    }
+  }
+
+  async getPaymentDetails(userId: string): Promise<PaymentDetailsResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await http.get(`/accountant/payment-details/${userId}`, {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('Payment details response:--->', response.data);
+      
+      if (response.data && response.data.status) {
+        return response.data;
+      } else {
+        throw new Error('Invalid response from payment details API');
+      }
+    } catch (error: any) {
+      console.error('Error fetching payment details:', error);
+      if (error.response) {
+        throw new Error(error.response.data?.message || 'Failed to fetch payment details');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while fetching payment details');
       }
     }
   }

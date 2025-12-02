@@ -23,7 +23,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
 import { ProgressChart } from 'react-native-chart-kit';
-import taskService, { Task } from '../../services/task/task.service';
+import taskService, { Task, KarmicProgressResponse } from '../../services/task/task.service';
 import LottieView from 'lottie-react-native';
 import { useProfileData } from '../../hooks/useProfileData';
 
@@ -36,6 +36,7 @@ export type RootStackParamList = {
   ForgotPasswordOtp: undefined;
   EditAllTaskSelectionScreen: { userId?: string };
   DashboardTasksScreen: undefined;
+  DashboardTasksDoNotScreen: { userId?: string; heading?: string };
   };
 
 type DashboardTasksScreenNavigationProp = StackNavigationProp<
@@ -72,6 +73,8 @@ const DashboardTasksScreen = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [karmicProgress, setKarmicProgress] = useState<KarmicProgressResponse | null>(null);
+  const [karmicProgressLoading, setKarmicProgressLoading] = useState(false);
 
   // Set selectedMemberId based on primary member from membersData (only initially)
   useEffect(() => {
@@ -222,7 +225,46 @@ const DashboardTasksScreen = () => {
     }
   }, [selectedMemberId, userId]);
 
-  // Fetch tasks when selectedMemberId or userId is available
+  // Fetch karmic progress status from API
+  const fetchKarmicProgress = useCallback(async () => {
+    const memberIdToUse = selectedMemberId || userId;
+    
+    if (!memberIdToUse) {
+      console.log('No member ID available for karmic progress, skipping fetch');
+      return;
+    }
+
+    // Map selectedTab to API period
+    const periodMap: Record<'Today' | 'Weekly' | 'Monthly', 'daily' | 'weekly' | 'monthly'> = {
+      'Today': 'daily',
+      'Weekly': 'weekly',
+      'Monthly': 'monthly',
+    };
+
+    const period = periodMap[selectedTab];
+
+    try {
+      setKarmicProgressLoading(true);
+      console.log('Fetching karmic progress for memberId:', memberIdToUse, 'period:', period);
+      
+      const response = await taskService.getKarmicProgressStatus(memberIdToUse, period);
+      
+      console.log('Karmic progress fetched successfully:', response);
+      setKarmicProgress(response);
+    } catch (error: any) {
+      console.error('Error fetching karmic progress:', error);
+      // Set default values on error
+      setKarmicProgress({
+        total: 0,
+        completed: 0,
+        score: 0.0,
+      });
+    } finally {
+      setKarmicProgressLoading(false);
+    }
+  }, [selectedMemberId, userId, selectedTab]);
+
+  // Fetch tasks when selectedMemberId or userId is available (NOT when selectedTab changes)
   useEffect(() => {
     // Fetch when selectedMemberId is available (this is the primary source)
     if (selectedMemberId) {
@@ -233,26 +275,34 @@ const DashboardTasksScreen = () => {
       console.log('Triggering fetchTasks with userId fallback:', userId);
       fetchTasks();
     }
-  }, [selectedMemberId, userId, fetchTasks, isInitialized]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMemberId, userId, isInitialized]);
 
   // Refetch tasks when screen comes into focus (e.g., when navigating back)
   useFocusEffect(
     useCallback(() => {
       if (selectedMemberId || userId) {
         fetchTasks();
+        fetchKarmicProgress();
       }
-    }, [selectedMemberId, userId, fetchTasks])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMemberId, userId, fetchTasks]),
   );
+
+  // Fetch karmic progress when tab or member changes
+  useEffect(() => {
+    if (selectedMemberId || userId) {
+      fetchKarmicProgress();
+    }
+  }, [selectedTab, selectedMemberId, userId, fetchKarmicProgress]);
 
   // Filter tasks based on status
   const openKarmicPoints = tasks.filter(task => task.status === 'pending');
   const closedKarmicPoints = tasks.filter(task => task.status === 'Done');
 
-  // Calculate karmic score
-  const completedCount = closedKarmicPoints.length;
-  const totalCount = tasks.length;
-  const karmicScore = totalCount > 0 ? completedCount : 0;
-  const maxScore = totalCount > 0 ? totalCount : 10;
+  // Calculate karmic score from API data or fallback to local calculation
+  const karmicScore = karmicProgress?.completed ?? closedKarmicPoints.length;
+  const maxScore = karmicProgress?.total ?? (tasks.length > 0 ? tasks.length : 10);
   const progressPercentage = maxScore > 0 ? (karmicScore / maxScore) * 100 : 0;
   const radius = 60;
 
@@ -417,40 +467,62 @@ const DashboardTasksScreen = () => {
               fill="transparent"
             />
           </Svg> */}
-          <ProgressChart
-            data={progressData}
-            width={140}
-            height={140}
-            strokeWidth={12}
-            radius={radius}
-            hideLegend={true}
-            chartConfig={chartConfig}
-            style={styles.progressChart}
-          />
+          {karmicProgressLoading ? (
+            <View style={styles.karmicProgressLoaderContainer}>
+             <LottieView
+              source={require('../../assets/lottie/loader-Animation-1.json')}
+              autoPlay
+              loop
+              style={styles.lottieAnimation}
+            />
+            </View>
+          ) : (
+            <ProgressChart
+              data={progressData}
+              width={140}
+              height={140}
+              strokeWidth={12}
+              radius={radius}
+              hideLegend={true}
+              chartConfig={chartConfig}
+              style={styles.progressChart}
+            />
+          )}
         </View>
         <View style={styles.progressTextContainer}>
-          <Text
-            style={[
-              styles.progressScore,
-              {
-                color:
-                  theme === 'dark' ? colors.DarkNavy : colors.themeTextWhite,
-              },
-            ]}
-          >
-            {karmicScore}/{maxScore}
-          </Text>
-          <Text
-            style={[
-              styles.progressLabel,
-              {
-                color:
-                  theme === 'dark' ? colors.DarkNavy : colors.themeTextWhite,
-              },
-            ]}
-          >
-            Today's Score
-          </Text>
+          {karmicProgressLoading ? (
+           <LottieView
+              source={require('../../assets/lottie/loader-Animation-1.json')}
+              autoPlay
+              loop
+              style={styles.lottieAnimation}
+            />
+          ) : (
+            <>
+              <Text
+                style={[
+                  styles.progressScore,
+                  {
+                    color:
+                      theme === 'dark' ? colors.DarkNavy : colors.themeTextWhite,
+                  },
+                ]}
+              >
+                {karmicScore}/{maxScore}
+              </Text>
+              <Text
+                style={[
+                  styles.progressLabel,
+                  {
+                    color:
+                      theme === 'dark' ? colors.DarkNavy : colors.themeTextWhite,
+                  },
+                ]}
+              >
+                {selectedTab === 'Today' ? "Today's Score" : selectedTab === 'Weekly' ? "Weekly Score" : "Monthly Score"}
+              </Text>
+            </>
+          )}
         </View>
       </View>
     );
@@ -530,7 +602,11 @@ const DashboardTasksScreen = () => {
           </Text>
         </View>
         <TouchableOpacity
-          onPress={() => navigation.navigate('EditAllTaskSelectionScreen', { userId: selectedMemberId || undefined })}
+          onPress={() =>
+            navigation.navigate('EditAllTaskSelectionScreen', {
+              userId: selectedMemberId || undefined,
+            })
+          }
           style={styles.editBtn}
         >
           <Image
@@ -550,8 +626,7 @@ const DashboardTasksScreen = () => {
         style={[
           styles.profileCardContainer,
           {
-            backgroundColor:
-              theme === 'dark' ? colors.DarkNavy : colors.white,
+            backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
             borderColor:
               theme === 'dark' ? colors.themeBorderDropdown : colors.white,
           },
@@ -593,9 +668,7 @@ const DashboardTasksScreen = () => {
                 styles.selectedMemberText,
                 {
                   color:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.DarkNavy,
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
@@ -712,6 +785,69 @@ const DashboardTasksScreen = () => {
           </View>
         ) : (
           <>
+            {/* Actions you think twice before doing */}
+            <View
+              style={[
+                styles.astroCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
+            >
+              <View style={styles.astroContent}>
+                <View style={styles.astroContentLeft}>
+                  {' '}
+                  <Text
+                    style={[
+                      styles.astroTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Actions you think twice before doing
+                  </Text>
+                </View>
+                <View style={styles.astroContentRight}>
+                  <TouchableOpacity
+                    style={[
+                      styles.astroButton,
+                      { backgroundColor: colors.Orangeaccentcolor },
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      if (selectedMemberId) {
+                        navigation.navigate('DashboardTasksDoNotScreen', {
+                          userId: selectedMemberId,
+                          heading: 'Actions you think twice before doing',
+                        });
+                      } else {
+                        Alert.alert('Error', 'Please select a member first');
+                      }
+                    }}
+                  >
+                    <Text
+                      style={[styles.astroButtonText, { color: colors.white }]}
+                    >
+                      View
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              {/* <Image
+                source={require('../../assets/image/Ai-robot.png')}
+                style={styles.astroImage}
+              /> */}
+            </View>
+
             {/* Karmic Progress Score Section */}
             <View style={styles.progressSection}>
               <Text
@@ -753,12 +889,11 @@ const DashboardTasksScreen = () => {
                   >
                     Your Karmic Progress
                   </Text>
-                  <Text style={styles.starEmoji}>🌟</Text>
+                  {/* <Text style={styles.starEmoji}>🌟</Text> */}
                 </View>
                 {renderCircularProgress()}
               </View>
             </View>
-
             {/* Karmic Action Section - only show if tasks exist */}
             {tasks.length > 0 && (
               <View style={styles.actionSection}>
@@ -813,7 +948,9 @@ const DashboardTasksScreen = () => {
                       styles.updateTaskButton,
                       {
                         backgroundColor:
-                          theme === 'dark' ? colors.transparentBg : colors.white,
+                          theme === 'dark'
+                            ? colors.transparentBg
+                            : colors.white,
                         borderColor:
                           theme === 'dark'
                             ? colors.themeTextWhite
@@ -840,13 +977,12 @@ const DashboardTasksScreen = () => {
                 )}
               </View>
             )}
-
             {/* Karmic Points Section - only show if tasks exist */}
             {tasks.length > 0 ? (
               isEditMode ? (
-              // Edit Mode UI
-              <View style={styles.pointsSection}>
-                {/* <Text
+                // Edit Mode UI
+                <View style={styles.pointsSection}>
+                  {/* <Text
               style={[
                 styles.sectionTitle,
                 { color: colors.themeTextWhite, marginBottom: responsiveWidth(2) },
@@ -864,109 +1000,276 @@ const DashboardTasksScreen = () => {
                 {karmicActionDate}
               </Text>
             </Text> */}
-                {tasks.map(task => (
-                  <TouchableOpacity
-                    key={task.id}
-                    onPress={() => toggleTaskCompletion(task.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View
+                  {tasks.map(task => (
+                    <TouchableOpacity
+                      key={task.id}
+                      onPress={() => toggleTaskCompletion(task.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          styles.taskCard,
+                          {
+                            backgroundColor:
+                              theme === 'dark' ? colors.DarkNavy : colors.white,
+                            borderColor: task.completed
+                              ? theme === 'dark'
+                                ? colors.Orangeaccentcolor
+                                : '#27AE60'
+                              : theme === 'dark'
+                              ? colors.primaryBlue
+                              : colors.surfaceOpacity,
+                          },
+                        ]}
+                      >
+                        <View style={styles.taskCardContent}>
+                          <Text
+                            style={[
+                              styles.taskDescription,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                                flex: 1,
+                              },
+                            ]}
+                          >
+                            {task.description}
+                          </Text>
+                          <View style={styles.checkboxContainer}>
+                            {task.completed ? (
+                              <View
+                                style={[
+                                  styles.checkboxChecked,
+                                  {
+                                    backgroundColor:
+                                      theme === 'dark'
+                                        ? colors.Orangeaccentcolor
+                                        : colors.Orangeaccentcolor,
+                                  },
+                                ]}
+                              >
+                                <Text style={styles.checkmark}>✓</Text>
+                              </View>
+                            ) : (
+                              <View
+                                style={[
+                                  styles.checkboxUnchecked,
+                                  {
+                                    borderColor: colors.Orangeaccentcolor,
+                                    backgroundColor:
+                                      theme === 'dark'
+                                        ? colors.themeTextWhite
+                                        : colors.white,
+                                  },
+                                ]}
+                              />
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                // Normal Mode UI
+                <>
+                  <View style={styles.pointsSection}>
+                    <Text
                       style={[
-                        styles.taskCard,
-                        {
-                          backgroundColor:
-                            theme === 'dark' ? colors.DarkNavy : colors.white,
-                          borderColor: task.completed
-                            ? theme === 'dark'
-                              ? colors.Orangeaccentcolor
-                              : '#27AE60'
-                            : theme === 'dark'
-                            ? colors.primaryBlue
-                            : colors.surfaceOpacity,
-                        },
+                        styles.sectionTitle,
+                        { color: colors.themeTextWhite },
                       ]}
                     >
-                      <View style={styles.taskCardContent}>
-                        <Text
+                      Open Karmic Points
+                    </Text>
+                    {openKarmicPoints && openKarmicPoints.length > 0 ? (
+                      openKarmicPoints.map(task => (
+                        <View
+                          key={task.id}
                           style={[
-                            styles.taskDescription,
+                            styles.taskCard,
                             {
-                              color:
+                              backgroundColor:
                                 theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                              flex: 1,
+                                  ? colors.DarkNavy
+                                  : colors.white,
+                              borderColor:
+                                theme === 'dark'
+                                  ? colors.primaryBlue
+                                  : colors.surfaceOpacity,
                             },
                           ]}
                         >
-                          {task.description}
-                        </Text>
-                        <View style={styles.checkboxContainer}>
-                          {task.completed ? (
+                          <Text
+                            style={[
+                              styles.taskDescription,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {task.description}
+                          </Text>
+                          <View style={styles.taskTagContainer}>
                             <View
                               style={[
-                                styles.checkboxChecked,
+                                styles.taskTag,
                                 {
                                   backgroundColor:
                                     theme === 'dark'
                                       ? colors.Orangeaccentcolor
                                       : colors.Orangeaccentcolor,
+                                  borderColor:
+                                    theme === 'dark'
+                                      ? colors.Orangeaccentcolor
+                                      : colors.surfaceOpacity,
                                 },
                               ]}
                             >
-                              <Text style={styles.checkmark}>✓</Text>
+                              <Text
+                                style={[
+                                  styles.taskTagText,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.themeTextWhite
+                                        : colors.white,
+                                  },
+                                ]}
+                              >
+                                {task.type}
+                              </Text>
                             </View>
-                          ) : (
+                          </View>
+                        </View>
+                      ))
+                    ) : (
+                      <View
+                        style={[
+                          styles.emptyStateContainer,
+                          {
+                            backgroundColor:
+                              theme === 'dark' ? colors.DarkNavy : colors.white,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.themeBorderDropdown
+                                : colors.borderColor,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.emptyStateText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          No karmic points
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.pointsSection}>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        { color: colors.themeTextWhite },
+                      ]}
+                    >
+                      Closed Karmic Points
+                    </Text>
+                    {closedKarmicPoints && closedKarmicPoints.length > 0 ? (
+                      closedKarmicPoints.map(task => (
+                        <View
+                          key={task.id}
+                          style={[
+                            styles.taskCard,
+                            styles.closedTaskCard,
+                            {
+                              backgroundColor:
+                                theme === 'dark'
+                                  ? colors.DarkNavy
+                                  : colors.white,
+                              borderColor:
+                                theme === 'dark'
+                                  ? colors.Orangeaccentcolor
+                                  : colors.Orangeaccentcolor,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.taskDescription,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {task.description}
+                          </Text>
+                          <View style={styles.taskTagContainer}>
                             <View
                               style={[
-                                styles.checkboxUnchecked,
+                                styles.taskTag,
                                 {
-                                  borderColor: colors.Orangeaccentcolor,
                                   backgroundColor:
                                     theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.white,
+                                      ? colors.Orangeaccentcolor
+                                      : colors.Orangeaccentcolor,
+                                  borderColor:
+                                    theme === 'dark'
+                                      ? colors.Orangeaccentcolor
+                                      : colors.surfaceOpacity,
                                 },
                               ]}
-                            />
-                          )}
+                            >
+                              <Text
+                                style={[
+                                  styles.taskTagText,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.themeTextWhite
+                                        : colors.white,
+                                  },
+                                ]}
+                              >
+                                {task.type}
+                              </Text>
+                            </View>
+                          </View>
                         </View>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              // Normal Mode UI
-              <>
-                <View style={styles.pointsSection}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      { color: colors.themeTextWhite },
-                    ]}
-                  >
-                    Open Karmic Points
-                  </Text>
-                  {openKarmicPoints && openKarmicPoints.length > 0 ? (
-                    openKarmicPoints.map(task => (
+                      ))
+                    ) : (
                       <View
-                        key={task.id}
                         style={[
-                          styles.taskCard,
+                          styles.emptyStateContainer,
                           {
                             backgroundColor:
                               theme === 'dark' ? colors.DarkNavy : colors.white,
                             borderColor:
                               theme === 'dark'
-                                ? colors.primaryBlue
-                                : colors.surfaceOpacity,
+                                ? colors.themeBorderDropdown
+                                : colors.borderColor,
                           },
                         ]}
                       >
                         <Text
                           style={[
-                            styles.taskDescription,
+                            styles.emptyStateText,
                             {
                               color:
                                 theme === 'dark'
@@ -975,175 +1278,12 @@ const DashboardTasksScreen = () => {
                             },
                           ]}
                         >
-                          {task.description}
+                          No karmic points
                         </Text>
-                        <View style={styles.taskTagContainer}>
-                          <View
-                            style={[
-                              styles.taskTag,
-                              {
-                                backgroundColor:
-                                  theme === 'dark'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.Orangeaccentcolor,
-                                borderColor:
-                                  theme === 'dark'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.surfaceOpacity,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.taskTagText,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.white,
-                                },
-                              ]}
-                            >
-                              {task.type}
-                            </Text>
-                          </View>
-                        </View>
                       </View>
-                    ))
-                  ) : (
-                    <View
-                      style={[
-                        styles.emptyStateContainer,
-                        {
-                          backgroundColor:
-                            theme === 'dark' ? colors.DarkNavy : colors.white,
-                          borderColor:
-                            theme === 'dark'
-                              ? colors.themeBorderDropdown
-                              : colors.borderColor,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.emptyStateText,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        No karmic points
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.pointsSection}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      { color: colors.themeTextWhite },
-                    ]}
-                  >
-                    Closed Karmic Points
-                  </Text>
-                  {closedKarmicPoints && closedKarmicPoints.length > 0 ? (
-                    closedKarmicPoints.map(task => (
-                      <View
-                        key={task.id}
-                        style={[
-                          styles.taskCard,
-                          styles.closedTaskCard,
-                          {
-                            backgroundColor:
-                              theme === 'dark' ? colors.DarkNavy : colors.white,
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.Orangeaccentcolor
-                                : colors.Orangeaccentcolor,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.taskDescription,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {task.description}
-                        </Text>
-                        <View style={styles.taskTagContainer}>
-                          <View
-                            style={[
-                              styles.taskTag,
-                              {
-                                backgroundColor:
-                                  theme === 'dark'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.Orangeaccentcolor,
-                                borderColor:
-                                  theme === 'dark'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.surfaceOpacity,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.taskTagText,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.white,
-                                },
-                              ]}
-                            >
-                              {task.type}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))
-                  ) : (
-                    <View
-                      style={[
-                        styles.emptyStateContainer,
-                        {
-                          backgroundColor:
-                            theme === 'dark' ? colors.DarkNavy : colors.white,
-                          borderColor:
-                            theme === 'dark'
-                              ? colors.themeBorderDropdown
-                              : colors.borderColor,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.emptyStateText,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        No karmic points
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </>
+                    )}
+                  </View>
+                </>
               )
             ) : (
               // Empty state when no tasks
@@ -1177,7 +1317,6 @@ const DashboardTasksScreen = () => {
                 </View>
               </View>
             )}
-
           </>
         )}
       </ScrollView>
@@ -1481,6 +1620,12 @@ const styles = StyleSheet.create({
     width: 264,
     height: 264,
   },
+  karmicProgressLoaderContainer: {
+    width: 140,
+    height: 140,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   profileCardContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1573,6 +1718,53 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     textAlign: 'center',
     paddingVertical: 10,
+  },
+  astroCard: {
+    borderWidth: 0.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    // marginHorizontal: responsiveWidth('3'),
+    marginBottom: responsiveWidth('3'),
+  },
+  astroContent: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: "space-between",
+    alignItems: 'center',
+    paddingVertical: responsiveWidth('1'),
+    paddingHorizontal: responsiveWidth('3'),
+  },
+  astroContentLeft: {
+    width: '70%',
+  },
+  astroContentRight: {
+  },
+  astroTitle: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    lineHeight: 30,
+    marginBottom: responsiveWidth('2'),
+    textAlignVertical: 'center',
+  },
+  astroButton: {
+    borderRadius: 10,
+    paddingVertical: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
+  },
+  astroButtonText: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as const,
+  },
+  astroImage: {
+    width: responsiveWidth('30%'),
+    height: responsiveWidth('30%'),
+    resizeMode: 'contain',
+    marginRight: responsiveWidth('2'),
   },
 });
 

@@ -1,6 +1,6 @@
 // ReportScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,6 +11,7 @@ import {
   StatusBar,
   Image,
   ImageBackground,
+  Alert,
 } from 'react-native';
 import {
   fontFamily,
@@ -20,11 +21,13 @@ import {
 import {
   useNavigation,
   useFocusEffect,
-  RouteProp,
+  NavigationProp,
 } from '@react-navigation/native';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
+import PaymentService from '../../services/payment/payment.service';
+import LottieView from 'lottie-react-native';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -38,117 +41,176 @@ export type RootStackParamList = {
   PurchasedHistoryScreen: undefined;
 };
 
-type PurchasedHistoryScreenNavigationProp = RouteProp<RootStackParamList, 'PurchasedHistoryScreen'>;
+type PurchasedHistoryScreenNavigationProp = NavigationProp<RootStackParamList, 'PurchasedHistoryScreen'>;
 
 const PurchasedHistoryScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<PurchasedHistoryScreenNavigationProp>();
-  const { refreshProfileData } = useProfileData();
+  const { membersData, profileData } = useProfileData();
   const [activeTab, setActiveTab] = useState<'Reports' | 'Memberships'>(
     'Reports',
   );
+  const [purchasedReportsData, setPurchasedReportsData] = useState<any[]>([]);
+  const [purchasedMembershipsData, setPurchasedMembershipsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const fetchedUserIdRef = useRef<string | null>(null);
 
+  // Map report types to display names
+  const getReportTypeDisplayName = (reportType: string): string => {
+    const reportTypeMap: { [key: string]: string } = {
+      nakshatra: 'Nakshatra Report',
+      adl: 'Antardasha Report',
+      tarot: 'Tarot Card Reading',
+      numerology: 'Numerology Insights',
+      vedic: 'Vedic Astrology Chart',
+      compatibility: 'Compatibility Analysis',
+    };
+    return reportTypeMap[reportType.toLowerCase()] || `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`;
+  };
 
-  // Purchased reports data array (for Reports tab)
-  const purchasedReportsData = [
-    {
-      id: '1',
-      userReportName: 'User Report Name',
-      title: 'Antardasha Report',
-      date: '08 Oct 2025',
-      price: '699',
-    },
-    {
-      id: '2',
-      userReportName: 'User Report Name',
-      title: 'Tarot Card Reading',
-      date: '15 Oct 2025',
-      price: '499',
-    },
-    {
-      id: '3',
-      userReportName: 'User Report Name',
-      title: 'Numerology Insights',
-      date: '22 Oct 2025',
-      price: '599',
-    },
-    {
-      id: '4',
-      userReportName: 'User Report Name',
-      title: 'Vedic Astrology Chart',
-      date: '30 Oct 2025',
-      price: '799',
-    },
-    {
-      id: '5',
-      userReportName: 'User Report Name',
-      title: 'Compatibility Analysis',
-      date: '05 Nov 2025',
-      price: '399',
-    },
-    {
-      id: '6',
-      userReportName: 'User Report Name',
-      title: 'Compatibility Analysis',
-      date: '05 Nov 2025',
-      price: '399',
-    },
-  ];
+  // Format date from API response
+  const formatDate = useCallback((dateStr: string | null): string => {
+    if (!dateStr) return 'N/A';
+    
+    // Handle format like "13-Nov-2025 09:56" or "13-Nov-2025"
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        // Try parsing with moment or manual parsing
+        const parts = dateStr.split(' ');
+        if (parts.length > 0) {
+          return parts[0]; // Return "13-Nov-2025" format
+        }
+        return dateStr;
+      }
+      
+      // Format as "DD MMM YYYY"
+      const day = date.getDate();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear();
+      return `${day} ${month} ${year}`;
+    } catch (e) {
+      return dateStr;
+    }
+  }, []);
 
-  // Purchased memberships data array (for Memberships tab)
-  const purchasedMembershipsData = [
-    {
-      id: '1',
-      membershipName: 'Memberships Name',
-      membershipType: 'Memberships Type',
-      dateRange: '08 Oct 2025 to 07 Oct 2026',
-      price: '699',
-    },
-    {
-      id: '2',
-      membershipName: 'Memberships Name',
-      membershipType: 'Memberships Type',
-      dateRange: '08 Oct 2025 to 07 Oct 2026',
-      price: '499',
-    },
-    {
-      id: '3',
-      membershipName: 'Memberships Name',
-      membershipType: 'Memberships Type',
-      dateRange: '08 Oct 2025 to 07 Oct 2026',
-      price: '4999',
-    },
-    {
-      id: '4',
-      membershipName: 'Memberships Name',
-      membershipType: 'Memberships Type',
-      dateRange: '08 Oct 2025 to 07 Oct 2026',
-      price: '1200',
-    },
-    {
-      id: '5',
-      membershipName: 'Memberships Name',
-      membershipType: 'Memberships Type',
-      dateRange: '08 Oct 2025 to 07 Oct 2026',
-      price: '2500',
-    },
-    {
-      id: '6',
-      membershipName: 'Memberships Name',
-      membershipType: 'Memberships Type',
-      dateRange: '08 Oct 2025 to 07 Oct 2026',
-      price: '750',
-    },
-  ];
+  // Get member name from user_id
+  const getMemberName = useCallback((userId: string): string => {
+    if (!membersData || membersData.length === 0) {
+      return 'User Report';
+    }
+    
+    const member = membersData.find(
+      (m: any) => (m.id || m._id) === userId
+    );
+    
+    if (member) {
+      const firstName = member.first_name || '';
+      const lastName = member.last_name || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      return fullName || member.full_name || 'User Report';
+    }
+    
+    return 'User Report';
+  }, [membersData]);
 
-  // Refresh profile data when screen comes into focus
+  // Fetch payment details
+  const fetchPaymentDetails = useCallback(async () => {
+    try {
+      // Get user ID from profileData
+      const userId = profileData?._id;
+      
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+
+      // Prevent duplicate calls for the same user ID
+      if (fetchedUserIdRef.current === userId) {
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      fetchedUserIdRef.current = userId;
+
+      const paymentService = new PaymentService();
+      const response = await paymentService.getPaymentDetails(userId);
+
+      if (response.status && response.data) {
+        // Transform reports data
+        const reports = response.data.reports || [];
+        const transformedReports = reports.map((report: any, index: number) => ({
+          id: report.order_id || report.payment_id || `report-${index}`,
+          userReportName: getMemberName(report.user_id),
+          title: getReportTypeDisplayName(report.report_type),
+          date: formatDate(report.created_at),
+          price: report.amount?.toString() || '0',
+          status: report.status,
+          orderId: report.order_id,
+          paymentId: report.payment_id,
+        }));
+
+        setPurchasedReportsData(transformedReports);
+
+        // Transform subscription data
+        const subscription = response.data.subscription;
+        if (subscription) {
+          const transformedMemberships = [
+            {
+              id: subscription.payment_id || 'membership-1',
+              membershipName: subscription.plan_name || 'Current Plan',
+              membershipType: subscription.plan_name || 'Active Membership',
+              dateRange: `${formatDate(
+                subscription.start_plan_time,
+              )} to ${formatDate(subscription.end_plan_time)}`,
+              price: subscription.amount?.toString() || '0',
+              status: subscription.status,
+              paymentId: subscription.payment_id,
+              members: subscription.members || 0,
+              startPlanTime: subscription.start_plan_time,
+              endPlanTime: subscription.end_plan_time,
+              planName: subscription.plan_name,
+              amount: subscription.amount,
+            },
+          ];
+          setPurchasedMembershipsData(transformedMemberships);
+        } else {
+          setPurchasedMembershipsData([]);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching payment details:', err);
+      setError(err.message || 'Failed to fetch payment details');
+      Alert.alert('Error', err.message || 'Failed to fetch payment details', [
+        { text: 'OK' },
+        { text: 'Retry', onPress: fetchPaymentDetails },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [profileData?._id, getMemberName, formatDate]);
+
+  // Fetch data when profileData becomes available or changes
+  React.useEffect(() => {
+    if (profileData?._id && fetchedUserIdRef.current !== profileData._id) {
+      fetchPaymentDetails();
+    }
+  }, [profileData?._id, fetchPaymentDetails]);
+
+  // Fetch data when screen comes into focus (only if profileData is available)
   useFocusEffect(
     React.useCallback(() => {
-      console.log('Report screen focused, refreshing profile data...');
-      if (refreshProfileData) {
-        refreshProfileData();
+      console.log('Purchased History screen focused, fetching payment details...');
+      if (profileData?._id) {
+        // Reset the ref to allow refetch on focus
+        if (fetchedUserIdRef.current !== profileData._id) {
+          fetchPaymentDetails();
+        }
       }
-    }, [refreshProfileData]),
+    }, [profileData?._id, fetchPaymentDetails]),
   );
 
   return (
@@ -318,84 +380,50 @@ const PurchasedHistoryScreen = () => {
         keyboardShouldPersistTaps="handled"
         scrollIndicatorInsets={{ right: 1 }}
       >
-        {activeTab === 'Reports' && (
-          <View style={styles.purchasedReportsContainer}>
-            {purchasedReportsData.map(report => (
-              <ImageBackground
-                blurRadius={12}
-                key={report.id}
-                source={
-                  theme === 'dark'
-                    ? require('../../assets/image/DarkBackground.png')
-                    : require('../../assets/image/LightBackground.png')
-                }
-                style={[
-                  styles.purchasedReportCardImageBackground,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparentBg : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.borderColor,
-                  },
-                ]}
-                imageStyle={[
-                  styles.purchasedReportCardImageStyle,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparentBg : colors.white,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.purchasedReportCard,
-                    {
-                      backgroundColor:
-                        theme === 'dark' ? colors.transparentBg : colors.white,
-                      borderColor:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.borderColor,
-                    },
-                  ]}
-                >
-                  {/* Top Row: User Name + Price */}
-                  <View style={styles.purchasedReportTopRow}>
-                    {/* Left: Checkmark Icon + User Report Name */}
-                    <View style={styles.purchasedReportUserInfo}>
-                      <View style={styles.checkmarkIconContainer}>
-                        <Image
-                          source={require('../../assets/icons/checkIcon.png')}
-                          resizeMode="contain"
-                          style={styles.checkmarkIcon}
-                          tintColor={
-                            theme === 'dark'
-                              ? colors.Orangeaccentcolor
-                              : colors.Orangeaccentcolor
-                          }
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.purchasedReportUserName,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        {report.userReportName}
-                      </Text>
-                    </View>
-
-                    {/* Right: Price */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <LottieView
+              source={require('../../assets/lottie/loader-Animation-1.json')}
+              autoPlay
+              loop
+              style={styles.lottieAnimation}
+            />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text
+              style={[
+                styles.errorText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              {error}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.retryButton,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
+                },
+              ]}
+              onPress={fetchPaymentDetails}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {activeTab === 'Reports' && (
+              <View style={styles.purchasedReportsContainer}>
+                {purchasedReportsData.length === 0 ? (
+                  <View style={styles.emptyContainer}>
                     <Text
                       style={[
-                        styles.purchasedReportPrice,
+                        styles.emptyText,
                         {
                           color:
                             theme === 'dark'
@@ -404,44 +432,138 @@ const PurchasedHistoryScreen = () => {
                         },
                       ]}
                     >
-                      ₹ {report.price}
+                      No purchased reports found
                     </Text>
                   </View>
-
-                  {/* Middle Row: Report Title + Date (Left) and Download Button (Right) */}
-                  <View style={styles.purchasedReportMiddleRow}>
-                    {/* Left: Title and Date */}
-                    <View style={styles.purchasedReportLeftSection}>
-                      <Text
+                ) : (
+                  purchasedReportsData.map(report => (
+                    <ImageBackground
+                      blurRadius={12}
+                      key={report.id}
+                      source={
+                        theme === 'dark'
+                          ? require('../../assets/image/DarkBackground.png')
+                          : require('../../assets/image/LightBackground.png')
+                      }
+                      style={[
+                        styles.purchasedReportCardImageBackground,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparentBg
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.borderColor,
+                        },
+                      ]}
+                      imageStyle={[
+                        styles.purchasedReportCardImageStyle,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparentBg
+                              : colors.white,
+                        },
+                      ]}
+                    >
+                      <View
                         style={[
-                          styles.purchasedReportTitle,
+                          styles.purchasedReportCard,
                           {
-                            color:
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.transparentBg
+                                : colors.white,
+                            borderColor:
                               theme === 'dark'
                                 ? colors.themeTextWhite
-                                : colors.DarkNavy,
+                                : colors.borderColor,
                           },
                         ]}
                       >
-                        {report.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.purchasedReportDate,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        {report.date}
-                      </Text>
-                    </View>
+                        {/* Top Row: User Name + Price */}
+                        <View style={styles.purchasedReportTopRow}>
+                          {/* Left: Checkmark Icon + User Report Name */}
+                          <View style={styles.purchasedReportUserInfo}>
+                            <View style={styles.checkmarkIconContainer}>
+                              <Image
+                                source={require('../../assets/icons/checkIcon.png')}
+                                resizeMode="contain"
+                                style={styles.checkmarkIcon}
+                                tintColor={
+                                  theme === 'dark'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.Orangeaccentcolor
+                                }
+                              />
+                            </View>
+                            <Text
+                              style={[
+                                styles.purchasedReportUserName,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {report.userReportName}
+                            </Text>
+                          </View>
 
-                    {/* Right: Download Button */}
-                    <TouchableOpacity
+                          {/* Right: Price */}
+                          <Text
+                            style={[
+                              styles.purchasedReportPrice,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            ₹ {report.price}
+                          </Text>
+                        </View>
+
+                        {/* Middle Row: Report Title + Date (Left) and Download Button (Right) */}
+                        <View style={styles.purchasedReportMiddleRow}>
+                          {/* Left: Title and Date */}
+                          <View style={styles.purchasedReportLeftSectionh}>
+                            <Text
+                              style={[
+                                styles.purchasedReportTitle,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {report.title}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.purchasedReportDate,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {report.date}
+                            </Text>
+                          </View>
+
+                          {/* Right: Download Button */}
+                          {/* <TouchableOpacity
                       style={styles.purchasedReportDownloadButton}
                       onPress={() => {
                         // Handle download
@@ -451,96 +573,22 @@ const PurchasedHistoryScreen = () => {
                       <Text style={styles.purchasedReportDownloadButtonText}>
                         Download
                       </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </ImageBackground>
-            ))}
-          </View>
-        )}
-
-        {activeTab === 'Memberships' && (
-          <View style={styles.purchasedReportsContainer}>
-            {purchasedMembershipsData.map(membership => (
-              <ImageBackground
-                blurRadius={12}
-                key={membership.id}
-                source={
-                  theme === 'dark'
-                    ? require('../../assets/image/DarkBackground.png')
-                    : require('../../assets/image/LightBackground.png')
-                }
-                style={[
-                  styles.purchasedReportCardImageBackground,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparentBg : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.borderColor,
-                  },
-                ]}
-                imageStyle={[
-                  styles.purchasedReportCardImageStyle,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparentBg : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.borderColor,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.purchasedReportCard,
-                    {
-                      backgroundColor:
-                        theme === 'dark' ? colors.transparentBg : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.borderColor,
-                    },
-                  ]}
-                >
-                  {/* Top Row: Membership Name + Price */}
-                  <View style={styles.purchasedReportTopRow}>
-                    {/* Left: Checkmark Icon + Membership Name */}
-                    <View style={styles.purchasedReportUserInfo}>
-                      <View style={styles.checkmarkIconContainer}>
-                        <Image
-                          source={require('../../assets/icons/checkIcon.png')}
-                          resizeMode="contain"
-                          style={styles.checkmarkIcon}
-                          tintColor={
-                            theme === 'dark'
-                              ? colors.Orangeaccentcolor
-                              : colors.Orangeaccentcolor
-                          }
-                        />
+                    </TouchableOpacity> */}
+                        </View>
                       </View>
-                      <Text
-                        style={[
-                          styles.purchasedReportUserName,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        {membership.membershipName}
-                      </Text>
-                    </View>
+                    </ImageBackground>
+                  ))
+                )}
+              </View>
+            )}
 
-                    {/* Right: Price */}
+            {activeTab === 'Memberships' && (
+              <View style={styles.purchasedReportsContainer}>
+                {purchasedMembershipsData.length === 0 ? (
+                  <View style={styles.emptyContainer}>
                     <Text
                       style={[
-                        styles.purchasedReportPrice,
+                        styles.emptyText,
                         {
                           color:
                             theme === 'dark'
@@ -549,44 +597,161 @@ const PurchasedHistoryScreen = () => {
                         },
                       ]}
                     >
-                      ₹ {membership.price}
+                      No active memberships found
                     </Text>
                   </View>
-
-                  {/* Middle Row: Membership Type + Date Range (Left) and Renew Button (Right) */}
-                  <View style={styles.purchasedReportMiddleRow}>
-                    {/* Left: Type and Date Range */}
-                    <View style={styles.purchasedReportLeftSection}>
-                      <Text
+                ) : (
+                  purchasedMembershipsData.map(membership => (
+                    <ImageBackground
+                      blurRadius={12}
+                      key={membership.id}
+                      source={
+                        theme === 'dark'
+                          ? require('../../assets/image/DarkBackground.png')
+                          : require('../../assets/image/LightBackground.png')
+                      }
+                      style={[
+                        styles.purchasedReportCardImageBackground,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparentBg
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.borderColor,
+                        },
+                      ]}
+                      imageStyle={[
+                        styles.purchasedReportCardImageStyle,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparentBg
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.borderColor,
+                        },
+                      ]}
+                    >
+                      <View
                         style={[
-                          styles.purchasedReportTitle,
+                          styles.purchasedReportCard,
                           {
-                            color:
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.transparentBg
+                                : colors.white,
+                            borderColor:
                               theme === 'dark'
                                 ? colors.themeTextWhite
-                                : colors.DarkNavy,
+                                : colors.borderColor,
                           },
                         ]}
                       >
-                        {membership.membershipType}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.purchasedReportDate,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        {membership.dateRange}
-                      </Text>
-                    </View>
+                        {/* Top Row: Membership Name + Price */}
+                        <View style={styles.purchasedReportTopRow}>
+                          {/* Left: Checkmark Icon + Membership Name */}
+                          <View style={styles.purchasedReportUserInfo}>
+                            <View style={styles.checkmarkIconContainer}>
+                              <Image
+                                source={require('../../assets/icons/checkIcon.png')}
+                                resizeMode="contain"
+                                style={styles.checkmarkIcon}
+                                tintColor={
+                                  theme === 'dark'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.Orangeaccentcolor
+                                }
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={[
+                                  styles.purchasedReportUserName,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.themeTextWhite
+                                        : colors.DarkNavy,
+                                  },
+                                ]}
+                              >
+                                payment id: {membership.paymentId}
+                              </Text>
+                            </View>
+                          </View>
 
-                    {/* Right: Renew Button */}
-                    <TouchableOpacity
+                          {/* Right: Price */}
+                          <Text
+                            style={[
+                              styles.purchasedReportPrice,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                                fontSize: 20,
+                              },
+                            ]}
+                          >
+                            ₹ {membership.amount || membership.price}
+                          </Text>
+                        </View>
+
+                        {/* Middle Row: Membership Details + Date Range (Left) and Renew Button (Right) */}
+                        <View style={styles.purchasedReportMiddleRow}>
+                          {/* Left: Details and Date Range */}
+                          <View style={styles.purchasedReportLeftSection}>
+                            <View style={styles.statusMembersRow}>
+                              <Text
+                                style={[
+                                  styles.purchasedReportTitle,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.themeTextWhite
+                                        : colors.DarkNavy,
+                                  },
+                                ]}
+                              >
+                                Status: {membership.status}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.purchasedReportTitle,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.themeTextWhite
+                                        : colors.DarkNavy,
+                                    marginLeft: responsiveWidth(25),
+                                  },
+                                ]}
+                              >
+                                Members: {membership.members || 0}
+                              </Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.purchasedReportDate,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              Active from: {membership.dateRange}
+                            </Text>
+                          </View>
+
+                          {/* Right: Renew Button */}
+                          {/* <TouchableOpacity
                       style={styles.purchasedReportDownloadButton}
                       onPress={() => {
                         // Handle renew
@@ -596,12 +761,15 @@ const PurchasedHistoryScreen = () => {
                       <Text style={styles.purchasedReportDownloadButtonText}>
                         Renew
                       </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </ImageBackground>
-            ))}
-          </View>
+                    </TouchableOpacity> */}
+                        </View>
+                      </View>
+                    </ImageBackground>
+                  ))
+                )}
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
     </MainContainer>
@@ -738,7 +906,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: responsiveWidth(1),
+    // marginBottom: responsiveWidth(1),
   },
   purchasedReportUserInfo: {
     flexDirection: 'row',
@@ -760,8 +928,8 @@ const styles = StyleSheet.create({
     tintColor: '#FFFFFF',
   },
   purchasedReportUserName: {
-    fontSize: 16,
-    fontFamily: fontFamily.bold,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
     fontWeight: '700',
     flex: 1,
   },
@@ -778,17 +946,36 @@ const styles = StyleSheet.create({
   },
   purchasedReportLeftSection: {
     flex: 1,
-    marginRight: responsiveWidth(3),
+    marginLeft: responsiveWidth(6),
+    // flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: responsiveWidth(1),
+  },
+
+  purchasedReportLeftSectionh: {
+    flex: 1,
+    marginLeft: responsiveWidth(6),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: responsiveWidth(2),
+  },
+  statusMembersRow: {
+    flexDirection: 'row',
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
   },
   purchasedReportTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: fontFamily.regular,
-    marginBottom: responsiveWidth(1),
+    // marginBottom: responsiveWidth(1),
   },
   purchasedReportDate: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
-    opacity: 0.8,
   },
   purchasedReportDownloadButton: {
     backgroundColor: '#DF8A5D',
@@ -861,7 +1048,59 @@ const styles = StyleSheet.create({
     marginHorizontal: responsiveWidth(15),
     alignItems: 'center',
     justifyContent: 'center',
-  }
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: responsiveHeight(10),
+  },
+  lottieAnimation: {
+    width: responsiveWidth('70'),
+    height: responsiveWidth('70'),
+  },
+  loadingText: {
+    marginTop: responsiveWidth(3),
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: responsiveHeight(10),
+    paddingHorizontal: responsiveWidth(5),
+  },
+  errorText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: responsiveWidth(4),
+  },
+  retryButton: {
+    borderRadius: 8,
+    paddingVertical: responsiveWidth(2.5),
+    paddingHorizontal: responsiveWidth(6),
+    minWidth: responsiveWidth(20),
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: responsiveHeight(10),
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+  },
 });
 
 export default PurchasedHistoryScreen;

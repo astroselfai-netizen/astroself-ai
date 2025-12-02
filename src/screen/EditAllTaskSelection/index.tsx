@@ -340,35 +340,6 @@ const EditAllTaskSelectionScreen = () => {
             All Points
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={saving || loading}
-          style={[
-            styles.editBtn,
-            {
-              backgroundColor:
-                theme === 'dark'
-                  ? colors.Orangeaccentcolor
-                  : colors.Orangeaccentcolor,
-              opacity: saving || loading ? 0.5 : 1,
-            },
-          ]}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Text
-              style={[
-                styles.editBtnText,
-                {
-                  color: theme === 'dark' ? colors.white : colors.white,
-                },
-              ]}
-            >
-              Save
-            </Text>
-          )}
-        </TouchableOpacity>
       </View>
 
       {/* Profile member dropdown */}
@@ -376,8 +347,7 @@ const EditAllTaskSelectionScreen = () => {
         style={[
           styles.profileCardContainer,
           {
-            backgroundColor:
-              theme === 'dark' ? colors.DarkNavy : colors.white,
+            backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
             borderColor:
               theme === 'dark' ? colors.themeBorderDropdown : colors.white,
           },
@@ -419,9 +389,7 @@ const EditAllTaskSelectionScreen = () => {
                 styles.selectedMemberText,
                 {
                   color:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.DarkNavy,
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
@@ -467,7 +435,7 @@ const EditAllTaskSelectionScreen = () => {
                           style={styles.dropdownItem}
                           onPress={() => {
                             console.log('item.id --->', item.id);
-                            
+
                             setSelectedMemberId(item.id || item._id);
                             setIsMemberDropdownOpen(false);
                           }}
@@ -530,15 +498,46 @@ const EditAllTaskSelectionScreen = () => {
       >
         {/* Select Your Karmic Points Section */}
         <View style={styles.pointsSection}>
-          <View style={styles.sectionTitleContainer}>
-            <Text
-              style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
-            >
-              Select Your Karmic Points
-            </Text>
-            <Text style={styles.moonIcon}>🌙</Text>
-          </View>
+          <View style={styles.saveButtonContainer}>
+            <View style={styles.sectionTitleContainer}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
+              >
+                Select Your Karmic Points
+              </Text>
+              {/* <Text style={styles.moonIcon}>🌙</Text> */}
+            </View>
 
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={saving || loading}
+              style={[
+                styles.editBtn,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.Orangeaccentcolor
+                      : colors.Orangeaccentcolor,
+                  opacity: saving || loading ? 0.5 : 1,
+                },
+              ]}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text
+                  style={[
+                    styles.editBtnText,
+                    {
+                      color: theme === 'dark' ? colors.white : colors.white,
+                    },
+                  ]}
+                >
+                  Save
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
           {loading ? (
             <View style={styles.loadingContainer}>
               <LottieView
@@ -694,20 +693,29 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   backBtn: {
-    width: responsiveWidth(15),
+    // width: responsiveWidth(15),
     alignItems: 'flex-start',
     justifyContent: 'center',
+    // position: 'absolute',
+    // left: 16,
+    zIndex: 1,
   },
   backIcon: {
     width: responsiveWidth(5),
     height: responsiveWidth(5),
+    marginLeft: responsiveWidth(3),
     resizeMode: 'contain',
   },
   headerCenter: {
     flex: 1,
-    alignItems: 'center',
+    // width: '100%',
+    // alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: -responsiveWidth(6),
   },
+  // headerSpacer: {
+  //   width: responsiveWidth(15),
+  // },
   headerTitle: {
     fontSize: 24,
     fontFamily: fontFamily.regular,
@@ -768,7 +776,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8C00',
   },
   tabButtonUnselected: {
-   
     borderWidth: 0.2,
     borderColor: '#FFFFFF',
   },
@@ -841,7 +848,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionDateText: {
-   fontSize: 14,
+    fontSize: 14,
     fontFamily: fontFamily.regular,
     fontWeight: '600',
   },
@@ -861,6 +868,12 @@ const styles = StyleSheet.create({
   pointsSection: {
     marginBottom: responsiveWidth(3),
     marginTop: responsiveWidth(3),
+  },
+  saveButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: responsiveWidth(3),
   },
   taskCard: {
     // backgroundColor: '#223149',
@@ -997,7 +1010,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: responsiveWidth('2'),
     paddingVertical: responsiveWidth('1'),
     marginHorizontal: responsiveWidth(4),
-    marginBottom: 24,
+    // marginBottom: 24,
     borderWidth: 2,
     borderColor: '#496CA8',
     position: 'relative',

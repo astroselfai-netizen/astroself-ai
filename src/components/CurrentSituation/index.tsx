@@ -130,7 +130,7 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
       style={[
         styles.container,
         {
-          backgroundColor: theme === 'dark' ? colors.primary : colors.DarkNavy,
+          backgroundColor: theme === 'dark' ? colors.primary : colors.white,
           borderColor:
             theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
         },
@@ -167,10 +167,10 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
                     theme === 'dark'
                       ? colors.themeBorderDropdown
                       : colors.borderColor,
-                  boxShadow:
-                    theme === 'dark'
-                      ? ''
-                      : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
+                  // boxShadow:
+                  //   theme === 'dark'
+                  //     ? ''
+                  //     : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
                   opacity: isDisabled ? 0.5 : 1,
                 },
               ]}

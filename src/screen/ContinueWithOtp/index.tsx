@@ -26,6 +26,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
 import serviceFactory from '../../services/serviceFactory';
 import GoogleAuthService from '../../services/googleAuthService';
+import notificationService from '../../services/notificationService';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -154,7 +155,17 @@ const ContinueWithOtp = () => {
     setErrorMessage('');
     
     try {
-      const response = await userService.verifyOtp(email, otpString);
+      // Get FCM token (reuse stored token if available, generate only if needed)
+      let fcmToken: string | null = null;
+      try {
+        fcmToken = await notificationService.getOrCreateFCMToken();
+        console.log('FCM Token for verify OTP:', fcmToken);
+      } catch (error) {
+        console.error('Error getting FCM token for verify OTP:', error);
+        // Continue with OTP verification even if FCM token fails
+      }
+      
+      const response = await userService.verifyOtp(email, otpString, fcmToken || undefined);
       console.log('OTP verified successfully:', response);
       
       // Dispatch user data to Redux state

@@ -16,9 +16,8 @@ import {
 } from 'react-native';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { StackActions } from '@react-navigation/native';
 import { MainContainer } from '../../components/common/mainContainer';
 import Toast from 'react-native-toast-message';
 import { responsiveWidth, fontFamily, color } from '../../constant/theme';
@@ -39,11 +38,12 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   HomeScreen: undefined;
   ContinueWithOtp: undefined;
+  AddNewMember: { fromMemberPlanManagement?: boolean } | undefined;
 };
 
 type BasicDeatilNavigationProp = StackNavigationProp<
   RootStackParamList,
-  'Register'
+  'AddNewMember'
 >;
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCRiOhv-8F7NUHE22gm9zres6rVFwlkXEE';
@@ -63,8 +63,11 @@ interface DropdownItem {
   place_id: string;
 }
 
+type AddNewMemberRouteProp = RouteProp<RootStackParamList, 'AddNewMember'>;
+
 const AddNewMember = () => {
   const navigation = useNavigation<BasicDeatilNavigationProp>();
+  const route = useRoute<AddNewMemberRouteProp>();
   const { theme, colors } = useTheme();
   const dispatch = useDispatch();
   const userService = serviceFactory.get<UserService>('UserService');
@@ -290,8 +293,16 @@ const AddNewMember = () => {
         // Set flag to indicate members data has been updated
         dispatch(setMembersUpdated(true));
 
-        // Navigate to HomeScreen after adding a member
-        navigation.dispatch(StackActions.replace('HomeScreen'));
+        // Check if we came from MemberPlanManagement
+        const fromMemberPlanManagement = route.params?.fromMemberPlanManagement;
+        
+        if (fromMemberPlanManagement) {
+          // Navigate back to MemberPlanManagement
+          navigation.goBack();
+        } else {
+          // Navigate to HomeScreen (for login/registration flow)
+          navigation.navigate('HomeScreen');
+        }
       } catch (error: any) {
         console.error('Error submitting birth data:', error);
         const errorMessage = error?.message || 'Something went wrong.';

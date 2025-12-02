@@ -26,6 +26,7 @@ import Toast from 'react-native-toast-message';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
 import GoogleAuthService from '../../services/googleAuthService';
+import notificationService from '../../services/notificationService';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useDispatch, useSelector } from 'react-redux';
@@ -154,6 +155,17 @@ const Register = () => {
     onSubmit: async (values, helpers) => {
       try {
         helpers.setSubmitting(true);
+        
+        // Get FCM token (reuse stored token if available, generate only if needed)
+        let fcmToken: string | null = null;
+        try {
+          fcmToken = await notificationService.getOrCreateFCMToken();
+          console.log('FCM Token for register:', fcmToken);
+        } catch (error) {
+          console.error('Error getting FCM token for register:', error);
+          // Continue with registration even if FCM token fails
+        }
+        
         const compactLocal = values.phone.replace(/[^\d]/g, '');
         const data = await userService.register({
           firstName: values.firstName,
@@ -161,6 +173,7 @@ const Register = () => {
           email: values.email,
           phone: `${countryCode}${compactLocal}`,
           password: values.password,
+          fcmToken: fcmToken || undefined,
         });
 
         if (data?.status) {

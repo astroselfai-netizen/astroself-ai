@@ -47,6 +47,7 @@ export type RootStackParamList = {
   BasicDeatil: undefined;
   AddNewMember: undefined;
   MemberManagement: undefined;
+  MemberPlanManagement: undefined;
   NakshatraScreen: { userId: string };
 };
 
@@ -84,7 +85,7 @@ const ProfileScreen = () => {
       return null;
     }
 
-    console.log('membersData===>123', membersData);
+    console.log('membersData===>12387', profileData);
     
     // Look for a member with primary_member field set to true
     const primaryMember = membersData.find(
@@ -100,41 +101,6 @@ const ProfileScreen = () => {
     
     // If no primary_member field found, assume first member is primary
     return membersData[0];
-  };
-
-  // Helper function to format date of birth from birth_data
-  const getFormattedDateOfBirth = () => {
-    const primaryMember = getPrimaryMemberData();
-    if (primaryMember?.birth_data) {
-      const { day, month, year } = primaryMember.birth_data;
-      if (day && month && year) {
-        const date = new Date(year, month - 1, day); // month is 0-indexed in Date constructor
-        return date.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-      }
-    }
-    return (profileData as any)?.date_of_birth || 'Not specified';
-  };
-
-  // Helper function to format time of birth from birth_data
-  const getFormattedTimeOfBirth = () => {
-    const primaryMember = getPrimaryMemberData();
-    if (primaryMember?.birth_data) {
-      const { hour, min } = primaryMember.birth_data;
-      if (hour !== undefined && min !== undefined) {
-        const date = new Date();
-        date.setHours(hour, min, 0, 0);
-        return date.toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        });
-      }
-    }
-    return (profileData as any)?.time_of_birth || 'Not specified';
   };
 
   // Show error alert if there's an error
@@ -175,21 +141,27 @@ const ProfileScreen = () => {
   };
 
   const getDisplayPhone = React.useCallback(async () => {
+
+    // console.log('profileData===>123', user);
     // Check if phone is in profileData
     if ((profileData as any)?.phone) {
-      return (profileData as any).phone;
+      return `+${(profileData as any).phone}`;
     }
     // Try to get from user data
     if ((user as any)?.phone) {
-      return (user as any).phone;
+      return `+${(user as any).phone}`;
     }
     // Try AsyncStorage
     try {
       const userDataString = await AsyncStorage.getItem('USER_DATA');
       if (userDataString) {
         const userData = JSON.parse(userDataString);
+
+        // console.log('====================================');
+        // console.log('userData===>123userData', userData);
+        // console.log('====================================');
         if (userData.phone) {
-          return userData.phone;
+          return `+${userData.phone}`;
         }
       }
     } catch (err) {
@@ -346,10 +318,16 @@ const ProfileScreen = () => {
       console.log('Verify response:', verifyResponse);
 
       // Check if payment is successful based on response
-      const isSuccess = verifyResponse.success === true || 
-                       String(verifyResponse.success) === 'true' ||
-                       (verifyResponse.message && verifyResponse.message.toLowerCase().includes('verified successfully')) ||
-                       (verifyResponse.message && verifyResponse.message.toLowerCase().includes('payment successful'));
+      const isSuccess =
+        verifyResponse.success === true ||
+        String(verifyResponse.success) === 'true' ||
+        verifyResponse?.status === "success" ||
+        (verifyResponse.message &&
+          verifyResponse.message
+            .toLowerCase()
+            .includes('verified successfully')) ||
+        (verifyResponse.message &&
+          verifyResponse.message.toLowerCase().includes('payment successful'));
 
       if (isSuccess) {
         // Payment successful, navigate to AddNewMember screen
@@ -363,7 +341,7 @@ const ProfileScreen = () => {
         });
         
         // Navigate to AddNewMember screen
-        navigation.navigate('AddNewMember');
+        navigation.navigate('MemberPlanManagement');
       } else {
         throw new Error(verifyResponse.message || 'Payment verification failed');
       }
@@ -636,7 +614,12 @@ const ProfileScreen = () => {
                     </View>
 
                     {/* Membership Plan */}
-                    <View style={[styles.profileInfoBottomItem, styles.profileInfoBottomItemLast]}>
+                    <View
+                      style={[
+                        styles.profileInfoBottomItem,
+                        styles.profileInfoBottomItemLast,
+                      ]}
+                    >
                       <Text
                         style={[
                           styles.profileInfoLabelNew,
@@ -921,7 +904,7 @@ const ProfileScreen = () => {
                     },
                   ]}
                 >
-                  Add members and generate charts
+                  Go premium and see your life in a whole new light.
                 </Text>
                 <View
                   style={[
@@ -1051,7 +1034,7 @@ const ProfileScreen = () => {
                     />
                   </View>
                 </View>
-                <Text
+                {/* <Text
                   style={[
                     styles.remainingSlotsText,
                     {
@@ -1119,7 +1102,7 @@ const ProfileScreen = () => {
                             }`
                           : ''
                       }`}
-                </Text>
+                </Text> */}
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity
                     onPress={handleAddMemberPayment}
@@ -1162,12 +1145,12 @@ const ProfileScreen = () => {
                         },
                       ]}
                     >
-                      {isProcessingPayment ? 'Processing...' : 'Add'}
+                      {isProcessingPayment ? 'Processing...' : 'Buy'}
                     </Text>
                   </TouchableOpacity>
 
                   {/* Only show Create button if there are remaining member or child slots */}
-                  {(Math.max(
+                  {/* {(Math.max(
                     0,
                     (profileData?.members_allow || 0) -
                       (profileData?.current_members || 0),
@@ -1176,9 +1159,9 @@ const ProfileScreen = () => {
                       0,
                       (profileData?.child_allow || 0) -
                         (profileData?.current_child || 0),
-                    ) > 0) && (
+                    ) > 0) && ( */}
                     <TouchableOpacity
-                      onPress={() => navigation.navigate('AddNewMember')}
+                      onPress={() => navigation.navigate("MemberPlanManagement")}
                       style={[
                         styles.actionButton,
                         styles.createButton,
@@ -1204,10 +1187,10 @@ const ProfileScreen = () => {
                           },
                         ]}
                       >
-                        Create
+                        Manage Plan
                       </Text>
                     </TouchableOpacity>
-                  )}
+                  {/* )} */}
                 </View>
               </View>
             </ImageBackground>
@@ -1240,7 +1223,7 @@ const ProfileScreen = () => {
                   styles.membersOverlay,
                   {
                     backgroundColor:
-                      theme === 'dark' ? colors.transparent : colors.DarkNavy,
+                      theme === 'dark' ? colors.transparent : colors.white,
                   },
                 ]}
               />
@@ -1249,7 +1232,7 @@ const ProfileScreen = () => {
                   styles.membersInner,
                   {
                     backgroundColor:
-                      theme === 'dark' ? colors.transparent : colors.DarkNavy,
+                      theme === 'dark' ? colors.transparent : colors.white,
                   },
                 ]}
               >
@@ -1261,7 +1244,7 @@ const ProfileScreen = () => {
                         color:
                           theme === 'dark'
                             ? colors.themeTextWhite
-                            : colors.surface,
+                            : colors.DarkNavy,
                       },
                     ]}
                   >
@@ -1274,7 +1257,7 @@ const ProfileScreen = () => {
                         borderColor:
                           theme === 'dark'
                             ? colors.borderColor
-                            : colors.surface,
+                            : colors.primaryBlue,
                       },
                     ]}
                     activeOpacity={0.7}
@@ -1287,7 +1270,7 @@ const ProfileScreen = () => {
                           color:
                             theme === 'dark'
                               ? colors.themeTextWhite
-                              : colors.surface,
+                              : colors.primaryBlue,
                         },
                       ]}
                     >
@@ -1782,11 +1765,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: fontFamily.regular,
     fontWeight: '700',
-    marginBottom: 4,
+    // marginBottom: 4,
   },
   memberCountLabel: {
     color: color.themeTextWhite,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: fontFamily.regular,
     // fontWeight: '500',
   },
@@ -1889,7 +1872,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flex: 1,
     gap: 12,
-    marginTop: 8,
+    // marginTop: 8,
   },
   actionButton: {
     flex: 1,

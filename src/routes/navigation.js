@@ -57,6 +57,8 @@ import HelpCenterScreen from '../screen/HelpCenter';
 import DashboardTasksScreen from '../screen/DashboardTasks';
 import EditAllTaskSelectionScreen from '../screen/EditAllTaskSelection';
 import PurchasedHistoryScreen from '../screen/PurchasedHistory';
+import DashboardTasksDoNotScreen from '../screen/DashboardTasksDoNot';
+import MemberPlanManagement from '../screen/MemberPlanManagement';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -112,6 +114,8 @@ function MainNavigator() {
         />
         <Stack.Screen name="EditAllTaskSelectionScreen" component={EditAllTaskSelectionScreen} />
         <Stack.Screen name="PurchasedHistoryScreen" component={PurchasedHistoryScreen} />
+        <Stack.Screen name="DashboardTasksDoNotScreen" component={DashboardTasksDoNotScreen} />
+        <Stack.Screen name="MemberPlanManagement" component={MemberPlanManagement} />
         {/* <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="OTPVerification" component={OTPVerification} />
        

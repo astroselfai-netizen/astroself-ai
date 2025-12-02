@@ -9,6 +9,7 @@ export default class UserService extends Service {
   async login(
     email: string,
     password: string,
+    fcmToken?: string,
   ): Promise<{
     status: boolean;
     data: Api.User.Res.Detail;
@@ -20,12 +21,23 @@ export default class UserService extends Service {
       console.log('Making API call to /login with:', {
         username: email,
         password,
+        fcm_token: fcmToken || 'not provided',
       });
 
-      const axiosResponse = await http.post('mobile/login', {
+      const payload: {
+        username: string;
+        password: string;
+        fcm_token?: string;
+      } = {
         username: email,
         password,
-      });
+      };
+
+      if (fcmToken) {
+        payload.fcm_token = fcmToken;
+      }
+
+      const axiosResponse = await http.post('mobile/login', payload);
 
       console.log('API Response:', axiosResponse);
       console.log('API Response data:', axiosResponse.data);
@@ -71,6 +83,7 @@ export default class UserService extends Service {
     email: string;
     phone: string; // may include country code like "+91 12345 67890"
     password: string;
+    fcmToken?: string;
   }): Promise<{
     status: boolean;
     data: Api.User.Res.Detail;
@@ -78,11 +91,24 @@ export default class UserService extends Service {
     message?: string;
   }> {
     try {
-      const { firstName, lastName, email, phone, password } = params;
+      const { firstName, lastName, email, phone, password, fcmToken } = params;
 
       console.log('params==>', params);
+      console.log('FCM Token for register:', fcmToken || 'not provided');
 
-      const payload = {
+      const payload: {
+        email: string;
+        first_name: string;
+        last_name: string;
+        password: string;
+        role: string;
+        current_plan: string;
+        complete_profile: boolean;
+        members_allow: number;
+        current_members: number;
+        phone: string;
+        fcm_token?: string;
+      } = {
         email,
         first_name: firstName,
         last_name: lastName,
@@ -94,6 +120,10 @@ export default class UserService extends Service {
         current_members: 0,
         phone,
       };
+
+      if (fcmToken) {
+        payload.fcm_token = fcmToken;
+      }
 
       console.log('payload-->', payload);
 
@@ -145,6 +175,7 @@ export default class UserService extends Service {
   async verifyOtp(
     email: string,
     otp: string,
+    fcmToken?: string,
   ): Promise<{
     status: boolean;
     data: Api.User.Res.Detail;
@@ -153,11 +184,22 @@ export default class UserService extends Service {
   }> {
     try {
       console.log('Verifying OTP for email:', email, 'OTP:', otp);
+      console.log('FCM Token for verify OTP:', fcmToken || 'not provided');
 
-      const axiosResponse = await http.post('/verify-otp', {
+      const payload: {
+        email: string;
+        otp: string;
+        fcm_token?: string;
+      } = {
         email,
         otp,
-      });
+      };
+
+      if (fcmToken) {
+        payload.fcm_token = fcmToken;
+      }
+
+      const axiosResponse = await http.post('/verify-otp', payload);
 
       console.log('OTP Verification Response:', axiosResponse.data);
 
@@ -460,7 +502,7 @@ export default class UserService extends Service {
 
       const token = await AsyncStorage.getItem('USER_TOKEN');
         const axiosResponse = await http.get(
-          `house/categorize?user_id=${'68d270d48cfd6790177aa4fd'}&main_heading=${encodeURIComponent(
+          `house/categorize?user_id=${userId}&main_heading=${encodeURIComponent(
             mainHeading,
           )}&topic=${encodeURIComponent(topic)}`,
           {

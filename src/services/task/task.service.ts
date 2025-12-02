@@ -30,6 +30,12 @@ export interface SelectedTasksResponse {
   selected_data: SelectedTaskData[];
 }
 
+export interface KarmicProgressResponse {
+  total: number;
+  completed: number;
+  score: number;
+}
+
 class TaskService {
   async getTaskActivity(
     userId: string,
@@ -107,6 +113,31 @@ class TaskService {
       throw new Error('Invalid response format from selected tasks API');
     } catch (error) {
       console.error('Error fetching selected tasks:', error);
+      throw error;
+    }
+  }
+
+  async getKarmicProgressStatus(
+    memberId: string,
+    period: 'daily' | 'weekly' | 'monthly',
+  ): Promise<KarmicProgressResponse> {
+    try {
+      const response = await http.get(
+        `status/${period}/${memberId}`,
+        {
+          headers: {
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (response.data) {
+        return response.data as KarmicProgressResponse;
+      }
+
+      throw new Error('Invalid response format from karmic progress API');
+    } catch (error) {
+      console.error('Error fetching karmic progress:', error);
       throw error;
     }
   }

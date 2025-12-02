@@ -917,7 +917,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           styles.dropdownContainer,
           {
             backgroundColor:
-              theme === 'dark' ? colors.transparent : colors.surface,
+              theme === 'dark' ? colors.DarkNavy : colors.surface,
             borderColor:
               theme === 'dark'
                 ? colors.themeBorderDropdown
@@ -930,7 +930,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
             styles.dropdownButton,
             {
               backgroundColor:
-                theme === 'dark' ? colors.cardBackground : colors.white,
+                theme === 'dark' ? colors.DarkNavy : colors.white,
               borderColor:
                 theme === 'dark'
                   ? colors.themeBorderDropdown
@@ -966,7 +966,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               styles.dropdownList,
               {
                 backgroundColor:
-                  theme === 'dark' ? colors.cardBackground : colors.white,
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
               },
             ]}
           >
@@ -977,7 +977,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 styles.dropdownScrollView,
                 {
                   backgroundColor:
-                    theme === 'dark' ? colors.cardBackground : colors.white,
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
                 },
               ]}
             >
@@ -1001,7 +1001,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                     styles.dropdownItem,
                     {
                       backgroundColor:
-                        theme === 'dark' ? colors.cardBackground : colors.white,
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
                       borderBottomColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
                       opacity: isDisabled ? 0.5 : 1,
                     },
@@ -1081,7 +1081,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 styles.tabsBackground,
                 {
                   backgroundColor:
-                    theme === 'dark' ? colors.cardBackground : colors.white,
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
                   borderColor:
                     theme === 'dark'
                       ? colors.themeBorderDropdown

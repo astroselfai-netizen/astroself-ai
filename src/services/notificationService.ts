@@ -98,6 +98,35 @@ class NotificationService {
     }
   }
 
+  // Get or create FCM token - optimized to reuse stored token
+  // This method will:
+  // 1. First check if token exists in storage
+  // 2. If exists, return stored token (no new generation)
+  // 3. If not exists, generate new token once and store it
+  // This prevents unnecessary token regeneration
+  async getOrCreateFCMToken(): Promise<string | null> {
+    try {
+      // First, try to get stored token
+      let token = await this.getStoredFCMToken();
+      
+      if (token) {
+        // Token exists in storage, use it (no need to generate new)
+        console.log('✅ Using stored FCM token (no regeneration)');
+        this.fcmToken = token;
+        return token;
+      }
+      
+      // Token doesn't exist, generate new token once
+      console.log('🆕 No stored token found, generating new FCM token');
+      token = await this.getFCMToken();
+      
+      return token;
+    } catch (error) {
+      console.error('❌ Error in getOrCreateFCMToken:', error);
+      return null;
+    }
+  }
+
   // Send token to server (implement your API call here)
   private async sendTokenToServer(token: string): Promise<void> {
     try {
@@ -178,7 +207,7 @@ class NotificationService {
 
   // Handle foreground messages
   private handleForegroundMessage(remoteMessage: any): void {
-    const { notification, data } = remoteMessage;
+    const { notification } = remoteMessage;
     
     if (notification) {
       // Show custom alert or in-app notification
