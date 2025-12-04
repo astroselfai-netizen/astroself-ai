@@ -1211,7 +1211,7 @@ const styles = StyleSheet.create({
   },
   memberNameText: {
     // ...font.labelLarge,
-    fontSize: 18,
+    fontSize: 22,
     fontFamily: fontFamily.regular,
 
     fontWeight: '600' as const,

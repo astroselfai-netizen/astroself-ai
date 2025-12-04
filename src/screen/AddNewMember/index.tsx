@@ -13,6 +13,7 @@ import {
   Image,
   Modal,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -31,6 +32,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setMembersUpdated } from '../../state/slices/appSlice';
 import { RootState } from '../../state/store';
 import { checkAndUpdateMemberCreationTimestamp } from '../../hooks/useMemberCreationTimestamp';
+import { useProfileData } from '../../hooks/useProfileData';
+import LottieView from 'lottie-react-native';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -71,9 +74,11 @@ const AddNewMember = () => {
   const { theme, colors } = useTheme();
   const dispatch = useDispatch();
   const userService = serviceFactory.get<UserService>('UserService');
+  const { refreshProfileData } = useProfileData();
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showPredictionTypeModal, setShowPredictionTypeModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
  const members = useSelector((state: RootState) => state.app.members);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -163,6 +168,13 @@ const AddNewMember = () => {
       .required('Please select your place of birth'),
     whatDoYouDo: Yup.string().trim(),
   });
+
+
+
+  
+
+
+
 
   const formik = useFormik({
     initialValues: {
@@ -281,24 +293,57 @@ const AddNewMember = () => {
           }, remainingTime);
         }
 
-        Toast.show({
-          type: 'success',
-          text1: 'Member Added Successfully',
-          text2: 'New member has been added to your account.',
-          position: 'top',
-          topOffset: 60,
-          visibilityTime: 3000,
-        });
-
         // Set flag to indicate members data has been updated
         dispatch(setMembersUpdated(true));
+
+        // Refresh members data from API
+        await refreshProfileData();
 
         // Check if we came from MemberPlanManagement
         const fromMemberPlanManagement = route.params?.fromMemberPlanManagement;
         
         if (fromMemberPlanManagement) {
-          // Navigate back to MemberPlanManagement
-          navigation.goBack();
+          // Show loading indicator
+          setIsNavigating(true);
+
+          // Show toast 3 seconds before navigation (at 2 seconds)
+          setTimeout(() => {
+            Toast.show({
+              type: 'success',
+              text1: 'Member Added Successfully',
+              text2: 'New member has been added to your account.',
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 3000,
+            });
+          }, 4500); // 2 seconds (3 seconds before navigation)
+
+          // Navigate to ChatTab first to ensure Predictions tab is active, then to ChatWithPrompts after 5 seconds
+          setTimeout(() => {
+            setIsNavigating(false);
+            const rootNavigation = navigation.getParent();
+            if (rootNavigation) {
+              (rootNavigation as any).navigate('ChatTab', {
+                screen: 'ChatWithPrompts',
+                params: {
+                  userId: response.user_id,
+                  cardTitles: 'Snapshot Prediction',
+                  tab: 'LifeNow',
+                  planet: null,
+                },
+              });
+            } else {
+              // Fallback to direct navigation if parent not available
+              navigation.navigate('ChatWithPrompts' as any, {
+                userId: response.user_id,
+                cardTitles: 'Snapshot Prediction',
+                tab: 'LifeNow',
+                planet: null,
+              });
+            }
+          }, 5000);
+          
+          // 5 seconds delay
         } else {
           // Navigate to HomeScreen (for login/registration flow)
           navigation.navigate('HomeScreen');
@@ -947,7 +992,7 @@ const AddNewMember = () => {
                         : colors.DarkNavy,
                   },
                 ]}
-                placeholder="What do you do? (Tell us about your profession, studies, or occupation)"
+                placeholder="For Hyper-Personal Predictions, please fill in the details below. You can amend these details at any time. The next fortnightly predictions will include the updated information."
                 placeholderTextColor={
                   theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy
                 }
@@ -955,7 +1000,7 @@ const AddNewMember = () => {
                 onChangeText={formik.handleChange('whatDoYouDo')}
                 onBlur={formik.handleBlur('whatDoYouDo')}
                 multiline={true}
-                numberOfLines={4}
+                numberOfLines={5}
                 textAlignVertical="top"
               />
               {formik.touched.whatDoYouDo && formik.errors.whatDoYouDo && (
@@ -1463,8 +1508,10 @@ const AddNewMember = () => {
                   {
                     backgroundColor:
                       theme === 'dark' ? colors.DarkNavyBlue : colors.DarkNavy,
-                      borderColor:
-                        theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
                   },
                 ]}
                 onPress={() => setShowConfirmModal(false)}
@@ -1479,6 +1526,29 @@ const AddNewMember = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Loading Overlay for Navigation */}
+      <Modal
+        visible={isNavigating}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            {/* <ActivityIndicator size="large" color={colors.Orangeaccentcolor || '#DF8A5D'} /> */}
+            <LottieView
+              source={require('../../assets/lottie/loader-Animation-1.json')}
+              autoPlay
+              loop
+              style={styles.loadingContainer}
+            />
+            <Text style={[styles.loadingText, { color: theme === 'dark' ? colors.white : colors.white || '#FFFFFF' }]}>
+              Preparing your predictions...
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -1490,7 +1560,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: 32,
+    paddingBottom: Platform.OS === 'android' ? 60 : 60,
   },
   headerWrap: {
     flexDirection: 'row',
@@ -1937,6 +2007,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: fontFamily.regular,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    backgroundColor: 'transparent',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    minWidth: 200,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
 

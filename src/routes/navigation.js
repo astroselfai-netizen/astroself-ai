@@ -5,9 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import {
-  color,
   font,
-  responsiveHeight,
   responsiveWidth,
 } from '../constant/theme';
 import {
@@ -15,13 +13,10 @@ import {
   StyleSheet,
   Text,
   View,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Login from '../screen/login';
 import SplashScreen from '../screen/splashscreen';
 import ContinueWithOtp from '../screen/ContinueWithOtp';
@@ -35,11 +30,6 @@ import ChatScreen from '../screen/Chat';
 import NakshatraScreen from '../screen/Nakshatra';
 import SettingsScreen from '../screen/Settings';
 
-import HomeIcon from '../assets/icons/back.png'; // Placeholder, replace with actual Home icon
-import ChatIcon from '../assets/icons/Show.png'; // Placeholder, replace with actual Chat icon
-import ProfileIcon from '../assets/image/profile.png'; // Placeholder, replace with actual Profile icon
-// NakshatraIcon will be handled by theme context
-import SettingsIcon from '../assets/icons/googleColor.png'; // Placeholder, replace with actual Settings icon
 import BasicDeatil from '../screen/BasicDeatil';
 import AddNewMember from '../screen/AddNewMember';
 import MemberManagement from '../screen/MemberManagement';
@@ -63,6 +53,71 @@ import MemberPlanManagement from '../screen/MemberPlanManagement';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// Helper to create stack with initial route
+function createAppStack(initialRouteName) {
+  return function AppStack() {
+    return (
+      <Stack.Navigator 
+        initialRouteName={initialRouteName}
+        screenOptions={{ headerShown: false }}
+      >
+      {/* Main Tab Screens */}
+      <Stack.Screen name="HomeScreen" component={HomeScreen} />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} />
+      <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+      <Stack.Screen name="NakshatraScreen" component={NakshatraScreen} />
+      <Stack.Screen name="SettingsScreen" component={SettingsScreen} />
+      
+      {/* All other screens - accessible from anywhere */}
+      <Stack.Screen name="BasicDeatil" component={BasicDeatil} />
+      <Stack.Screen name="AddNewMember" component={AddNewMember} />
+      <Stack.Screen name="MemberManagement" component={MemberManagement} />
+      <Stack.Screen
+        name="NotificationScreen"
+        component={NotificationScreen}
+      />
+      <Stack.Screen
+        name="ChatWithPrompts"
+        component={ChatWithPromptsScreen}
+      />
+      <Stack.Screen
+        name="PrivacyPolicyScreen"
+        component={PrivacyPolicyScreen}
+      />
+      <Stack.Screen
+        name="TermsAndConditions"
+        component={TermsAndConditions}
+      />
+      <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
+      <Stack.Screen name="ResourcesScreen" component={ResourcesScreen} />
+      <Stack.Screen
+        name="ResourcesDetailsScreen"
+        component={ResourcesDetailsScreen}
+      />
+      <Stack.Screen name="PaidPlanScreen" component={PaidPlanScreen} />
+      <Stack.Screen name="FaqsScreen" component={FaqsScreen} />
+      <Stack.Screen name="ReportScreen" component={ReportScreen} />
+      <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
+      <Stack.Screen
+        name="DashboardTasksScreen"
+        component={DashboardTasksScreen}
+      />
+      <Stack.Screen name="EditAllTaskSelectionScreen" component={EditAllTaskSelectionScreen} />
+      <Stack.Screen name="PurchasedHistoryScreen" component={PurchasedHistoryScreen} />
+      <Stack.Screen name="DashboardTasksDoNotScreen" component={DashboardTasksDoNotScreen} />
+      <Stack.Screen name="MemberPlanManagement" component={MemberPlanManagement} />
+    </Stack.Navigator>
+    );
+  };
+}
+
+// Create separate stack instances for each tab with different initial routes
+const HomeStack = createAppStack('HomeScreen');
+const ChatStack = createAppStack('ChatScreen');
+const ProfileStack = createAppStack('ProfileScreen');
+const NakshatraStack = createAppStack('NakshatraScreen');
+const SettingsStack = createAppStack('SettingsScreen');
+
 function MainNavigator() {
   return (
     <NavigationContainer>
@@ -71,56 +126,15 @@ function MainNavigator() {
           headerShown: false,
         }}
       >
-        {/* Existing screens */}
+        {/* Auth and initial screens - these won't show tabs */}
         <Stack.Screen name="SplashScreen" component={SplashScreen} />
-        <Stack.Screen name="HomeScreen" component={MyTabs} />
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="ContinueWithOtp" component={ContinueWithOtp} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="ForgotPasswordOtp" component={ForgotPasswordOtp} />
         <Stack.Screen name="Register" component={Register} />
-        <Stack.Screen name="BasicDeatil" component={BasicDeatil} />
-        <Stack.Screen name="AddNewMember" component={AddNewMember} />
-        <Stack.Screen name="MemberManagement" component={MemberManagement} />
-        <Stack.Screen
-          name="NotificationScreen"
-          component={NotificationScreen}
-        />
-        <Stack.Screen
-          name="ChatWithPrompts"
-          component={ChatWithPromptsScreen}
-        />
-        <Stack.Screen
-          name="PrivacyPolicyScreen"
-          component={PrivacyPolicyScreen}
-        />
-        <Stack.Screen
-          name="TermsAndConditions"
-          component={TermsAndConditions}
-        />
-        <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
-        <Stack.Screen name="ResourcesScreen" component={ResourcesScreen} />
-        <Stack.Screen
-          name="ResourcesDetailsScreen"
-          component={ResourcesDetailsScreen}
-        />
-        <Stack.Screen name="PaidPlanScreen" component={PaidPlanScreen} />
-        <Stack.Screen name="FaqsScreen" component={FaqsScreen} />
-        <Stack.Screen name="ReportScreen" component={ReportScreen} />
-        <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
-        <Stack.Screen
-          name="DashboardTasksScreen"
-          component={DashboardTasksScreen}
-        />
-        <Stack.Screen name="EditAllTaskSelectionScreen" component={EditAllTaskSelectionScreen} />
-        <Stack.Screen name="PurchasedHistoryScreen" component={PurchasedHistoryScreen} />
-        <Stack.Screen name="DashboardTasksDoNotScreen" component={DashboardTasksDoNotScreen} />
-        <Stack.Screen name="MemberPlanManagement" component={MemberPlanManagement} />
-        {/* <Stack.Screen name="Register" component={Register} />
-        <Stack.Screen name="OTPVerification" component={OTPVerification} />
-       
-        <Stack.Screen name="ResetPassword" component={ResetPassword} /> */}
-        {/* Add more screens here if needed */}
+        {/* Main app with tabs - tabs will be visible on all screens inside MyTabs */}
+        <Stack.Screen name="HomeScreen" component={MyTabs} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -172,8 +186,8 @@ function MyTabs() {
         }}
       >
         <Tab.Screen
-          name="HomeScreen"
-          component={HomeScreen}
+          name="HomeTab"
+          component={HomeStack}
           options={{
             tabBarIcon: ({ focused }) => (
               <View style={styles.tabItemContainer}>
@@ -203,10 +217,26 @@ function MyTabs() {
               </View>
             ),
           }}
+          listeners={({ navigation, route }) => ({
+            tabPress: (e) => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+              
+              // If not on HomeScreen, navigate to it
+              if (currentRoute?.name !== 'HomeScreen') {
+                e.preventDefault();
+                navigation.navigate('HomeTab', {
+                  screen: 'HomeScreen',
+                });
+              }
+            },
+          })}
         />
         <Tab.Screen
-          name="ChatScreen"
-          component={ChatScreen}
+          name="ChatTab"
+          component={ChatStack}
           options={{
             tabBarIcon: ({ focused }) => (
               <View style={styles.tabItemContainer}>
@@ -236,10 +266,26 @@ function MyTabs() {
               </View>
             ),
           }}
+          listeners={({ navigation, route }) => ({
+            tabPress: (e) => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+              
+              // If not on ChatScreen, navigate to it
+              if (currentRoute?.name !== 'ChatScreen') {
+                e.preventDefault();
+                navigation.navigate('ChatTab', {
+                  screen: 'ChatScreen',
+                });
+              }
+            },
+          })}
         />
         <Tab.Screen
-          name="ProfileScreen"
-          component={ProfileScreen}
+          name="ProfileTab"
+          component={ProfileStack}
           options={{
             tabBarIcon: ({ focused }) => (
               <View style={styles.tabItemContainer}>
@@ -271,10 +317,26 @@ function MyTabs() {
               </View>
             ),
           }}
+          listeners={({ navigation, route }) => ({
+            tabPress: (e) => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+              
+              // If not on ProfileScreen, navigate to it
+              if (currentRoute?.name !== 'ProfileScreen') {
+                e.preventDefault();
+                navigation.navigate('ProfileTab', {
+                  screen: 'ProfileScreen',
+                });
+              }
+            },
+          })}
         />
         <Tab.Screen
-          name="NakshatraScreen"
-          component={NakshatraScreen}
+          name="NakshatraTab"
+          component={NakshatraStack}
           options={{
             tabBarIcon: ({ focused }) => (
               <View style={styles.tabItemContainer}>
@@ -308,10 +370,26 @@ function MyTabs() {
               </View>
             ),
           }}
+          listeners={({ navigation, route }) => ({
+            tabPress: (e) => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+              
+              // If not on NakshatraScreen, navigate to it
+              if (currentRoute?.name !== 'NakshatraScreen') {
+                e.preventDefault();
+                navigation.navigate('NakshatraTab', {
+                  screen: 'NakshatraScreen',
+                });
+              }
+            },
+          })}
         />
         <Tab.Screen
-          name="SettingsScreen"
-          component={SettingsScreen}
+          name="SettingsTab"
+          component={SettingsStack}
           options={{
             tabBarIcon: ({ focused }) => (
               <View style={styles.tabItemContainer}>
@@ -343,6 +421,22 @@ function MyTabs() {
               </View>
             ),
           }}
+          listeners={({ navigation, route }) => ({
+            tabPress: (e) => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+              
+              // If not on SettingsScreen, navigate to it
+              if (currentRoute?.name !== 'SettingsScreen') {
+                e.preventDefault();
+                navigation.navigate('SettingsTab', {
+                  screen: 'SettingsScreen',
+                });
+              }
+            },
+          })}
         />
       </Tab.Navigator>
       {/* White indicator bar at the bottom center */}

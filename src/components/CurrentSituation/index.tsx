@@ -67,6 +67,8 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
     const antardashaEntries = Object.entries(dashaData.Antardasha);
     if (antardashaEntries.length > 0) {
       const [planet] = antardashaEntries[0];
+
+      console.log('planet---->---71', planet);
       return `Active Planet - ${planet}`;
     }
     
@@ -80,13 +82,13 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
     }
     
     console.log('cardTitle-->24', cardValue);
-    console.log('selectedMemberId-->25', selectedMemberId);
+    console.log('selectedMemberId-->25', getAntardashaTitle());
     // Navigate to ChatWithPrompts screen for General Analysis
     navigation.navigate('ChatWithPrompts', {
       userId: selectedMemberId,
       cardTitles: cardValue,
       tab: 'LifeNow',
-      planet: cardValue === 'Antardasha' ? getAntardashaTitle() : null,
+      planet: getAntardashaTitle() || null,
     });
   };
   const cards = [

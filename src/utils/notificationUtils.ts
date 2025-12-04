@@ -124,11 +124,14 @@ export class NotificationUtils {
   }
 
   // Create notification channel for Android
+  // NOTE: This is now handled in MainApplication.kt onCreate()
+  // This method is kept for backward compatibility but the channel is created natively
   static async createNotificationChannel(): Promise<void> {
     if (Platform.OS === 'android') {
       try {
-        // This is handled by Firebase automatically, but you can customize it
-        console.log('Notification channel created for Android');
+        // Notification channel is created in MainApplication.kt
+        // Firebase will use the default channel if it exists
+        console.log('Notification channel should be created in MainApplication.kt');
       } catch (error) {
         console.error('Error creating notification channel:', error);
       }

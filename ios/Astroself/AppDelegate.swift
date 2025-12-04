@@ -26,15 +26,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // Configure notification center
     UNUserNotificationCenter.current().delegate = self
     
-    // Request notification permission
+    // Request notification permission and register for remote notifications
+    // This must happen early so React Native Firebase can register the device
     UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
       if granted {
-        print("Notification permission granted")
+        print("✅ Notification permission granted")
         DispatchQueue.main.async {
+          // Register for APNs remote notifications
+          // This is required before React Native Firebase can register the device
           application.registerForRemoteNotifications()
+          print("✅ Registered for APNs remote notifications")
         }
       } else {
-        print("Notification permission denied: \(error?.localizedDescription ?? "Unknown error")")
+        print("❌ Notification permission denied: \(error?.localizedDescription ?? "Unknown error")")
       }
     }
     

@@ -335,7 +335,8 @@ const styles = StyleSheet.create({
     // justifyContent: 'center',
     // alignItems: 'center',
     overflow: 'hidden',
-    marginBottom: responsiveWidth('5%'),
+    // paddingBottom: Platform.OS === 'android' ? 90 : 90,
+    marginBottom: Platform.OS === 'android' ? 90 : 90,
   },
   contentContainer: {
     flex: 1,

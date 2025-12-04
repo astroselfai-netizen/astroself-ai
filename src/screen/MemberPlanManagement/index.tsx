@@ -11,6 +11,10 @@ import {
   FlatList,
   StatusBar,
   ImageBackground,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -22,6 +26,12 @@ import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
 import Toast from 'react-native-toast-message';
 import planService from '../../services/plan/plan.service';
+import serviceFactory from '../../services/serviceFactory';
+import UserService from '../../services/user/user.service';
+import { useDispatch, useSelector } from 'react-redux';
+import { setMembersUpdated } from '../../state/slices/appSlice';
+import { RootState } from '../../state/store';
+import { icons } from '../../assets';
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -47,6 +57,8 @@ const MemberItem = React.memo(
     isAssignPlanMode,
     isAssigned,
     canSelect,
+    navigation,
+    onEdit,
   }: {
     item: any;
     isSelected: boolean;
@@ -54,11 +66,14 @@ const MemberItem = React.memo(
     isAssignPlanMode: boolean;
     isAssigned: boolean;
     canSelect: boolean;
+    navigation: any;
+    onEdit: () => void;
   }) => {
 
     console.log('itemitemitemitem', item);
 
     const { theme, colors } = useTheme();
+    const [isExpanded, setIsExpanded] = React.useState(false);
     console.log('MemberItem rendering for:', item);
 
     // Extract name from API response
@@ -101,6 +116,7 @@ const MemberItem = React.memo(
     const birthTime = formatBirthTime(item.birth_data);
     const location = item.birthplace || 'Location not specified';
     const currentPlan = item.current_plan || 'Plan Expiry date';
+    const whatDoYouDo = item.what_do_you_do || '';
 
     console.log('currentPlancurrentPlancurrentPlan', currentPlan);
 
@@ -136,73 +152,166 @@ const MemberItem = React.memo(
             },
           ]}
         >
-          {/* Name Row */}
-          <View
-            style={[
-              styles.memberInfoRow,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.transparentBg : colors.white,
-              },
-            ]}
-          >
-            <Image
-              source={require('../../assets/icons/profile-icons.png')}
-              style={styles.profileIcon}
-            />
-            <Text
+          {/* Top Row - Name and Action Icons */}
+          <View style={styles.cardTopRow}>
+            <View
               style={[
-                styles.memberName,
-                {
-                  color: theme === 'dark' ? colors.white : colors.DarkNavy,
-                },
+                styles.nameContainer,
+                item.primary_mamber === 'True' && { alignItems: 'center' },
               ]}
             >
-              {memberName}
-            </Text>
-            {/* Checkbox - Only show in assign plan mode */}
-            {isAssignPlanMode && (
+              <Image
+                source={require('../../assets/icons/profile-icons.png')}
+                style={styles.profileIcon}
+              />
+              <View style={styles.memberNameContainer}>
+                <Text
+                  style={[
+                    styles.memberName,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  {memberName}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.actionIcons}>
               <TouchableOpacity
-                onPress={onSelect}
-                disabled={isAssigned || !canSelect}
-                style={[
-                  styles.checkbox,
-                  {
-                    borderColor: isAssigned
-                      ? colors.grayText || '#999'
-                      : colors.Orangeaccentcolor,
-                    backgroundColor: isSelected
-                      ? colors.Orangeaccentcolor
-                      : isAssigned
-                      ? colors.grayText || '#999'
-                      : theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.white,
-                    opacity: isAssigned || !canSelect ? 0.5 : 1,
-                  },
-                ]}
+                onPress={() =>
+                  navigation.navigate('ReportScreen', {
+                    userId: item.id || item._id,
+                  })
+                }
+                style={styles.iconButton}
               >
-                {(isSelected || isAssigned) && (
-                  <View style={styles.checkboxInner}>
-                    <Text style={styles.checkboxCheckmark}>
-                      {isAssigned ? '✓' : '✓'}
-                    </Text>
-                  </View>
-                )}
+                <Image
+                  source={require('../../assets/icons/Report.png')}
+                  style={[
+                    styles.actionIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                    {
+                      width: responsiveWidth(6),
+                      height: responsiveWidth(6),
+                    },
+                  ]}
+                />
               </TouchableOpacity>
-            )}
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('NakshatraTab', {
+                    screen: 'NakshatraScreen',
+                    params: { userId: item.id || item._id },
+                  })
+                }
+                style={styles.iconButton}
+              >
+                <Image
+                  source={require('../../assets/icons/ZodiacWheel.png')}
+                  style={[
+                    styles.actionIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                    {
+                      width: responsiveWidth(6),
+                      height: responsiveWidth(6),
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('ChatTab', { 
+                    screen: 'ChatScreen', 
+                    params: { userId: item.id || item._id } 
+                  })
+                }
+                style={styles.iconButton}
+              >
+                <Image
+                  source={require('../../assets/icons/Chat-inactive.png')}
+                  style={[
+                    styles.actionIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+              {/* edit member icon */}
+              <TouchableOpacity
+                onPress={onEdit}
+                style={styles.iconButton}
+              >
+                <Image
+                  source={require('../../assets/icons/edit-painel.png')}
+                  style={[
+                    styles.actionIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                    {
+                      width: responsiveWidth(6),
+                      height: responsiveWidth(6),
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+              {/* Checkbox - Only show in assign plan mode */}
+              {isAssignPlanMode && (
+                <TouchableOpacity
+                  onPress={onSelect}
+                  disabled={isAssigned || !canSelect}
+                  style={[
+                    styles.checkbox,
+                    {
+                      borderColor: isAssigned
+                        ? colors.grayText || '#999'
+                        : colors.Orangeaccentcolor,
+                      backgroundColor: isSelected
+                        ? colors.Orangeaccentcolor
+                        : isAssigned
+                        ? colors.grayText || '#999'
+                        : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.white,
+                      opacity: isAssigned || !canSelect ? 0.5 : 1,
+                      marginLeft: responsiveWidth('2'),
+                    },
+                  ]}
+                >
+                  {(isSelected || isAssigned) && (
+                    <View style={styles.checkboxInner}>
+                      <Text style={styles.checkboxCheckmark}>
+                        {isAssigned ? '✓' : '✓'}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
-          {/* Separator Line */}
-          <View
-            style={[
-              styles.separator,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              },
-            ]}
-          />
+          <View style={styles.divider} />
 
           {/* Details Grid Section - 2x2 Layout */}
           <View
@@ -316,6 +425,61 @@ const MemberItem = React.memo(
               </View>
             </View>
           </View>
+          {/* what_do_you_do */}
+          {whatDoYouDo ? (
+            <View style={styles.whatDoYouDoContainer}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  {
+                    // justifyContent: "flex-start",
+                    // alignItems: 'flex-start',
+                  },
+                ]}
+              >
+                <Image
+                  source={require('../../assets/icons/briefcase.png')}
+                  style={[styles.detailIcon]}
+                />
+              </View>
+              <View style={styles.whatDoYouDoTextContainer}>
+                <Text
+                  style={[
+                    styles.detailText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                  numberOfLines={isExpanded ? undefined : 4}
+                >
+                  {whatDoYouDo}
+                </Text>
+                {whatDoYouDo.length > 100 && (
+                  <TouchableOpacity
+                    onPress={() => setIsExpanded(!isExpanded)}
+                    style={styles.readMoreButton}
+                  >
+                    <Text
+                      style={[
+                        styles.readMoreText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.Orangeaccentcolor
+                              : colors.Orangeaccentcolor,
+                        },
+                      ]}
+                    >
+                      {isExpanded ? 'Read less' : 'Read more'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : null}
         </View>
       </View>
     );
@@ -327,6 +491,9 @@ const MemberItem = React.memo(
 const MemberPlanManagement = () => {
   const navigation = useNavigation<MemberPlanManagementNavigationProp>();
   const { theme, colors } = useTheme();
+  const dispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.app.user);
+  const userService = serviceFactory.get<UserService>('UserService');
   const [localMembersData, setLocalMembersData] = useState<any[]>([]);
 
   const { membersData, profileData, loading, error, refreshProfileData } = useProfileData();
@@ -334,6 +501,11 @@ const MemberPlanManagement = () => {
   const [isAssignPlanMode, setIsAssignPlanMode] = useState(false);
   const [assignedMembers, setAssignedMembers] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [personalDetails, setPersonalDetails] = useState('');
+  const [personalizedDetailsEnabled, setPersonalizedDetailsEnabled] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
   // Update local state when membersData changes
   React.useEffect(() => {
@@ -497,6 +669,94 @@ const MemberPlanManagement = () => {
   // Handle Create Chart button
   const handleCreateChart = () => {
     navigation.navigate('AddNewMember', { fromMemberPlanManagement: true });
+  };
+
+  // Handle opening edit modal
+  const handleOpenEditModal = (member: any) => {
+    setSelectedMember(member);
+    setPersonalDetails(member.what_do_you_do || '');
+    setPersonalizedDetailsEnabled(member.personalizedDetails !== false);
+    setShowEditModal(true);
+  };
+
+  // Handle closing edit modal
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setSelectedMember(null);
+    setPersonalDetails('');
+    setPersonalizedDetailsEnabled(true);
+  };
+
+  // Handle update member
+  const handleUpdateMember = async () => {
+    if (!selectedMember) return;
+
+    try {
+      setUpdating(true);
+
+      const birthData = selectedMember.birth_data || {};
+      const userId = user?._id || selectedMember.userId || '';
+
+      const updateData = {
+        id: selectedMember.id || selectedMember._id,
+        first_name: selectedMember.first_name || '',
+        last_name: selectedMember.last_name || '',
+        isUpdate: true,
+        isProfile: false,
+        gender: selectedMember.gender || 'Male',
+        day: birthData.day || 1,
+        month: birthData.month || 1,
+        year: birthData.year || 2000,
+        hour: birthData.hour || 0,
+        min: birthData.min || 0,
+        birthplace: selectedMember.birthplace || '',
+        lat: selectedMember.lat || '',
+        lon: selectedMember.lon || '',
+        tzone: birthData.tzone || null,
+        userId: userId,
+        what_do_you_do: personalDetails,
+        marital_status: selectedMember.marital_status || null,
+        children: selectedMember.children || null,
+        health_issues_if_any: selectedMember.health_issues_if_any || null,
+        main_source_of_finances: selectedMember.main_source_of_finances || null,
+        prediction_type: selectedMember.prediction_type || 'bullet',
+        personalizedDetails: personalizedDetailsEnabled,
+        profession: selectedMember.profession || '',
+      };
+
+      const response = await userService.updateBirthData(
+        selectedMember.id || selectedMember._id,
+        updateData,
+      );
+
+      if (response.status) {
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2:
+            response.message || 'Member personal info updated successfully',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+
+        dispatch(setMembersUpdated(true));
+        await refreshProfileData();
+        handleCloseEditModal();
+      }
+    } catch (updateError: any) {
+      console.error('Error updating member:', updateError);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: updateError.message || 'Failed to update member',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+    } finally {
+      setUpdating(false);
+    }
   };
 
   // Log the full members data to see the structure
@@ -749,6 +1009,8 @@ const MemberPlanManagement = () => {
                     isAssignPlanMode={isAssignPlanMode}
                     isAssigned={isAssigned}
                     canSelect={canSelect}
+                    navigation={navigation}
+                    onEdit={() => handleOpenEditModal(item)}
                   />
                 );
               }}
@@ -771,6 +1033,214 @@ const MemberPlanManagement = () => {
         />
       </TouchableOpacity> */}
 
+      {/* Edit Member Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseEditModal}
+      >
+        <View style={styles.modalOverlay}>
+          <ImageBackground
+            source={
+              theme === 'dark'
+                ? require('../../assets/image/DarkBackground.png')
+                : require('../../assets/image/LightBackground.png')
+            }
+            blurRadius={12}
+            style={[
+              styles.modalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.surface : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+            imageStyle={[
+              styles.modalBgImage,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.surface : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHeader,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.transparent : colors.transparent,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.modalTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Personal Details
+              </Text>
+              <TouchableOpacity
+                onPress={handleCloseEditModal}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={icons.Icclose}
+                  style={[
+                    styles.closeButtonImage,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+            </View>
+            <View
+              style={[
+                styles.modalDivider,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? 'rgba(255, 255, 255, 0.3)'
+                      : 'rgba(0, 0, 0, 0.1)',
+                },
+              ]}
+            />
+
+            {/* Modal Content */}
+            <View style={styles.editModalContent}>
+              {/* Personal Details Section */}
+              <View style={styles.personalDetailsSection}>
+                <Text
+                  style={[
+                    styles.personalDetailsDescription,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                      opacity: 0.8,
+                    },
+                  ]}
+                >
+                  Personalized predictions depend on the level of details shared
+                  by you - more precise, accurate, and comprehensive details
+                  will help generate relatable predictions.
+                </Text>
+
+                {/* Text Input Area */}
+                <TextInput
+                  style={[
+                    styles.personalDetailsInput,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.cardBackground : colors.white,
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                  value={personalDetails}
+                  onChangeText={setPersonalDetails}
+                  placeholder="Example :
+I am a 42-year-old married male, living in Mumbai with my family. I run a successful export business that has been steadily growing for the past 12 years. Financially, I am stable, but I am looking to expand into international markets and diversify into new sectors. My relationship with my wife and children is supportive, though I often struggle to balance family time with professional commitments. At this stage, my main priorities are scaling my business, ensuring long-term wealth security, and maintaining good health amidst a busy lifestyle."
+                  placeholderTextColor={colors.grayText}
+                  multiline
+                  textAlignVertical="top"
+                  numberOfLines={8}
+                />
+              </View>
+            </View>
+
+            {/* Modal Footer Buttons */}
+            <View
+              style={[
+                styles.editModalFooter,
+                {
+                  borderTopColor:
+                    theme === 'dark'
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(0, 0, 0, 0.1)',
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                  {
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.primaryBlue,
+                  },
+                ]}
+                onPress={handleCloseEditModal}
+                disabled={updating}
+              >
+                <Text
+                  style={[
+                    styles.cancelButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.primaryBlue,
+                    },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.updateButton,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.Orangeaccentcolor
+                        : colors.Orangeaccentcolor,
+                  },
+                ]}
+                onPress={handleUpdateMember}
+                disabled={updating}
+              >
+                {updating ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text
+                    style={[styles.updateButtonText, { color: colors.white }]}
+                  >
+                    Update
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ImageBackground>
+        </View>
+      </Modal>
      
     </ImageBackground>
   );
@@ -788,7 +1258,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     paddingHorizontal: 14,
     paddingTop: 10,
-    paddingBottom: 100,
+    paddingBottom: Platform.OS === 'android' ? 90 : 90,
   },
   headerWrap: {
     flexDirection: 'row',
@@ -949,18 +1419,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: responsiveWidth('3'),
     paddingVertical: responsiveWidth('2'),
   },
-  memberInfoRow: {
+  cardTopRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    flex: 1,
-    paddingVertical: responsiveWidth('1'),
-    // marginBottom: responsiveWidth('1'),
+    marginBottom: responsiveWidth('3'),
   },
-  separator: {
-    height: 1,
-    width: '100%',
-    opacity: 0.3,
-    marginVertical: responsiveWidth('2'),
+  nameContainer: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  memberNameContainer: {
+    // flexDirection: 'row',
+    // justifyContent: "flex-start",
+    // alignItems: "flex-start",
+    // alignItems: 'center',
+    // flex: 1,
+  },
+  divider: {
+    height: 0.3,
+    backgroundColor: 'rgba(238, 229, 202, 1)',
+    marginBottom: responsiveWidth('3'),
   },
   detailsGrid: {
     marginTop: responsiveWidth('1'),
@@ -979,13 +1458,41 @@ const styles = StyleSheet.create({
     width: responsiveWidth('40%'),
     marginRight: responsiveWidth('2'),
   },
-  profileIcon: {
+  detailIcon: {
     width: responsiveWidth(5),
     height: responsiveWidth(5),
+    resizeMode: 'contain',
+    marginRight: responsiveWidth('1'),
+    // marginTop: 2,
+  },
+  iconContainer: {
+    width: responsiveWidth(5),
+    height: responsiveWidth(5),
+    alignItems: 'center',
+    justifyContent: 'center',
+    // marginRight: responsiveWidth('1'),
+    // marginTop: 2,
+  },
+  detailText: {
+    color: 'rgba(238, 229, 202, 1)',
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
+    fontStyle: 'normal',
+    lineHeight: 18,
+    letterSpacing: -0.19,
+    // flex: 1,
+    flexWrap: 'wrap',
+    width: responsiveWidth('70%'),
+  },
+  profileIcon: {
+    width: responsiveWidth(6),
+    height: responsiveWidth(6),
     resizeMode: 'contain',
     marginRight: responsiveWidth('2'),
   },
   memberName: {
+    color: color.themeTextWhite,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: fontFamily.regular,
@@ -1058,8 +1565,8 @@ const styles = StyleSheet.create({
     tintColor: 'rgba(238, 229, 202, 1)',
   },
   whatDoYouDoContainer: {
-    marginTop: responsiveWidth('2'),
-    paddingHorizontal: responsiveWidth('2.5'),
+    // marginTop: responsiveWidth('2'),
+    paddingHorizontal: responsiveWidth('0.7'),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -1068,7 +1575,7 @@ const styles = StyleSheet.create({
     flex: 1,
     // flexDirection: 'row',
     // alignItems: 'center',
-    marginLeft: responsiveWidth('1'),
+    marginLeft: responsiveWidth('1.5'),
     justifyContent: 'flex-start',
   },
   readMoreButton: {

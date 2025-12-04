@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: 32,
+    paddingBottom: Platform.OS === 'android' ? 60 : 60,
   },
   headerWrap: {
     flexDirection: 'row',

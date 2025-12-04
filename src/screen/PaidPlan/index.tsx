@@ -490,7 +490,7 @@ const PaidPlanScreen = () => {
                         },
                       ]}
                     >
-                      499
+                      999
                     </Text>
                     <Text
                       style={[
@@ -787,52 +787,146 @@ const PaidPlanScreen = () => {
                             : ''
                         }`}
                   </Text> */}
-                  <View style={styles.buttonContainer}>
-                    <TouchableOpacity
-                      onPress={handleAddMemberPayment}
-                      style={[
-                        styles.actionButton,
-                        styles.addButton,
-                        {
-                          backgroundColor:
-                            theme === 'dark'
-                              ? '#DF8A5D'
-                              : colors.Orangeaccentcolor,
-                          borderColor:
-                            theme === 'dark'
-                              ? '#DF8A5D'
-                              : colors.Orangeaccentcolor,
-                        },
-                        // Make Add button full width when Create button is hidden
-                        Math.max(
-                          0,
-                          (profileData?.members_allow || 0) -
-                            (profileData?.current_members || 0),
-                        ) === 0 &&
-                          Math.max(
-                            0,
-                            (profileData?.child_allow || 0) -
-                              (profileData?.current_child || 0),
-                          ) === 0 &&
-                          styles.fullWidthButton,
-                      ]}
-                      disabled={isProcessingPayment}
-                    >
-                      <Text
+                  <View style={styles.priceContainerLeft}>
+                    {(() => {
+                      // Get plan price and calculate total
+                      const planPrice = 999;
+                      const originalPrice = memberCount * planPrice;
+                      const hasDiscount = memberCount >= 5;
+                      const discountPercent = hasDiscount ? 10 : 0;
+                      const discountAmount = hasDiscount ? (originalPrice * discountPercent) / 100 : 0;
+                      const totalPrice = originalPrice - discountAmount;
+
+                      return (
+                        <>
+                          {hasDiscount && (
+                            <View style={styles.discountRow}>
+                              <Text
+                                style={[
+                                  styles.originalPriceLabel,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.themeTextWhite
+                                        : colors.DarkNavy,
+                                  },
+                                ]}
+                              >
+                                Original Price :
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.originalPriceValue,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.grayText || '#999'
+                                        : colors.grayText || '#999',
+                                  },
+                                ]}
+                              >
+                                ₹{originalPrice}
+                              </Text>
+                            </View>
+                          )}
+                          {hasDiscount && (
+                            <View style={styles.discountRow}>
+                              <Text
+                                style={[
+                                  styles.discountLabel,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.Orangeaccentcolor
+                                        : colors.Orangeaccentcolor,
+                                  },
+                                ]}
+                              >
+                                Discount ({discountPercent}%) :
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.discountValue,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.Orangeaccentcolor
+                                        : colors.Orangeaccentcolor,
+                                  },
+                                ]}
+                              >
+                                - ₹{discountAmount}
+                              </Text>
+                            </View>
+                          )}
+                          <View style={styles.totalPriceRow}>
+                            <Text
+                              style={[
+                                styles.totalPriceLabel,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              Total Amount :
+                            </Text>
+                            <Text
+                              style={[
+                                styles.totalPriceValue,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {''} ₹{totalPrice}
+                            </Text>
+                          </View>
+                        </>
+                      );
+                    })()}
+                  </View>
+
+                  <View style={styles.priceAndButtonWrapper}>
+                    <View style={styles.buttonContainer}>
+                      <TouchableOpacity
+                        onPress={handleAddMemberPayment}
                         style={[
-                          styles.actionButtonText,
+                          styles.actionButton,
+                          styles.addButton,
                           {
-                            color:
-                              theme === 'dark' ? colors.white : colors.white,
+                            backgroundColor:
+                              theme === 'dark'
+                                ? '#DF8A5D'
+                                : colors.Orangeaccentcolor,
+                            borderColor:
+                              theme === 'dark'
+                                ? '#DF8A5D'
+                                : colors.Orangeaccentcolor,
                           },
                         ]}
+                        disabled={isProcessingPayment}
                       >
-                        {isProcessingPayment ? 'Processing...' : 'Add'}
-                      </Text>
-                    </TouchableOpacity>
+                        <Text
+                          style={[
+                            styles.actionButtonText,
+                            {
+                              color:
+                                theme === 'dark' ? colors.white : colors.white,
+                            },
+                          ]}
+                        >
+                          {isProcessingPayment ? 'Processing...' : 'Add'}
+                        </Text>
+                      </TouchableOpacity>
 
-                    {/* Only show Create button if there are remaining member or child slots */}
-                    {/* {(Math.max(
+                      {/* Only show Create button if there are remaining member or child slots */}
+                      {/* {(Math.max(
                       0,
                       (profileData?.members_allow || 0) -
                         (profileData?.current_members || 0),
@@ -843,7 +937,9 @@ const PaidPlanScreen = () => {
                           (profileData?.current_child || 0),
                       ) > 0) && ( */}
                       <TouchableOpacity
-                        onPress={() => navigation.navigate('MemberPlanManagement')}
+                        onPress={() =>
+                          navigation.navigate('MemberPlanManagement')
+                        }
                         style={[
                           styles.actionButton,
                           styles.createButton,
@@ -872,7 +968,8 @@ const PaidPlanScreen = () => {
                           Manage Plan
                         </Text>
                       </TouchableOpacity>
-                    {/* )} */}
+                      {/* )} */}
+                    </View>
                   </View>
                 </View>
               </View>
@@ -998,7 +1095,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'android' ? 32 : 32,
+    paddingBottom: Platform.OS === 'android' ? 90 : 90,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1276,10 +1373,63 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 16,
   },
+  priceAndButtonWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  priceContainerLeft: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+  totalPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  totalPriceLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as '600',
+  },
+  totalPriceValue: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '700' as '700',
+  },
+  discountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  originalPriceLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400' as const,
+    marginRight: 8,
+  },
+  originalPriceValue: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400' as const,
+    textDecorationLine: 'line-through',
+  },
+  discountLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as const,
+    marginRight: 8,
+  },
+  discountValue: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as const,
+  },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
+    alignItems: 'center',
   },
   actionButton: {
     flex: 1,

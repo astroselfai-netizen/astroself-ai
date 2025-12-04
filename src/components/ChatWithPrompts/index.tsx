@@ -22,7 +22,7 @@ import {
 } from '../../constant/theme';
 import { MainContainer } from '../common/mainContainer';
 import serviceFactory from '../../services/serviceFactory';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { icons } from '../../assets';
 import UserService from '../../services/user/user.service';
 import { useTheme } from '../../context/ThemeContext';
@@ -30,6 +30,7 @@ import LottieView from 'lottie-react-native';
 import { Api } from '../../types/api';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
+import { CurrentDashaTimeResponse } from '../../types/api';
 
 interface ChatWithPromptsProps {
   userId: string;
@@ -68,6 +69,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
   const [userData, setUserData] = useState<Api.User.Res.Detail | null>(null);
+  const [dashaData, setDashaData] = useState<CurrentDashaTimeResponse | null>(null);
   
   // Check if current member is a child (age between 15-18 years)
   const isCurrentMemberChild = React.useMemo(() => {
@@ -170,14 +172,35 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     { title: 'Subconscious & Spirituality', subtitle: 'Hidden Enemies, Mind', value: 'Subconcious Mind, Spirituality, Hidden enemies, Losses and investment' },
   ];
 
+  // Get Antardasha title similar to CurrentSituation component
+  const getAntardashaTitle = React.useCallback(() => {
+    // If planet prop is provided, use it
+    if (planet) {
+      return planet;
+    }
+
+    // Otherwise, try to get from dashaData
+    console.log('dashaData---->', dashaData);
+    if (!dashaData?.Antardasha) return 'Antardasha';
+    
+    const antardashaEntries = Object.entries(dashaData.Antardasha);
+    if (antardashaEntries.length > 0) {
+      const [planetName] = antardashaEntries[0];
+      console.log('planet---->', planetName);
+      return `Active Planet - ${planetName}`;
+    }
+    
+    return 'Antardasha';
+  }, [planet, dashaData]);
+
   // Card options for Current Situation
-  const currentSituationCards = [
-    { title: planet || 'Antardasha', subtitle: 'General Analysis', value: 'Antardasha' },
+  const currentSituationCards = React.useMemo(() => [
+    { title: getAntardashaTitle(), subtitle: 'General Analysis', value: 'Antardasha' },
     // { title: 'Life on the Horizon', subtitle: 'Life on the Horizon', value: 'Life on the Horizon' },
     { title: 'Snapshot Prediction', subtitle: 'Future, Glimpse', value: 'Snapshot Prediction' },
     { title: 'Your Personality', subtitle: '', value: 'Your Personality' },
     { title: 'Life at the Moment', subtitle: 'Life at the Moment', value: 'Life at the Moment' },
-  ];
+  ], [getAntardashaTitle]);
 
   // Get current card options based on the current cardTitles
   const getCurrentCardOptions = () => {
@@ -191,6 +214,14 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     // Default fallback
     return generalAnalysisCards;
   };
+
+  // Reset expanded topic when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      setExpandedTopic(null);
+      setHasAutoExpanded(false);
+    }, [])
+  );
 
   // Reset expanded topic and clear content when cardTitles or selectedTopicValue changes
   useEffect(() => {
@@ -209,6 +240,39 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   useEffect(() => {
     setSelectedCardTitle(cardTitles || '');
   }, [cardTitles]);
+
+  // Fetch dasha data
+  const fetchDashaData = useCallback(async () => {
+    if (!userId) return;
+    
+    try {
+      const response = await userService.getCurrentDashaTime(userId);
+      setDashaData(response);
+      console.log('Dasha data fetched successfully:', response);
+    } catch (err: any) {
+      console.error('Error fetching dasha data:', err);
+    }
+  }, [userId, userService]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchDashaData();
+    }
+  }, [userId, fetchDashaData]);
+
+  // Retry fetching dasha data after 30 seconds if planet is null
+  useEffect(() => {
+    if (!planet && userId) {
+      const timeoutId = setTimeout(() => {
+        console.log('Retrying dasha data fetch after 30 seconds (planet is null)');
+        fetchDashaData();
+      }, 30000); // 30 seconds
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [planet, userId, fetchDashaData]);
 
   // Handle card title selection
   const handleCardTitleSelect = (newCardTitle: string) => {
@@ -793,6 +857,121 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     />
   );
 
+  // Function to detect if a line starts with a bullet point or number
+  const isBulletPoint = (line: string): boolean => {
+    const trimmed = line.trim();
+    // Check for bullet points: •, -, *, or numbered lists (1., 2., etc.)
+    return /^[•\-*]/.test(trimmed) || /^\d+\./.test(trimmed);
+  };
+
+  // Function to extract bullet/number and text
+  const parseBulletLine = (line: string): { bullet: string; text: string } => {
+    const trimmed = line.trim();
+    // Match bullet points (•, -, *) or numbered lists (1., 2., etc.)
+    const bulletMatch = trimmed.match(/^([•\-*]|\d+\.)\s*(.*)$/);
+    if (bulletMatch) {
+      return {
+        bullet: bulletMatch[1],
+        text: bulletMatch[2] || '',
+      };
+    }
+    return { bullet: '', text: trimmed };
+  };
+
+  // Function to render formatted text with proper bullet point indentation
+  const renderFormattedText = (content: string) => {
+    if (!content) return <Text style={[styles.topicText, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>No content available</Text>;
+
+    const lines = content.split('\n');
+    const elements: React.ReactNode[] = [];
+    let currentBulletItem: { bullet: string; lines: string[] } | null = null;
+
+    const flushBulletItem = () => {
+      if (currentBulletItem) {
+        const { bullet, lines: bulletLines } = currentBulletItem;
+        elements.push(
+          <View key={`bullet-group-${elements.length}`} style={styles.bulletItemContainer}>
+            <Text style={[styles.bulletPoint, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>
+              {bullet}
+            </Text>
+            <View style={styles.bulletContentContainer}>
+              {bulletLines.map((line, lineIndex) => {
+                const isLastLine = lineIndex === bulletLines.length - 1;
+                return (
+                  <Text
+                    key={`bullet-line-${lineIndex}`}
+                    style={[
+                      styles.bulletText,
+                      {
+                        color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                        marginBottom: isLastLine ? 0 : responsiveHeight(0.3),
+                      },
+                    ]}
+                  >
+                    {line}
+                  </Text>
+                );
+              })}
+            </View>
+          </View>
+        );
+        currentBulletItem = null;
+      }
+    };
+
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      
+      // Skip empty lines
+      if (!trimmed) {
+        flushBulletItem();
+        if (index < lines.length - 1) {
+          elements.push(<View key={`empty-${index}`} style={{ height: responsiveHeight(0.5) }} />);
+        }
+        return;
+      }
+
+      if (isBulletPoint(line)) {
+        // Flush previous bullet item if exists
+        flushBulletItem();
+        // Start new bullet item
+        const parsed = parseBulletLine(line);
+        currentBulletItem = {
+          bullet: parsed.bullet,
+          lines: parsed.text ? [parsed.text] : [],
+        };
+      } else {
+        // Regular text line
+        if (currentBulletItem) {
+          // This line is continuation of current bullet point
+          currentBulletItem.lines.push(trimmed);
+        } else {
+          // Regular paragraph
+          flushBulletItem();
+          elements.push(
+            <Text
+              key={`text-${index}`}
+              style={[
+                styles.topicText,
+                {
+                  color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  marginBottom: responsiveHeight(0.5),
+                },
+              ]}
+            >
+              {trimmed}
+            </Text>
+          );
+        }
+      }
+    });
+
+    // Flush any remaining bullet item
+    flushBulletItem();
+
+    return <View>{elements}</View>;
+  };
+
   if (loading) {
     return (
       <MainContainer>
@@ -861,7 +1040,10 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 },
               ]}
             >
-              {_tab}
+              {userData && userData.first_name && userData.last_name
+                ? `${userData.first_name} ${userData.last_name}`
+                : userData?.first_name || userData?.last_name || 'User'
+               }
             </Text>
           </View>
           <View style={styles.headerRight}>
@@ -890,7 +1072,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       {/* cardTitles dropdown section */}
 
       {/* user name and birth details section */}
-      {userData && (
+      {/* {userData && (
         <View style={[styles.userInfoContainer,{
           backgroundColor: theme === 'dark' ? colors.cardBackground : colors.white,
           borderColor: theme === 'dark' ? colors.themeTextWhite : colors.borderColor,
@@ -910,7 +1092,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
             </Text>
           </View>
         </View>
-      )}
+      )} */}
 
       <View
         style={[
@@ -1031,7 +1213,13 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                         styles.dropdownItemTextSelected,
                     ]}
                   >
-                    {card.title} {card.subtitle}
+                    {card.title} {_tab === 'LifeView' && card.subtitle && (
+                      <Text style={[styles.dropdownItemText,{
+                        color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                      }]}>
+                        {card.subtitle}
+                      </Text>
+                    )}
                   </Text>
                 </TouchableOpacity>
                 );
@@ -1275,19 +1463,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                       </View>
                     ) : (
                       // <View style={styles.topicContent}>
-                      <Text
-                        style={[
-                          styles.topicText,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        {topic.content || 'No content available'}
-                      </Text>
+                      renderFormattedText(topic.content || 'No content available')
                       // </View>
                     )}
                   </View>
@@ -1433,7 +1609,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     // zIndex: 1000,
     paddingHorizontal: responsiveWidth(4),
-    paddingBottom: responsiveHeight(5),
+    paddingBottom: Platform.OS === 'android' ? 85 : 85,
   },
   container: {
     flex: 1,
@@ -1540,6 +1716,29 @@ const styles = StyleSheet.create({
     // fontSize: fontSize.mini,
     fontSize: 14,
     // fontWeight: '500',
+    fontFamily: fontFamily.regular,
+    lineHeight: 26,
+    opacity: 0.9,
+  },
+  bulletItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: responsiveHeight(0.8),
+  },
+  bulletPoint: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 26,
+    opacity: 0.9,
+    // marginRight: responsiveWidth(1),
+    minWidth: responsiveWidth(2),
+  },
+  bulletContentContainer: {
+    flex: 1,
+    paddingLeft: responsiveWidth(1),
+  },
+  bulletText: {
+    fontSize: 14,
     fontFamily: fontFamily.regular,
     lineHeight: 26,
     opacity: 0.9,
@@ -1686,6 +1885,7 @@ const styles = StyleSheet.create({
   dropdownScrollView: {
     flex: 1,
     paddingVertical:responsiveWidth(3)
+
   },
   dropdownItem: {
     paddingHorizontal: responsiveWidth(4),

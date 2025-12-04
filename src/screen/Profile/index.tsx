@@ -1103,7 +1103,115 @@ const ProfileScreen = () => {
                           : ''
                       }`}
                 </Text> */}
+             
+                  <View style={styles.priceContainer}>
+                    {(() => {
+                      // Get plan price from subscription or use default
+                      const planPrice = 999;
+                      const originalPrice = selectedMemberCount * planPrice;
+                      const hasDiscount = selectedMemberCount >= 5;
+                      const discountPercent = hasDiscount ? 10 : 0;
+                      const discountAmount = hasDiscount ? (originalPrice * discountPercent) / 100 : 0;
+                      const totalPrice = originalPrice - discountAmount;
+
+                      return (
+                        <>
+                          {hasDiscount && (
+                            <View style={styles.discountRow}>
+                              <Text
+                                style={[
+                                  styles.originalPriceLabel,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.themeTextWhite
+                                        : colors.DarkNavy,
+                                  },
+                                ]}
+                              >
+                                Original Price :
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.originalPriceValue,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.grayText || '#999'
+                                        : colors.grayText || '#999',
+                                  },
+                                ]}
+                              >
+                                ₹{originalPrice}
+                              </Text>
+                            </View>
+                          )}
+                          {hasDiscount && (
+                            <View style={styles.discountRow}>
+                              <Text
+                                style={[
+                                  styles.discountLabel,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.Orangeaccentcolor
+                                        : colors.Orangeaccentcolor,
+                                  },
+                                ]}
+                              >
+                                Discount ({discountPercent}%) :
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.discountValue,
+                                  {
+                                    color:
+                                      theme === 'dark'
+                                        ? colors.Orangeaccentcolor
+                                        : colors.Orangeaccentcolor,
+                                  },
+                                ]}
+                              >
+                                - ₹{discountAmount}
+                              </Text>
+                            </View>
+                          )}
+                          <View style={styles.priceRow}>
+                            <Text
+                              style={[
+                                styles.totalPriceLabel,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              Total Amount :
+                            </Text>
+                            <Text
+                              style={[
+                                styles.totalPriceValue,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {""} ₹{totalPrice}
+                            </Text>
+                          </View>
+                        </>
+                      );
+                    })()}
+                  </View>
+            
+
                 <View style={styles.buttonContainer}>
+                  {/* Buy Button on Right */}
                   <TouchableOpacity
                     onPress={handleAddMemberPayment}
                     style={[
@@ -1119,18 +1227,6 @@ const ProfileScreen = () => {
                             ? '#DF8A5D'
                             : colors.Orangeaccentcolor,
                       },
-                      // Make Add button full width when Create button is hidden
-                      Math.max(
-                        0,
-                        (profileData?.members_allow || 0) -
-                          (profileData?.current_members || 0),
-                      ) === 0 &&
-                        Math.max(
-                          0,
-                          (profileData?.child_allow || 0) -
-                            (profileData?.current_child || 0),
-                        ) === 0 &&
-                        styles.fullWidthButton,
                     ]}
                     disabled={isProcessingPayment}
                   >
@@ -1145,6 +1241,8 @@ const ProfileScreen = () => {
                         },
                       ]}
                     >
+                      {/* Price Display on Left */}
+
                       {isProcessingPayment ? 'Processing...' : 'Buy'}
                     </Text>
                   </TouchableOpacity>
@@ -1160,42 +1258,42 @@ const ProfileScreen = () => {
                       (profileData?.child_allow || 0) -
                         (profileData?.current_child || 0),
                     ) > 0) && ( */}
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate("MemberPlanManagement")}
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('MemberPlanManagement')}
+                    style={[
+                      styles.actionButton,
+                      styles.createButton,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? 'transparent' : colors.white,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.primaryBlue,
+                      },
+                    ]}
+                    disabled={isProcessingPayment}
+                  >
+                    <Text
                       style={[
-                        styles.actionButton,
-                        styles.createButton,
+                        styles.actionButtonText,
                         {
-                          backgroundColor:
-                            theme === 'dark' ? 'transparent' : colors.white,
-                          borderColor:
+                          color:
                             theme === 'dark'
                               ? colors.themeTextWhite
                               : colors.primaryBlue,
                         },
                       ]}
-                      disabled={isProcessingPayment}
                     >
-                      <Text
-                        style={[
-                          styles.actionButtonText,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.primaryBlue,
-                          },
-                        ]}
-                      >
-                        Manage Plan
-                      </Text>
-                    </TouchableOpacity>
+                      Manage Plan
+                    </Text>
+                  </TouchableOpacity>
                   {/* )} */}
                 </View>
               </View>
             </ImageBackground>
 
-            <ImageBackground
+            {/* <ImageBackground
               source={
                 theme === 'dark'
                   ? require('../../assets/image/DarkBackground.png')
@@ -1283,7 +1381,7 @@ const ProfileScreen = () => {
                   style={styles.membersImage}
                 />
               </View>
-            </ImageBackground>
+            </ImageBackground> */}
           </View>
         </ScrollView>
       </MainContainer>
@@ -1297,7 +1395,7 @@ const styles = StyleSheet.create({
     minHeight: '100%',
     // backgroundColor: '#202945',
     paddingTop: responsiveWidth('19'), // Add space for sticky header
-    paddingBottom: 32,
+    paddingBottom: Platform.OS === 'android' ? 35 : 32,
   },
   loadingContainer: {
     flex: 1,
@@ -1871,8 +1969,69 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     flex: 1,
-    gap: 12,
+    gap: 10,
+    alignItems: 'center',
     // marginTop: 8,
+  },
+  priceContainer: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    // justifyContent: 'space-between',
+    // marginTop: 8,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+
+  priceLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400' as const,
+  },
+  priceValue: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500' as const,
+  },
+  totalPriceLabel: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as '600',
+  },
+  totalPriceValue: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '700' as '700',
+  },
+  discountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  originalPriceLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400' as const,
+    marginRight: 8,
+  },
+  originalPriceValue: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400' as const,
+    textDecorationLine: 'line-through',
+  },
+  discountLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as const,
+    marginRight: 8,
+  },
+  discountValue: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as const,
   },
   actionButton: {
     flex: 1,

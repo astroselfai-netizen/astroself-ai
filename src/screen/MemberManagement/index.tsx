@@ -273,7 +273,7 @@ const MemberItem = React.memo(
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() =>
-                  navigation.navigate('HomeScreen', {
+                  navigation.navigate('NakshatraTab', {
                     screen: 'NakshatraScreen',
                     params: { userId: item.id || item._id },
                   })
@@ -299,7 +299,7 @@ const MemberItem = React.memo(
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() =>
-                  navigation.navigate('HomeScreen', { screen: 'ChatScreen' })
+                  navigation.navigate('ChatTab', { screen: 'ChatScreen' })
                 }
                 style={styles.iconButton}
               >
@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 100,
+    paddingBottom: Platform.OS === 'android' ? 60 : 60,
   },
   headerWrap: {
     flexDirection: 'row',

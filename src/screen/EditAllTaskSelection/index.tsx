@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     paddingHorizontal: responsiveWidth(4),
-    paddingBottom: Platform.OS === 'android' ? 32 : 32,
+    paddingBottom: Platform.OS === 'android' ? 70 : 70,
   },
   headerRow: {
     flexDirection: 'row',

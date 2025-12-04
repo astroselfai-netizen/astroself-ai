@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minHeight: '100%',
     // backgroundColor: 'transparent',
-    paddingBottom: Platform.OS === 'android' ? 32 : 32,
+    paddingBottom: Platform.OS === 'android' ? 35 : 32,
   },
   container: {
     flex: 1,

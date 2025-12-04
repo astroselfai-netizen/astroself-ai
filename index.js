@@ -14,9 +14,17 @@ import messaging from '@react-native-firebase/messaging';
 serviceFactory.create();
 
 // Register background handler
+// IMPORTANT: This MUST be registered at the top level (outside any component/function)
+// This handles notifications when app is in background or quit state
 messaging().setBackgroundMessageHandler(async remoteMessage => {
-  console.log('Message handled in the background!', remoteMessage);
-  // Handle background message here
+  console.log('📱 Background message received:', remoteMessage);
+  console.log('📱 Notification data:', remoteMessage.data);
+  console.log('📱 Notification payload:', remoteMessage.notification);
+  
+  // You can perform background tasks here
+  // For example, update local storage, sync data, etc.
+  // Note: You cannot show UI or navigate here - that happens when user taps notification
+  
   return Promise.resolve();
 });
 

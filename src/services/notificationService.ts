@@ -1,5 +1,5 @@
 import messaging from '@react-native-firebase/messaging';
-import { Platform, Alert, Linking } from 'react-native';
+import { Platform, Alert, Linking, NativeEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface NotificationData {
@@ -12,11 +12,118 @@ export interface NotificationData {
 
 class NotificationService {
   private fcmToken: string | null = null;
+  private isIOSRegistered: boolean = false;
+  private tokenPromiseResolve: ((token: string) => void) | null = null;
+  private tokenPromiseReject: ((error: Error) => void) | null = null;
+
+  // Helper method to ensure iOS device is registered for remote messages
+  private async ensureIOSRegistration(): Promise<boolean> {
+    if (Platform.OS !== 'ios') {
+      return true; // Not iOS, no registration needed
+    }
+
+    if (this.isIOSRegistered) {
+      return true; // Already registered
+    }
+
+    try {
+      console.log('📱 Calling registerDeviceForRemoteMessages()...');
+      await messaging().registerDeviceForRemoteMessages();
+      this.isIOSRegistered = true;
+      console.log('✅ iOS device registered for remote messages');
+      
+      return true;
+    } catch (error: any) {
+      // Check if error is because already registered
+      if (error?.code === 'messaging/already-registered' || 
+          error?.message?.includes('already registered')) {
+        this.isIOSRegistered = true;
+        console.log('ℹ️ iOS device already registered');
+        return true;
+      }
+      
+      // Check if error is about missing entitlements
+      if (error?.code === 'messaging/unknown' && 
+          error?.message?.includes('aps-environment')) {
+        console.error('❌ CRITICAL: Entitlements not configured in Xcode!');
+        console.error('📋 Fix Steps:');
+        console.error('1. Open ios/Astroself.xcworkspace in Xcode');
+        console.error('2. Target → Build Settings → Search "Code Signing Entitlements"');
+        console.error('3. Debug: Set to "Astroself/AstroselfDebug.entitlements"');
+        console.error('4. Release: Set to "Astroself/AstroselfRelease.entitlements"');
+        console.error('5. Target → Signing & Capabilities → Add "Push Notifications"');
+        console.error('6. Clean build and run again');
+        console.error('');
+        console.error('📖 See IOS_ENTITLEMENTS_FIX.md for detailed steps');
+        return false;
+      }
+      
+      console.error('❌ Error registering iOS device for remote messages:', error);
+      console.error('Error code:', error?.code);
+      console.error('Error message:', error?.message);
+      return false;
+    }
+  }
+
+  // Helper method to get FCM token with retries (for iOS)
+  private async getFCMTokenWithRetry(maxRetries: number = 10, delay: number = 2000): Promise<string | null> {
+    console.log(`🔄 Starting getToken() retry mechanism (${maxRetries} attempts, ${delay}ms delay)`);
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📱 Attempt ${attempt}/${maxRetries}: Calling messaging().getToken()...`);
+        const token = await messaging().getToken();
+        
+        if (token && token.length > 0) {
+          console.log(`✅ FCM token retrieved successfully on attempt ${attempt}`);
+          console.log(`📱 Token length: ${token.length}`);
+          console.log(`📱 Token preview: ${token.substring(0, 20)}...`);
+          return token;
+        } else {
+          console.warn(`⚠️ Attempt ${attempt}: Got empty token`);
+        }
+      } catch (error: any) {
+        const isUnregisteredError = error?.code === 'messaging/unregistered' || 
+                                   (error instanceof Error && error.message?.includes('unregistered'));
+        
+        console.log(`❌ Attempt ${attempt} failed:`);
+        console.log(`   Error code: ${error?.code}`);
+        console.log(`   Error message: ${error?.message}`);
+        console.log(`   Is unregistered error: ${isUnregisteredError}`);
+        
+        if (isUnregisteredError && attempt < maxRetries) {
+          const waitTime = delay;
+          console.log(`⏳ Waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}...`);
+          await new Promise<void>(resolve => setTimeout(() => resolve(), waitTime));
+          continue;
+        }
+        
+        // If it's not an unregistered error, log and continue
+        if (!isUnregisteredError) {
+          console.warn(`⚠️ Non-unregistered error on attempt ${attempt}, continuing...`);
+          if (attempt < maxRetries) {
+            const waitTime = delay;
+            await new Promise<void>(resolve => setTimeout(() => resolve(), waitTime));
+            continue;
+          }
+        }
+        
+        // If we've exhausted retries
+        if (attempt === maxRetries) {
+          console.warn(`⚠️ Max retries (${maxRetries}) reached. All getToken() attempts failed.`);
+          return null;
+        }
+      }
+    }
+    
+    console.error('❌ All retry attempts exhausted');
+    return null;
+  }
 
   // Initialize push notifications
   async initialize(): Promise<void> {
     try {
-      // Request permission for notifications
+      // Request permission for notifications FIRST
       const authStatus = await messaging().requestPermission({
         alert: true,
         announcement: false,
@@ -36,14 +143,30 @@ class NotificationService {
       if (enabled) {
         console.log('Authorization status:', authStatus);
         
-        // Get FCM token
-        await this.getFCMToken();
+        // IMPORTANT: Set up token refresh listener FIRST (before getting token)
+        // This ensures the promise is ready when the callback fires
+        this.setupTokenRefreshListener();
         
         // Set up message handlers
         this.setupMessageHandlers();
         
-        // Set up token refresh listener
-        this.setupTokenRefreshListener();
+        // iOS: Register device for remote messages AFTER permission is granted
+        // This is critical - registration must happen after permission
+        if (Platform.OS === 'ios') {
+          console.log('📱 Registering iOS device for remote messages (after permission granted)...');
+          const registered = await this.ensureIOSRegistration();
+          if (!registered) {
+            console.warn('⚠️ iOS registration failed, but continuing...');
+          }
+          
+          // Wait a bit for APNs token to be available (AppDelegate callback)
+          console.log('⏳ Waiting for APNs token registration...');
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+        }
+        
+        // Try to get FCM token (after registration on iOS)
+        // If direct call fails, the token refresh listener promise will catch it
+        await this.getFCMToken();
         
         // Check for initial notification
         this.checkInitialNotification();
@@ -65,24 +188,98 @@ class NotificationService {
 
   // Get FCM token
   async getFCMToken(): Promise<string | null> {
+    // If we already have a token, return it
+    if (this.fcmToken) {
+      console.log('✅ Returning cached FCM token');
+      return this.fcmToken;
+    }
+
+    // Check stored token first
+    const storedToken = await this.getStoredFCMToken();
+    if (storedToken) {
+      console.log('✅ Returning stored FCM token');
+      this.fcmToken = storedToken;
+      return storedToken;
+    }
+
     try {
-      const token = await messaging().getToken();
-      this.fcmToken = token;
-      
-      // Store token in AsyncStorage
-      await AsyncStorage.setItem('fcmToken', token);
-      
-      console.log('🔥 FCM Token Generated:', token);
-      console.log('📱 Platform:', Platform.OS);
-      console.log('🔔 Token Length:', token.length);
-      
-      // Send token to your server here
-      // await this.sendTokenToServer(token);
-      
-      return token;
-    } catch (error) {
+      // iOS: Ensure registration and then try to get token
+      if (Platform.OS === 'ios') {
+        console.log('📱 iOS: Attempting to get FCM token...');
+        
+        // Step 1: Ensure device is registered
+        console.log('📱 Step 1: Ensuring iOS device registration...');
+        const registered = await this.ensureIOSRegistration();
+        if (!registered) {
+          console.warn('⚠️ iOS registration failed, but trying anyway...');
+        }
+        
+        // Step 2: Wait a bit for APNs token
+        console.log('📱 Step 2: Waiting for APNs token...');
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 3000));
+        
+        // Step 3: Try direct getToken() call with retries
+        console.log('📱 Step 3: Calling messaging().getToken()...');
+        const token = await this.getFCMTokenWithRetry(10, 2000);
+        
+        if (token) {
+          console.log('✅ Got FCM token via retry mechanism:', token);
+          this.fcmToken = token;
+          await AsyncStorage.setItem('fcmToken', token);
+          return token;
+        }
+        
+        // Step 4: If retry failed, wait for callback
+        console.log('📱 Step 4: Retry failed, setting up callback promise...');
+        const tokenPromise = new Promise<string>((resolve, reject) => {
+          this.tokenPromiseResolve = resolve;
+          this.tokenPromiseReject = reject;
+          
+          setTimeout(() => {
+            if (this.tokenPromiseResolve === resolve) {
+              reject(new Error('Timeout waiting for FCM token via callback'));
+            }
+          }, 20000);
+        });
+        
+        try {
+          console.log('📱 Waiting for token via callback (max 20 seconds)...');
+          const callbackToken = await tokenPromise;
+          if (callbackToken) {
+            console.log('✅ Got FCM token via callback:', callbackToken);
+            this.fcmToken = callbackToken;
+            await AsyncStorage.setItem('fcmToken', callbackToken);
+            this.tokenPromiseResolve = null;
+            this.tokenPromiseReject = null;
+            return callbackToken;
+          }
+        } catch (callbackError) {
+          console.error('❌ Callback timeout:', callbackError);
+          this.tokenPromiseResolve = null;
+          this.tokenPromiseReject = null;
+        }
+        
+        console.error('❌ All methods failed to get FCM token');
+        return null;
+      } else {
+        // Android: Direct call
+        console.log('📱 Android: Calling messaging().getToken()...');
+        const token = await messaging().getToken();
+        this.fcmToken = token;
+        await AsyncStorage.setItem('fcmToken', token);
+        console.log('🔥 FCM Token Generated:', token);
+        return token;
+      }
+    } catch (error: any) {
       console.error('❌ Error getting FCM token:', error);
-      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Error code:', error?.code);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Full error:', JSON.stringify(error, null, 2));
+      
+      // Cleanup promise handlers
+      this.tokenPromiseResolve = null;
+      this.tokenPromiseReject = null;
+      
       return null;
     }
   }
@@ -106,6 +303,11 @@ class NotificationService {
   // This prevents unnecessary token regeneration
   async getOrCreateFCMToken(): Promise<string | null> {
     try {
+      // iOS: Ensure device is registered first
+      if (Platform.OS === 'ios') {
+        await this.ensureIOSRegistration();
+      }
+
       // First, try to get stored token
       let token = await this.getStoredFCMToken();
       
@@ -147,28 +349,20 @@ class NotificationService {
   }
 
   // Set up message handlers
+  // NOTE: Background message handler MUST be registered in index.js at the top level
+  // Do NOT register it here as it won't work for background/quit state
   private setupMessageHandlers(): void {
-    // Handle background messages
-    messaging().setBackgroundMessageHandler(async remoteMessage => {
-      console.log('Message handled in the background!', remoteMessage);
-      
-      // You can perform background tasks here
-      // For example, update local storage, sync data, etc.
-      
-      return Promise.resolve();
-    });
-
-    // Handle foreground messages
+    // Handle foreground messages (app is open)
     messaging().onMessage(async remoteMessage => {
-      console.log('A new FCM message arrived!', remoteMessage);
+      console.log('📱 Foreground message received:', remoteMessage);
       
       // Show local notification or custom UI
       this.handleForegroundMessage(remoteMessage);
     });
 
-    // Handle notification opened app
+    // Handle notification opened app (app was in background)
     messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log('Notification caused app to open from background state:', remoteMessage);
+      console.log('📱 Notification opened app from background state:', remoteMessage);
       
       // Handle navigation based on notification data
       this.handleNotificationPress(remoteMessage);
@@ -177,16 +371,58 @@ class NotificationService {
 
   // Set up token refresh listener
   private setupTokenRefreshListener(): void {
+    // Primary: Listen for token refresh (this will fire when token is available)
     messaging().onTokenRefresh(async (token) => {
-      console.log('FCM Token refreshed:', token);
+      console.log('🔄 FCM Token refreshed/available via onTokenRefresh:', token);
       this.fcmToken = token;
       
       // Store new token in AsyncStorage
       await AsyncStorage.setItem('fcmToken', token);
       
+      // Resolve promise if waiting
+      if (this.tokenPromiseResolve) {
+        console.log('✅ Resolving token promise with token from onTokenRefresh');
+        this.tokenPromiseResolve(token);
+        this.tokenPromiseResolve = null;
+        this.tokenPromiseReject = null;
+      }
+      
       // Send new token to your server here
       // await this.sendTokenToServer(token);
     });
+
+    // iOS: Also listen for token via NotificationCenter (from AppDelegate)
+    // This is important because AppDelegate receives the token via MessagingDelegate callback
+    if (Platform.OS === 'ios') {
+      try {
+        const eventEmitter = new NativeEventEmitter();
+        eventEmitter.addListener('FCMToken', (data: { token: string }) => {
+          if (data?.token) {
+            console.log('📱 FCM Token received via AppDelegate NotificationCenter:', data.token);
+            
+            if (!this.fcmToken) {
+              this.fcmToken = data.token;
+              AsyncStorage.setItem('fcmToken', data.token);
+              console.log('✅ FCM Token stored from AppDelegate callback');
+            }
+            
+            // Resolve promise if waiting
+            if (this.tokenPromiseResolve) {
+              console.log('✅ Resolving token promise with token from AppDelegate');
+              this.tokenPromiseResolve(data.token);
+              this.tokenPromiseResolve = null;
+              this.tokenPromiseReject = null;
+            }
+          }
+        });
+        
+        // Keep subscription alive (service is singleton, so this is fine)
+        console.log('✅ FCMToken event listener set up for iOS');
+      } catch (error) {
+        // Event emitter might not be available, that's okay
+        console.log('ℹ️ Could not set up FCMToken event listener (not critical)');
+      }
+    }
   }
 
   // Check for initial notification (when app is opened from notification)
@@ -303,6 +539,11 @@ class NotificationService {
   // Request notification permission
   async requestPermission(): Promise<boolean> {
     try {
+      // iOS: Register device for remote messages first
+      if (Platform.OS === 'ios') {
+        await this.ensureIOSRegistration();
+      }
+
       const authStatus = await messaging().requestPermission();
       return authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
              authStatus === messaging.AuthorizationStatus.PROVISIONAL;

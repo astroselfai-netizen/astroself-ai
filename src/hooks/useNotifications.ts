@@ -112,7 +112,7 @@ export const useNotifications = (): UseNotificationsReturn => {
         // App came to foreground, check if we have a token
         // Only refresh if we don't have a token
         if (!fcmToken) {
-          refreshToken();
+          // refreshToken();
         }
       }
     };
