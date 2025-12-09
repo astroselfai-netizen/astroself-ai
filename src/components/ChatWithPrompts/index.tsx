@@ -25,12 +25,12 @@ import serviceFactory from '../../services/serviceFactory';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { icons } from '../../assets';
 import UserService from '../../services/user/user.service';
+import HouseService from '../../services/house/house.service';
 import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
 import { Api } from '../../types/api';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
-import { CurrentDashaTimeResponse } from '../../types/api';
 
 interface ChatWithPromptsProps {
   userId: string;
@@ -51,7 +51,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   userId,
   cardTitles,
   tab: _tab,
-  planet,
+  planet: _planet,
   current_plan,
 }) => {
   const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
@@ -69,7 +69,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
   const [userData, setUserData] = useState<Api.User.Res.Detail | null>(null);
-  const [dashaData, setDashaData] = useState<CurrentDashaTimeResponse | null>(null);
+  const [updatedList, setUpdatedList] = useState<Record<string, boolean>>({});
+  const [generalAnalysisCards, setGeneralAnalysisCards] = useState<Array<{ title: string; subtitle: string; value: string }>>([]);
+  const [currentSituationCards, setCurrentSituationCards] = useState<Array<{ title: string; subtitle: string; value: string }>>([]);
   
   // Check if current member is a child (age between 15-18 years)
   const isCurrentMemberChild = React.useMemo(() => {
@@ -154,53 +156,74 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     { title: 'Prediction Set 3-ML', value: 'Prediction Set 3-ML' },
   ];
 
-  // Card options for General Analysis
-  const generalAnalysisCards = [
-    // { title: 'General Analysis',subtitle: 'Strengths, Patterns', value: 'General Analysis' },
-    // { title: 'Snapshot Prediction',subtitle: 'Future, Glimpse', value: 'Snapshot Prediction' },
-    { title: 'Personality', subtitle: 'Vitality, Attitude', value: 'Personality, Attitude, Vitality' },
-    { title: 'Family & Values', subtitle: 'Wealth, Comfort', value: 'Family, Wealth, Comfort, Values' },
-    { title: 'Communication', subtitle: 'Speaking, Skills', value: 'Style of speaking, Siblings, Courage, Skills' },
-    { title: 'Home', subtitle: 'Happiness, Foundation', value: 'Home, happiness, Emotional foundation' },
-    { title: 'Love & Romance', subtitle: 'Celebration, Hobbies', value: 'Love affairs, Romance, Children, Celebration, hobbies' },
-    { title: 'Health & Service', subtitle: 'Routines, Care', value: 'Health, Daily routines, service to others, Conflict' },
-    { title: 'Marriage & Partnerships', subtitle: 'Business, Relationships', value: 'Marriage, Relationships, partnerships business travel' },
-    { title: 'Sexuality & Transformation', subtitle: 'Inheritance, Intimacy', value: 'Sexuality, Intimacy, Inheritance, Occult, Transformation, Unearned income' },
-    { title: 'Higher Education', subtitle: 'Philosophy, Travel', value: 'Higher education, Philosophy, Long distance Travel' },
-    { title: 'Career & Reputation', subtitle: 'Status, Recognition', value: 'Career, Reputation, Status in Society, Recognition' },
-    { title: 'Income & Innovation', subtitle: 'New Ideas, Work', value: 'Income, Network, Innovation, New ideas' },
-    { title: 'Subconscious & Spirituality', subtitle: 'Hidden Enemies, Mind', value: 'Subconcious Mind, Spirituality, Hidden enemies, Losses and investment' },
-  ];
-
-  // Get Antardasha title similar to CurrentSituation component
-  const getAntardashaTitle = React.useCallback(() => {
-    // If planet prop is provided, use it
-    if (planet) {
-      return planet;
-    }
-
-    // Otherwise, try to get from dashaData
-    console.log('dashaData---->', dashaData);
-    if (!dashaData?.Antardasha) return 'Antardasha';
+  // Fetch cards from API
+  const fetchCards = useCallback(async () => {
+    if (!userId) return;
     
-    const antardashaEntries = Object.entries(dashaData.Antardasha);
-    if (antardashaEntries.length > 0) {
-      const [planetName] = antardashaEntries[0];
-      console.log('planet---->', planetName);
-      return `Active Planet - ${planetName}`;
-    }
-    
-    return 'Antardasha';
-  }, [planet, dashaData]);
+    try {
+      // Fetch both lifeview and lifenow cards
+      const [lifeviewHeadings, lifenowHeadings] = await Promise.all([
+        HouseService.getPredictionHeadings(userId, 'lifeview'),
+        HouseService.getPredictionHeadings(userId, 'lifenow'),
+      ]);
 
-  // Card options for Current Situation
-  const currentSituationCards = React.useMemo(() => [
-    { title: getAntardashaTitle(), subtitle: 'General Analysis', value: 'Antardasha' },
-    // { title: 'Life on the Horizon', subtitle: 'Life on the Horizon', value: 'Life on the Horizon' },
-    { title: 'Snapshot Prediction', subtitle: 'Future, Glimpse', value: 'Snapshot Prediction' },
-    { title: 'Your Personality', subtitle: '', value: 'Your Personality' },
-    { title: 'Life at the Moment', subtitle: 'Life at the Moment', value: 'Life at the Moment' },
-  ], [getAntardashaTitle]);
+      // Map lifeview cards (General Analysis)
+      // Value should be the short title (like "Personality") so switch statement can map it correctly
+      const mappedGeneralCards = Object.entries(lifeviewHeadings)
+        .sort(([keyA], [keyB]) => parseInt(keyA, 10) - parseInt(keyB, 10))
+        .map(([_key, title]) => {
+          const titleStr = title || '';
+          
+          return {
+            title: titleStr,
+            subtitle: '',
+            value: titleStr, // Use title as value, switch statement will map it to mainHeading
+          };
+        });
+
+      // Map lifenow cards (Current Situation)
+      const mappedCurrentCards = Object.entries(lifenowHeadings)
+        .sort(([keyA], [keyB]) => parseInt(keyA, 10) - parseInt(keyB, 10))
+        .map(([_key, title]) => {
+          const titleStr = title || '';
+          // Normalize values
+          let valueStr = titleStr;
+          if (titleStr === 'Snapshot Predictions') {
+            valueStr = 'Snapshot Prediction';
+          } else if (titleStr.toLowerCase().includes('active planet') || 
+                     titleStr.toLowerCase().includes('antardasha')) {
+            valueStr = 'Antardasha';
+          }
+          
+          // Get subtitle if needed
+          let subtitle = '';
+          if (titleStr === 'Snapshot Prediction' || titleStr === 'Snapshot Predictions') {
+            subtitle = 'Future, Glimpse';
+          } else if (titleStr === 'Life at the Moment') {
+            subtitle = 'Life at the Moment';
+          }
+          
+          return {
+            title: titleStr, // Use title directly from API
+            subtitle: subtitle,
+            value: valueStr,
+          };
+        });
+
+      setGeneralAnalysisCards(mappedGeneralCards);
+      setCurrentSituationCards(mappedCurrentCards);
+    } catch (err: any) {
+      console.error('Error fetching cards:', err);
+    }
+  }, [userId]);
+
+  // Fetch cards when component mounts or userId changes
+  useEffect(() => {
+    if (userId) {
+      fetchCards();
+    }
+  }, [userId, fetchCards]);
+
 
   // Get current card options based on the current cardTitles
   const getCurrentCardOptions = () => {
@@ -227,6 +250,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   useEffect(() => {
     setExpandedTopic(null);
     setHasAutoExpanded(false);
+    setUpdatedList({});
     setTopics(prevTopics => 
       prevTopics.map(topic => ({
         ...topic,
@@ -242,38 +266,6 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   }, [cardTitles]);
 
   // Fetch dasha data
-  const fetchDashaData = useCallback(async () => {
-    if (!userId) return;
-    
-    try {
-      const response = await userService.getCurrentDashaTime(userId);
-      setDashaData(response);
-      console.log('Dasha data fetched successfully:', response);
-    } catch (err: any) {
-      console.error('Error fetching dasha data:', err);
-    }
-  }, [userId, userService]);
-
-  useEffect(() => {
-    if (userId) {
-      fetchDashaData();
-    }
-  }, [userId, fetchDashaData]);
-
-  // Retry fetching dasha data after 30 seconds if planet is null
-  useEffect(() => {
-    if (!planet && userId) {
-      const timeoutId = setTimeout(() => {
-        console.log('Retrying dasha data fetch after 30 seconds (planet is null)');
-        fetchDashaData();
-      }, 30000); // 30 seconds
-
-      return () => {
-        clearTimeout(timeoutId);
-      };
-    }
-  }, [planet, userId, fetchDashaData]);
-
   // Handle card title selection
   const handleCardTitleSelect = (newCardTitle: string) => {
     console.log('newCardTitle-->165', newCardTitle);
@@ -440,10 +432,17 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           apiTopic, // In this case, apiTopic contains the planet parameter
         );
       } else if (mainHeading === 'Current predictions' || mainHeading === 'Additional Predictions' || mainHeading === 'Life on the Horizon' || mainHeading === 'Life at the Moment') {
-        response = await userService.getDashaCategorizeData(
+        const categorizeResponse = await userService.getDashaCategorizeData(
           userId,
           mainHeading,
         );
+        // Store updated_list for 'Life at the Moment' only
+        if (mainHeading === 'Life at the Moment' && categorizeResponse.updated_list) {
+          setUpdatedList(categorizeResponse.updated_list);
+        } else {
+          setUpdatedList({});
+        }
+        response = categorizeResponse.data;
       } else {
         // Call house/categorize API for all other cases
 
@@ -844,23 +843,35 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
   // }, [topics, loading, hasAutoExpanded, toggleExpanded]);
 
-  const renderArrowIcon = (isExpanded: boolean) => (
+  const renderArrowIcon = (isExpanded: boolean, topic: PredictionTopic) => (
     <Image 
       source={require('../../assets/icons/Dropdown.png')} 
       style={[
         styles.arrowIcon,
         {
-          tintColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+          tintColor: selectedCardTitle === 'Life at the Moment' && updatedList[topic.title] === true ? colors.DarkNavy : theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
         },
         { transform: [{ rotate: isExpanded ? '180deg' : '0deg' }] }
       ]} 
     />
   );
 
+  // Function to check if a line is a title (starts/ends with asterisks for bold formatting)
+  const isTitleLine = (line: string): boolean => {
+    const trimmed = line.trim();
+    // Check if line starts with asterisk(s) and/or ends with asterisk(s)
+    // Examples: *text*, **text**, *text**, **text*, * text **, etc.
+    return /^\*+/.test(trimmed) || /\*+$/.test(trimmed);
+  };
+
   // Function to detect if a line starts with a bullet point or number
   const isBulletPoint = (line: string): boolean => {
     const trimmed = line.trim();
     // Check for bullet points: •, -, *, or numbered lists (1., 2., etc.)
+    // But exclude lines that are titles (start/end with asterisks)
+    if (isTitleLine(trimmed)) {
+      return false;
+    }
     return /^[•\-*]/.test(trimmed) || /^\d+\./.test(trimmed);
   };
 
@@ -877,6 +888,61 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     }
     return { bullet: '', text: trimmed };
   };
+
+  // Function to render text with bold formatting (**text** or *text*)
+  // Asterisks are completely removed - only the text inside is displayed as bold
+  // Handles: *text*, * text*, *text *, * text *, **text**, ** text**, *text**, **text*, etc.
+  const renderFormattedTextFromWeb = (text: string, textStyle: any) => {
+    if (!text) return null;
+
+    const result: React.ReactNode[] = [];
+
+    // Regex to match any asterisk pattern: *text*, **text**, *text**, **text*, etc.
+    // Matches one or more asterisks at start, text content, one or more asterisks at end
+    const regex = /(\*+\s*(.*?)\s*\*+)/g;
+
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      // normal text before match
+      if (match.index > lastIndex) {
+        result.push(text.slice(lastIndex, match.index));
+      }
+
+      // Extract text content (match[2] is the text between asterisks)
+      // Trim to remove any leading/trailing spaces
+      const boldText = (match[2] || '').trim();
+      
+      if (boldText) {
+        result.push(
+          <Text
+            key={`b-${result.length}`}
+            style={[textStyle, { fontWeight: 'bold' as const }]}
+          >
+            {boldText}
+          </Text>,
+        );
+      }
+
+      lastIndex = regex.lastIndex;
+    }
+
+    // remaining text
+    if (lastIndex < text.length) {
+      result.push(text.slice(lastIndex));
+    }
+
+    // If no matches found, return simple text
+    if (result.length === 0) {
+      return <Text style={textStyle}>{text}</Text>;
+    }
+
+    return <Text style={textStyle}>{result}</Text>;
+  };
+
+
+
 
   // Function to render formatted text with proper bullet point indentation
   const renderFormattedText = (content: string) => {
@@ -898,18 +964,21 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               {bulletLines.map((line, lineIndex) => {
                 const isLastLine = lineIndex === bulletLines.length - 1;
                 return (
-                  <Text
-                    key={`bullet-line-${lineIndex}`}
-                    style={[
-                      styles.bulletText,
-                      {
-                        color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                        marginBottom: isLastLine ? 0 : responsiveHeight(0.3),
-                      },
-                    ]}
-                  >
-                    {line}
-                  </Text>
+                  <View key={`bullet-line-${lineIndex}`}>
+                    {renderFormattedTextFromWeb(
+                      line,
+                      [
+                        styles.bulletText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                          marginBottom: isLastLine ? 0 : responsiveHeight(0.3),
+                        },
+                      ],
+                    )}
+                  </View>
                 );
               })}
             </View>
@@ -948,20 +1017,19 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         } else {
           // Regular paragraph
           flushBulletItem();
-          elements.push(
-            <Text
-              key={`text-${index}`}
-              style={[
-                styles.topicText,
-                {
-                  color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  marginBottom: responsiveHeight(0.5),
-                },
-              ]}
-            >
-              {trimmed}
-            </Text>
+          const textElement = renderFormattedTextFromWeb(
+            trimmed,
+            [
+              styles.topicText,
+              {
+                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                marginBottom: responsiveHeight(0.5),
+              },
+            ],
           );
+          if (textElement) {
+            elements.push(textElement);
+          }
         }
       }
     });
@@ -1042,8 +1110,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
             >
               {userData && userData.first_name && userData.last_name
                 ? `${userData.first_name} ${userData.last_name}`
-                : userData?.first_name || userData?.last_name || 'User'
-               }
+                : userData?.first_name || userData?.last_name || 'User'}
             </Text>
           </View>
           <View style={styles.headerRight}>
@@ -1139,7 +1206,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               card => card.value === selectedCardTitle,
             )?.title || selectedCardTitle}
           </Text>
-          {renderArrowIcon(showDropdown)}
+          {renderArrowIcon(showDropdown, topics[0] || null)}
         </TouchableOpacity>
 
         {showDropdown && (
@@ -1165,63 +1232,79 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
             >
               {getCurrentCardOptions().map((card, index) => {
                 // Disable cards except "Snapshot Prediction" when showInfoContainer is true (only for LifeNow tab)
-                const isDisabledByInfoContainer = showInfoContainer && 
-                                  _tab === 'LifeNow' && 
-                                  card.value !== 'Snapshot Prediction';
-                
+                const isDisabledByInfoContainer =
+                  showInfoContainer &&
+                  _tab === 'LifeNow' &&
+                  card.value !== 'Snapshot Prediction';
+
                 // Disable "Life at the Moment" and "Antardasha" (General Analysis) if member is a child (only for LifeNow tab)
-                const isDisabledByChild = isCurrentMemberChild && 
-                                  _tab === 'LifeNow' && 
-                                  (card.value === 'Life at the Moment' || card.value === 'Antardasha');
-                
-                const isDisabled = isDisabledByInfoContainer || isDisabledByChild;
-                
+                const isDisabledByChild =
+                  isCurrentMemberChild &&
+                  _tab === 'LifeNow' &&
+                  (card.value === 'Life at the Moment' ||
+                    card.value === 'Antardasha');
+
+                const isDisabled =
+                  isDisabledByInfoContainer || isDisabledByChild;
+
                 return (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.dropdownItem,
-                    {
-                      backgroundColor:
-                        theme === 'dark' ? colors.DarkNavy : colors.white,
-                      borderBottomColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
-                      opacity: isDisabled ? 0.5 : 1,
-                    },
-                    selectedCardTitle === card.value &&
-                      styles.dropdownItemSelected,
-                  ]}
-                  onPress={() => {
-                    if (!isDisabled) {
-                      handleCardTitleSelect(card.value);
-                      // setExpandedTopic(null);
-                    }
-                  }}
-                  activeOpacity={0.7}
-                  disabled={isDisabled}
-                >
-                  <Text
+                  <TouchableOpacity
+                    key={index}
                     style={[
-                      styles.dropdownItemText,
+                      styles.dropdownItem,
                       {
-                        color:
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavy : colors.white,
+                        borderBottomColor:
                           theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
+                            ? colors.themeBorderDropdown
+                            : colors.borderColor,
                         opacity: isDisabled ? 0.5 : 1,
                       },
                       selectedCardTitle === card.value &&
-                        styles.dropdownItemTextSelected,
+                        styles.dropdownItemSelected,
                     ]}
+                    onPress={() => {
+                      if (!isDisabled) {
+                        handleCardTitleSelect(card.value);
+                        // setExpandedTopic(null);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                    disabled={isDisabled}
                   >
-                    {card.title} {_tab === 'LifeView' && card.subtitle && (
-                      <Text style={[styles.dropdownItemText,{
-                        color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                      }]}>
-                        {card.subtitle}
-                      </Text>
-                    )}
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                          opacity: isDisabled ? 0.5 : 1,
+                        },
+                        selectedCardTitle === card.value &&
+                          styles.dropdownItemTextSelected,
+                      ]}
+                    >
+                      {card.title}{' '}
+                      {_tab === 'LifeView' && card.subtitle && (
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {card.subtitle}
+                        </Text>
+                      )}
+                    </Text>
+                  </TouchableOpacity>
                 );
               })}
             </ScrollView>
@@ -1348,7 +1431,21 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       >
         <View style={styles.contentWrapper}>
           <View style={styles.topicsContainer}>
-            {topics.map(topic => (
+            {[...topics]
+              .sort((a, b) => {
+                // If 'Life at the Moment' is selected, sort unread items to the top
+                if (selectedCardTitle === 'Life at the Moment') {
+                  const aIsUnread = updatedList[a.title] === true;
+                  const bIsUnread = updatedList[b.title] === true;
+                  
+                  // Unread items (green) should be at the top
+                  if (aIsUnread && !bIsUnread) return -1;
+                  if (!aIsUnread && bIsUnread) return 1;
+                }
+                // Maintain original order for other cases
+                return 0;
+              })
+              .map(topic => (
               <ImageBackground
                 key={topic.id}
                 source={
@@ -1376,7 +1473,15 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                     styles.topicHeader,
                     {
                       backgroundColor:
-                        theme === 'dark' ? colors.transparent : colors.white,
+                        // Check if this is 'Life at the Moment' and item is unread
+                        selectedCardTitle === 'Life at the Moment' &&
+                        updatedList[topic.title] === true
+                          ? theme === 'dark'
+                            ? 'rgb(139, 196, 40)' // green tint for dark theme
+                            : 'rgb(139, 196, 40)' // green tint for dark theme
+                          : theme === 'dark'
+                          ? colors.transparent
+                          : colors.white,
                       borderColor:
                         theme === 'dark'
                           ? colors.themeBorderDropdown
@@ -1391,15 +1496,24 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                       styles.topicTitle,
                       {
                         color:
-                          theme === 'dark'
+                          // Check if this is 'Life at the Moment' and item is unread
+                          selectedCardTitle === 'Life at the Moment' &&
+                          updatedList[topic.title] === true
+                            ? colors.DarkNavy // Orange color for unread items
+                            : theme === 'dark'
                             ? colors.themeTextWhite
                             : colors.DarkNavy,
+                        fontWeight:
+                          selectedCardTitle === 'Life at the Moment' &&
+                          updatedList[topic.title] === true
+                            ? '600'
+                            : 'normal',
                       },
                     ]}
                   >
                     {topic.title}
                   </Text>
-                  {renderArrowIcon(expandedTopic === topic.id)}
+                  {renderArrowIcon(expandedTopic === topic.id, topic)}
                 </TouchableOpacity>
 
                 {expandedTopic === topic.id && (
@@ -1463,7 +1577,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                       </View>
                     ) : (
                       // <View style={styles.topicContent}>
-                      renderFormattedText(topic.content || 'No content available')
+                      renderFormattedText(
+                        topic.content || 'No content available',
+                      )
                       // </View>
                     )}
                   </View>
@@ -1484,35 +1600,82 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       >
         <View style={styles.modalOverlay}>
           <ImageBackground
-            source={ theme === 'dark' ? require('../../assets/image/DarkBackground.png') : require('../../assets/image/LightBackground.png')}
+            source={
+              theme === 'dark'
+                ? require('../../assets/image/DarkBackground.png')
+                : require('../../assets/image/LightBackground.png')
+            }
             blurRadius={12}
             style={styles.modalContainer}
             imageStyle={styles.modalBgImage}
           >
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>Note</Text>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Note
+              </Text>
               <TouchableOpacity
                 onPress={() => setShowNoteModal(false)}
                 // style={styles.closeButton}
                 // activeOpacity={0.7}
               >
-                <Image source={icons.Icclose} style={[styles.closeButtonImage,{
-                  tintColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                }]} />
+                <Image
+                  source={icons.Icclose}
+                  style={[
+                    styles.closeButtonImage,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                />
               </TouchableOpacity>
             </View>
-            <View style={[styles.modalDivider,{
-              backgroundColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-            }]} />
+            <View
+              style={[
+                styles.modalDivider,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            />
             <View style={styles.modalContent}>
-              <Text style={[styles.modalSectionTitle,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>Explanation Note-1</Text>
-              <Text style={[styles.modalText,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>
+              <Text
+                style={[
+                  styles.modalSectionTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Explanation Note-1
+              </Text>
+              <Text
+                style={[
+                  styles.modalText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
                 Main predictions are prepared by analysing{'\n'}
                 (a) Your running Dasha and{'\n'}
                 (b) Other Planets transiting over that Planet along with the
@@ -1520,12 +1683,30 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 will also change. Updates in this section happens every 15 days
               </Text>
 
-              <Text style={[styles.modalSectionTitle,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>Explanation Note-2</Text>
-              <Text style={[styles.modalText,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>
+              <Text
+                style={[
+                  styles.modalSectionTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Explanation Note-2
+              </Text>
+              <Text
+                style={[
+                  styles.modalText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
                 Subsidiary predictions are prepared by analysing{'\n'}
                 (a) Planets in houses as per your natal chart and{'\n'}
                 (b) Other Planets going over that planet as per the current
@@ -1536,12 +1717,30 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 happens every 15 days
               </Text>
 
-              <Text style={[styles.modalSectionTitle,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>Disclaimer</Text>
-              <Text style={[styles.modalText,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>
+              <Text
+                style={[
+                  styles.modalSectionTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Disclaimer
+              </Text>
+              <Text
+                style={[
+                  styles.modalText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
                 Predictions are meant to give you guidance to prepare and take
                 appropriate actions. These are AI-generated and not checked or
                 verified. Please consult your astrologer for more personalized
@@ -1680,7 +1879,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: responsiveWidth(5),
-    paddingVertical: responsiveHeight(1),
+    paddingVertical: responsiveWidth(1),
     // backgroundColor: 'transparent',
     minHeight: responsiveHeight(6),
   },

@@ -439,7 +439,7 @@ const ReportScreen = () => {
               },
             ]}
           >
-            Report
+            Reports
           </Text>
         </View>
       </View>

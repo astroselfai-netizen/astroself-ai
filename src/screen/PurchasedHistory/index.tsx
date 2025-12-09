@@ -249,7 +249,7 @@ const PurchasedHistoryScreen = () => {
               },
             ]}
           >
-            Purchased History
+            Purchase History
           </Text>
         </View>
       </View>

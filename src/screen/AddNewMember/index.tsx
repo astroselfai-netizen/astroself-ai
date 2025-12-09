@@ -992,9 +992,9 @@ const AddNewMember = () => {
                         : colors.DarkNavy,
                   },
                 ]}
-                placeholder="For Hyper-Personal Predictions, please fill in the details below. You can amend these details at any time. The next fortnightly predictions will include the updated information."
+                placeholder="Personalized predictions depend on the level of details shared by you - more precise, accurate, and comprehensive details will help generate relatable predictions."
                 placeholderTextColor={
-                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy
+                  theme === 'dark' ? colors.themeTextWhite : colors.grayText
                 }
                 value={formik.values.whatDoYouDo}
                 onChangeText={formik.handleChange('whatDoYouDo')}
@@ -1543,7 +1543,15 @@ const AddNewMember = () => {
               loop
               style={styles.loadingContainer}
             />
-            <Text style={[styles.loadingText, { color: theme === 'dark' ? colors.white : colors.white || '#FFFFFF' }]}>
+            <Text
+              style={[
+                styles.loadingText,
+                {
+                  color:
+                    theme === 'dark' ? colors.white : colors.white || '#FFFFFF',
+                },
+              ]}
+            >
               Preparing your predictions...
             </Text>
           </View>

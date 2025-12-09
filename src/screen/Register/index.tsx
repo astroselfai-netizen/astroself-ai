@@ -1,6 +1,6 @@
 // HomeScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -27,6 +27,7 @@ import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
 import GoogleAuthService from '../../services/googleAuthService';
 import notificationService from '../../services/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useDispatch, useSelector } from 'react-redux';
@@ -38,6 +39,7 @@ import { RootState } from '../../state/store';
 // import Bg from '../../assets/svgs/bg.svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { StackActions } from '@react-navigation/native';
 import { AuthContainer } from '../../components/common/AuthContainer';
 import { icons } from '../../assets';
 import { useTheme } from '../../context/ThemeContext';
@@ -70,6 +72,23 @@ const Register = () => {
   const [countryCode, setCountryCode] = useState('+91');
   const [isCcModalVisible, setIsCcModalVisible] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  
+  // OTP related states
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [showOtpSection, setShowOtpSection] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [isOtpActive, setIsOtpActive] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const otpRefs = [
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+  ];
+  const otpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Password strength validation
   const getPasswordStrength = (password: string) => {
@@ -86,14 +105,41 @@ const Register = () => {
   const countryCodes = COUNTRY_CODES;
 
   // Helper function to navigate based on members data
-  const navigateAfterAuth = (current_members: number) => {
-    console.log('Checking members data for navigation:', membersData);
-    if (current_members === 0) {
-      console.log('No members found, navigating to AddNewMember');
-      navigation.replace('AddNewMember');
-    } else {
-      console.log('Members found, navigating to HomeScreen');
-      navigation.replace('HomeScreen');
+  const navigateAfterAuth = async (current_members?: number) => {
+    try {
+      const membersCount = current_members ? current_members : 0;
+      console.log('navigateAfterAuth called with current_members:', membersCount);
+      console.log('Redux membersData:', membersData);
+      
+      if (membersCount === 0 || membersCount === undefined) {
+        console.log('No members found, navigating to HomeScreen then AddNewMember');
+        // Set flag to navigate to AddNewMember after HomeScreen loads
+        await AsyncStorage.setItem('NAVIGATE_TO_ADD_MEMBER', 'true');
+        
+        // Navigate to HomeScreen first (which loads MyTabs)
+        // HomeScreen will check the flag and navigate to AddNewMember immediately
+        navigation.dispatch(
+          StackActions.replace('AddNewMember')
+        );
+      } else {
+        console.log('Members found, navigating to HomeScreen');
+        navigation.dispatch(
+          StackActions.replace('HomeScreen')
+        );
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback: Navigate to HomeScreen first, then AddNewMember
+      try {
+        // navigation.dispatch(
+        //   StackActions.replace('HomeScreen')
+        // );
+        setTimeout(() => {
+          (navigation as any).navigate('AddNewMember');
+        }, 200);
+      } catch (fallbackError) {
+        console.error('Fallback navigation error:', fallbackError);
+      }
     }
   };
 
@@ -112,6 +158,104 @@ const Register = () => {
       // ignore and keep default
     }
   }, []);
+
+  // OTP countdown timer
+  useEffect(() => {
+    if (isOtpActive && otpCountdown > 0 && otpTimerRef.current === null) {
+      otpTimerRef.current = setInterval(() => {
+        setOtpCountdown(prev => prev - 1);
+      }, 1000);
+    }
+
+    if (!isOtpActive || otpCountdown === 0) {
+      if (otpTimerRef.current) {
+        clearInterval(otpTimerRef.current);
+        otpTimerRef.current = null;
+      }
+    }
+
+    if (otpCountdown === 0 && isOtpActive) {
+      setIsOtpActive(false);
+    }
+
+    return () => {
+      if (otpTimerRef.current) {
+        clearInterval(otpTimerRef.current);
+        otpTimerRef.current = null;
+      }
+    };
+  }, [isOtpActive, otpCountdown]);
+
+  const handleOtpChange = (value: string, idx: number) => {
+    // Allow empty string or single digit
+    if (value === '' || /^[0-9]$/.test(value)) {
+      const newOtp = [...otp];
+      const previousValue = newOtp[idx];
+      newOtp[idx] = value;
+      setOtp(newOtp);
+      
+      // If a digit is entered (new value different from previous), move to next
+      if (value && value !== previousValue && idx < 5) {
+        // Small delay to ensure state is updated before focusing
+        setTimeout(() => {
+          otpRefs[idx + 1].current?.focus();
+        }, 10);
+      }
+      // If value is deleted (empty) and had a previous value, move to previous
+      if (!value && previousValue && idx > 0) {
+        setTimeout(() => {
+          otpRefs[idx - 1].current?.focus();
+        }, 10);
+      }
+    }
+  };
+
+  const handleOtpKeyPress = (e: any, idx: number) => {
+    // Handle backspace/delete key
+    if (e.nativeEvent.key === 'Backspace') {
+      // If current field has value, clear it and move to previous
+      if (otp[idx] && idx > 0) {
+        e.preventDefault();
+        const newOtp = [...otp];
+        newOtp[idx] = '';
+        setOtp(newOtp);
+        // Move to previous field after state update
+        setTimeout(() => {
+          otpRefs[idx - 1].current?.focus();
+        }, 10);
+      }
+      // If current field is empty and backspace is pressed, move to previous and clear it
+      else if (!otp[idx] && idx > 0) {
+        e.preventDefault();
+        const newOtp = [...otp];
+        newOtp[idx - 1] = '';
+        setOtp(newOtp);
+        setTimeout(() => {
+          otpRefs[idx - 1].current?.focus();
+        }, 10);
+      }
+    }
+  };
+
+  const isOtpComplete = otp.every(digit => digit !== '');
+
+  const handleBackPress = () => {
+    if (showOtpSection) {
+      // If OTP section is visible, hide it and reset OTP state
+      setShowOtpSection(false);
+      setIsOtpActive(false);
+      setOtpCountdown(0);
+      setOtp(['', '', '', '', '', '']);
+      // Clear timer if active
+      if (otpTimerRef.current) {
+        clearInterval(otpTimerRef.current);
+        otpTimerRef.current = null;
+      }
+    } else {
+      // Normal back navigation
+      navigation.goBack();
+    }
+  };
 
   const validationSchema = Yup.object().shape({
     firstName: Yup.string().trim().required('Please enter your first name'),
@@ -154,64 +298,175 @@ const Register = () => {
     validationSchema,
     onSubmit: async (values, helpers) => {
       try {
-        helpers.setSubmitting(true);
-        
-        // Get FCM token (reuse stored token if available, generate only if needed)
-        let fcmToken: string | null = null;
-        try {
-          fcmToken = await notificationService.getOrCreateFCMToken();
-          console.log('FCM Token for register:', fcmToken);
-        } catch (error) {
-          console.error('Error getting FCM token for register:', error);
-          // Continue with registration even if FCM token fails
-        }
-        
-        const compactLocal = values.phone.replace(/[^\d]/g, '');
-        const data = await userService.register({
-          firstName: values.firstName,
-          lastName: values.lastName,
-          email: values.email,
-          phone: `${countryCode}${compactLocal}`,
-          password: values.password,
-          fcmToken: fcmToken || undefined,
-        });
-
-        if (data?.status) {
-          // Dispatch user data to Redux state
-          dispatch(setUser(data.data));
-          if (data.access_token) {
-            dispatch(setUserToken(data.access_token));
+        // If OTP section is not shown, send OTP first
+        if (!showOtpSection) {
+          setIsSendingOtp(true);
+          try {
+            const otpResponse = await userService.requestEmailOtp(values.email);
+            console.log('OTP sent successfully:', otpResponse);
+            
+            setShowOtpSection(true);
+            setIsOtpActive(true);
+            setOtpCountdown(60);
+            setOtp(['', '', '', '', '', '']);
+            
+            Toast.show({
+              type: 'success',
+              text1: 'OTP Sent',
+              text2: 'Please check your email for the OTP code.',
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 3000,
+            });
+          } catch (otpError: any) {
+            const errorMessage =
+              otpError?.response?.data?.message ||
+              otpError?.message ||
+              'Failed to send OTP. Please try again.';
+            Toast.show({
+              type: 'error',
+              text1: 'OTP Error',
+              text2: errorMessage,
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 3000,
+            });
+            helpers.setErrors({ general: errorMessage });
+          } finally {
+            setIsSendingOtp(false);
           }
-          
+          return;
+        }
+
+        // If OTP section is shown, verify OTP and then register
+        if (!isOtpComplete) {
           Toast.show({
-            type: 'success',
-            text1: 'Registration Successful',
-            text2: 'Your account has been created.',
+            type: 'error',
+            text1: 'Incomplete OTP',
+            text2: 'Please enter all 6 digits of the OTP.',
             position: 'top',
             topOffset: 60,
             visibilityTime: 3000,
           });
-          // After successful registration, check members data and navigate accordingly
-          if (data?.access_token) {
+          return;
+        }
+
+        helpers.setSubmitting(true);
+        setIsVerifyingOtp(true);
+        
+        const otpString = otp.join('');
+        
+        try {
+          // Verify email with OTP
+          await userService.verifyEmail(values.email, otpString);
+          console.log('Email verified successfully');
+          
+          // Get FCM token
+          let fcmToken: string | null = null;
+          try {
+            fcmToken = await notificationService.getOrCreateFCMToken();
+            console.log('FCM Token for register:', fcmToken);
+          } catch (error) {
+            console.error('Error getting FCM token for register:', error);
+          }
+          
+          // Now register the user
+          const compactLocal = values.phone.replace(/[^\d]/g, '');
+          const data = await userService.register({
+            firstName: values.firstName,
+            lastName: values.lastName,
+            email: values.email,
+            phone: `${countryCode}${compactLocal}`,
+            password: values.password,
+            fcmToken: fcmToken || undefined,
+          });
+
+          if (data?.status) {
+            // Dispatch user data to Redux state
+            dispatch(setUser(data.data));
+            if (data.access_token) {
+              dispatch(setUserToken(data.access_token));
+            }
+            
+            // Check if this user has already seen the free points modal
+            try {
+              const userId = (data.data as any)?._id || (data.data as any)?.user_id;
+              if (userId) {
+                const hasSeenModal = await AsyncStorage.getItem(
+                  `FREE_POINTS_MODAL_SEEN_${userId}`,
+                );
+                // Only set flag if user hasn't seen the modal before
+                if (!hasSeenModal) {
+                  await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
+                }
+              }
+            } catch (error) {
+              console.error('Error checking/setting free points modal flag:', error);
+            }
+            
+            Toast.show({
+              type: 'success',
+              text1: 'Registration Successful',
+              text2: 'Your account has been created.',
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 3000,
+            });
+            
+            // After successful registration, check members data and navigate accordingly
+            console.log('Registration data:', data);
+            console.log('Access token:', data?.access_token);
+            console.log('User data:', data?.data);
+            console.log('Current members:', data?.data?.current_members);
+            
             // Wait a bit for the profile data to be loaded, then check members
             setTimeout(() => {
-              navigateAfterAuth(data.data.current_members);
-            }, 1000);
+              const currentMembers = data?.data?.current_members ? data?.data?.current_members : 0;
+              console.log(
+                'Navigating after registration, current_members:',
+                data,
+              );
+              console.log('Calling navigateAfterAuth with:', currentMembers);
+              
+              if (data?.access_token) {
+                navigateAfterAuth(currentMembers);
+              } else {
+                console.log('No access token, navigating to Login');
+                navigation.navigate('Login');
+              }
+            }, 1500);
           } else {
-            // Fallback: if token missing, go to Login
-            navigation.navigate('Login');
+            const errorMessage = data?.message || 'Please try again.';
+            Toast.show({
+              type: 'error',
+              text1: 'Registration Failed',
+              text2: errorMessage,
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 3000,
+            });
+            helpers.setErrors({ general: errorMessage });
           }
-        } else {
-          const errorMessage = data?.message || 'Please try again.';
+        } catch (verifyError: any) {
+          const errorMessage =
+            verifyError?.response?.data?.message ||
+            verifyError?.message ||
+            'OTP verification failed. Please try again.';
           Toast.show({
             type: 'error',
-            text1: 'Registration Failed',
+            text1: 'Verification Failed',
             text2: errorMessage,
             position: 'top',
             topOffset: 60,
             visibilityTime: 3000,
           });
           helpers.setErrors({ general: errorMessage });
+          // Clear OTP on error
+          setOtp(['', '', '', '', '', '']);
+          otpRefs[0].current?.focus();
+        } finally {
+          helpers.setSubmitting(false);
+          setIsVerifyingOtp(false);
         }
       } catch (error: any) {
         const errorMessage =
@@ -227,8 +482,6 @@ const Register = () => {
           visibilityTime: 3000,
         });
         helpers.setErrors({ general: errorMessage });
-      } finally {
-        helpers.setSubmitting(false);
       }
     },
   });
@@ -301,7 +554,7 @@ const Register = () => {
         {/* Sticky Header */}
         <View style={styles.stickyHeader}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={handleBackPress}
             style={styles.backBtn}
           >
             <Image
@@ -353,7 +606,137 @@ const Register = () => {
           </View>
           {/* Form */}
           <View style={styles.formContainer}>
-            <TextInput
+
+
+            {/* OTP Section - shown after OTP is sent */}
+            {showOtpSection ?(
+              <>
+                <Text
+                  style={[
+                    styles.otpTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Enter OTP sent to {formik.values.email}
+                </Text>
+                <View style={styles.otpRow}>
+                  {otp.map((digit, idx) => (
+                    <TextInput
+                      key={idx}
+                      ref={otpRefs[idx]}
+                      style={[
+                        styles.otpBox,
+                        {
+                          backgroundColor:
+                            theme === 'dark' ? colors.DarkNavy : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeBorderDropdown
+                              : colors.Orangeaccentcolor,
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      value={digit}
+                      onChangeText={value => handleOtpChange(value, idx)}
+                      onKeyPress={(e) => handleOtpKeyPress(e, idx)}
+                      returnKeyType="next"
+                      textAlign="center"
+                      editable={!isVerifyingOtp && !formik.isSubmitting}
+                    />
+                  ))}
+                </View>
+                {isOtpActive ? (
+                  <View style={styles.resendRow}>
+                    <Text
+                      style={[
+                        styles.resendText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.themelightText,
+                        },
+                      ]}
+                    >
+                      Time remaining:{' '}
+                      {String(Math.floor(otpCountdown / 60)).padStart(2, '0')}:
+                      {String(otpCountdown % 60).padStart(2, '0')}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.resendRow}>
+                    <Text
+                      style={[
+                        styles.resendText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.themelightText,
+                        },
+                      ]}
+                    >
+                      Didn't receive the code?{' '}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        if (isSendingOtp) return;
+                        setIsSendingOtp(true);
+                        try {
+                          await userService.requestOtp(formik.values.email);
+                          setIsOtpActive(true);
+                          setOtpCountdown(60);
+                          setOtp(['', '', '', '', '', '']);
+                          Toast.show({
+                            type: 'success',
+                            text1: 'OTP Resent',
+                            text2: 'Please check your email.',
+                            position: 'top',
+                            topOffset: 60,
+                            visibilityTime: 3000,
+                          });
+                        } catch (error: any) {
+                          Toast.show({
+                            type: 'error',
+                            text1: 'Error',
+                            text2: error?.message || 'Failed to resend OTP',
+                            position: 'top',
+                            topOffset: 60,
+                            visibilityTime: 3000,
+                          });
+                        } finally {
+                          setIsSendingOtp(false);
+                        }
+                      }}
+                      disabled={isSendingOtp}
+                    >
+                      <Text
+                        style={[
+                          styles.resendLink,
+                          {
+                            opacity: isSendingOtp ? 0.5 : 1,
+                          },
+                        ]}
+                      >
+                        {isSendingOtp ? 'Sending...' : 'Resend OTP'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            ) :(
+            <>
+                        <TextInput
               style={[
                 styles.input,
                 {
@@ -575,6 +958,7 @@ const Register = () => {
             {formik.touched.password && formik.errors.password && (
               <Text style={styles.errorText}>{formik.errors.password}</Text>
             )}
+            </>)}
 
             {/* Password Strength Indicator */}
             {/* {formik.values.password.length > 0 && (
@@ -619,22 +1003,29 @@ const Register = () => {
             )}
             <TouchableOpacity
               onPress={formik.handleSubmit as any}
-              disabled={formik.isSubmitting || isGoogleLoading}
+              disabled={formik.isSubmitting || isGoogleLoading || isSendingOtp || isVerifyingOtp}
               style={[
                 styles.createAccountButton,
-                (formik.isSubmitting || isGoogleLoading) && styles.loginButtonDisabled,
+                (formik.isSubmitting || isGoogleLoading || isSendingOtp || isVerifyingOtp) && styles.loginButtonDisabled,
               ]}
             >
-              {formik.isSubmitting ? (
+              {formik.isSubmitting || isVerifyingOtp ? (
                 <View style={styles.loaderContainer}>
                   <ActivityIndicator size="small" color={color.themeTextWhite} />
                   <Text style={[styles.createAccountButtonText, styles.loadingText]}>
-                    Please wait...
+                    {isVerifyingOtp ? 'Verifying OTP...' : 'Please wait...'}
+                  </Text>
+                </View>
+              ) : isSendingOtp ? (
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator size="small" color={color.themeTextWhite} />
+                  <Text style={[styles.createAccountButtonText, styles.loadingText]}>
+                    Sending OTP...
                   </Text>
                 </View>
               ) : (
                 <Text style={styles.createAccountButtonText}>
-                  Create an Account
+                  {showOtpSection ? 'Verify OTP & Register' : 'Send OTP'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -1202,6 +1593,47 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 8,
+  },
+  otpTitle: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    marginBottom: responsiveWidth('3%'),
+    marginTop: responsiveWidth('2%'),
+    textAlign: 'center',
+  },
+  otpRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: responsiveWidth('2'),
+  },
+  otpBox: {
+    width: 48,
+    height: 56,
+    borderRadius: 10,
+    backgroundColor: '#223149',
+    borderWidth: 1,
+    borderColor: '#496CA8',
+    color: '#fff',
+    fontSize: 24,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+  },
+  resendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  resendText: {
+    color: '#EEE5CA',
+    fontSize: 15,
+    fontFamily: fontFamily.regular,
+  },
+  resendLink: {
+    color: '#DF8A5D',
+    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    fontWeight: '700' as const,
   },
 });
 

@@ -13,12 +13,11 @@ import {
   color,
 } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
-import UserService from '../../services/user/user.service';
-import { CurrentDashaTimeResponse } from '../../types/api';
+import HouseService from '../../services/house/house.service';
 import { useTheme } from '../../context/ThemeContext';
-import LottieView from 'lottie-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
+import { getCardIcon } from '../../utils/cardIconMapper';
 
 interface CurrentSituationProps {
   // Define any props that the CurrentSituation component might need
@@ -26,106 +25,89 @@ interface CurrentSituationProps {
   isChild?: boolean;
 }
 
+interface CardData {
+  id: number;
+  title: string;
+  value: string;
+  subtitle?: string;
+  icon: any;
+}
+
 const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false }) => {
   const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
-  const [dashaData, setDashaData] = useState<CurrentDashaTimeResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [cards, setCards] = useState<CardData[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(false);
   const [_error, setError] = useState<string | null>(null);
 
-  const fetchDashaData = useCallback(async () => {
+  const fetchPredictionHeadings = useCallback(async () => {
     if (!selectedMemberId) return;
     
-    setLoading(true);
+    setCardsLoading(true);
     setError(null);
-    
     try {
-      const userService = new UserService();
-      const response = await userService.getCurrentDashaTime(selectedMemberId);
-      setDashaData(response);
-      console.log('Dasha data fetched successfully:', response);
+      const headings = await HouseService.getPredictionHeadings(selectedMemberId, 'lifenow');
+      console.log('Prediction headings fetched:', headings);
+      
+      // Map API response object to cards array
+      // API returns: { "1": "Snapshot Predictions", "2": "Your Personality", ... }
+      const mappedCards: CardData[] = Object.entries(headings)
+        .sort(([keyA], [keyB]) => parseInt(keyA, 10) - parseInt(keyB, 10)) // Sort by numeric key
+        .map(([key, title]) => {
+          const titleStr = title || '';
+          // Normalize values for cards
+          let valueStr = titleStr;
+          
+          // "Snapshot Predictions" -> "Snapshot Prediction" (singular)
+          if (titleStr === 'Snapshot Predictions') {
+            valueStr = 'Snapshot Prediction';
+          }
+          // "Active Planet - {planet}" or any variation -> "Antardasha"
+          else if (titleStr.toLowerCase().includes('active planet') || 
+                   titleStr.toLowerCase().includes('antardasha')) {
+            valueStr = 'Antardasha';
+          }
+          
+          return {
+            id: parseInt(key, 10),
+            title: titleStr,
+            value: valueStr,
+            subtitle: '',
+            icon: getCardIcon(titleStr, valueStr),
+          };
+        });
+      
+      setCards(mappedCards);
     } catch (err: any) {
-      console.error('Error fetching dasha data:', err);
-      setError(err.message || 'Failed to fetch dasha data');
+      console.error('Error fetching prediction headings:', err);
+      setError(err.message || 'Failed to fetch prediction headings');
     } finally {
-      setLoading(false);
+      setCardsLoading(false);
     }
   }, [selectedMemberId]);
 
   useEffect(() => {
     if (selectedMemberId) {
-      fetchDashaData();
+      fetchPredictionHeadings();
     }
-  }, [selectedMemberId, fetchDashaData]);
-
-  const getAntardashaTitle = () => {
-
-    console.log('dashaData---->', dashaData);
-    if (!dashaData?.Antardasha) return 'Antardasha';
-    
-    const antardashaEntries = Object.entries(dashaData.Antardasha);
-    if (antardashaEntries.length > 0) {
-      const [planet] = antardashaEntries[0];
-
-      console.log('planet---->---71', planet);
-      return `Active Planet - ${planet}`;
-    }
-    
-    return 'Antardasha';
-  };
+  }, [selectedMemberId, fetchPredictionHeadings]);
 
   const handleCardPress = (cardValue: string) => {
     // Prevent navigation to disabled cards
-    if (showInfoContainer && cardValue !== 'Snapshot Prediction') {
+    if (showInfoContainer && !cardValue.toLowerCase().includes('snapshot')) {
       return;
     }
     
     console.log('cardTitle-->24', cardValue);
-    console.log('selectedMemberId-->25', getAntardashaTitle());
+    console.log('selectedMemberId-->25', selectedMemberId);
     // Navigate to ChatWithPrompts screen for General Analysis
     navigation.navigate('ChatWithPrompts', {
       userId: selectedMemberId,
       cardTitles: cardValue,
       tab: 'LifeNow',
-      planet: getAntardashaTitle() || null,
     });
   };
-  const cards = [
-    {
-      id: 4,
-      title: 'Snapshot Prediction',
-      value: 'Snapshot Prediction',
-      subtitle: 'Future, Glimpse',
-      icon: require('../../assets/icons/SnapshotPrediction/SnapshotPrediction.png'),
-    },
-    {
-      id: 5,
-      title: 'Your Personality',
-      value: 'Your Personality',
-      subtitle: '',
-      icon: require('../../assets/icons/GeneralAnalysis/SnapshotPrediction.png'),
-    },
-
-    // {
-    //   id: 2,
-    //   title: 'Life on the Horizon',
-    //   value: 'Life on the Horizon',
-    //   icon: require('../../assets/icons/chatIcons/Mahadasha-refined-analysis-chat.png'),
-    // },
-    {
-      id: 3,
-      title: 'Life at the Moment',
-      value: 'Life at the Moment',
-      icon: require('../../assets/icons/chatIcons/Antardasha-refined-analysis-chat.png'),
-    },
-    {
-      id: 1,
-      title: loading ? 'Loading...' : getAntardashaTitle(),
-      value: 'Antardasha',
-      icon: require('../../assets/icons/chatIcons/Antardasha-chat.png'),
-    },
-  ];
 
   return (
     <View
@@ -148,20 +130,30 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
           </View>
         )} */}
         <View style={styles.cardsGrid}>
-          {cards.map(card => {
-            // Cards to disable when showInfoContainer is true: Your Personality (id: 5), Life at the Moment (id: 3), Active Planet (id: 1)
-            // Also disable Life at the Moment (id: 3) and Active Planet (id: 1) if member is a child
-            const isDisabledByInfoContainer = showInfoContainer && (card.id === 5 || card.id === 3 || card.id === 1);
-            const isDisabledByChild = isChild && (card.id === 3 || card.id === 1); // Life at the Moment and Active Planet
-            const isDisabled = isDisabledByInfoContainer || isDisabledByChild;
-            const isCardDisabled = (loading && card.id === 1) || isDisabled;
+          {cardsLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={[styles.loadingText, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>
+                Loading cards...
+              </Text>
+            </View>
+          ) : (
+            cards.map(card => {
+              // Cards to disable when showInfoContainer is true: Your Personality, Life at the Moment, Active Planet (Antardasha)
+              // Also disable Life at the Moment and Active Planet if member is a child
+              const cardValueLower = card.value.toLowerCase();
+              const isPersonality = cardValueLower.includes('personality') && cardValueLower.includes('your');
+              const isLifeAtMoment = cardValueLower.includes('life at the moment');
+              const isAntardasha = cardValueLower.includes('antardasha') || cardValueLower.includes('active planet');
+              
+              const isDisabledByInfoContainer = showInfoContainer && (isPersonality || isLifeAtMoment || isAntardasha);
+              const isDisabledByChild = isChild && (isLifeAtMoment || isAntardasha);
+              const isDisabled = isDisabledByInfoContainer || isDisabledByChild;
             
             return (
             <TouchableOpacity
               key={card.id}
               style={[
                 styles.card,
-                loading && card.id === 1 && styles.loadingCard,
                 {
                   backgroundColor:
                     theme === 'dark' ? colors.DarkNavy : colors.surface,
@@ -176,26 +168,17 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
                   opacity: isDisabled ? 0.5 : 1,
                 },
               ]}
-              onPress={() => !isCardDisabled && handleCardPress(card.value)}
-              disabled={isCardDisabled}
+              onPress={() => !isDisabled && handleCardPress(card.value)}
+              disabled={isDisabled}
             >
               <View style={styles.cardIconContainer}>
-                {loading && card.id === 1 ? (
-                 <LottieView
-                    source={require('../../assets/lottie/loader-Animation-1.json')}
-                    autoPlay
-                    loop
-                    style={styles.lottieAnimation}
-                  />
-                ) : (
-                  <Image
-                    source={card.icon}
-                    style={{
-                      width: responsiveWidth(15),
-                      height: responsiveWidth(15),
-                    }}
-                  />
-                )}
+                <Image
+                  source={card.icon}
+                  style={{
+                    width: responsiveWidth(15),
+                    height: responsiveWidth(15),
+                  }}
+                />
               </View>
               <Text
                 style={[
@@ -213,7 +196,7 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
               </Text>
             </TouchableOpacity>
             );
-          })}
+          }))}
         </View>
       </View>
     </View>
@@ -252,11 +235,6 @@ const styles = StyleSheet.create({
     // marginBottom: responsiveHeight(1),
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  lottieAnimation: {
-    width: responsiveWidth(10),
-    height: responsiveWidth(10),
-    // marginBottom: 20,
   },
   cardIcon: {
     width: responsiveWidth(10),
@@ -306,8 +284,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '600',
   },
-  loadingCard: {
-    opacity: 0.7,
+  loadingContainer: {
+    width: '100%',
+    padding: responsiveHeight(2),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
   },
 });
 

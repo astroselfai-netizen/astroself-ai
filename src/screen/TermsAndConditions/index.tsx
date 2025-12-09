@@ -75,7 +75,7 @@ const TermsAndConditions = () => {
               },
             ]}
           >
-            Terms And Conditions
+            Terms and Conditions
           </Text>
         </View>
       </View>
@@ -251,7 +251,8 @@ const TermsAndConditions = () => {
               style={[
                 styles.sectionTitle,
                 {
-                  color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
@@ -261,7 +262,8 @@ const TermsAndConditions = () => {
               style={[
                 styles.sectionText,
                 {
-                  color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
@@ -278,7 +280,8 @@ const TermsAndConditions = () => {
               style={[
                 styles.sectionTitle,
                 {
-                  color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
@@ -288,7 +291,8 @@ const TermsAndConditions = () => {
               style={[
                 styles.sectionText,
                 {
-                  color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >

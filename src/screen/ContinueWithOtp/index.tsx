@@ -27,6 +27,7 @@ import { Toast } from 'react-native-toast-message/lib/src/Toast';
 import serviceFactory from '../../services/serviceFactory';
 import GoogleAuthService from '../../services/googleAuthService';
 import notificationService from '../../services/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -139,10 +140,26 @@ const ContinueWithOtp = () => {
     }
   };
 
-  const navigateAfterAuth = (current_members: number) => {
+  const navigateAfterAuth = async (current_members: number, userData: any) => {
     if (current_members === 0) {
       navigation.navigate('AddNewMember');
     } else {
+      console.log('Members found, navigating to ChatWithPrompts', userData);
+      // Get user_id from userData
+      const userId = userData._id || userData.user_id || userData.id;
+      
+      if (userId) {
+        // Store navigation params in AsyncStorage to be picked up by HomeScreen
+        await AsyncStorage.setItem(
+          'NAVIGATE_TO_CHAT_WITH_PROMPTS',
+          JSON.stringify({
+            userId: userId,
+            cardTitles: 'Snapshot Prediction',
+            tab: 'LifeNow',
+            planet: null,
+          }),
+        );
+      }
       navigation.navigate('HomeScreen');
     }
   };
@@ -174,8 +191,25 @@ const ContinueWithOtp = () => {
         if (response.access_token) {
           dispatch(setUserToken(response.access_token));
         }
-        setTimeout(() => {
-          navigateAfterAuth(response.data.current_members);
+        
+        // Check if this user has already seen the free points modal
+        try {
+          const userId = response.data._id || response.data.user_id || response.data.id;
+          if (userId) {
+            const hasSeenModal = await AsyncStorage.getItem(
+              `FREE_POINTS_MODAL_SEEN_${userId}`,
+            );
+            // Only set flag if user hasn't seen the modal before
+            if (!hasSeenModal) {
+              await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking/setting free points modal flag:', error);
+        }
+        
+        setTimeout(async () => {
+          await navigateAfterAuth(response.data.current_members, response.data);
         }, 1000);
       }
       
@@ -244,30 +278,46 @@ const ContinueWithOtp = () => {
        const userData = result.user;
        const token = result.token || result.idToken;
 
-       // Dispatch user data to Redux state
-       dispatch(setUser(userData));
-       if (token) {
-         dispatch(setUserToken(token));
-       }
+      // Dispatch user data to Redux state
+      dispatch(setUser(userData));
+      if (token) {
+        dispatch(setUserToken(token));
+      }
 
-       const message = result.isNewUser
-         ? 'Welcome! Your account has been created with Google.'
-         : 'Welcome back! You have successfully logged in with Google.';
+      // Check if this user has already seen the free points modal
+      try {
+        const userId = userData._id || userData.user_id || userData.id;
+        if (userId) {
+          const hasSeenModal = await AsyncStorage.getItem(
+            `FREE_POINTS_MODAL_SEEN_${userId}`,
+          );
+          // Only set flag if user hasn't seen the modal before
+          if (!hasSeenModal) {
+            await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking/setting free points modal flag:', error);
+      }
 
-       Toast.show({
-         type: 'success',
-         text1: result.isNewUser
-           ? 'Registration Successful'
-           : 'Login Successful',
-         text2: message,
-         position: 'top',
-         topOffset: 60,
-         visibilityTime: 3000,
-       });
+      const message = result.isNewUser
+        ? 'Welcome! Your account has been created with Google.'
+        : 'Welcome back! You have successfully logged in with Google.';
 
-       setTimeout(() => {
-         navigateAfterAuth(result?.user?.current_members);
-       }, 1000);
+      Toast.show({
+        type: 'success',
+        text1: result.isNewUser
+          ? 'Registration Successful'
+          : 'Login Successful',
+        text2: message,
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+
+      setTimeout(async () => {
+        await navigateAfterAuth(result?.user?.current_members || 0, result?.user);
+      }, 1000);
 
        // navigation.replace('HomeScreen');
       //  navigation.navigate('HomeScreen');

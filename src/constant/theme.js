@@ -66,7 +66,7 @@ export const darkTheme = {
     primary: '#EEE5CA',
     primaryGreen: '#27AE60',
     primaryBackground: '',
-    grayText: '#8E8E93',
+    grayText: '#9CA3AF',
     lightGrayText: '#8C8C8C',
     // Dark theme specific colors
     background: '',

@@ -85,7 +85,7 @@ const AboutUsScreen = () => {
                 },
               ]}
             >
-              About Astroself.Ai
+              About Astroself AI
             </Text>
           </View>
         </View>

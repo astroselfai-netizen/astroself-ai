@@ -181,9 +181,11 @@ const ChatScreen = () => {
   // Navigate to Nakshatra screen
   const handleNakshatraNavigation = () => {
     if (selectedMemberId) {
-      navigation.navigate('NakshatraScreen', {
-        userId: selectedMemberId,
-        current_plan: profileData?.current_plan,
+      navigation.navigate('NakshatraTab', {
+        screen: 'NakshatraScreen',
+        params: {
+          userId: selectedMemberId
+        },
       });
     } else {
       Alert.alert('Error', 'Please select a member first');
@@ -758,23 +760,50 @@ const ChatScreen = () => {
             </View>
 
             {/* Nakshatra & Dasha Button */}
-            <TouchableOpacity
-              style={styles.nakshatraButton}
-              onPress={handleNakshatraNavigation}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.nakshatraButtonText,
-                  {
-                    color:
-                      theme === 'dark' ? colors.themeTextWhite : colors.surface,
-                  },
-                ]}
+            <View style={styles.nakshatraButtonContainer}>
+              <TouchableOpacity
+                style={styles.nakshatraButton}
+                onPress={handleNakshatraNavigation}
+                activeOpacity={0.8}
               >
-                Nakshatra & Dasha
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.nakshatraButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.surface,
+                    },
+                  ]}
+                >
+                   See Charts
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.nakshatraButton}
+                onPress={() => {
+                  navigation.navigate('ReportScreen', {
+                    userId: selectedMemberId,
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.nakshatraButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.surface,
+                    },
+                  ]}
+                >
+                  Buy Report
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ImageBackground>
 
@@ -1193,6 +1222,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6EFD9',
     opacity: 0.3,
     marginHorizontal: responsiveWidth(2),
+  },
+  nakshatraButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // gap: responsiveWidth(10),
+    justifyContent: 'space-around',
+    // marginBottom: responsiveHeight(2),
   },
   nakshatraButton: {
     backgroundColor: '#DF8A5D',

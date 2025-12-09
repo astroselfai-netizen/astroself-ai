@@ -40,8 +40,13 @@ import { baseURL } from '../../utils/http';
 
 type RootStackParamList = {
   NakshatraScreen: { userId: string };
+  ReportScreen: { userId: string };
   AddNewMember: undefined;
   ChatScreen: { userId: string };
+  ChatTab: {
+    screen: string;
+    params?: { userId: string };
+  };
 };
 
 type NakshatraScreenRouteProp = RouteProp<
@@ -613,7 +618,7 @@ const NakshatraScreen = () => {
                       {
                         backgroundColor:
                           theme === 'dark' ? colors.DarkNavy : colors.white,
-                        borderColor: colors.borderColor,
+                        borderColor: colors.primaryBlue,
                       },
                     ]}
                   >
@@ -633,7 +638,7 @@ const NakshatraScreen = () => {
                           {
                             backgroundColor: colors.cardBackground,
                             color: colors.textPrimary,
-                            borderColor: colors.borderColor,
+                            borderColor: colors.primaryBlue,
                           },
                         ]}
                         placeholder="Search members..."
@@ -724,27 +729,50 @@ const NakshatraScreen = () => {
             {
               backgroundColor:
                 theme === 'dark' ? colors.DarkNavy : colors.white,
-                borderColor:
-                  theme === 'dark'
-                    ? colors.themeBorderDropdown
-                    : colors.borderColor,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
             },
           ]}
         >
           <View style={styles.astroContent}>
             <View style={styles.astroContentLeft}>
-              {' '}
-              <Text
+              <TouchableOpacity
                 style={[
-                  styles.astroTitle,
-                  {
-                    color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
+                  styles.astroButton,
+                  { backgroundColor: colors.Orangeaccentcolor },
                 ]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (selectedMemberId) {
+                    navigation.navigate('ChatTab', {
+                      screen: 'ChatScreen',
+                      params: {
+                        userId: selectedMemberId
+                      },
+                    });
+                  } else {
+                    Alert.alert('Error', 'Please select a member first');
+                  }
+                }}
               >
-                Gain clarity on your life, career & relationships
-              </Text>
+                <Text style={[styles.astroButtonText, { color: colors.white }]}>
+                  See predictions
+                </Text>
+              </TouchableOpacity>
             </View>
+            <View
+              style={[
+                styles.dividerLine,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.primaryBlue
+                      : colors.primaryBlue,
+                },
+              ]}
+            />
             <View style={styles.astroContentRight}>
               <TouchableOpacity
                 style={[
@@ -754,14 +782,16 @@ const NakshatraScreen = () => {
                 activeOpacity={0.7}
                 onPress={() => {
                   if (selectedMemberId) {
-                    navigation.navigate('ChatScreen', { userId: selectedMemberId });
+                    navigation.navigate('ReportScreen', {
+                      userId: selectedMemberId,
+                    });
                   } else {
                     Alert.alert('Error', 'Please select a member first');
                   }
                 }}
               >
                 <Text style={[styles.astroButtonText, { color: colors.white }]}>
-                 See Predictions
+                  Buy Report
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1487,7 +1517,7 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     borderRadius: 10,
-    borderWidth: 0.2,
+    borderWidth: 0.3,
     maxHeight: 230,
     overflow: 'hidden',
     elevation: 10, // For Android shadow
@@ -1502,6 +1532,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    overflow: 'hidden',
     borderBottomWidth: 0.2,
   },
   searchInput: {
@@ -1603,16 +1634,23 @@ const styles = StyleSheet.create({
     width: '100%',
     // flexWrap: 'wrap',
     flexDirection: 'row',
-    justifyContent: "space-between",
+    justifyContent: "space-around",
     alignItems: 'center',
-    paddingVertical: responsiveWidth('1'),
-    paddingHorizontal: responsiveWidth('3'),
+    paddingVertical: responsiveWidth('2'),
+    paddingHorizontal: responsiveWidth('5'),
     // paddingBottom: responsiveWidth('2'),
   },
   astroContentLeft: {
-    width: '60%',
+    // width: '50%',
+  },
+  dividerLine: {
+    width: 1,
+    height: 50,
+    // marginHorizontal: responsiveWidth('3'),
+    // alignSelf: 'center',
   },
   astroContentRight: {
+    // width: '50%',
   },
   astroTitle: {
     fontSize: 16,
@@ -1626,8 +1664,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    // width: responsiveHeight('15'),
-    paddingHorizontal: 14,
+    width: responsiveHeight('12'),
+    // paddingHorizontal: 14,
     // marginTop: responsiveWidth('1'),
     alignSelf: 'flex-start',
   },

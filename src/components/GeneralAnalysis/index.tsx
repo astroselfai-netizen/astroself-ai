@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,143 +16,78 @@ import {
 } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
+import HouseService from '../../services/house/house.service';
+import { getCardIcon } from '../../utils/cardIconMapper';
 
 interface GeneralAnalysisProps {
   selectedMemberId?: string;
 }
 
+interface CardData {
+  id: number;
+  title: string;
+  value: string;
+  subtitle?: string;
+  icon: any;
+}
+
 const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) => {
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
+  const [cards, setCards] = useState<CardData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPredictionHeadings = useCallback(async () => {
+    if (!selectedMemberId) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const headings = await HouseService.getPredictionHeadings(selectedMemberId, 'lifeview');
+      console.log('Prediction headings fetched:', headings);
+      
+      // Map API response object to cards array
+      // API returns: { "1": "Personality", "2": "Family & Values", ... }
+      const mappedCards: CardData[] = Object.entries(headings)
+        .sort(([keyA], [keyB]) => parseInt(keyA, 10) - parseInt(keyB, 10)) // Sort by numeric key
+        .map(([key, title]) => {
+          const titleStr = title || '';
+          
+          return {
+            id: parseInt(key, 10),
+            title: titleStr,
+            value: titleStr,
+            subtitle: '',
+            icon: getCardIcon(titleStr, titleStr),
+          };
+        });
+      
+      setCards(mappedCards);
+    } catch (err: any) {
+      console.error('Error fetching prediction headings:', err);
+      setError(err.message || 'Failed to fetch prediction headings');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedMemberId]);
+
+  useEffect(() => {
+    if (selectedMemberId) {
+      fetchPredictionHeadings();
+    }
+  }, [selectedMemberId, fetchPredictionHeadings]);
 
   const handleCardPress = (cardValue: string) => {
-    // if (cardId === 1 && selectedMemberId) {
     console.log('cardTitle-->24', cardValue);
     console.log('selectedMemberId-->25', selectedMemberId);
-      // Navigate to ChatWithPrompts screen for General Analysis
-      navigation.navigate('ChatWithPrompts', {
-        userId: selectedMemberId,
-        cardTitles:cardValue,
-        tab : 'LifeView',
-      });
-    // }
-    // Add other card navigation handlers here if needed
+    // Navigate to ChatWithPrompts screen for General Analysis
+    navigation.navigate('ChatWithPrompts', {
+      userId: selectedMemberId,
+      cardTitles: cardValue,
+      tab: 'LifeView',
+    });
   };
-
-  const cards = [
-    // {
-    //   id: 1,
-    //   title: 'General Analysis',
-    //   value: 'General Analysis',
-    //   subtitle: 'Strengths, Patterns',
-    //   icon: require('../../assets/icons/GeneralAnalysis/GeneralAnalysis.png'),
-    // },
-    // {
-    //   id: 2,
-    //   title: 'Snapshot Prediction',
-    //   subtitle: 'Future, Glimpse',
-    //   value: 'Snapshot Prediction',
-    //   icon: require('../../assets/icons/GeneralAnalysis/SnapshotPrediction.png'),
-    // },
-    {
-      id: 3,
-      title: 'Personality',
-      subtitle: 'Vitality, Attitude',
-      value: 'Personality, Attitude, Vitality',
-      //   icon: require('../../assets/icons/profile.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/Personality.png'),
-    },
-    {
-      id: 4,
-      title: 'Family & Values',
-      subtitle: 'Wealth, Comfort',
-      value: 'Family, Wealth, Comfort, Values',
-      //   icon: require('../../assets/icons/home.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/FamilyValues.png'),
-    },
-    {
-      id: 5,
-      title: 'Communication',
-      subtitle: 'Speaking, Skills',
-      value: 'Style of speaking, Siblings, Courage, Skills',
-      //   icon: require('../../assets/icons/chat.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/Communication.png'),
-    },
-    {
-      id: 6,
-      title: 'Home',
-      subtitle: 'Happiness, Foundation',
-      value: 'Home, happiness, Emotional foundation',
-      //   icon: require('../../assets/icons/home.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/Home.png'),
-    },
-    {
-      id: 7,
-      title: 'Love & Romance',
-      subtitle: 'Celebration, Hobbies',
-      value: 'Love affairs, Romance, Children, Celebration, hobbies',
-      //   icon: require('../../assets/icons/heart.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/LoveRomance.png'),
-    },
-    {
-      id: 8,
-      title: 'Health & Service',
-      subtitle: 'Routines, Care',
-      value: 'Health, Daily routines, service to others, Conflict',
-      //   icon: require('../../assets/icons/health.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/HealthService.png'),
-    },
-    {
-      id: 9,
-      title: 'Marriage & Partnerships',
-      subtitle: 'Business, Relationships',
-      value: 'Marriage, Relationships, partnerships business travel',
-      //   icon: require('../../assets/icons/rings.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/MarriagePartnerships.png'),
-    },
-    {
-      id: 10,
-      title: 'Sexuality & Transformation',
-      subtitle: 'Inheritance, Intimacy',
-      value:
-        'Sexuality, Intimacy, Inheritance, Occult, Transformation, Unearned income',
-      //   icon: require('../../assets/icons/infinity.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/SexualityTransformation.png'),
-    },
-    {
-      id: 11,
-      title: 'Higher Education',
-      subtitle: 'Philosophy, Travel',
-      value: 'Higher education, Philosophy, Long distance Travel',
-      //   icon: require('../../assets/icons/graduation.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/HigherEducation.png'),
-    },
-    {
-      id: 12,
-      title: 'Career & Reputation',
-      subtitle: 'Status, Recognition',
-      value: 'Career, Reputation, Status in Society, Recognition',
-      //   icon: require('../../assets/icons/briefcase.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/CareerReputation.png'),
-    },
-    {
-      id: 13,
-      title: 'Income & Innovation',
-      subtitle: 'New Ideas, Work',
-      value: 'Income, Network, Innovation, New ideas',
-      //   icon: require('../../assets/icons/lightbulb.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/IncomeInnovation.png'),
-    },
-    {
-      id: 14,
-      title: 'Subconscious & Spirituality',
-      subtitle: 'Hidden Enemies, Mind',
-      value:
-        'Subconcious Mind, Spirituality, Hidden enemies, Losses and investment',
-      //   icon: require('../../assets/icons/moon-star.png'),
-      icon: require('../../assets/icons/GeneralAnalysis/SubconsciousSpirituality.png'),
-    },
-  ];
 
   return (
     <View style={[styles.container,{
@@ -160,30 +95,49 @@ const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) =
       borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
     }]}>
       <View style={styles.content}>
-        <View style={styles.cardsGrid}>
-          {cards.map(card => (
-            <TouchableOpacity 
-              key={card.id} 
-              style={[styles.card,{
-                backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.surface,
-                borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
-                // boxShadow: theme === 'dark' ? '' : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
-              }]}
-              onPress={() => handleCardPress(card.value)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardIconContainer}>
-                <Image source={card.icon} style={styles.cardIcon} />
-              </View>
-              <Text style={[styles.cardText,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>{card.title}</Text>
-              <Text style={[styles.cardSubtitle,{
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              }]}>{card.subtitle}</Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={[styles.loadingText, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>
+              Loading cards...
+            </Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={[styles.errorText, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>
+              {error}
+            </Text>
+            <TouchableOpacity onPress={fetchPredictionHeadings} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        ) : (
+          <View style={styles.cardsGrid}>
+            {cards.map(card => (
+              <TouchableOpacity 
+                key={card.id} 
+                style={[styles.card,{
+                  backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.surface,
+                  borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+                  // boxShadow: theme === 'dark' ? '' : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
+                }]}
+                onPress={() => handleCardPress(card.value)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.cardIconContainer}>
+                  <Image source={card.icon} style={styles.cardIcon} />
+                </View>
+                <Text style={[styles.cardText,{
+                  color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                }]}>{card.title}</Text>
+                {card.subtitle && (
+                  <Text style={[styles.cardSubtitle,{
+                    color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  }]}>{card.subtitle}</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -243,6 +197,40 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     textAlign: 'center',
     letterSpacing: -0.14,
+  },
+  loadingContainer: {
+    width: '100%',
+    padding: responsiveHeight(2),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+  },
+  errorContainer: {
+    padding: responsiveWidth(3),
+    borderRadius: 8,
+    marginBottom: responsiveHeight(2),
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: responsiveHeight(1),
+  },
+  retryButton: {
+    backgroundColor: '#c62828',
+    paddingHorizontal: responsiveWidth(4),
+    paddingVertical: responsiveHeight(0.8),
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: color.themeTextWhite,
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600',
   },
 });
 

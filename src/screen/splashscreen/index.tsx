@@ -48,7 +48,12 @@ const SplashScreen = () => {
                 
                 if (!membersData || (Array.isArray(membersData) && membersData.length === 0)) {
                   // User has no members, show AddNewMember screen
-                  console.log('No members found, navigating to AddNewMember');
+                  console.log('No members found, navigating to HomeScreen then AddNewMember');
+                  // Set flag to navigate to AddNewMember after HomeScreen loads
+                  AsyncStorage.setItem('NAVIGATE_TO_ADD_MEMBER', 'true');
+                  
+                  // Navigate to HomeScreen first (which loads MyTabs)
+                  // HomeScreen will check the flag and navigate to AddNewMember immediately
                   navigation.dispatch(StackActions.replace('AddNewMember'));
                 } else {
                   // User has members, go to home screen

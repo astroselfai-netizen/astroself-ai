@@ -73,7 +73,7 @@ const settingsList = [
       // },
       {
         icon: require('../../assets/icons/Purchased-History.png'),
-        label: 'Purchased History',
+        label: 'Purchase History',
       },
       {
         icon: require('../../assets/icons/Dark-Mode.png'),
@@ -154,7 +154,7 @@ const SettingsScreen = () => {
     else if (label === 'Reports') {
        navigation.navigate('ReportScreen');
     }
-    else if (label === 'Purchased History') {
+    else if (label === 'Purchase History') {
       navigation.navigate('PurchasedHistoryScreen');
     }
   };

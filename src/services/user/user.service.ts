@@ -172,6 +172,27 @@ export default class UserService extends Service {
     }
   }
 
+  async requestEmailOtp(email: string) {
+    try {
+      console.log('Requesting OTP for email:', email);
+
+      const axiosResponse = await http.post('/email/request-otp', {
+        email,
+      });
+
+      console.log('OTP Request Response:', axiosResponse.data);
+
+      if (axiosResponse?.data?.status) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(axiosResponse?.data?.message || 'Failed to send OTP');
+    } catch (error: any) {
+      console.error('Request OTP error in service:', error);
+      throw error;
+    }
+  }
+
   async verifyOtp(
     email: string,
     otp: string,
@@ -226,6 +247,36 @@ export default class UserService extends Service {
       );
     } catch (error: any) {
       console.error('Verify OTP error in service:', error);
+      throw error;
+    }
+  }
+
+  async verifyEmail(
+    email: string,
+    otp: string,
+  ): Promise<{
+    status: boolean;
+    message?: string;
+  }> {
+    try {
+      console.log('Verifying email for email:', email, 'OTP:', otp);
+
+      const axiosResponse = await http.post('/email/verify-otp', {
+        email,
+        otp,
+      });
+
+      console.log('Email Verification Response:', axiosResponse.data);
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Email verification failed',
+      );
+    } catch (error: any) {
+      console.error('Verify email error in service:', error);
       throw error;
     }
   }
@@ -501,17 +552,17 @@ export default class UserService extends Service {
       );
 
       const token = await AsyncStorage.getItem('USER_TOKEN');
-        const axiosResponse = await http.get(
-          `house/categorize?user_id=${userId}&main_heading=${encodeURIComponent(
-            mainHeading,
-          )}&topic=${encodeURIComponent(topic)}`,
-          {
-            headers: {
-              accept: 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
+      const axiosResponse = await http.get(
+        `house/categorize?user_id=${userId}&main_heading=${encodeURIComponent(
+          mainHeading,
+        )}&topic=${encodeURIComponent(topic)}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: `Bearer ${token}`,
           },
-        );
+        },
+      );
 
       console.log('Blended predictions response:', axiosResponse.data);
 
@@ -549,7 +600,7 @@ export default class UserService extends Service {
   async getDashaCategorizeData(
     userId: string,
     mainHeading: string
-  ): Promise<string[]> {
+  ): Promise<{ data: string[]; updated_list?: Record<string, boolean> }> {
     try {
       console.log(
         'Fetching Dasha categorize data for userId:',
@@ -580,7 +631,10 @@ export default class UserService extends Service {
       console.log('Dasha categorize data response:', axiosResponse);
 
       if (axiosResponse.data && axiosResponse.data.status === true && Array.isArray(axiosResponse.data.data)) {
-        return axiosResponse.data.data;
+        return {
+          data: axiosResponse.data.data,
+          updated_list: axiosResponse.data.updated_list || {},
+        };
       }
 
       throw new Error('Invalid response format from Dasha categorize API');

@@ -132,6 +132,7 @@ function MainNavigator() {
         <Stack.Screen name="ContinueWithOtp" component={ContinueWithOtp} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="ForgotPasswordOtp" component={ForgotPasswordOtp} />
+        <Stack.Screen name="AddNewMember" component={AddNewMember} />
         <Stack.Screen name="Register" component={Register} />
         {/* Main app with tabs - tabs will be visible on all screens inside MyTabs */}
         <Stack.Screen name="HomeScreen" component={MyTabs} />

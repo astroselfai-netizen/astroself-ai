@@ -37,6 +37,7 @@ import { useTheme } from '../../context/ThemeContext';
 import HomeImageSlider from '../../components/HomeImageSlider';
 import { baseURL } from '../../utils/http';
 import LottieView from 'lottie-react-native';
+import FreePointsModal from '../../components/FreePointsModal';
 // Removed BlurView to avoid external dependency for blur
 
 export type RootStackParamList = {
@@ -101,6 +102,7 @@ const HomeScreen = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [titleContainerLayout, setTitleContainerLayout] = useState<{x: number; y: number; width: number; height: number} | null>(null);
   const titleContainerRef = useRef<View>(null);
+  const [showFreePointsModal, setShowFreePointsModal] = useState(false);
 
   // Debug membersData whenever it changes
   useEffect(() => {
@@ -137,6 +139,47 @@ const HomeScreen = () => {
     };
     getUserData();
   }, []);
+
+  // Check if we need to navigate to ChatWithPrompts after login
+  useEffect(() => {
+    const checkAndNavigate = async () => {
+      try {
+        const navParamsStr = await AsyncStorage.getItem(
+          'NAVIGATE_TO_CHAT_WITH_PROMPTS',
+        );
+        if (navParamsStr) {
+          let navParams = JSON.parse(navParamsStr);
+
+          console.log(
+            'Navigating to ChatWithPrompts with params:',
+            membersData,
+          );
+          navParams = { ...navParams, userId: membersData[0]?.id };
+          console.log('Navigating to ChatWithPrompts with params:', navParams);
+
+          // Clear the flag
+          await AsyncStorage.removeItem('NAVIGATE_TO_CHAT_WITH_PROMPTS');
+
+          // Navigate to ChatTab with ChatWithPrompts
+          setTimeout(() => {
+            const rootNavigation = navigation.getParent();
+            if (rootNavigation) {
+              (rootNavigation as any).navigate('ChatTab', {
+                screen: 'ChatWithPrompts',
+                params: navParams,
+              });
+            } else {
+              navigation.navigate('ChatWithPrompts' as any, navParams);
+            }
+          }, 10);
+        }
+      } catch (error) {
+        console.error('Error checking navigation flag:', error);
+      }
+    };
+
+    checkAndNavigate();
+  }, [navigation, membersData]);
   const [dashaData, setDashaData] = useState<any[]>([]);
   const [dashaLoading, setDashaLoading] = useState(false);
   const [_dashaError, setDashaError] = useState<string | null>(null);
@@ -326,6 +369,42 @@ const HomeScreen = () => {
       fetchDasha();
     }
   }, [membersData, userService, loading, fetchDasha]);
+
+  // Check if free points modal should be shown after login
+  useEffect(() => {
+    const checkAndShowFreePointsModal = async () => {
+      try {
+        const shouldShow = await AsyncStorage.getItem('SHOW_FREE_POINTS_MODAL');
+        if (shouldShow === 'true') {
+          // Get current user ID
+          const userDataStr = await AsyncStorage.getItem('USER_DATA');
+          if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            const userId = userData._id || userData.user_id || userData.id;
+            
+            if (userId) {
+              // Mark this user as having seen the modal
+              await AsyncStorage.setItem(
+                `FREE_POINTS_MODAL_SEEN_${userId}`,
+                'true',
+              );
+              
+              // Show modal after a short delay to let the screen load
+              setTimeout(() => {
+                setShowFreePointsModal(true);
+              }, 500);
+              
+              // Remove the temporary flag
+              await AsyncStorage.removeItem('SHOW_FREE_POINTS_MODAL');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking free points modal flag:', error);
+      }
+    };
+    checkAndShowFreePointsModal();
+  }, []);
 
   // Refresh data every time the Home screen is focused
   useFocusEffect(
@@ -1158,6 +1237,12 @@ const HomeScreen = () => {
           </ScrollView>
         </MainContainer>
       </KeyboardAvoidingView>
+      
+      {/* Free Points Modal */}
+      <FreePointsModal
+        visible={showFreePointsModal}
+        onClose={() => setShowFreePointsModal(false)}
+      />
     </View>
   );
 };
@@ -1211,7 +1296,7 @@ const styles = StyleSheet.create({
   },
   memberNameText: {
     // ...font.labelLarge,
-    fontSize: 22,
+    fontSize: 26,
     fontFamily: fontFamily.regular,
 
     fontWeight: '600' as const,

@@ -311,7 +311,7 @@ const PaidPlanScreen = () => {
               },
             ]}
           >
-            Paid Plans
+            Plans
           </Text>
         </View>
       </View>
@@ -1148,6 +1148,7 @@ const styles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+    marginLeft: -responsiveWidth(5),
     justifyContent: 'center',
   },
   headerTitle: {

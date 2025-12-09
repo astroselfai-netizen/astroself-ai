@@ -1103,6 +1103,58 @@ const ProfileScreen = () => {
                           : ''
                       }`}
                 </Text> */}
+
+                {/* Available Plans Section */}
+                <View style={styles.availablePlansContainer}>
+                  <View
+                    style={[
+                      styles.availablePlansCard,
+                      {
+                        backgroundColor:
+                          theme === 'dark'
+                            ? colors.transparentBg
+                            : colors.white,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.borderColor,
+                      },
+                    ]}
+                  >
+                    {/* <Text
+                      style={[
+                        styles.availablePlansTitle,
+                        {
+                          color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Available Plans
+                    </Text> */}
+                    <View style={styles.plansCountRow}>
+                      <Text
+                        style={[
+                          styles.plansCountText,
+                          {
+                            color: theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Member: {String(profileData?.members_allow ? profileData.members_allow - profileData.current_members : 0).padStart(2, '0')}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.plansCountText,
+                          {
+                            color: theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Children: {String(profileData?.child_allow ? profileData.child_allow - profileData.current_child : 0).padStart(2, '0')}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
              
                   <View style={styles.priceContainer}>
                     {(() => {
@@ -2083,7 +2135,6 @@ const styles = StyleSheet.create({
   profileInfoValue: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
-    
     fontWeight: '500' as const,
     color: color.themeTextWhite,
     flex: 0.69,
@@ -2126,6 +2177,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.regular,
     fontWeight: '500' as const,
+  },
+  availablePlansContainer: {
+    paddingHorizontal: 14,
+    // paddingBottom: responsiveWidth('3'),
+    // zIndex: 10,
+  },
+  availablePlansCard: {
+    borderRadius: 8,
+    paddingHorizontal: responsiveWidth('3'),
+    paddingVertical: responsiveWidth('2'),
+    marginBottom: responsiveWidth('3'),
+    borderWidth: 0.4,
+    overflow: 'hidden',
+  },
+  availablePlansTitle: {
+    fontSize: 20,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+    marginBottom: responsiveWidth('3'),
+  },
+  plansCountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth('4'),
+  },
+  plansCountText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
   },
 });
 

@@ -37,6 +37,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setUser, setUserToken } from '../../state/slices/appSlice';
 import { RootState } from '../../state/store';
 import { useTheme } from '../../context/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -92,13 +93,34 @@ const Login = () => {
   const googleAuthService = serviceFactory.get<GoogleAuthService>('GoogleAuthService');
 
   // Helper function to navigate based on members data
-  const navigateAfterAuth = (current_members: number) => {
+  const navigateAfterAuth = (current_members: number, userData: any) => {
     console.log('Checking members data for navigation:', membersData);
     if (current_members === 0) {
       console.log('No members found, navigating to AddNewMember');
       navigation.replace('AddNewMember');
     } else {
-      console.log('Members found, navigating to HomeScreen');
+      console.log('Members found, navigating to ChatWithPrompts', userData);
+      // Get user_id from userData
+      const userId = userData._id || userData.user_id || userData.id;
+      
+      if (!userId) {
+        console.error('User ID not found, navigating to HomeScreen instead');
+        navigation.replace('HomeScreen');
+        return;
+      }
+
+      // Store navigation params in AsyncStorage to be picked up by HomeScreen
+      AsyncStorage.setItem(
+        'NAVIGATE_TO_CHAT_WITH_PROMPTS',
+        JSON.stringify({
+          userId: userId,
+          cardTitles: 'Snapshot Prediction',
+          tab: 'LifeNow',
+          planet: null,
+        }),
+      );
+
+      // Navigate to HomeScreen
       navigation.replace('HomeScreen');
     }
   };
@@ -133,6 +155,22 @@ const Login = () => {
           dispatch(setUser(data.data));
           dispatch(setUserToken(data.access_token));
 
+          // Check if this user has already seen the free points modal
+          try {
+            const userId = data.data._id || data.data.user_id || data.data.id;
+            if (userId) {
+              const hasSeenModal = await AsyncStorage.getItem(
+                `FREE_POINTS_MODAL_SEEN_${userId}`,
+              );
+              // Only set flag if user hasn't seen the modal before
+              if (!hasSeenModal) {
+                await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
+              }
+            }
+          } catch (error) {
+            console.error('Error checking/setting free points modal flag:', error);
+          }
+
           // Toast.show({
           //   type: 'success',
           //   text1: 'Login Successful',
@@ -146,7 +184,7 @@ const Login = () => {
 
           // Wait a bit for the profile data to be loaded, then check members
           setTimeout(() => {
-            navigateAfterAuth(data.data.current_members);
+            navigateAfterAuth(data.data.current_members, data.data);
           }, 1000);
         } else {
           Toast.show({
@@ -210,6 +248,22 @@ const Login = () => {
           dispatch(setUserToken(token));
         }
 
+        // Check if this user has already seen the free points modal
+        try {
+          const userId = userData._id || userData.user_id || userData.id;
+          if (userId) {
+            const hasSeenModal = await AsyncStorage.getItem(
+              `FREE_POINTS_MODAL_SEEN_${userId}`,
+            );
+            // Only set flag if user hasn't seen the modal before
+            if (!hasSeenModal) {
+              await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking/setting free points modal flag:', error);
+        }
+
         const message = result.isNewUser 
           ? 'Welcome! Your account has been created with Google.'
           : 'Welcome back! You have successfully logged in with Google.';
@@ -227,7 +281,7 @@ const Login = () => {
 
         // Wait a bit for the profile data to be loaded, then check members
         setTimeout(() => {
-          navigateAfterAuth(result?.user?.current_members);
+          navigateAfterAuth(result?.user?.current_members || 0, userData);
         }, 1000);
       } else {
         Toast.show({

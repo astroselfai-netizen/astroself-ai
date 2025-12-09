@@ -181,101 +181,106 @@ const MemberItem = React.memo(
               </View>
             </View>
             <View style={styles.actionIcons}>
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('ReportScreen', {
-                    userId: item.id || item._id,
-                  })
-                }
-                style={styles.iconButton}
-              >
-                <Image
-                  source={require('../../assets/icons/Report.png')}
-                  style={[
-                    styles.actionIcon,
-                    {
-                      tintColor:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                    {
-                      width: responsiveWidth(6),
-                      height: responsiveWidth(6),
-                    },
-                  ]}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('NakshatraTab', {
-                    screen: 'NakshatraScreen',
-                    params: { userId: item.id || item._id },
-                  })
-                }
-                style={styles.iconButton}
-              >
-                <Image
-                  source={require('../../assets/icons/ZodiacWheel.png')}
-                  style={[
-                    styles.actionIcon,
-                    {
-                      tintColor:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                    {
-                      width: responsiveWidth(6),
-                      height: responsiveWidth(6),
-                    },
-                  ]}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('ChatTab', { 
-                    screen: 'ChatScreen', 
-                    params: { userId: item.id || item._id } 
-                  })
-                }
-                style={styles.iconButton}
-              >
-                <Image
-                  source={require('../../assets/icons/Chat-inactive.png')}
-                  style={[
-                    styles.actionIcon,
-                    {
-                      tintColor:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                />
-              </TouchableOpacity>
-              {/* edit member icon */}
-              <TouchableOpacity
-                onPress={onEdit}
-                style={styles.iconButton}
-              >
-                <Image
-                  source={require('../../assets/icons/edit-painel.png')}
-                  style={[
-                    styles.actionIcon,
-                    {
-                      tintColor:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                    {
-                      width: responsiveWidth(6),
-                      height: responsiveWidth(6),
-                    },
-                  ]}
-                />
-              </TouchableOpacity>
+              {/* Action Icons - Hide when in assign plan mode */}
+              {!isAssignPlanMode && (
+                <>
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate('ReportScreen', {
+                        userId: item.id || item._id,
+                      })
+                    }
+                    style={styles.iconButton}
+                  >
+                    <Image
+                      source={require('../../assets/icons/Report.png')}
+                      style={[
+                        styles.actionIcon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                        {
+                          width: responsiveWidth(6),
+                          height: responsiveWidth(6),
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate('NakshatraTab', {
+                        screen: 'NakshatraScreen',
+                        params: { userId: item.id || item._id },
+                      })
+                    }
+                    style={styles.iconButton}
+                  >
+                    <Image
+                      source={require('../../assets/icons/ZodiacWheel.png')}
+                      style={[
+                        styles.actionIcon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                        {
+                          width: responsiveWidth(6),
+                          height: responsiveWidth(6),
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate('ChatTab', { 
+                        screen: 'ChatScreen', 
+                        params: { userId: item.id || item._id } 
+                      })
+                    }
+                    style={styles.iconButton}
+                  >
+                    <Image
+                      source={require('../../assets/icons/Chat-inactive.png')}
+                      style={[
+                        styles.actionIcon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                  {/* edit member icon */}
+                  <TouchableOpacity
+                    onPress={onEdit}
+                    style={styles.iconButton}
+                  >
+                    <Image
+                      source={require('../../assets/icons/edit-painel.png')}
+                      style={[
+                        styles.actionIcon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                        {
+                          width: responsiveWidth(6),
+                          height: responsiveWidth(6),
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                </>
+              )}
               {/* Checkbox - Only show in assign plan mode */}
               {isAssignPlanMode && (
                 <TouchableOpacity
@@ -803,7 +808,7 @@ const MemberPlanManagement = () => {
             },
           ]}
         >
-          Buy Plan
+          Buy Plans
         </Text>
         <View style={styles.placeholder} />
       </View>
@@ -815,13 +820,9 @@ const MemberPlanManagement = () => {
             styles.availablePlansCard,
             {
               backgroundColor:
-                theme === 'dark'
-                  ? colors.transparentBg
-                  : colors.white,
+                theme === 'dark' ? colors.transparentBg : colors.white,
               borderColor:
-                theme === 'dark'
-                  ? colors.themeTextWhite
-                  : colors.borderColor,
+                theme === 'dark' ? colors.themeTextWhite : colors.borderColor,
             },
           ]}
         >
@@ -829,7 +830,8 @@ const MemberPlanManagement = () => {
             style={[
               styles.availablePlansTitle,
               {
-                color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                color:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
               },
             ]}
           >
@@ -881,8 +883,10 @@ const MemberPlanManagement = () => {
               style={[
                 styles.createChartButton,
                 {
-                  backgroundColor: theme === 'dark' ? colors.surface : colors.white,
-                  borderColor: theme === 'dark' ? colors.themeTextWhite : colors.white,
+                  backgroundColor:
+                    theme === 'dark' ? colors.surface : colors.white,
+                  borderColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.white,
                   borderWidth: 1,
                   opacity: isCreateChartEnabled ? 1 : 0.5,
                 },
@@ -894,7 +898,10 @@ const MemberPlanManagement = () => {
                 style={[
                   styles.createChartButtonText,
                   {
-                    color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
                     opacity: isCreateChartEnabled ? 1 : 0.5,
                   },
                 ]}
@@ -931,8 +938,10 @@ const MemberPlanManagement = () => {
               style={[
                 styles.clearButtonStyle,
                 {
-                  backgroundColor: theme === 'dark' ? colors.surface : colors.white,
-                  borderColor: theme === 'dark' ? colors.themeTextWhite : colors.white,
+                  backgroundColor:
+                    theme === 'dark' ? colors.surface : colors.white,
+                  borderColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.white,
                   borderWidth: 1,
                   opacity: isSaving ? 0.6 : 1,
                 },
@@ -943,7 +952,12 @@ const MemberPlanManagement = () => {
               <Text
                 style={[
                   styles.clearButtonTextStyle,
-                  { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
                 ]}
               >
                 Clear
@@ -1241,7 +1255,6 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
           </ImageBackground>
         </View>
       </Modal>
-     
     </ImageBackground>
   );
 };
