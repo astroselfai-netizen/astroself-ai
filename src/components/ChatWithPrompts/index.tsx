@@ -246,7 +246,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     }, [])
   );
 
-  // Reset expanded topic and clear content when cardTitles or selectedTopicValue changes
+  // Reset expanded topic and clear content when cardTitles, selectedCardTitle or selectedTopicValue changes
   useEffect(() => {
     setExpandedTopic(null);
     setHasAutoExpanded(false);
@@ -258,7 +258,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         isExpanded: false
       }))
     );
-  }, [cardTitles, selectedTopicValue]);
+  }, [cardTitles, selectedCardTitle, selectedTopicValue]);
 
   // Update selectedCardTitle when cardTitles prop changes
   useEffect(() => {
@@ -828,20 +828,27 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     }
   }, [userId, selectedCardTitle, selectedTopicValue, fetchBlendedPredictions]);
 
-  // Auto-expand and generate AI content when only one topic is available
-  // useEffect(() => {
+  // Auto-expand and generate AI content when Snapshot Prediction is selected
+  useEffect(() => {
+    if (
+     
+      topics.length === 1 &&
 
-    // if (topics.length === 1 && !loading && !hasAutoExpanded) {
-    //   const singleTopic = topics[0];
-    //   setExpandedTopic(singleTopic.id);
-    //   setHasAutoExpanded(true);
-    //   // Automatically trigger AI content generation for the single topic
-    //   setTimeout(() => {
-    //     toggleExpanded(singleTopic.id, singleTopic.title, true);
-    //   }, 100);
-    // }
-
-  // }, [topics, loading, hasAutoExpanded, toggleExpanded]);
+      !loading &&
+      !_hasAutoExpanded &&
+      expandedTopic === null
+    ) {
+      const firstTopic = topics[0];
+      if (firstTopic) {
+        setExpandedTopic(firstTopic.id);
+        setHasAutoExpanded(true);
+        // Automatically trigger AI content generation for the first topic
+        setTimeout(() => {
+          toggleExpanded(firstTopic.id, firstTopic.title, true);
+        }, 100);
+      }
+    }
+  }, [topics, loading, _hasAutoExpanded, selectedCardTitle, expandedTopic, toggleExpanded]);
 
   const renderArrowIcon = (isExpanded: boolean, topic: PredictionTopic) => (
     <Image 

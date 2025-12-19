@@ -181,10 +181,10 @@ const ChatScreen = () => {
   // Navigate to Nakshatra screen
   const handleNakshatraNavigation = () => {
     if (selectedMemberId) {
-      navigation.navigate('NakshatraTab', {
+      navigation.navigate('NakshatraScreen', {
         screen: 'NakshatraScreen',
         params: {
-          userId: selectedMemberId
+          userId: selectedMemberId,
         },
       });
     } else {
@@ -678,38 +678,84 @@ const ChatScreen = () => {
                 >
                   Date of Birth
                 </Text>
-                <Text
-                  style={[
-                    styles.detailValue,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
+                <View>
                   {selectedMemberId &&
                   membersData?.find(
                     (m: any) => (m.id || m._id) == selectedMemberId,
-                  )?.birth_data
-                    ? (() => {
-                        const member = membersData.find(
-                          (m: any) => (m.id || m._id) == selectedMemberId,
-                        );
-                        const { day, month, year } = member.birth_data;
-                        return new Date(
-                          year,
-                          month - 1,
-                          day,
-                        ).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        });
-                      })()
-                    : 'Not Available'}
-                </Text>
+                  )?.birth_data ? (
+                    (() => {
+                      const member = membersData.find(
+                        (m: any) => (m.id || m._id) == selectedMemberId,
+                      );
+                      const { day, month, year, hour, min } = member.birth_data;
+                      const dateStr = new Date(
+                        year,
+                        month - 1,
+                        day,
+                      ).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      });
+
+                      // Format time in 12-hour format with AM/PM
+                      let timeStr = '';
+                      if (hour !== undefined && min !== undefined) {
+                        const hour12 = hour % 12 || 12;
+                        const minute = min < 10 ? `0${min}` : min;
+                        const ampm = hour >= 12 ? 'PM' : 'AM';
+                        timeStr = `${hour12}:${minute} ${ampm}`;
+                      }
+
+                      return (
+                        <>
+                          <Text
+                            style={[
+                              styles.detailValue,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {dateStr}
+                          </Text>
+                          {timeStr ? (
+                            <Text
+                              style={[
+                                styles.detailValue,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              {timeStr}
+                            </Text>
+                          ) : null}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <Text
+                      style={[
+                        styles.detailValue,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Not Available
+                    </Text>
+                  )}
+                </View>
               </View>
               <View
                 style={[
@@ -777,9 +823,33 @@ const ChatScreen = () => {
                     },
                   ]}
                 >
-                   See Charts
+                  Charts
                 </Text>
               </TouchableOpacity>
+
+              {/* <TouchableOpacity
+                style={styles.nakshatraButton}
+                onPress={() => {
+                  navigation.navigate('DashboardTasksScreen', {
+                    userId: selectedMemberId,
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.nakshatraButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.surface,
+                    },
+                  ]}
+                >
+                  Tasks
+                </Text>
+              </TouchableOpacity> */}
               <TouchableOpacity
                 style={styles.nakshatraButton}
                 onPress={() => {
@@ -800,7 +870,7 @@ const ChatScreen = () => {
                     },
                   ]}
                 >
-                  Buy Report
+                  Report
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1237,7 +1307,7 @@ const styles = StyleSheet.create({
     // flex: 1,
     // marginHorizontal: responsiveWidth('20'),
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 34,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',

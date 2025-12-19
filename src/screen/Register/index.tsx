@@ -265,8 +265,14 @@ const Register = () => {
       .required('Please enter your email'),
     phone: Yup.string()
       .trim()
-      .min(6, 'Please enter a valid phone number')
-      .required('Please enter your phone number'),
+      .test('phone-length', 'Please enter a valid phone number', function(value) {
+        // If phone is provided, it must be at least 6 characters
+        if (value && value.trim().length > 0) {
+          return value.trim().length >= 10;
+        }
+        // If phone is empty, it's valid (optional field)
+        return true;
+      }),
     password: Yup.string()
 
       .matches(
@@ -371,15 +377,21 @@ const Register = () => {
           }
           
           // Now register the user
-          const compactLocal = values.phone.replace(/[^\d]/g, '');
-          const data = await userService.register({
+          const compactLocal = values.phone ? values.phone.replace(/[^\d]/g, '') : '';
+          const registerData: any = {
             firstName: values.firstName,
             lastName: values.lastName,
             email: values.email,
-            phone: `${countryCode}${compactLocal}`,
             password: values.password,
             fcmToken: fcmToken || undefined,
-          });
+          };
+          
+          // Only include phone if it's provided
+          if (compactLocal && compactLocal.length > 0) {
+            registerData.phone = `${countryCode}${compactLocal}`;
+          }
+          
+          const data = await userService.register(registerData);
 
           if (data?.status) {
             // Dispatch user data to Redux state

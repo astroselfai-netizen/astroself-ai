@@ -63,6 +63,7 @@ const DashboardTasksScreen = () => {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [_selectedData, setSelectedData] = useState<any[]>([]); // Store original API response structure
   const [karmicActionDate] = useState(() => {
@@ -304,7 +305,7 @@ const DashboardTasksScreen = () => {
   const karmicScore = karmicProgress?.completed ?? closedKarmicPoints.length;
   const maxScore = karmicProgress?.total ?? (tasks.length > 0 ? tasks.length : 10);
   const progressPercentage = maxScore > 0 ? (karmicScore / maxScore) * 100 : 0;
-  const radius = 60;
+  const radius = 50;
 
   const toggleTaskCompletion = (taskId: number) => {
     // Simple local state update - no API call here
@@ -325,6 +326,54 @@ const DashboardTasksScreen = () => {
 
   const handleUpdateTask = () => {
      setIsEditMode(true);
+  };
+
+  const handleResetTask = async () => {
+    const memberIdToUse = selectedMemberId || userId;
+    
+    if (!memberIdToUse) {
+      Alert.alert('Error', 'User ID not found');
+      return;
+    }
+
+    Alert.alert(
+      'Reset Task',
+      'Are you sure you want to reset all tasks? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setResetting(true);
+              await taskService.resetTask(memberIdToUse);
+              
+              // Small delay to ensure backend has processed the reset
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
+              
+              // Refresh tasks and karmic progress to get fresh data
+              await fetchTasks();
+              await fetchKarmicProgress();
+              
+              Alert.alert('Success', 'Tasks reset successfully', [{ text: 'OK' }]);
+            } catch (error: any) {
+              console.error('Error resetting tasks:', error);
+              Alert.alert(
+                'Error',
+                error?.message || 'Failed to reset tasks. Please try again.',
+                [{ text: 'OK' }],
+              );
+            } finally {
+              setResetting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleDone = async () => {
@@ -380,6 +429,7 @@ const DashboardTasksScreen = () => {
               track: (updatedTask.track === 'Daily' || updatedTask.track === 'Weekly' || updatedTask.track === 'Monthly' || updatedTask.track === '')
                 ? updatedTask.track as 'Daily' | 'Weekly' | 'Monthly' | ''
                 : '',
+              timing_status: apiTask.timing_status || 'old',
             };
           }
           // This task was not updated, keep original
@@ -397,6 +447,7 @@ const DashboardTasksScreen = () => {
               track: (task.track === 'Daily' || task.track === 'Weekly' || task.track === 'Monthly' || task.track === '')
                 ? task.track as 'Daily' | 'Weekly' | 'Monthly' | ''
                 : '',
+              timing_status: 'old', // Default to 'old' for new tasks
             });
           }
         });
@@ -411,8 +462,15 @@ const DashboardTasksScreen = () => {
       // Wait for all updates to complete
       await Promise.all(updatePromises);
 
+      // Small delay to ensure backend has processed the update
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
+
       // Exit edit mode after successful save
       setIsEditMode(false);
+      
+      // Refresh tasks and karmic progress to get fresh data
+      await fetchTasks();
+      await fetchKarmicProgress();
       
       Alert.alert('Success', 'Tasks updated successfully', [{ text: 'OK' }]);
     } catch (error: any) {
@@ -449,7 +507,7 @@ const DashboardTasksScreen = () => {
       const b = parseInt(hex.substring(4, 6), 16);
       return `rgba(${r}, ${g}, ${b}, ${opacity})`;
       },
-      strokeWidth: 12,
+      strokeWidth: 10,
       barPercentage: 0.5,
     };
 
@@ -469,19 +527,19 @@ const DashboardTasksScreen = () => {
           </Svg> */}
           {karmicProgressLoading ? (
             <View style={styles.karmicProgressLoaderContainer}>
-             <LottieView
-              source={require('../../assets/lottie/loader-Animation-1.json')}
-              autoPlay
-              loop
-              style={styles.lottieAnimation}
-            />
+              <LottieView
+                source={require('../../assets/lottie/loader-Animation-1.json')}
+                autoPlay
+                loop
+                style={styles.lottieAnimation}
+              />
             </View>
           ) : (
             <ProgressChart
               data={progressData}
-              width={140}
-              height={140}
-              strokeWidth={12}
+              width={130}
+              height={130}
+              strokeWidth={10}
               radius={radius}
               hideLegend={true}
               chartConfig={chartConfig}
@@ -491,7 +549,7 @@ const DashboardTasksScreen = () => {
         </View>
         <View style={styles.progressTextContainer}>
           {karmicProgressLoading ? (
-           <LottieView
+            <LottieView
               source={require('../../assets/lottie/loader-Animation-1.json')}
               autoPlay
               loop
@@ -504,7 +562,9 @@ const DashboardTasksScreen = () => {
                   styles.progressScore,
                   {
                     color:
-                      theme === 'dark' ? colors.DarkNavy : colors.themeTextWhite,
+                      theme === 'dark'
+                        ? colors.DarkNavy
+                        : colors.themeTextWhite,
                   },
                 ]}
               >
@@ -515,11 +575,17 @@ const DashboardTasksScreen = () => {
                   styles.progressLabel,
                   {
                     color:
-                      theme === 'dark' ? colors.DarkNavy : colors.themeTextWhite,
+                      theme === 'dark'
+                        ? colors.DarkNavy
+                        : colors.themeTextWhite,
                   },
                 ]}
               >
-                {selectedTab === 'Today' ? "Today's Score" : selectedTab === 'Weekly' ? "Weekly Score" : "Monthly Score"}
+                {selectedTab === 'Today'
+                  ? "Today's Score"
+                  : selectedTab === 'Weekly'
+                  ? 'Weekly Score'
+                  : 'Monthly Score'}
               </Text>
             </>
           )}
@@ -598,7 +664,7 @@ const DashboardTasksScreen = () => {
               },
             ]}
           >
-            Dashboard
+          Tasks Dashboard
           </Text>
         </View>
         <TouchableOpacity
@@ -813,7 +879,7 @@ const DashboardTasksScreen = () => {
                       },
                     ]}
                   >
-                    Actions you think twice before doing
+                    Actions to watch out
                   </Text>
                 </View>
                 <View style={styles.astroContentRight}>
@@ -853,7 +919,7 @@ const DashboardTasksScreen = () => {
               <Text
                 style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
               >
-                Karmic Progress Score
+                Tasks Progress Score
               </Text>
 
               {/* Tabs */}
@@ -887,7 +953,7 @@ const DashboardTasksScreen = () => {
                       },
                     ]}
                   >
-                    Your Karmic Progress
+                    Your Tasks Progress
                   </Text>
                   {/* <Text style={styles.starEmoji}>🌟</Text> */}
                 </View>
@@ -908,7 +974,7 @@ const DashboardTasksScreen = () => {
                     },
                   ]}
                 >
-                  Your Karmic Action for{' '}
+                  Your Tasks Action for{' '}
                   <Text
                     style={[
                       styles.actionDateText,
@@ -943,37 +1009,83 @@ const DashboardTasksScreen = () => {
                     )}
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.updateTaskButton,
-                      {
-                        backgroundColor:
-                          theme === 'dark'
-                            ? colors.transparentBg
-                            : colors.white,
-                        borderColor:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.surfaceOpacity,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={handleUpdateTask}
-                  >
-                    <Text
+                  <View style={styles.updateTaskButtonContainer}>
+                    <TouchableOpacity
                       style={[
-                        styles.updateTaskButtonText,
+                        styles.updateTaskButton,
                         {
-                          color:
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparentBg
+                              : colors.white,
+                          borderColor:
                             theme === 'dark'
                               ? colors.themeTextWhite
-                              : colors.DarkNavy,
+                              : colors.surfaceOpacity,
+                          opacity: resetting ? 0.6 : 1,
                         },
                       ]}
+                      activeOpacity={0.7}
+                      onPress={handleResetTask}
+                      disabled={resetting}
                     >
-                      Update Task
-                    </Text>
-                  </TouchableOpacity>
+                      {resetting ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy
+                          }
+                        />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.updateTaskButtonText,
+                            {
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          Reset Task
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.updateTaskButton,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparentBg
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.surfaceOpacity,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={handleUpdateTask}
+                    >
+                      <Text
+                        style={[
+                          styles.updateTaskButtonText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Update Task
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             )}
@@ -1035,7 +1147,8 @@ const DashboardTasksScreen = () => {
                               },
                             ]}
                           >
-                            {task.description}
+                            {task.description?.replace(/^[•\s]+/, '').trim() ||
+                              task.description}
                           </Text>
                           <View style={styles.checkboxContainer}>
                             {task.completed ? (
@@ -1082,7 +1195,7 @@ const DashboardTasksScreen = () => {
                         { color: colors.themeTextWhite },
                       ]}
                     >
-                      Open Karmic Points
+                      Open Tasks
                     </Text>
                     {openKarmicPoints && openKarmicPoints.length > 0 ? (
                       openKarmicPoints.map(task => (
@@ -1113,7 +1226,8 @@ const DashboardTasksScreen = () => {
                               },
                             ]}
                           >
-                            {task.description}
+                            {task.description?.replace(/^[•\s]+/, '').trim() ||
+                              task.description}
                           </Text>
                           <View style={styles.taskTagContainer}>
                             <View
@@ -1173,7 +1287,7 @@ const DashboardTasksScreen = () => {
                             },
                           ]}
                         >
-                          No karmic points
+                          No open tasks
                         </Text>
                       </View>
                     )}
@@ -1186,7 +1300,7 @@ const DashboardTasksScreen = () => {
                         { color: colors.themeTextWhite },
                       ]}
                     >
-                      Closed Karmic Points
+                      Closed Tasks
                     </Text>
                     {closedKarmicPoints && closedKarmicPoints.length > 0 ? (
                       closedKarmicPoints.map(task => (
@@ -1218,7 +1332,8 @@ const DashboardTasksScreen = () => {
                               },
                             ]}
                           >
-                            {task.description}
+                            {task.description?.replace(/^[•\s]+/, '').trim() ||
+                              task.description}
                           </Text>
                           <View style={styles.taskTagContainer}>
                             <View
@@ -1278,7 +1393,7 @@ const DashboardTasksScreen = () => {
                             },
                           ]}
                         >
-                          No karmic points
+                          No closed tasks
                         </Text>
                       </View>
                     )}
@@ -1381,12 +1496,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '600',
    
-    marginBottom: responsiveWidth(3),
+    marginBottom: responsiveWidth(2),
   },
   tabsContainer: {
     flexDirection: 'row',
     gap: responsiveWidth(2),
-    marginBottom: responsiveHeight(2),
+    marginBottom: responsiveWidth(2),
   },
   tabButton: {
     // flex: 1,
@@ -1419,13 +1534,13 @@ const styles = StyleSheet.create({
     // backgroundColor: '#F5F5DC',
     borderRadius: 15,
     borderWidth: 0.2,
-    padding: responsiveWidth(4),
+    padding: responsiveWidth(3),
     alignItems: 'center',
   },
   progressCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: responsiveHeight(2),
+    marginBottom: responsiveHeight(1),
     alignSelf: 'flex-start',
   },
   progressCardTitle: {
@@ -1438,16 +1553,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   progressContainer: {
-    width: 140,
-    height: 140,
+    width: 110,
+    height: 110,
     // backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   chartWrapper: {
-    width: 140,
-    height: 140,
+    width: 110,
+    height: 110,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'white',
@@ -1459,7 +1574,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   progressChart: {
-    marginVertical: 8,
+    // marginVertical: 6,
     backgroundColor: 'white',
   },
   progressTextContainer: {
@@ -1468,15 +1583,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   progressScore: {
-    fontSize: 32,
+    fontSize: 26,
     fontFamily: fontFamily.bold,
     color: '#223149',
   },
   progressLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: fontFamily.regular,
     color: '#223149',
-    marginTop: 4,
+    // marginTop: 4,
   },
   actionSection: {
     flexDirection: 'row',
@@ -1494,6 +1609,13 @@ const styles = StyleSheet.create({
    fontSize: 14,
     fontFamily: fontFamily.regular,
     fontWeight: '600',
+  },
+  updateTaskButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: responsiveWidth(3),
+    gap: responsiveWidth(2),
   },
   updateTaskButton: {
     paddingVertical: responsiveWidth(1),
@@ -1739,6 +1861,7 @@ const styles = StyleSheet.create({
     width: '70%',
   },
   astroContentRight: {
+    marginVertical: responsiveWidth(1),
   },
   astroTitle: {
     fontSize: 16,
@@ -1749,7 +1872,7 @@ const styles = StyleSheet.create({
   },
   astroButton: {
     borderRadius: 10,
-    paddingVertical: 14,
+    paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 14,

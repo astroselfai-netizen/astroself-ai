@@ -115,7 +115,7 @@ function createAppStack(initialRouteName) {
 const HomeStack = createAppStack('HomeScreen');
 const ChatStack = createAppStack('ChatScreen');
 const ProfileStack = createAppStack('ProfileScreen');
-const NakshatraStack = createAppStack('NakshatraScreen');
+const TasksStack = createAppStack('DashboardTasksScreen');
 const SettingsStack = createAppStack('SettingsScreen');
 
 function MainNavigator() {
@@ -133,6 +133,8 @@ function MainNavigator() {
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="ForgotPasswordOtp" component={ForgotPasswordOtp} />
         <Stack.Screen name="AddNewMember" component={AddNewMember} />
+        <Stack.Screen name="NakshatraScreen" component={NakshatraScreen} />
+
         <Stack.Screen name="Register" component={Register} />
         {/* Main app with tabs - tabs will be visible on all screens inside MyTabs */}
         <Stack.Screen name="HomeScreen" component={MyTabs} />
@@ -213,18 +215,18 @@ function MyTabs() {
                     },
                   ]}
                 >
-                  Home
+                  Dashboard
                 </Text>
               </View>
             ),
           }}
           listeners={({ navigation, route }) => ({
-            tabPress: (e) => {
+            tabPress: e => {
               const state = navigation.getState();
               const tabRoute = state.routes.find(r => r.key === route.key);
               const nestedState = tabRoute?.state;
               const currentRoute = nestedState?.routes[nestedState?.index];
-              
+
               // If not on HomeScreen, navigate to it
               if (currentRoute?.name !== 'HomeScreen') {
                 e.preventDefault();
@@ -268,12 +270,12 @@ function MyTabs() {
             ),
           }}
           listeners={({ navigation, route }) => ({
-            tabPress: (e) => {
+            tabPress: e => {
               const state = navigation.getState();
               const tabRoute = state.routes.find(r => r.key === route.key);
               const nestedState = tabRoute?.state;
               const currentRoute = nestedState?.routes[nestedState?.index];
-              
+
               // If not on ChatScreen, navigate to it
               if (currentRoute?.name !== 'ChatScreen') {
                 e.preventDefault();
@@ -319,12 +321,12 @@ function MyTabs() {
             ),
           }}
           listeners={({ navigation, route }) => ({
-            tabPress: (e) => {
+            tabPress: e => {
               const state = navigation.getState();
               const tabRoute = state.routes.find(r => r.key === route.key);
               const nestedState = tabRoute?.state;
               const currentRoute = nestedState?.routes[nestedState?.index];
-              
+
               // If not on ProfileScreen, navigate to it
               if (currentRoute?.name !== 'ProfileScreen') {
                 e.preventDefault();
@@ -336,8 +338,8 @@ function MyTabs() {
           })}
         />
         <Tab.Screen
-          name="NakshatraTab"
-          component={NakshatraStack}
+          name="TasksTab"
+          component={TasksStack}
           options={{
             tabBarIcon: ({ focused }) => (
               <View style={styles.tabItemContainer}>
@@ -353,6 +355,8 @@ function MyTabs() {
                       tintColor: focused
                         ? colors.Orangeaccentcolor
                         : colors.textSecondary,
+                      width: responsiveWidth(6.5),
+                      height: responsiveWidth(6.5),
                     },
                   ]}
                 />
@@ -366,29 +370,29 @@ function MyTabs() {
                     },
                   ]}
                 >
-                  Charts
+                  Tasks
                 </Text>
               </View>
             ),
           }}
           listeners={({ navigation, route }) => ({
-            tabPress: (e) => {
+            tabPress: e => {
               const state = navigation.getState();
               const tabRoute = state.routes.find(r => r.key === route.key);
               const nestedState = tabRoute?.state;
               const currentRoute = nestedState?.routes[nestedState?.index];
-              
-              // If not on NakshatraScreen, navigate to it
-              if (currentRoute?.name !== 'NakshatraScreen') {
+
+              // If not on DashboardTasksScreen, navigate to it
+              if (currentRoute?.name !== 'DashboardTasksScreen') {
                 e.preventDefault();
-                navigation.navigate('NakshatraTab', {
-                  screen: 'NakshatraScreen',
+                navigation.navigate('TasksTab', {
+                  screen: 'DashboardTasksScreen',
                 });
               }
             },
           })}
         />
-        <Tab.Screen
+        {/* <Tab.Screen
           name="SettingsTab"
           component={SettingsStack}
           options={{
@@ -423,12 +427,12 @@ function MyTabs() {
             ),
           }}
           listeners={({ navigation, route }) => ({
-            tabPress: (e) => {
+            tabPress: e => {
               const state = navigation.getState();
               const tabRoute = state.routes.find(r => r.key === route.key);
               const nestedState = tabRoute?.state;
               const currentRoute = nestedState?.routes[nestedState?.index];
-              
+
               // If not on SettingsScreen, navigate to it
               if (currentRoute?.name !== 'SettingsScreen') {
                 e.preventDefault();
@@ -438,7 +442,7 @@ function MyTabs() {
               }
             },
           })}
-        />
+        /> */}
       </Tab.Navigator>
       {/* White indicator bar at the bottom center */}
       {/* <View style={styles.indicatorBar} /> */}

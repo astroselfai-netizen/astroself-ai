@@ -119,8 +119,8 @@ android {
         applicationId "com.astroself.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 14
-        versionName "1.13"
+        versionCode 15
+        versionName "1.14"
         
         // Enable bundle splitting for different architectures
         ndk {
@@ -164,6 +164,14 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             debuggable false
             zipAlignEnabled true
+        }
+        benchmark {
+            initWith release
+            debuggable false
+            minifyEnabled false
+            shrinkResources false  // shrinkResources requires minifyEnabled
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
         }
     }
     

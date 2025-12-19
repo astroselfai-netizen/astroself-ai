@@ -508,7 +508,7 @@ const DashboardTasksDoNotScreen = () => {
               <Text
                 style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
               >
-                Moves that deserve double-think
+                Actions to watch out
               </Text>
               {/* <Text style={styles.moonIcon}>🌙</Text> */}
             </View>
@@ -547,19 +547,35 @@ const DashboardTasksDoNotScreen = () => {
                 ]}
               >
                 <View style={styles.taskCardHeader}>
-                  <Text
-                    style={[
-                      styles.taskDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    {index + 1}. {task.description}
-                  </Text>
+                  <View style={styles.taskTextContainer}>
+                    <Text
+                      style={[
+                        styles.taskNumber,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {index + 1}.&nbsp;
+                    </Text>
+                    <Text
+                      style={[
+                        styles.taskDescription,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {task.description?.replace(/^[•\s]+/, '').trim() ||
+                        task.description}
+                    </Text>
+                  </View>
                   {/* <TouchableOpacity
                     onPress={() => toggleTaskSelection(task.id)}
                     activeOpacity={0.7}
@@ -861,9 +877,19 @@ const styles = StyleSheet.create({
   closedTaskCard: {
     // borderColor: '#27AE60',
   },
-  taskDescription: {
+  taskTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    marginRight: responsiveWidth(2),
+    alignItems: 'flex-start',
+  },
+  taskNumber: {
     fontSize: 14,
-    width: '90%',
+    fontFamily: fontFamily.regular,
+  },
+  taskDescription: {
+    flex: 1,
+    fontSize: 14,
     fontFamily: fontFamily.regular,
     color: '#FFFFFF',
     marginBottom: responsiveHeight(1),
@@ -885,7 +911,7 @@ const styles = StyleSheet.create({
   },
   taskCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     // marginBottom: responsiveWidth(2),
   },

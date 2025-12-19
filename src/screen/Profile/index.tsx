@@ -28,6 +28,8 @@ import serviceFactory from '../../services/serviceFactory';
 import RazorpayCheckout from 'react-native-razorpay';
 import Toast from 'react-native-toast-message';
 import LottieView from 'lottie-react-native';
+import MemberPlanManagement from '../MemberPlanManagement';
+import AddNewMemberCard from '../../components/AddNewMemberCard/AddNewMemberCard';
 // Removed BlurView to avoid external dependency for blur
 
 // Razorpay Configuration
@@ -858,492 +860,14 @@ const ProfileScreen = () => {
             </View> */}
 
             {/* Add New Member Card */}
-            <ImageBackground
-              source={
-                theme === 'dark'
-                  ? require('../../assets/image/DarkBackground.png')
-                  : require('../../assets/image/LightBackground.png')
-              }
-              blurRadius={12}
-              style={[
-                styles.newMembersCard,
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.cardBackground : colors.white,
-                  borderColor:
-                    theme === 'dark' ? colors.borderColor : colors.borderColor,
-                },
-              ]}
-              imageStyle={[
-                styles.newMembersBgImage,
-                styles.newMembersCardImage,
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.cardBackground : colors.white,
-                },
-              ]}
-            >
-              {/* <View style={styles.newMmembersOverlay} /> */}
-              <View
-                style={[
-                  styles.newMmembersOverlay,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparent : colors.white,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.addMemberTitle,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  Go premium and see your life in a whole new light.
-                </Text>
-                <View
-                  style={[
-                    styles.addMemberCard,
-                    {
-                      backgroundColor:
-                        theme === 'dark' ? colors.transparent : colors.white,
-                    },
-                  ]}
-                >
-                  <View style={styles.addMemberCardLeft}>
-                    {/* Member Count Selector */}
-                    <View style={styles.memberCountContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.countButton,
-                          {
-                            backgroundColor:
-                              theme === 'dark'
-                                ? colors.Orangeaccentcolor
-                                : colors.Orangeaccentcolor,
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.themeBorderDropdown
-                                : colors.borderColor,
-                          },
-                          selectedMemberCount <= 1 &&
-                            styles.countButtonDisabled,
-                        ]}
-                        onPress={() => {
-                          if (selectedMemberCount > 1) {
-                            setSelectedMemberCount(selectedMemberCount - 1);
-                          }
-                        }}
-                        disabled={selectedMemberCount <= 1}
-                      >
-                        <Text
-                          style={[
-                            styles.countButtonText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.white,
-                            },
-                            selectedMemberCount <= 1 &&
-                              styles.countButtonTextDisabled,
-                          ]}
-                        >
-                          -
-                        </Text>
-                      </TouchableOpacity>
-
-                      <View style={styles.memberCountDisplay}>
-                        <Text
-                          style={[
-                            styles.memberCountNumber,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {selectedMemberCount.toString().padStart(2, '0')}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.memberCountLabel,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          Member{selectedMemberCount > 1 ? 's' : ''}
-                        </Text>
-                      </View>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.countButton,
-                          {
-                            backgroundColor:
-                              theme === 'dark'
-                                ? colors.Orangeaccentcolor
-                                : colors.Orangeaccentcolor,
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.themeBorderDropdown
-                                : colors.themeBorderDropdown,
-                          },
-                        ]}
-                        onPress={() => {
-                          setSelectedMemberCount(selectedMemberCount + 1);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.countButtonText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.surface,
-                            },
-                          ]}
-                        >
-                          +
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Remaining slots message */}
-
-                    {/* Action Buttons */}
-                  </View>
-
-                  {/* 3D Human Figures Icon */}
-                  <View style={styles.addMemberCardRight}>
-                    <Image
-                      source={require('../../assets/icons/AddUser.png')}
-                      style={styles.addUserIcon3D}
-                    />
-                  </View>
-                </View>
-                {/* <Text
-                  style={[
-                    styles.remainingSlotsText,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  {Math.max(
-                    0,
-                    (profileData?.members_allow || 0) -
-                      (profileData?.current_members || 0),
-                  ) === 0 &&
-                  Math.max(
-                    0,
-                    (profileData?.child_allow || 0) -
-                      (profileData?.current_child || 0),
-                  ) === 0
-                    ? 'No members or children available'
-                    : `You can create ${Math.max(
-                        0,
-                        (profileData?.members_allow || 0) -
-                          (profileData?.current_members || 0),
-                      )} more Member${
-                        Math.max(
-                          0,
-                          (profileData?.members_allow || 0) -
-                            (profileData?.current_members || 0),
-                        ) !== 1
-                          ? 's'
-                          : ''
-                      }${
-                        Math.max(
-                          0,
-                          (profileData?.members_allow || 0) -
-                            (profileData?.current_members || 0),
-                        ) > 0 &&
-                        Math.max(
-                          0,
-                          (profileData?.child_allow || 0) -
-                            (profileData?.current_child || 0),
-                        ) > 0
-                          ? ' and '
-                          : ''
-                      }${
-                        Math.max(
-                          0,
-                          (profileData?.child_allow || 0) -
-                            (profileData?.current_child || 0),
-                        ) > 0
-                          ? ` ${Math.max(
-                              0,
-                              (profileData?.child_allow || 0) -
-                                (profileData?.current_child || 0),
-                            )} more Child${
-                              Math.max(
-                                0,
-                                (profileData?.child_allow || 0) -
-                                  (profileData?.current_child || 0),
-                              ) !== 1
-                                ? 'ren'
-                                : ''
-                            }`
-                          : ''
-                      }`}
-                </Text> */}
-
-                {/* Available Plans Section */}
-                <View style={styles.availablePlansContainer}>
-                  <View
-                    style={[
-                      styles.availablePlansCard,
-                      {
-                        backgroundColor:
-                          theme === 'dark'
-                            ? colors.transparentBg
-                            : colors.white,
-                        borderColor:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.borderColor,
-                      },
-                    ]}
-                  >
-                    {/* <Text
-                      style={[
-                        styles.availablePlansTitle,
-                        {
-                          color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Available Plans
-                    </Text> */}
-                    <View style={styles.plansCountRow}>
-                      <Text
-                        style={[
-                          styles.plansCountText,
-                          {
-                            color: theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Member: {String(profileData?.members_allow ? profileData.members_allow - profileData.current_members : 0).padStart(2, '0')}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.plansCountText,
-                          {
-                            color: theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Children: {String(profileData?.child_allow ? profileData.child_allow - profileData.current_child : 0).padStart(2, '0')}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-             
-                  <View style={styles.priceContainer}>
-                    {(() => {
-                      // Get plan price from subscription or use default
-                      const planPrice = 999;
-                      const originalPrice = selectedMemberCount * planPrice;
-                      const hasDiscount = selectedMemberCount >= 5;
-                      const discountPercent = hasDiscount ? 10 : 0;
-                      const discountAmount = hasDiscount ? (originalPrice * discountPercent) / 100 : 0;
-                      const totalPrice = originalPrice - discountAmount;
-
-                      return (
-                        <>
-                          {hasDiscount && (
-                            <View style={styles.discountRow}>
-                              <Text
-                                style={[
-                                  styles.originalPriceLabel,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.themeTextWhite
-                                        : colors.DarkNavy,
-                                  },
-                                ]}
-                              >
-                                Original Price :
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.originalPriceValue,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.grayText || '#999'
-                                        : colors.grayText || '#999',
-                                  },
-                                ]}
-                              >
-                                ₹{originalPrice}
-                              </Text>
-                            </View>
-                          )}
-                          {hasDiscount && (
-                            <View style={styles.discountRow}>
-                              <Text
-                                style={[
-                                  styles.discountLabel,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.Orangeaccentcolor
-                                        : colors.Orangeaccentcolor,
-                                  },
-                                ]}
-                              >
-                                Discount ({discountPercent}%) :
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.discountValue,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.Orangeaccentcolor
-                                        : colors.Orangeaccentcolor,
-                                  },
-                                ]}
-                              >
-                                - ₹{discountAmount}
-                              </Text>
-                            </View>
-                          )}
-                          <View style={styles.priceRow}>
-                            <Text
-                              style={[
-                                styles.totalPriceLabel,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                            >
-                              Total Amount :
-                            </Text>
-                            <Text
-                              style={[
-                                styles.totalPriceValue,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                            >
-                              {""} ₹{totalPrice}
-                            </Text>
-                          </View>
-                        </>
-                      );
-                    })()}
-                  </View>
-            
-
-                <View style={styles.buttonContainer}>
-                  {/* Buy Button on Right */}
-                  <TouchableOpacity
-                    onPress={handleAddMemberPayment}
-                    style={[
-                      styles.actionButton,
-                      styles.addButton,
-                      {
-                        backgroundColor:
-                          theme === 'dark'
-                            ? '#DF8A5D'
-                            : colors.Orangeaccentcolor,
-                        borderColor:
-                          theme === 'dark'
-                            ? '#DF8A5D'
-                            : colors.Orangeaccentcolor,
-                      },
-                    ]}
-                    disabled={isProcessingPayment}
-                  >
-                    <Text
-                      style={[
-                        styles.actionButtonText,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.white,
-                        },
-                      ]}
-                    >
-                      {/* Price Display on Left */}
-
-                      {isProcessingPayment ? 'Processing...' : 'Buy'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Only show Create button if there are remaining member or child slots */}
-                  {/* {(Math.max(
-                    0,
-                    (profileData?.members_allow || 0) -
-                      (profileData?.current_members || 0),
-                  ) > 0 ||
-                    Math.max(
-                      0,
-                      (profileData?.child_allow || 0) -
-                        (profileData?.current_child || 0),
-                    ) > 0) && ( */}
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('MemberPlanManagement')}
-                    style={[
-                      styles.actionButton,
-                      styles.createButton,
-                      {
-                        backgroundColor:
-                          theme === 'dark' ? 'transparent' : colors.white,
-                        borderColor:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.primaryBlue,
-                      },
-                    ]}
-                    disabled={isProcessingPayment}
-                  >
-                    <Text
-                      style={[
-                        styles.actionButtonText,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.primaryBlue,
-                        },
-                      ]}
-                    >
-                      Manage Plan
-                    </Text>
-                  </TouchableOpacity>
-                  {/* )} */}
-                </View>
-              </View>
-            </ImageBackground>
+            {/* <AddNewMemberCard
+              profileData={profileData}
+              selectedMemberCount={selectedMemberCount}
+              setSelectedMemberCount={setSelectedMemberCount}
+              isProcessingPayment={isProcessingPayment}
+              handleAddMemberPayment={handleAddMemberPayment}
+              navigation={navigation}
+            /> */}
 
             {/* <ImageBackground
               source={
@@ -1434,11 +958,13 @@ const ProfileScreen = () => {
                 />
               </View>
             </ImageBackground> */}
+
+             <MemberPlanManagement />
           </View>
         </ScrollView>
-      </MainContainer>
-    </KeyboardAvoidingView>
-  );
+        </MainContainer>
+      </KeyboardAvoidingView>
+    );
 };
 
 const styles = StyleSheet.create({
@@ -1672,7 +1198,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   profileCardRedesigned: {
-    paddingHorizontal: responsiveWidth('3'),
+    paddingHorizontal: responsiveWidth('2.5'),
     // marginBottom: responsiveWidth('5'),
   },
 
@@ -1769,8 +1295,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '500',
     fontFamily: fontFamily.regular,
-    lineHeight: 26,
-    letterSpacing: -0.24,
+    lineHeight: 30,
+    letterSpacing: -0.20,
   },
   emailSection: {
     // marginBottom: responsiveWidth('4'),
@@ -2149,7 +1675,7 @@ const styles = StyleSheet.create({
   },
   // New Profile Information Layout Styles (matching image design)
   profileInfoListNew: {
-    marginTop: responsiveWidth('3'),
+    marginTop: responsiveWidth('2.5'),
     marginBottom: Platform.OS === 'ios' ? responsiveWidth('2.5') : responsiveWidth('1.5'),
   },
   profileInfoEmailSection: {

@@ -1009,10 +1009,12 @@ const styles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+    marginLeft: -responsiveWidth(5),
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 24,
+    
     fontFamily: fontFamily.regular,
     textAlign: 'center',
   },

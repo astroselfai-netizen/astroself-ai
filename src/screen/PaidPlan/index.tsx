@@ -501,7 +501,7 @@ const PaidPlanScreen = () => {
                         },
                       ]}
                     >
-                      (INR)/Member
+                      (INR)/annum
                     </Text>
                   </View>
                 </View>
@@ -515,60 +515,208 @@ const PaidPlanScreen = () => {
                     },
                   ]}
                 >
-                  In this Plan, you will receive personalized predictions for
-                  your Kundli based on the following detailed analysis:
+                  Your Chart, Your Story - Evolving In Real Time:
                 </Text>
 
                 {/* Features List */}
                 <View style={styles.featuresList}>
-                  {[
-                    'Planets in Signs',
-                    'Planets in Houses',
-                    'Conjunctions of Planets',
-                    'Trine Conjunction',
-                    'Nakshatra - Planet in Nakshtras and House',
-                    'Nakshatras-Padawise',
-                    'Debilitation and Exaltation',
-                    'Retro Planets Effects',
-                    'Impact of Rahu, Ketu, Saturn on Planets',
-                    '50 Personalized Questions, Answered by AI',
-                  ].map((feature, index) => (
-                    <View key={index} style={styles.featureItem}>
-                      <Image
-                        source={require('../../assets/icons/checkIcon.png')}
-                        resizeMode="contain"
-                        style={styles.checkIcon}
-                      />
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
                       <Text
                         style={[
                           styles.featureText,
+                          styles.featureTitle,
                           {
                             color:
                               theme === 'dark' ? colors.white : colors.DarkNavy,
                           },
                         ]}
                       >
-                        {feature}
+                        12 houses, 360* you
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Explore your entire life in detail, covering aspects like career, love, money, family, health, and spirituality. Each house of the chart is decoded in a blended format to show how lords, planets, and aspects shape different areas of life.
                       </Text>
                     </View>
-                  ))}
-                </View>
+                  </View>
 
-                {/* Disclaimer */}
-                <View style={styles.disclaimerContainer}>
-                  {/* <View style={styles.separator} /> */}
-                  <Text
-                    style={[
-                      styles.disclaimerText,
-                      {
-                        color:
-                          theme === 'dark' ? colors.white : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    * Our AI is not yet trained to answer questions on the
-                    timing of the events
-                  </Text>
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Blended Analysis
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Deep dive into planetary strengths, lords through houses, conjunctions, circuits, 6/8/12 placements, Rahu-Ketu influences, and maraka challenges. Strengths with Guidance to provide clear insights on personal strengths and practical steps to manage obstacles.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Transit Torchlight
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Tracks planetary movements every 15 days against your chart to refresh predictions, likened to a guiding torchlight.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Always Up-to-Date
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Update your details anytime to instantly see how predictions shift with your personal journey.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        AI-Powered Precision
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Fusion of Ancient Vedic + BNN wisdom with cutting-edge AI to provide sharp, hyper-personal insights.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        For every paid membership
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Personality analysis is offered free for members between 15 to 18 years of age.
+                      </Text>
+                    </View>
+                  </View>
                 </View>
 
                 {/* Member Management Section */}
@@ -1009,47 +1157,126 @@ const PaidPlanScreen = () => {
                   </Text>
                 </View>
 
-                {/* Free Plan Description */}
-                <Text
-                  style={[
-                    styles.planDescription,
-                    {
-                      color: theme === 'dark' ? colors.white : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  In this Plan, you will receive personalized predictions for
-                  your Kundli based on the following detailed analysis:
-                </Text>
-
                 {/* Free Plan Features List */}
                 <View style={styles.featuresList}>
-                  {[
-                    'Ascendant Analysis',
-                    'Lords Through Houses',
-                    'Lords Conjunctions',
-                    'Circuit Through Lords',
-                    '15 Personalized Questions, Answered by AI, Limited to One Person',
-                  ].map((feature, index) => (
-                    <View key={index} style={styles.featureItem}>
-                      <Image
-                        source={require('../../assets/icons/checkIcon.png')}
-                        resizeMode="contain"
-                        style={styles.checkIcon}
-                      />
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
                       <Text
                         style={[
                           styles.featureText,
+                          styles.featureTitle,
                           {
                             color:
                               theme === 'dark' ? colors.white : colors.DarkNavy,
                           },
                         ]}
                       >
-                        {feature}
+                        Snapshot Predictions
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Quick, powerful insights into what's happening in your life right now. Get instant clarity on immediate influences shaping your career, relationships, health, and finances.
                       </Text>
                     </View>
-                  ))}
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        One time Unlock Your Cosmic Path with Ai Powered Predictions
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Receive deep insights, personalized guidance, and cosmic clarity. Embark on a Journey of self-discovery and transformation today.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Personality Insights - Soul Goals & Mind Patterns Unlocked
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Discover your hidden drives, inner desires, and the deeper thought patterns guiding your choices. Get to know yourself on a deeper level and uncover the strengths you already carry.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      resizeMode="contain"
+                      style={styles.checkIcon}
+                    />
+                    <Text
+                      style={[
+                        styles.featureText,
+                        styles.featureTitle,
+                        {
+                          color:
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Free for 1 Member one time
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Disclaimer */}
@@ -1063,8 +1290,7 @@ const PaidPlanScreen = () => {
                       },
                     ]}
                   >
-                    * Our AI is not yet trained to answer questions on the
-                    timing of the events
+                    *Our system does not allow creating charts for users below 15 years of age
                   </Text>
                 </View>
 
@@ -1271,6 +1497,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '500',
     lineHeight: 18,
+  },
+  featureTextContainer: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  featureDescription: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
+    lineHeight: 18,
+    marginTop: 2,
   },
   // Disclaimer Styles
   disclaimerContainer: {

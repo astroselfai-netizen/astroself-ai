@@ -203,8 +203,8 @@ const MemberItem = React.memo(
                               : colors.DarkNavy,
                         },
                         {
-                          width: responsiveWidth(6),
-                          height: responsiveWidth(6),
+                          width: responsiveWidth(5),
+                          height: responsiveWidth(5),
                         },
                       ]}
                     />
@@ -229,17 +229,17 @@ const MemberItem = React.memo(
                               : colors.DarkNavy,
                         },
                         {
-                          width: responsiveWidth(6),
-                          height: responsiveWidth(6),
+                          width: responsiveWidth(5),
+                          height: responsiveWidth(5),
                         },
                       ]}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() =>
-                      navigation.navigate('ChatTab', { 
-                        screen: 'ChatScreen', 
-                        params: { userId: item.id || item._id } 
+                      navigation.navigate('ChatTab', {
+                        screen: 'ChatScreen',
+                        params: { userId: item.id || item._id },
                       })
                     }
                     style={styles.iconButton}
@@ -253,15 +253,14 @@ const MemberItem = React.memo(
                             theme === 'dark'
                               ? colors.themeTextWhite
                               : colors.DarkNavy,
+                          width: responsiveWidth(6),
+                          height: responsiveWidth(6),
                         },
                       ]}
                     />
                   </TouchableOpacity>
                   {/* edit member icon */}
-                  <TouchableOpacity
-                    onPress={onEdit}
-                    style={styles.iconButton}
-                  >
+                  <TouchableOpacity onPress={onEdit} style={styles.iconButton}>
                     <Image
                       source={require('../../assets/icons/edit-painel.png')}
                       style={[
@@ -273,8 +272,29 @@ const MemberItem = React.memo(
                               : colors.DarkNavy,
                         },
                         {
-                          width: responsiveWidth(6),
-                          height: responsiveWidth(6),
+                          width: responsiveWidth(5),
+                          height: responsiveWidth(5),
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={()=>
+                    {}
+                  } style={styles.iconButton}>
+                    <Image
+                      source={require('../../assets/icons/subscription.png')}
+                      style={[
+                        styles.actionIcon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                        {
+                          width: responsiveWidth(6.5),
+                          height: responsiveWidth(6.5),
                         },
                       ]}
                     />
@@ -784,7 +804,7 @@ const MemberPlanManagement = () => {
       />
 
       {/* Header */}
-      <View style={styles.headerWrap}>
+      {/* <View style={styles.headerWrap}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
@@ -811,11 +831,11 @@ const MemberPlanManagement = () => {
           Buy Plans
         </Text>
         <View style={styles.placeholder} />
-      </View>
+      </View> */}
 
       {/* Available Plans Section */}
       <View style={styles.availablePlansContainer}>
-        <View
+        {/* <View
           style={[
             styles.availablePlansCard,
             {
@@ -859,12 +879,12 @@ const MemberPlanManagement = () => {
               Children: {String(childrenCount).padStart(2, '0')}
             </Text>
           </View>
-        </View>
+        </View> */}
 
         {/* Action Buttons */}
         {!isAssignPlanMode ? (
           <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[
                 styles.assignPlanButton,
                 {
@@ -878,7 +898,7 @@ const MemberPlanManagement = () => {
               disabled={!isAssignPlanEnabled}
             >
               <Text style={styles.assignPlanButtonText}>Assign Plan</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <TouchableOpacity
               style={[
                 styles.createChartButton,
@@ -888,11 +908,11 @@ const MemberPlanManagement = () => {
                   borderColor:
                     theme === 'dark' ? colors.themeTextWhite : colors.white,
                   borderWidth: 1,
-                  opacity: isCreateChartEnabled ? 1 : 0.5,
+                  // opacity: isCreateChartEnabled ? 1 : 0.5,
                 },
               ]}
               onPress={handleCreateChart}
-              disabled={!isCreateChartEnabled}
+              // disabled={!isCreateChartEnabled}
             >
               <Text
                 style={[
@@ -902,7 +922,7 @@ const MemberPlanManagement = () => {
                       theme === 'dark'
                         ? colors.themeTextWhite
                         : colors.DarkNavy,
-                    opacity: isCreateChartEnabled ? 1 : 0.5,
+                    // opacity: isCreateChartEnabled ? 1 : 0.5,
                   },
                 ]}
               >
@@ -1269,7 +1289,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-    paddingHorizontal: 14,
+    // paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'android' ? 90 : 90,
   },
@@ -1278,7 +1298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 50,
-    paddingHorizontal: 14,
+    // paddingHorizontal: 14,
     paddingBottom: 10,
     zIndex: 10,
   },
@@ -1311,7 +1331,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
   availablePlansContainer: {
-    paddingHorizontal: 14,
+    // paddingHorizontal: 14,
     paddingBottom: responsiveWidth('3'),
     zIndex: 10,
   },
@@ -1343,7 +1363,7 @@ const styles = StyleSheet.create({
   },
   actionButtonsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     gap: responsiveWidth('3'),
     marginTop: responsiveWidth('2'),
   },
@@ -1390,11 +1410,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   createChartButton: {
-    flex: 1,
+    // flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
+    width: '30%',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   createChartButtonText: {
     fontSize: 14,
@@ -1572,8 +1593,8 @@ const styles = StyleSheet.create({
     marginLeft: responsiveWidth('2'),
   },
   actionIcon: {
-    width: responsiveWidth(7),
-    height: responsiveWidth(7),
+    width: responsiveWidth(5),
+    height: responsiveWidth(5),
     resizeMode: 'contain',
     tintColor: 'rgba(238, 229, 202, 1)',
   },

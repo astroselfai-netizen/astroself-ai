@@ -13,7 +13,7 @@ import {
   Image,
   Modal,
   FlatList,
-  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -26,11 +26,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import DatePicker from 'react-native-date-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import UserService from '../../services/user/user.service';
+import PaymentService from '../../services/payment/payment.service';
 import serviceFactory from '../../services/serviceFactory';
+import RazorpayCheckout from 'react-native-razorpay';
 import { useTheme } from '../../context/ThemeContext';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { setMembersUpdated } from '../../state/slices/appSlice';
-import { RootState } from '../../state/store';
 import { checkAndUpdateMemberCreationTimestamp } from '../../hooks/useMemberCreationTimestamp';
 import { useProfileData } from '../../hooks/useProfileData';
 import LottieView from 'lottie-react-native';
@@ -50,6 +51,14 @@ type BasicDeatilNavigationProp = StackNavigationProp<
 >;
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCRiOhv-8F7NUHE22gm9zres6rVFwlkXEE';
+
+// Razorpay Configuration
+const RAZORPAY_CONFIG = {
+  TEST_KEY: 'rzp_test_GIgkz0qhMQzJxv',
+  LIVE_KEY: 'rzp_live_t11y7Cds0JWo47',
+  PLAN_ID: 'd461266c-574b-4312-994a-ebd2b5cf6dc3',
+  IS_TEST_MODE: true, // Set to false for production
+};
 
 interface Place {
   place_id: string;
@@ -74,12 +83,13 @@ const AddNewMember = () => {
   const { theme, colors } = useTheme();
   const dispatch = useDispatch();
   const userService = serviceFactory.get<UserService>('UserService');
+  const paymentService = serviceFactory.get<PaymentService>('PaymentService');
   const { refreshProfileData } = useProfileData();
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showPredictionTypeModal, setShowPredictionTypeModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
- const members = useSelector((state: RootState) => state.app.members);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -169,12 +179,266 @@ const AddNewMember = () => {
     whatDoYouDo: Yup.string().trim(),
   });
 
+  // Payment handling function
+  const handlePayment = async (): Promise<boolean> => {
+    try {
+      setIsProcessingPayment(true);
 
+      // Get current user data
+      const userDataString = await AsyncStorage.getItem('USER_DATA');
+      if (!userDataString) {
+        throw new Error('User data not found. Please login again.');
+      }
 
-  
+      const currentUserData = JSON.parse(userDataString);
+      const userId = currentUserData._id || currentUserData.user_id;
 
+      if (!userId) {
+        throw new Error('User ID not found. Please login again.');
+      }
 
+      // For AddNewMember, we're adding 1 member
+      const memberCount = 1;
 
+      // Create order
+      const orderData = {
+        plan_id: RAZORPAY_CONFIG.PLAN_ID,
+        user_id: userId,
+        receipt: paymentService.generateReceipt(),
+        members: memberCount,
+        notes: {
+          action: 'add_new_member',
+          user_name: `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'User',
+        },
+      };
+
+      const orderResponse = await paymentService.createOrder(orderData);
+
+      // Validate order response
+      if (!orderResponse || !orderResponse.order_id || !orderResponse.amount) {
+        throw new Error('Invalid order response from server');
+      }
+
+      // Razorpay payment options
+      const options = {
+        description: `Add ${memberCount} Member${memberCount > 1 ? 's' : ''} to Astroself`,
+        currency: 'INR',
+        key: RAZORPAY_CONFIG.TEST_KEY,
+        amount: orderResponse.amount,
+        order_id: orderResponse.order_id,
+        name: 'Astroself',
+        prefill: {
+          email: currentUserData.email || 'user@example.com',
+          contact: currentUserData.phone || '9999999999',
+          name: `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'User',
+        },
+        theme: { color: '#DF8A5D' },
+      };
+
+      // Open Razorpay checkout
+      const paymentResponse = await RazorpayCheckout.open(options);
+
+      // Verify payment
+      const verifyData = {
+        current_plan_id: RAZORPAY_CONFIG.PLAN_ID,
+        user_id: userId,
+        user_name: `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'User',
+        email: currentUserData.email || 'user@example.com',
+        razorpay_payment_id: paymentResponse.razorpay_payment_id,
+        razorpay_order_id: paymentResponse.razorpay_order_id,
+        razorpay_signature: paymentResponse.razorpay_signature,
+        members: memberCount,
+      };
+
+      const verifyResponse = await paymentService.verifyPayment(verifyData);
+      console.log('Verify response:', verifyResponse);
+
+      // Check if payment is successful based on response
+      const isSuccess =
+        verifyResponse.success === true ||
+        String(verifyResponse.success) === 'true' ||
+        (verifyResponse as any)?.status === "success" ||
+        (verifyResponse.message &&
+          verifyResponse.message
+            .toLowerCase()
+            .includes('verified successfully')) ||
+        (verifyResponse.message &&
+          verifyResponse.message.toLowerCase().includes('payment successful'));
+
+      if (isSuccess) {
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Payment Successful',
+        //   text2: `You can now add ${memberCount} member${memberCount > 1 ? 's' : ''}.`,
+        //   position: 'top',
+        //   topOffset: 60,
+        //   visibilityTime: 3000,
+        // });
+        return true;
+      } else {
+        throw new Error(verifyResponse.message || 'Payment verification failed');
+      }
+    } catch (paymentError: any) {
+      let errorMessage = 'Payment failed. Please try again.';
+      
+      console.log('Payment error details:', paymentError);
+      
+      // Check if this is a Razorpay cancellation error (iOS pattern)
+      if (paymentError.code === 0 && 
+          paymentError.description === 'Payment processing cancelled by user' &&
+          paymentError.details?.error?.reason === 'payment_cancelled') {
+        console.log('Payment cancelled by user (iOS pattern)');
+        Alert.alert('Payment Failed', 'Payment processing cancelled by user', [
+          { text: 'OK', style: 'default' }
+        ]);
+        return false;
+      }
+      
+      // Check if this is a Razorpay cancellation error (Android pattern)
+      if (paymentError.error?.code === 'BAD_REQUEST_ERROR' && 
+          paymentError.error?.reason === 'payment_error' &&
+          paymentError.error?.step === 'payment_authentication') {
+        console.log('Payment cancelled by user (Android pattern)');
+        Alert.alert('Payment Failed', 'Payment processing cancelled by user', [
+          { text: 'OK', style: 'default' }
+        ]);
+        return false;
+      }
+      
+      // Check for other Razorpay cancellation patterns
+      if (paymentError.code === 'PAYMENT_CANCELLED' || 
+          paymentError.reason === 'payment_cancelled' ||
+          (paymentError.message && paymentError.message.toLowerCase().includes('cancelled')) ||
+          (paymentError.description && paymentError.description.toLowerCase().includes('cancelled'))) {
+        console.log('Payment cancelled by user (alternative pattern)');
+        Alert.alert('Payment Failed', 'Payment processing cancelled by user', [
+          { text: 'OK', style: 'default' }
+        ]);
+        return false;
+      }
+      
+      if (paymentError.description) {
+        errorMessage = paymentError.description;
+      } else if (paymentError.message) {
+        errorMessage = paymentError.message;
+      }
+      
+      Alert.alert('Payment Failed', errorMessage, [
+        { text: 'OK', style: 'default' }
+      ]);
+      return false;
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  // Function to create birth data (extracted from onSubmit)
+  const createBirthData = async (values: any) => {
+    // Get current user data to extract userId
+    const userDataString = await AsyncStorage.getItem('USER_DATA');
+    if (!userDataString) {
+      throw new Error('User data not found. Please login again.');
+    }
+
+    const userData = JSON.parse(userDataString);
+    const userId = userData._id || userData.user_id;
+
+    if (!userId) {
+      throw new Error('User ID not found. Please login again.');
+    }
+
+    // Parse date and time from form values
+    let dateObj: Date;
+    let timeObj: Date;
+
+    // Check if we have the actual Date objects stored in state
+    if (selectedDate && selectedTime) {
+      dateObj = selectedDate;
+      timeObj = selectedTime;
+    } else {
+      // Fallback: try to parse the formatted strings
+      try {
+        dateObj = new Date(values.dateOfBirth);
+        timeObj = new Date(`1970-01-01 ${values.timeOfBirth}`);
+      } catch (error) {
+        throw new Error(
+          'Invalid date or time format. Please select date and time again.',
+        );
+      }
+    }
+
+    // Validate that we have valid dates
+    if (isNaN(dateObj.getTime()) || isNaN(timeObj.getTime())) {
+      throw new Error(
+        'Invalid date or time. Please select valid date and time.',
+      );
+    }
+
+    // Extract coordinates from placeOfBirth
+    const placeOfBirth = values.placeOfBirth as {
+      lat: number;
+      lng: number;
+    } | null;
+    const lat = placeOfBirth?.lat || 0;
+    const lng = placeOfBirth?.lng || 0;
+
+    // Prepare birth data for API
+    const birthData = {
+      userId,
+      first_name: values.firstName,
+      last_name: values.lastName,
+      gender: values.gender.toLowerCase(),
+      prediction_type: values.predictionType,
+      birthplace: values.placeOfBirthDisplay,
+      day: dateObj.getDate(),
+      month: dateObj.getMonth() + 1, // getMonth() returns 0-11
+      year: dateObj.getFullYear(),
+      hour: timeObj.getHours(),
+      min: timeObj.getMinutes(),
+      what_do_you_do: values.whatDoYouDo,
+      marital_status: 'single',
+      children: 'no',
+      health_issues_if_any: '-',
+      main_source_of_finances: '-',
+      lat: lat || 0,
+      lon: lng || 0,
+      tzone: 5.5, // Default timezone for India, you might want to make this dynamic
+    };
+
+    console.log('Form values:', values);
+    console.log('Selected date:', selectedDate);
+    console.log('Selected time:', selectedTime);
+    console.log('Parsed date object:', dateObj);
+    console.log('Parsed time object:', timeObj);
+    console.log('Submitting birth data:', birthData);
+
+    // Call the API to create birth data
+    const response = await userService.createBirthData(birthData);
+
+    console.log('Birth data creation response:', response);
+
+    // Store timestamp when member is created to show infoContainer for 2 minutes
+    const timestamp = Date.now();
+    await AsyncStorage.setItem('MEMBER_CREATED_TIMESTAMP', timestamp.toString());
+    
+    // Immediately check and update Redux state for 2-minute timer
+    const remainingTime = await checkAndUpdateMemberCreationTimestamp();
+    
+    // Set timer to hide after 2 minutes
+    if (remainingTime > 0) {
+      setTimeout(async () => {
+        await checkAndUpdateMemberCreationTimestamp();
+      }, remainingTime);
+    }
+
+    // Set flag to indicate members data has been updated
+    dispatch(setMembersUpdated(true));
+
+    // Refresh members data from API
+    await refreshProfileData();
+
+    return response;
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -193,114 +457,22 @@ const AddNewMember = () => {
       try {
         helpers.setSubmitting(true);
 
-        // Get current user data to extract userId
-        const userDataString = await AsyncStorage.getItem('USER_DATA');
-        if (!userDataString) {
-          throw new Error('User data not found. Please login again.');
-        }
+        // Check if we came from MemberPlanManagement
+        const fromMemberPlanManagement = route.params?.fromMemberPlanManagement;
 
-        const userData = JSON.parse(userDataString);
-        const userId = userData._id || userData.user_id;
-
-        if (!userId) {
-          throw new Error('User ID not found. Please login again.');
-        }
-
-        // Parse date and time from form values
-        // The form stores formatted strings, so we need to parse them back to Date objects
-        let dateObj: Date;
-        let timeObj: Date;
-
-        // Check if we have the actual Date objects stored in state
-        if (selectedDate && selectedTime) {
-          dateObj = selectedDate;
-          timeObj = selectedTime;
-        } else {
-          // Fallback: try to parse the formatted strings
-          // formatDate returns "Oct 10, 2010" format
-          // formatTime returns "11:59 PM" format
-          try {
-            dateObj = new Date(values.dateOfBirth);
-            timeObj = new Date(`1970-01-01 ${values.timeOfBirth}`);
-          } catch (error) {
-            throw new Error(
-              'Invalid date or time format. Please select date and time again.',
-            );
+        // Step 1: Handle payment only if fromMemberPlanManagement is true
+        if (fromMemberPlanManagement) {
+          const paymentSuccessful = await handlePayment();
+          
+          if (!paymentSuccessful) {
+            // Payment failed or was cancelled, stop here
+            helpers.setSubmitting(false);
+            return;
           }
         }
 
-        // Validate that we have valid dates
-        if (isNaN(dateObj.getTime()) || isNaN(timeObj.getTime())) {
-          throw new Error(
-            'Invalid date or time. Please select valid date and time.',
-          );
-        }
-
-        // Extract coordinates from placeOfBirth
-        const placeOfBirth = values.placeOfBirth as {
-          lat: number;
-          lng: number;
-        } | null;
-        const lat = placeOfBirth?.lat || 0;
-        const lng = placeOfBirth?.lng || 0;
-
-        // Prepare birth data for API
-        const birthData = {
-          userId,
-          first_name: values.firstName,
-          last_name: values.lastName,
-          gender: values.gender.toLowerCase(),
-          prediction_type: values.predictionType,
-          birthplace: values.placeOfBirthDisplay,
-          day: dateObj.getDate(),
-          month: dateObj.getMonth() + 1, // getMonth() returns 0-11
-          year: dateObj.getFullYear(),
-          hour: timeObj.getHours(),
-          min: timeObj.getMinutes(),
-          what_do_you_do: values.whatDoYouDo,
-          marital_status: 'single',
-          children: 'no',
-          health_issues_if_any: '-',
-          main_source_of_finances: '-',
-          lat: lat || 0,
-          lon: lng || 0,
-          tzone: 5.5, // Default timezone for India, you might want to make this dynamic
-        };
-
-        console.log('Form values:', values);
-        console.log('Selected date:', selectedDate);
-        console.log('Selected time:', selectedTime);
-        console.log('Parsed date object:', dateObj);
-        console.log('Parsed time object:', timeObj);
-        console.log('Submitting birth data:', birthData);
-
-        // Call the API to create birth data
-        const response = await userService.createBirthData(birthData);
-
-        console.log('Birth data creation response:', response);
-
-        // Store timestamp when member is created to show infoContainer for 2 minutes
-        const timestamp = Date.now();
-        await AsyncStorage.setItem('MEMBER_CREATED_TIMESTAMP', timestamp.toString());
-        
-        // Immediately check and update Redux state for 2-minute timer
-        const remainingTime = await checkAndUpdateMemberCreationTimestamp();
-        
-        // Set timer to hide after 2 minutes
-        if (remainingTime > 0) {
-          setTimeout(async () => {
-            await checkAndUpdateMemberCreationTimestamp();
-          }, remainingTime);
-        }
-
-        // Set flag to indicate members data has been updated
-        dispatch(setMembersUpdated(true));
-
-        // Refresh members data from API
-        await refreshProfileData();
-
-        // Check if we came from MemberPlanManagement
-        const fromMemberPlanManagement = route.params?.fromMemberPlanManagement;
+        // Step 2: Proceed with creating birth data (for both flows)
+        const response = await createBirthData(values);
         
         if (fromMemberPlanManagement) {
           // Show loading indicator
@@ -345,11 +517,11 @@ const AddNewMember = () => {
           
           // 5 seconds delay
         } else {
-          // Navigate to HomeScreen (for login/registration flow)
+          // Navigate to HomeScreen (for login/registration flow - normal flow without payment)
           navigation.navigate('HomeScreen');
         }
       } catch (error: any) {
-        console.error('Error submitting birth data:', error);
+        console.error('Error in onSubmit:', error);
         const errorMessage = error?.message || 'Something went wrong.';
         Toast.show({
           type: 'error',
@@ -494,7 +666,7 @@ const AddNewMember = () => {
                   },
                 ]}
               >
-                Add New Member
+                Add Details
               </Text>
             </View>
           </View>
@@ -1026,7 +1198,7 @@ const AddNewMember = () => {
                 },
               ]}
               onPress={() => setShowConfirmModal(true)}
-              disabled={formik.isSubmitting}
+              disabled={formik.isSubmitting || isProcessingPayment}
             >
               <Text
                 style={[
@@ -1037,7 +1209,11 @@ const AddNewMember = () => {
                   },
                 ]}
               >
-                {formik.isSubmitting ? 'Saving...' : 'Add New Member'}
+                {isProcessingPayment
+                  ? 'Processing Payment...'
+                  : formik.isSubmitting
+                  ? 'Saving...'
+                  : 'Add Details'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1576,6 +1752,7 @@ const styles = StyleSheet.create({
     marginTop: 60,
     paddingHorizontal: 20,
     marginBottom: 20,
+    position: 'relative',
   },
   backBtn: {
     padding: 8,
@@ -1594,10 +1771,11 @@ const styles = StyleSheet.create({
     color: '#F6EFD9',
   },
   backIconWrap: {
-    flexDirection: 'row',
+    position: 'absolute',
+    left: 0,
+    right: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
   },
   headerTitle: {
     color: '#F6EFD9',
@@ -1692,7 +1870,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(223, 138, 93, 1)',
     borderRadius: 10,
     paddingVertical: responsiveWidth('2.5'),
-    alignItems: 'center',
+    // alignItems: 'center',
     marginTop: responsiveWidth('3%'),
     marginBottom: responsiveWidth('20%'),
   },

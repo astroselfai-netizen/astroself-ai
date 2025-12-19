@@ -12,6 +12,7 @@ import {
   Alert,
   Modal,
   FlatList,
+  TextInput,
 } from 'react-native';
 import {
   fontFamily,
@@ -54,6 +55,7 @@ interface TaskItem {
   selected: boolean;
   status?: 'Done' | 'pending';
   track?: string;
+  timing_status?: 'new' | 'old';
 }
 
 const EditAllTaskSelectionScreen = () => {
@@ -71,6 +73,8 @@ const EditAllTaskSelectionScreen = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isCreateTaskModalVisible, setIsCreateTaskModalVisible] = useState(false);
+  const [newTaskDescription, setNewTaskDescription] = useState('');
 
   // Set selectedMemberId only when userId comes from route params
   useEffect(() => {
@@ -182,18 +186,51 @@ const EditAllTaskSelectionScreen = () => {
           setLoading(false);
           return;
         }
+
+        console.log('response.insights -->', JSON.stringify(response.insights, null, 2))
         
         // Map API response to component task structure
-        const mappedTasks: TaskItem[] = response.insights.map((task: Task, index: number) => ({
-          id: index + 1,
-          description: task.task,
-          frequency: (task.track === 'Daily' || task.track === 'Weekly' || task.track === 'Monthly')
-            ? (task.track as 'Daily' | 'Weekly' | 'Monthly')
-            : 'Daily',
-          selected: task.selected,
-          status: task.status,
-          track: task.track,
-        }));
+        const mappedTasks: TaskItem[] = response.insights.map(
+          (task: Task, index: number) => {
+            // Preserve timing_status from API - if it exists and is valid, use it
+            // Only default to 'old' if timing_status is completely missing, null, undefined, or empty
+            let timingStatus: 'new' | 'old' = 'old';
+            
+            // Check if timing_status exists in the task object
+            if (task.timing_status !== undefined && task.timing_status !== null && task.timing_status !== '') {
+              const status = String(task.timing_status).toLowerCase().trim();
+              if (status === 'new') {
+                timingStatus = 'new';
+              } else if (status === 'old') {
+                timingStatus = 'old';
+              } else {
+                // If timing_status exists but is not 'new' or 'old', log it and default to 'old'
+                console.warn(`Task ${index + 1} has invalid timing_status: "${task.timing_status}", defaulting to 'old'`);
+                timingStatus = 'old';
+              }
+            } else {
+              // timing_status is missing - this should not happen if backend is saving it correctly
+              console.warn(`Task ${index + 1} is missing timing_status field. Full task:`, JSON.stringify(task));
+            }
+            
+            console.log(`Task ${index + 1}: "${task.task.substring(0, 40)}..." | API timing_status: "${task.timing_status}" (type: ${typeof task.timing_status}) | Mapped to: "${timingStatus}"`);
+            
+            return {
+              id: index + 1,
+              description: task.task,
+              frequency:
+                task.track === 'Daily' ||
+                task.track === 'Weekly' ||
+                task.track === 'Monthly'
+                  ? (task.track as 'Daily' | 'Weekly' | 'Monthly')
+                  : 'Daily',
+              selected: task.selected,
+              status: task.status,
+              track: task.track,
+              timing_status: timingStatus,
+            };
+          },
+        );
 
         setTasks(mappedTasks);
         setOriginalTasks(mappedTasks);
@@ -248,6 +285,108 @@ const EditAllTaskSelectionScreen = () => {
     );
   };
 
+  const handleCreateTask = async () => {
+    if (!newTaskDescription.trim()) {
+      Alert.alert('Error', 'Please enter a task description');
+      return;
+    }
+
+    if (!userId) {
+      Alert.alert('Error', 'User ID not found');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      // Create new task with default values
+      const newTask: TaskItem = {
+        id: tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1,
+        description: newTaskDescription.trim(),
+        frequency: 'Daily',
+        selected: true,
+        status: 'pending',
+        track: 'Daily',
+        timing_status: 'new',
+      };
+
+      // Add new task to tasks array
+      const updatedTasks = [...tasks, newTask];
+      setTasks(updatedTasks);
+
+      console.log('updatedTasks=========>', updatedTasks);
+      
+
+      // Map all tasks (including new one) to API format
+      const insights: Task[] = updatedTasks.map(task => {
+        // Find the original task by description to compare
+        const originalTask = originalTasks.find(
+          orig => orig.description === task.description
+        );
+        
+        // If task was unselected (changed from selected=true to selected=false), set status to pending
+        const wasUnselected = originalTask && originalTask.selected === true && task.selected === false;
+        
+        // If task is new (not in originalTasks), set timing_status to "new"
+        // Otherwise, preserve the existing timing_status (don't change 'new' to 'old')
+        const isNewTask = !originalTask;
+        
+        // For existing tasks, preserve their timing_status - if it was 'new', keep it 'new'
+        // Only use 'old' as fallback if timing_status is completely missing
+        let finalTimingStatus: string;
+        if (isNewTask) {
+          finalTimingStatus = 'new';
+        } else {
+          // Preserve existing timing_status - prioritize task.timing_status, then originalTask.timing_status
+          // Ensure it's always a valid string ('new' or 'old')
+          const currentStatus = task.timing_status || originalTask?.timing_status;
+          if (currentStatus === 'new' || currentStatus === 'old') {
+            finalTimingStatus = currentStatus;
+          } else {
+            finalTimingStatus = 'old';
+          }
+        }
+        
+        // Ensure timing_status is always a string (never undefined/null)
+        finalTimingStatus = String(finalTimingStatus || 'old');
+        
+        console.log(`Task (handleCreateTask): ${task.description.substring(0, 30)}... | isNewTask: ${isNewTask} | task.timing_status: ${task.timing_status} | originalTask.timing_status: ${originalTask?.timing_status} | final: ${finalTimingStatus}`);
+        
+        return {
+          task: task.description,
+          selected: task.selected,
+          status: wasUnselected ? 'pending' : (task.status || 'pending'),
+          track: task.frequency as 'Daily' | 'Weekly' | 'Monthly' | '',
+          timing_status: finalTimingStatus,
+        };
+      });
+
+      console.log('insights before API call -->', JSON.stringify(insights, null, 2));
+
+      // Call API to update tasks
+      await taskService.updateTaskActivity({
+        user_id: selectedMemberId || userId || '',
+        heading: 'Tasks You Should Perform Daily',
+        insights: insights,
+      });
+
+      // Close modal and reset description
+      setIsCreateTaskModalVisible(false);
+      setNewTaskDescription('');
+
+      Alert.alert('Success', 'Task created successfully');
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      Alert.alert(
+        'Error',
+        error?.message || 'Failed to create task. Please try again.',
+        [{ text: 'OK' }],
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!userId) {
       Alert.alert('Error', 'User ID not found');
@@ -258,7 +397,6 @@ const EditAllTaskSelectionScreen = () => {
       setSaving(true);
       
       // Map component tasks back to API format
-
       const insights: Task[] = tasks.map(task => {
         // Find the original task by description to compare
         const originalTask = originalTasks.find(
@@ -268,13 +406,41 @@ const EditAllTaskSelectionScreen = () => {
         // If task was unselected (changed from selected=true to selected=false), set status to pending
         const wasUnselected = originalTask && originalTask.selected === true && task.selected === false;
         
+        // If task is new (not in originalTasks), set timing_status to "new"
+        // Otherwise, preserve the existing timing_status (don't change 'new' to 'old')
+        const isNewTask = !originalTask;
+        
+        // For existing tasks, preserve their timing_status - if it was 'new', keep it 'new'
+        // Only use 'old' as fallback if timing_status is completely missing
+        let finalTimingStatus: string;
+        if (isNewTask) {
+          finalTimingStatus = 'new';
+        } else {
+          // Preserve existing timing_status - prioritize task.timing_status, then originalTask.timing_status
+          // Ensure it's always a valid string ('new' or 'old')
+          const currentStatus = task.timing_status || originalTask?.timing_status;
+          if (currentStatus === 'new' || currentStatus === 'old') {
+            finalTimingStatus = currentStatus;
+          } else {
+            finalTimingStatus = 'old';
+          }
+        }
+        
+        // Ensure timing_status is always a string (never undefined/null)
+        finalTimingStatus = String(finalTimingStatus || 'old');
+        
+        console.log(`Task (handleSave): ${task.description.substring(0, 30)}... | isNewTask: ${isNewTask} | task.timing_status: ${task.timing_status} | originalTask.timing_status: ${originalTask?.timing_status} | final: ${finalTimingStatus}`);
+        
         return {
           task: task.description,
           selected: task.selected,
           status: wasUnselected ? 'pending' : (task.status || 'pending'),
           track: task.frequency as 'Daily' | 'Weekly' | 'Monthly' | '',
+          timing_status: finalTimingStatus,
         };
       });
+
+      console.log('insights before API call (handleSave) -->', JSON.stringify(insights, null, 2));
 
       await taskService.updateTaskActivity({
         user_id: selectedMemberId || userId || '',
@@ -503,11 +669,33 @@ const EditAllTaskSelectionScreen = () => {
               <Text
                 style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
               >
-                Select Your Karmic Points
+                Select Your Tasks
               </Text>
               {/* <Text style={styles.moonIcon}>🌙</Text> */}
             </View>
 
+            {/* create task */}
+            <TouchableOpacity
+              onPress={() => setIsCreateTaskModalVisible(true)}
+              style={[
+                styles.createTaskButton,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.Orangeaccentcolor
+                      : colors.Orangeaccentcolor,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.editBtnText,
+                  { color: theme === 'dark' ? colors.white : colors.white },
+                ]}
+              >
+                Create Task
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSave}
               disabled={saving || loading}
@@ -572,19 +760,55 @@ const EditAllTaskSelectionScreen = () => {
                 ]}
               >
                 <View style={styles.taskCardHeader}>
-                  <Text
-                    style={[
-                      styles.taskDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    {index + 1}. {task.description}
-                  </Text>
+                  <View style={styles.taskTextContainer}>
+                    <Text
+                      style={[
+                        styles.taskNumber,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {index + 1}.&nbsp;
+                    </Text>
+                    <View style={styles.taskDescriptionContainer}>
+                      <Text
+                        style={[
+                          styles.taskDescription,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        {task.description?.replace(/^[•\s]+/, '').trim() ||
+                          task.description}
+                      </Text>
+                      {task.timing_status && task.timing_status === 'new' && (
+                        <View
+                          style={[
+                            styles.timingStatusBadge,
+                            {
+                              backgroundColor:
+                                task.timing_status === 'new'
+                                  ? '#4CAF50'
+                                  : '#9E9E9E'
+                            },
+                          ]}
+                        >
+                          <Text style={styles.timingStatusText}>
+                            {/* {task.timing_status === 'new' ? 'NEW' : 'OLD'} */}
+                            NEW
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
                   <TouchableOpacity
                     onPress={() => toggleTaskSelection(task.id)}
                     activeOpacity={0.7}
@@ -669,6 +893,121 @@ const EditAllTaskSelectionScreen = () => {
           )}
         </View>
       </ScrollView>
+
+      {/* Create Task Modal */}
+      <Modal
+        visible={isCreateTaskModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setIsCreateTaskModalVisible(false);
+          setNewTaskDescription('');
+        }}
+      >
+        <TouchableOpacity
+          style={styles.createTaskModalOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setIsCreateTaskModalVisible(false);
+            setNewTaskDescription('');
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={e => e.stopPropagation()}
+            style={[
+              styles.createTaskModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Create New Task
+            </Text>
+
+            <TextInput
+              style={[
+                styles.modalDescriptionInput,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.DarkNavy : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+              placeholder="Enter task description"
+              placeholderTextColor={
+                theme === 'dark' ? colors.themelightText : colors.themelightText
+              }
+              value={newTaskDescription}
+              onChangeText={setNewTaskDescription}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.modalCancelButton,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+                onPress={() => {
+                  setIsCreateTaskModalVisible(false);
+                  setNewTaskDescription('');
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalCancelButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalCreateButton,
+                  {
+                    backgroundColor: colors.Orangeaccentcolor,
+                  },
+                ]}
+                onPress={handleCreateTask}
+              >
+                <Text style={styles.modalCreateButtonText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </MainContainer>
   );
 };
@@ -722,9 +1061,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   editBtn: {
-    width: responsiveWidth(15),
-    paddingVertical: responsiveWidth(1),
-    // paddingHorizontal: responsiveWidth(3),
+    // width: responsiveWidth(15),
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: 8,
     backgroundColor: 'transparent',
     alignItems: 'center',
@@ -886,12 +1225,43 @@ const styles = StyleSheet.create({
   closedTaskCard: {
     // borderColor: '#27AE60',
   },
-  taskDescription: {
+  taskTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    marginRight: responsiveWidth(2),
+    alignItems: 'flex-start',
+  },
+  taskDescriptionContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: responsiveWidth(2),
+  },
+  taskNumber: {
     fontSize: 14,
-    width: '90%',
+    fontFamily: fontFamily.regular,
+    marginRight: responsiveWidth(1),
+  },
+  taskDescription: {
+    flex: 1,
+    fontSize: 14,
     fontFamily: fontFamily.regular,
     color: '#FFFFFF',
-    marginBottom: responsiveHeight(1),
+    // marginBottom: responsiveHeight(1),
+  },
+  timingStatusBadge: {
+    paddingHorizontal: responsiveWidth(2),
+    paddingVertical: responsiveWidth(0.5),
+    borderRadius: 4,
+    marginLeft: responsiveWidth(1),
+    // marginBottom: responsiveHeight(1),
+  },
+  timingStatusText: {
+    fontSize: 10,
+    fontFamily: fontFamily.semiBold,
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
   },
   taskTagContainer: {
     flexDirection: 'row',
@@ -910,7 +1280,7 @@ const styles = StyleSheet.create({
   },
   taskCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     // marginBottom: responsiveWidth(2),
   },
@@ -1094,6 +1464,78 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     textAlign: 'center',
     paddingVertical: 10,
+  },
+  createTaskButton: {
+    // width: responsiveWidth(15),
+    backgroundColor: '#DF8A5D',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // marginRight: responsiveWidth(2),
+  },
+  createTaskButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: fontFamily.medium,
+  },
+  createTaskModalContainer: {
+    width: '85%',
+    borderRadius: 16,
+    padding: responsiveWidth(5),
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: fontFamily.semiBold,
+    marginBottom: responsiveWidth(4),
+    textAlign: 'center',
+  },
+  modalDescriptionInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: responsiveWidth(3),
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    minHeight: 100,
+    marginBottom: responsiveWidth(4),
+    textAlignVertical: 'top',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: responsiveWidth(10),
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: 16,
+    fontFamily: fontFamily.medium,
+  },
+  modalCreateButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCreateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: fontFamily.medium,
+  },
+  createTaskModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -758,7 +758,7 @@ const NakshatraScreen = () => {
                 }}
               >
                 <Text style={[styles.astroButtonText, { color: colors.white }]}>
-                  See predictions
+                  Predictions
                 </Text>
               </TouchableOpacity>
             </View>
@@ -791,7 +791,7 @@ const NakshatraScreen = () => {
                 }}
               >
                 <Text style={[styles.astroButtonText, { color: colors.white }]}>
-                  Buy Report
+                  Report
                 </Text>
               </TouchableOpacity>
             </View>

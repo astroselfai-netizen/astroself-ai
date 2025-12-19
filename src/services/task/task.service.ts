@@ -5,6 +5,7 @@ export interface Task {
   selected: boolean;
   status: 'Done' | 'pending';
   track: 'Daily' | 'Weekly' | 'Monthly' | '';
+  timing_status: string;
 }
 
 export interface TaskActivityResponse {
@@ -42,7 +43,15 @@ class TaskService {
     heading: string = 'Tasks You Should Perform Daily',
   ): Promise<TaskActivityResponse> {
     try {
+
+     
+
       const encodedHeading = encodeURIComponent(heading);
+
+       console.log(
+         'userId -->47',
+         `task_activity/${userId}?heading=${encodedHeading}`,
+       );
       const response = await http.get(
         `task_activity/${userId}?heading=${encodedHeading}`,
         {
@@ -51,6 +60,8 @@ class TaskService {
           },
         },
       );
+
+      console.log('response.data -->56', response.data);
 
       if (response.data) {
         return response.data as TaskActivityResponse;
@@ -68,6 +79,8 @@ class TaskService {
   ): Promise<{ status: boolean; message?: string }> {
     try {
       const { user_id, heading, insights } = requestData;
+
+      console.log('requestData -->83', requestData);
       
       const response = await http.put(
         'task_activity/update',
@@ -122,11 +135,14 @@ class TaskService {
     period: 'daily' | 'weekly' | 'monthly',
   ): Promise<KarmicProgressResponse> {
     try {
+      // Add timestamp to prevent caching and ensure fresh data
+      // const timestamp = new Date().getTime();
       const response = await http.get(
         `status/${period}/${memberId}`,
         {
           headers: {
             accept: 'application/json',
+            'Cache-Control': 'no-cache',
           },
         },
       );
@@ -138,6 +154,33 @@ class TaskService {
       throw new Error('Invalid response format from karmic progress API');
     } catch (error) {
       console.error('Error fetching karmic progress:', error);
+      throw error;
+    }
+  }
+
+  async resetTask(userId: string): Promise<{ status: boolean; message?: string }> {
+    try {
+
+      console.log(
+        'userId-->`task_activity/reset-task?user_id=${userId}`',
+        `task_activity/reset-task?user_id=${userId}`,
+      );
+      const response = await http.delete(
+        `task_activity/reset-task?user_id=${userId}`,
+        {
+          headers: {
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (response.data) {
+        return response.data;
+      }
+
+      throw new Error('Invalid response format from reset task API');
+    } catch (error) {
+      console.error('Error resetting task:', error);
       throw error;
     }
   }

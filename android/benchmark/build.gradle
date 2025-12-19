@@ -1,0 +1,110 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.astroself.ai.benchmark'
+    compileSdkVersion rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Configure test runner to skip permission errors and increase timeout
+        testInstrumentationRunnerArguments += [
+            'clearPackageData': 'true',
+            'notClass': 'androidx.test.rule.GrantPermissionRule',
+            'timeout_msec': '600000'  // 10 minutes timeout
+        ]
+    }
+
+    buildTypes {
+        benchmark {
+            debuggable false
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+// Configure benchmark to target the app module
+afterEvaluate {
+    // Create connectedBenchmarkAndroidTest task
+    task connectedBenchmarkAndroidTest {
+        group = 'verification'
+        description = 'Runs benchmark instrumentation tests on connected devices. Builds app with benchmark build type.'
+        
+        // Build app with benchmark build type first
+        dependsOn ':app:assembleBenchmark'
+        // Build test APK (using debug variant for androidTest)
+        dependsOn 'assembleDebugAndroidTest'
+        // Install test APK
+        dependsOn 'installDebugAndroidTest'
+        
+        doLast {
+            println ""
+            println "=========================================="
+            println "Benchmark Test Setup Complete!"
+            println "=========================================="
+            println "1. App (benchmark build) installed"
+            println "2. Test APK installed"
+            println ""
+            println "To run tests, use one of these methods:"
+            println ""
+            println "Method 1: Android Studio"
+            println "  - Open StartupBenchmark.kt"
+            println "  - Click green ▶️ button next to test function"
+            println ""
+            println "Method 2: ADB Command"
+            println "  adb shell am instrument -w \\"
+            println "    -e class com.astroself.ai.benchmark.StartupBenchmark#coldStartup \\"
+            println "    com.astroself.ai.benchmark.test/androidx.test.runner.AndroidJUnitRunner"
+            println ""
+            println "Method 3: Use connectedDebugAndroidTest"
+            println "  ./gradlew :benchmark:connectedDebugAndroidTest \\"
+            println "    -Pandroid.testInstrumentationRunnerArguments.class=com.astroself.ai.benchmark.StartupBenchmark"
+            println "=========================================="
+        }
+    }
+    
+    // Also configure connectedDebugAndroidTest to build app with benchmark
+    tasks.matching { it.name == 'connectedDebugAndroidTest' }.configureEach { task ->
+        task.dependsOn(":app:assembleBenchmark")
+        task.doFirst {
+            println "Building app with benchmark build type for testing..."
+            println ""
+            println "⚠️  IMPORTANT: Ensure device stays connected during test run"
+            println "   - Keep USB cable connected"
+            println "   - Don't disconnect device"
+            println "   - Keep screen unlocked"
+            println ""
+        }
+    }
+}
+
+dependencies {
+    // Test dependencies should be androidTestImplementation for instrumentation tests
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    
+    // Macrobenchmark library
+    androidTestImplementation 'androidx.benchmark:benchmark-macro-junit4:1.3.4'
+    
+    // UI Automator for interaction
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+}
+
