@@ -25,10 +25,9 @@ import serviceFactory from '../../services/serviceFactory';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { icons } from '../../assets';
 import UserService from '../../services/user/user.service';
-import HouseService from '../../services/house/house.service';
 import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
-import { Api } from '../../types/api';
+import { Api, CurrentDashaTimeResponse } from '../../types/api';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
 
@@ -36,6 +35,7 @@ interface ChatWithPromptsProps {
   userId: string;
   cardTitles?: string;
   tab?: string;
+  subCards?: Array<{ id: number; title: string }>;
   planet?: string;
   current_plan?: string;
 }
@@ -51,6 +51,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   userId,
   cardTitles,
   tab: _tab,
+  subCards,
   planet: _planet,
   current_plan,
 }) => {
@@ -70,8 +71,10 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const { theme, colors } = useTheme();
   const [userData, setUserData] = useState<Api.User.Res.Detail | null>(null);
   const [updatedList, setUpdatedList] = useState<Record<string, boolean>>({});
-  const [generalAnalysisCards, setGeneralAnalysisCards] = useState<Array<{ title: string; subtitle: string; value: string }>>([]);
-  const [currentSituationCards, setCurrentSituationCards] = useState<Array<{ title: string; subtitle: string; value: string }>>([]);
+  const [generalAnalysisCards] = useState<Array<{ title: string; subtitle: string; value: string }>>([]);
+  const [currentSituationCards] = useState<Array<{ title: string; subtitle: string; value: string }>>([]);
+  const [dashaTimeData, setDashaTimeData] = useState<CurrentDashaTimeResponse | null>(null);
+  const [loadingDashaTime, setLoadingDashaTime] = useState(false);
   
   // Check if current member is a child (age between 15-18 years)
   const isCurrentMemberChild = React.useMemo(() => {
@@ -156,80 +159,21 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     { title: 'Prediction Set 3-ML', value: 'Prediction Set 3-ML' },
   ];
 
-  // Fetch cards from API
-  const fetchCards = useCallback(async () => {
-    if (!userId) return;
-    
-    try {
-      // Fetch both lifeview and lifenow cards
-      const [lifeviewHeadings, lifenowHeadings] = await Promise.all([
-        HouseService.getPredictionHeadings(userId, 'lifeview'),
-        HouseService.getPredictionHeadings(userId, 'lifenow'),
-      ]);
-
-      // Map lifeview cards (General Analysis)
-      // Value should be the short title (like "Personality") so switch statement can map it correctly
-      const mappedGeneralCards = Object.entries(lifeviewHeadings)
-        .sort(([keyA], [keyB]) => parseInt(keyA, 10) - parseInt(keyB, 10))
-        .map(([_key, title]) => {
-          const titleStr = title || '';
-          
-          return {
-            title: titleStr,
-            subtitle: '',
-            value: titleStr, // Use title as value, switch statement will map it to mainHeading
-          };
-        });
-
-      // Map lifenow cards (Current Situation)
-      const mappedCurrentCards = Object.entries(lifenowHeadings)
-        .sort(([keyA], [keyB]) => parseInt(keyA, 10) - parseInt(keyB, 10))
-        .map(([_key, title]) => {
-          const titleStr = title || '';
-          // Normalize values
-          let valueStr = titleStr;
-          if (titleStr === 'Snapshot Predictions') {
-            valueStr = 'Snapshot Prediction';
-          } else if (titleStr.toLowerCase().includes('active planet') || 
-                     titleStr.toLowerCase().includes('antardasha')) {
-            valueStr = 'Antardasha';
-          }
-          
-          // Get subtitle if needed
-          let subtitle = '';
-          if (titleStr === 'Snapshot Prediction' || titleStr === 'Snapshot Predictions') {
-            subtitle = 'Future, Glimpse';
-          } else if (titleStr === 'Life at the Moment') {
-            subtitle = 'Life at the Moment';
-          }
-          
-          return {
-            title: titleStr, // Use title directly from API
-            subtitle: subtitle,
-            value: valueStr,
-          };
-        });
-
-      setGeneralAnalysisCards(mappedGeneralCards);
-      setCurrentSituationCards(mappedCurrentCards);
-    } catch (err: any) {
-      console.error('Error fetching cards:', err);
-    }
-  }, [userId]);
-
-  // Fetch cards when component mounts or userId changes
-  useEffect(() => {
-    if (userId) {
-      fetchCards();
-    }
-  }, [userId, fetchCards]);
+  // No longer fetching cards from API - they come from navigation params
 
 
   // Get current card options based on the current cardTitles
   const getCurrentCardOptions = () => {
-    if (
-      _tab === 'LifeView' 
-    ) {
+    // If subCards prop is provided, use it directly (for "Natal Chart Insights")
+    if (subCards && subCards.length > 0) {
+      return subCards.map(subCard => ({
+        title: subCard.title,
+        subtitle: '',
+        value: subCard.title,
+      }));
+    }
+    
+    if (_tab === 'LifeView') {
       return generalAnalysisCards;
     } else if (_tab === 'LifeNow') {
       return currentSituationCards;
@@ -262,10 +206,37 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
   // Update selectedCardTitle when cardTitles prop changes
   useEffect(() => {
-    setSelectedCardTitle(cardTitles || '');
-  }, [cardTitles]);
+    // If subCards prop is provided, automatically select first sub_card
+    if (subCards && subCards.length > 0) {
+      setSelectedCardTitle(subCards[0].title);
+    } else {
+      setSelectedCardTitle(cardTitles || '');
+    }
+  }, [cardTitles, subCards]);
 
-  // Fetch dasha data
+  // Fetch current dasha time when Antardasha is selected
+  useEffect(() => {
+    const fetchDashaTime = async () => {
+      if ((cardTitles === 'Antardasha' || selectedCardTitle === 'Antardasha') && userId) {
+        try {
+          setLoadingDashaTime(true);
+          const response = await userService.getCurrentDashaTime(userId);
+          console.log('Dasha time response:', response);
+          setDashaTimeData(response);
+        } catch (error: any) {
+          console.error('Error fetching dasha time:', error);
+          setDashaTimeData(null);
+        } finally {
+          setLoadingDashaTime(false);
+        }
+      } else {
+        setDashaTimeData(null);
+      }
+    };
+
+    fetchDashaTime();
+  }, [cardTitles, selectedCardTitle, userId, userService]);
+
   // Handle card title selection
   const handleCardTitleSelect = (newCardTitle: string) => {
     console.log('newCardTitle-->165', newCardTitle);
@@ -290,7 +261,14 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       let mainHeading = 'General Analysis'; // default
 
       if (selectedCardTitle) {
-        switch (selectedCardTitle) {
+        // If selectedCardTitle starts with 'Active Planet -', set mainHeading to 'Antardasha'
+        if (selectedCardTitle.startsWith('Active Planet -')) {
+          mainHeading = 'Antardasha';
+        } else {
+          switch (selectedCardTitle) {
+            case 'Natal Chart Insights':
+              mainHeading = 'Personality, Attitude, Vitality';
+              break;
           case 'General Analysis':
             mainHeading = 'General Analysis';
             break;
@@ -364,6 +342,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
             break;
           default:
             mainHeading = selectedCardTitle;
+          }
         }
       }
 
@@ -525,11 +504,13 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           selectedCardTitle || 'Antardasha',
           topicTitle || 'General Analysis',
         );
-      } else if (selectedCardTitle === 'Current predictions' || selectedCardTitle === 'Additional Predictions' || selectedCardTitle === 'Life on the Horizon' || selectedCardTitle === 'Life at the Moment') {
+      } else if (selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle === 'Current predictions' || selectedCardTitle === 'Additional Predictions' || selectedCardTitle === 'Life on the Horizon' || selectedCardTitle === 'Life at the Moment') {
         // For Current predictions and Additional Predictions, call the dasha AI response API
+        // If selectedCardTitle starts with 'Active Planet -', use 'Antardasha' instead
+        const cardTitleForApi = selectedCardTitle?.startsWith('Active Planet -') ? 'Antardasha' : (selectedCardTitle || 'Additional Predictions');
         aiResponse = await userService.getDashaAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
-          selectedCardTitle || 'Additional Predictions',
+          cardTitleForApi,
           topicTitle || 'General Analysis',
         );
       } else {
@@ -1144,7 +1125,6 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         </View>
       </View>
       {/* cardTitles dropdown section */}
-
       {/* user name and birth details section */}
       {/* {userData && (
         <View style={[styles.userInfoContainer,{
@@ -1167,20 +1147,21 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           </View>
         </View>
       )} */}
-
-      <View
-        style={[
-          styles.dropdownContainer,
-          {
-            backgroundColor:
-              theme === 'dark' ? colors.DarkNavy : colors.surface,
-            borderColor:
-              theme === 'dark'
-                ? colors.themeBorderDropdown
-                : colors.borderColor,
-          },
-        ]}
-      >
+      {/* Only show dropdown when subCards prop is provided (for "Natal Chart Insights") */}
+      {subCards && subCards.length > 0 && (
+        <View
+          style={[
+            styles.dropdownContainer,
+            {
+              backgroundColor:
+                theme === 'dark' ? colors.DarkNavy : colors.surface,
+              borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,
+            },
+          ]}
+        >
         <TouchableOpacity
           style={[
             styles.dropdownButton,
@@ -1318,7 +1299,43 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           </View>
         )}
       </View>
-
+      )}
+      {/* Antardasha time period */}
+      {(cardTitles === 'Antardasha' || selectedCardTitle === 'Antardasha') && (
+        <View style={styles.antardashaTimeContainer}>
+          {loadingDashaTime ? (
+            <View style={styles.antardashaTimeContent}>
+              <ActivityIndicator size="small" color={colors.Orangeaccentcolor} />
+            </View>
+          ) : dashaTimeData?.Antardasha ? (
+            <View style={styles.antardashaTimeContent}>
+              {Object.entries(dashaTimeData.Antardasha).map(([planet, dateRanges], index) => {
+                const dateRangesArray = dateRanges as string[];
+                if (dateRangesArray && Array.isArray(dateRangesArray) && dateRangesArray.length > 0) {
+                  const dateRange = dateRangesArray[0]; // Get first date range
+                  return (
+                    <Text
+                      key={index}
+                      style={[
+                        styles.antardashaTimeText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {dateRange} - {planet}
+                    </Text>
+                  );
+                }
+                return null;
+              })}
+            </View>
+          ) : null}
+        </View>
+      )}
       {/* Horizontal Tabs Section */}
       {(() => {
         // Check if cardTitles contains values that don't need tabs
@@ -1337,12 +1354,17 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           return null;
         }
 
+        console.log('selectedCardTitle---->1355', selectedCardTitle);
+
+        // Check if selectedCardTitle is 'Antardasha' or starts with 'Active Planet -'
+        const isAntardasha = selectedCardTitle === 'Antardasha' || selectedCardTitle?.startsWith('Active Planet -');
+
         const tabOptions =
-          selectedCardTitle === 'Antardasha'
+          isAntardasha
             ? antardashaTopicOptions
             : topicOptions;
         const tabLabels =
-          selectedCardTitle === 'Antardasha'
+          isAntardasha
             ? antardashaTopicLabels
             : topicOptions;
 
@@ -1444,7 +1466,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 if (selectedCardTitle === 'Life at the Moment') {
                   const aIsUnread = updatedList[a.title] === true;
                   const bIsUnread = updatedList[b.title] === true;
-                  
+
                   // Unread items (green) should be at the top
                   if (aIsUnread && !bIsUnread) return -1;
                   if (!aIsUnread && bIsUnread) return 1;
@@ -1453,150 +1475,152 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 return 0;
               })
               .map(topic => (
-              <ImageBackground
-                key={topic.id}
-                source={
-                  theme === 'dark'
-                    ? require('../../assets/image/DarkBackground.png')
-                    : require('../../assets/image/LightBackground.png')
-                }
-                blurRadius={12}
-                style={[
-                  styles.topicCard,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.cardBackground : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeBorderDropdown
-                        : colors.borderColor,
-                  },
-                ]}
-                imageStyle={styles.topicCardBgImage}
-              >
-                <View style={styles.topicCardOverlay} />
-                <TouchableOpacity
+                <ImageBackground
+                  key={topic.id}
+                  source={
+                    theme === 'dark'
+                      ? require('../../assets/image/DarkBackground.png')
+                      : require('../../assets/image/LightBackground.png')
+                  }
+                  blurRadius={12}
                   style={[
-                    styles.topicHeader,
+                    styles.topicCard,
                     {
                       backgroundColor:
-                        // Check if this is 'Life at the Moment' and item is unread
-                        selectedCardTitle === 'Life at the Moment' &&
-                        updatedList[topic.title] === true
-                          ? theme === 'dark'
-                            ? 'rgb(139, 196, 40)' // green tint for dark theme
-                            : 'rgb(139, 196, 40)' // green tint for dark theme
-                          : theme === 'dark'
-                          ? colors.transparent
-                          : colors.white,
+                        theme === 'dark' ? colors.cardBackground : colors.white,
                       borderColor:
                         theme === 'dark'
                           ? colors.themeBorderDropdown
                           : colors.borderColor,
                     },
                   ]}
-                  onPress={() => toggleExpanded(topic.id, topic.title)}
-                  activeOpacity={0.7}
+                  imageStyle={styles.topicCardBgImage}
                 >
-                  <Text
+                  <View style={styles.topicCardOverlay} />
+                  <TouchableOpacity
                     style={[
-                      styles.topicTitle,
+                      styles.topicHeader,
                       {
-                        color:
+                        backgroundColor:
                           // Check if this is 'Life at the Moment' and item is unread
                           selectedCardTitle === 'Life at the Moment' &&
                           updatedList[topic.title] === true
-                            ? colors.DarkNavy // Orange color for unread items
+                            ? theme === 'dark'
+                              ? 'rgb(139, 196, 40)' // green tint for dark theme
+                              : 'rgb(139, 196, 40)' // green tint for dark theme
                             : theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                        fontWeight:
-                          selectedCardTitle === 'Life at the Moment' &&
-                          updatedList[topic.title] === true
-                            ? '600'
-                            : 'normal',
-                      },
-                    ]}
-                  >
-                    {topic.title}
-                  </Text>
-                  {renderArrowIcon(expandedTopic === topic.id, topic)}
-                </TouchableOpacity>
-
-                {expandedTopic === topic.id && (
-                  <View
-                    style={[
-                      styles.topicContent,
-                      {
-                        backgroundColor:
-                          theme === 'dark' ? colors.transparent : colors.white,
+                            ? colors.transparent
+                            : colors.white,
                         borderColor:
                           theme === 'dark'
                             ? colors.themeBorderDropdown
                             : colors.borderColor,
                       },
                     ]}
+                    onPress={() => toggleExpanded(topic.id, topic.title)}
+                    activeOpacity={0.7}
                   >
-                    {loadingTopicId === topic.id ? (
-                      <View
-                        style={[
-                          styles.topicLoadingContainer,
-                          {
-                            backgroundColor:
-                              theme === 'dark'
-                                ? colors.transparent
-                                : colors.white,
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.themeBorderDropdown
-                                : colors.borderColor,
-                          },
-                        ]}
-                      >
-                        <ActivityIndicator size="small" color="#F2994A" />
-                        <Text
+                    <Text
+                      style={[
+                        styles.topicTitle,
+                        {
+                          color:
+                            // Check if this is 'Life at the Moment' and item is unread
+                            selectedCardTitle === 'Life at the Moment' &&
+                            updatedList[topic.title] === true
+                              ? colors.DarkNavy // Orange color for unread items
+                              : theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                          fontWeight:
+                            selectedCardTitle === 'Life at the Moment' &&
+                            updatedList[topic.title] === true
+                              ? '600'
+                              : 'normal',
+                        },
+                      ]}
+                    >
+                      {topic.title}
+                    </Text>
+                    {renderArrowIcon(expandedTopic === topic.id, topic)}
+                  </TouchableOpacity>
+
+                  {expandedTopic === topic.id && (
+                    <View
+                      style={[
+                        styles.topicContent,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparent
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeBorderDropdown
+                              : colors.borderColor,
+                        },
+                      ]}
+                    >
+                      {loadingTopicId === topic.id ? (
+                        <View
                           style={[
-                            styles.topicLoadingText,
+                            styles.topicLoadingContainer,
                             {
-                              color:
+                              backgroundColor:
                                 theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
+                                  ? colors.transparent
+                                  : colors.white,
+                              borderColor:
+                                theme === 'dark'
+                                  ? colors.themeBorderDropdown
+                                  : colors.borderColor,
                             },
                           ]}
                         >
-                          Generating AI insights...
-                        </Text>
-                        <Text
-                          style={[
-                            styles.topicLoadingText,
-                            styles.topicLoadingSubText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          Loading time: {loadingTime}s (may take 30-60 seconds)
-                        </Text>
-                      </View>
-                    ) : (
-                      // <View style={styles.topicContent}>
-                      renderFormattedText(
-                        topic.content || 'No content available',
-                      )
-                      // </View>
-                    )}
-                  </View>
-                )}
-              </ImageBackground>
-            ))}
+                          <ActivityIndicator size="small" color="#F2994A" />
+                          <Text
+                            style={[
+                              styles.topicLoadingText,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Generating AI insights...
+                          </Text>
+                          <Text
+                            style={[
+                              styles.topicLoadingText,
+                              styles.topicLoadingSubText,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Loading time: {loadingTime}s (may take 30-60
+                            seconds)
+                          </Text>
+                        </View>
+                      ) : (
+                        // <View style={styles.topicContent}>
+                        renderFormattedText(
+                          topic.content || 'No content available',
+                        )
+                        // </View>
+                      )}
+                    </View>
+                  )}
+                </ImageBackground>
+              ))}
           </View>
         </View>
       </ScrollView>
-
       {/* Note Modal */}
       <Modal
         visible={showNoteModal}
@@ -2022,6 +2046,7 @@ const styles = StyleSheet.create({
   tabText: {
     color: color.themeTextWhite,
     fontSize: 16,
+    fontWeight: '700',
     fontFamily: fontFamily.regular,
     textAlign: 'center',
     // opacity: 0.8,
@@ -2029,6 +2054,7 @@ const styles = StyleSheet.create({
   tabTextSelected: {
     color: '#F2994A',
     fontSize: 16,
+    fontWeight: '700',
     fontFamily: fontFamily.regular,
     // fontWeight: '600' as const,
     // opacity: 1,
@@ -2249,6 +2275,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.regular,
     fontWeight: '500',
+  },
+  // Antardasha time period styles
+  antardashaTimeContainer: {
+    width: '100%',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.15)',
+    backgroundColor: 'transparent',
+  },
+  antardashaTimeContent: {
+    paddingVertical: responsiveHeight(1.5),
+    paddingHorizontal: responsiveWidth(4),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  antardashaTimeText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
 

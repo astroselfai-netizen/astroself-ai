@@ -136,8 +136,11 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
       return {
         house: planet.house?.toString() || '--',
         planet: planet.name || '--',
-        signIcon: planet.sign || '', // Convert to short zodiac name
-        degree: `${planet.normDegree?.toFixed(2)} - ${planet.nakshatra} `,
+        signIcon: getZodiacShortName(planet.sign || ''), // Convert to short zodiac name
+        degree: planet.normDegree?.toFixed(2) || '--',
+        nakshatraPada: planet.nakshatra && planet.nakshatra_pad 
+          ? `${planet.nakshatra} - ${planet.nakshatra_pad}`
+          : planet.nakshatra || '--',
         isRetro: planet.isRetro === 'true',
         planetAwastha: planet.planet_awastha || '--',
       };
@@ -149,7 +152,8 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
       house: '1',
       planet: 'Sun',
       signIcon: 'CP', // Capricorn short name
-      degree: '15.42° Capricorn - Uttara Ashadha (2)',
+      degree: '15.42',
+      nakshatraPada: 'Uttara Ashadha - 2',
       isRetro: false,
       planetAwastha: 'Mrit',
     },
@@ -157,7 +161,8 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
       house: '2',
       planet: 'Moon',
       signIcon: 'LI', // Libra short name
-      degree: '29.87° Libra - Vishakha (3)',
+      degree: '29.87',
+      nakshatraPada: 'Vishakha - 3',
       isRetro: false,
       planetAwastha: 'Mrit',
     },
@@ -165,7 +170,8 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
       house: '3',
       planet: 'Mars',
       signIcon: 'CP', // Capricorn short name
-      degree: '12.21° Capricorn - Shravana (1)',
+      degree: '12.21',
+      nakshatraPada: 'Shravana - 1',
       isRetro: false,
       planetAwastha: 'Yuva',
     },
@@ -494,7 +500,15 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
                     { color: theme === 'dark' ? '#23304D' : colors.white },
                   ]}
                 >
-                  Degree & Nakshatra
+                  Degree
+                </Text>
+                <Text
+                  style={[
+                    styles.dashaHeaderNakshatra,
+                    { color: theme === 'dark' ? '#23304D' : colors.white },
+                  ]}
+                >
+                  Nakshatra-Pada
                 </Text>
                 {/* <Text style={styles.dashaHeaderAwastha}>Awastha</Text> */}
               </View>
@@ -556,6 +570,16 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
                       ]}
                     >
                       {row.degree}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dashaCellNakshatra,
+                        {
+                          color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {row.nakshatraPada}
                     </Text>
                     {/* <Text style={styles.dashaCellAwastha}>{row.planetAwastha}</Text> */}
                   </View>
@@ -723,16 +747,17 @@ const styles = StyleSheet.create({
     minWidth: responsiveWidth('100'),
   },
   dashaHeaderHouse: {
-    width: responsiveWidth('15'),
+    width: responsiveWidth('14'),
     color: '#23304D',
     fontWeight: 'bold',
     fontFamily: fontFamily.regular,
     fontSize: 14,
+    // marginLeft: -responsiveWidth('1'),
 
     textAlign: 'left',
   },
   dashaHeaderPlanet: {
-    width: responsiveWidth('25'),
+    width: responsiveWidth('22'),
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -740,7 +765,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderSign: {
-    width: responsiveWidth('25'),
+    width: responsiveWidth('10'),
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -748,7 +773,15 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderDegree: {
-    width: responsiveWidth('45'),
+    width: responsiveWidth('18'),
+    color: '#23304D',
+    fontWeight: 'bold',
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'left',
+  },
+  dashaHeaderNakshatra: {
+    width: responsiveWidth('27'),
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -764,7 +797,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dashaCellHouse: {
-    width: responsiveWidth('15'),
+    width: responsiveWidth('14'),
     color: '#23304D',
     fontSize: 14,
     fontFamily: fontFamily.regular,
@@ -772,7 +805,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellPlanet: {
-    width: responsiveWidth('25'),
+    width: responsiveWidth('22'),
     color: '#23304D',
     fontSize: 14,
     fontFamily: fontFamily.regular,
@@ -780,7 +813,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellSign: {
-    width: responsiveWidth('25'),
+    width: responsiveWidth('10'),
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
@@ -793,7 +826,15 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellDegree: {
-    width: responsiveWidth('45'),
+    width: responsiveWidth('18'),
+    color: '#23304D',
+    fontSize: 14,
+    textAlign: 'left',
+    fontWeight: '400',
+    fontFamily: fontFamily.regular,
+  },
+  dashaCellNakshatra: {
+    width: responsiveWidth('27'),
     color: '#23304D',
     fontSize: 14,
     textAlign: 'left',

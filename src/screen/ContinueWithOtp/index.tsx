@@ -35,6 +35,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   HomeScreen: undefined;
   AddNewMember: undefined;
+  ExploreScreen: undefined;
   // Add other screens as needed
 };
 
@@ -142,7 +143,7 @@ const ContinueWithOtp = () => {
 
   const navigateAfterAuth = async (current_members: number, userData: any) => {
     if (current_members === 0) {
-      navigation.navigate('AddNewMember');
+      navigation.navigate("ExploreScreen");
     } else {
       console.log('Members found, navigating to ChatWithPrompts', userData);
       // Get user_id from userData

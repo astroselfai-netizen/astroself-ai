@@ -10,7 +10,6 @@ import {
 import {
   responsiveHeight,
   responsiveWidth,
-  font,
   fontFamily,
 } from '../constant/theme';
 import { useTheme } from '../context/ThemeContext';
@@ -56,7 +55,7 @@ const FreePointsModal = ({ visible, onClose }: FreePointsModalProps) => {
                 },
               ]}
             >
-              Welcome! Free Points Available
+              Welcome! Check your predictions
             </Text>
 
             {/* Snapshot Predictions Section */}
@@ -74,9 +73,10 @@ const FreePointsModal = ({ visible, onClose }: FreePointsModalProps) => {
               >
                 Snapshot Predictions
               </Text>
+              
               <Text
                 style={[
-                  styles.sectionDescription,
+                  styles.subSectionTitle,
                   {
                     color:
                       theme === 'dark'
@@ -85,10 +85,285 @@ const FreePointsModal = ({ visible, onClose }: FreePointsModalProps) => {
                   },
                 ]}
               >
-                Quick, powerful insights into what's happening in your life right
-                now. Get instant clarity on immediate influences shaping your
-                career, relationships, health, and finances.
+                Free Version Covers (One time)
               </Text>
+
+              {/* Bullet Points */}
+              <View style={styles.bulletPointContainer}>
+                <Text style={styles.bulletPoint}>•</Text>
+                <View style={styles.bulletContent}>
+                  <Text
+                    style={[
+                      styles.bulletTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    100 BNN Snapshot Predictions
+                  </Text>
+                  <Text
+                    style={[
+                      styles.bulletDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Quick reflections showing the key themes and patterns active in your life.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.bulletPointContainer}>
+                <Text style={styles.bulletPoint}>•</Text>
+                <View style={styles.bulletContent}>
+                  <Text
+                    style={[
+                      styles.bulletTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Detailed Personality Insights
+                  </Text>
+                  <Text
+                    style={[
+                      styles.bulletDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Understand your soul desires, what makes you happy, what rejuvenates you, your natural energy flow, and your general nature — interpreted based on your sex.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.bulletPointContainer}>
+                <Text style={styles.bulletPoint}>•</Text>
+                <View style={styles.bulletContent}>
+                  <Text
+                    style={[
+                      styles.bulletTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Potential Income & Wealth Pathways
+                  </Text>
+                  <Text
+                    style={[
+                      styles.bulletDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    See the areas where you may naturally attract money, opportunities, or professional flow.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.bulletPointContainer}>
+                <Text style={styles.bulletPoint}>•</Text>
+                <View style={styles.bulletContent}>
+                  <Text
+                    style={[
+                      styles.bulletTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Your Current Antardasha
+                  </Text>
+                  <Text
+                    style={[
+                      styles.bulletDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Know which antardasha you are running right now and how it shapes your mindset, decisions, and experiences.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.bulletPointContainer}>
+                <Text style={styles.bulletPoint}>•</Text>
+                <View style={styles.bulletContent}>
+                  <Text
+                    style={[
+                      styles.bulletTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Your Most Active Planet
+                  </Text>
+                  <Text
+                    style={[
+                      styles.bulletDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Identify the planet currently dominating your chart and understand how its influence may show up in your day-to-day life.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.bulletPointContainer}>
+                <Text style={styles.bulletPoint}>•</Text>
+                <View style={styles.bulletContent}>
+                  <Text
+                    style={[
+                      styles.bulletTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Strengths + Watch-Outs
+                  </Text>
+                  <Text
+                    style={[
+                      styles.bulletDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Clear highlights of what is supporting you, and what patterns, tendencies, or impulses you need to be cautious about.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.bulletPointContainer}>
+                <Text style={styles.bulletPoint}>•</Text>
+                <View style={styles.bulletContent}>
+                  <Text
+                    style={[
+                      styles.bulletTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Key Planetary Connections
+                  </Text>
+                  <Text
+                    style={[
+                      styles.bulletDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    A focused look at whether Jupiter, Saturn, Rahu, or Ketu are forming any link with your active planet — and what that connection can mean for your inner state and external events.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Transit Snapshot Section */}
+              <View style={styles.transitSection}>
+                <Text
+                  style={[
+                    styles.subSectionTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                      },
+                      { marginTop: responsiveWidth(4) },
+                    ]}
+                >
+                  Transit Snapshot (Except Moon)
+                </Text>
+                <Text
+                  style={[
+                    styles.bulletDescription,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                    { marginTop: responsiveWidth(2) },
+                  ]}
+                >
+                  We capture how current transits interact with your natal chart, especially:{'\n'}
+                  – combinations that already existed and are now getting triggered{'\n'}
+                  – how any transit planet (except the fast-moving Moon) is making contact with your natal planets{'\n\n'}
+                  This gives you a grounded picture of what themes are lighting up right now in your life.
+                </Text>
+              </View>
+
+              {/* Note Section */}
+              <View style={styles.noteSection}>
+                <Text
+                  style={[
+                    styles.noteText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.placeholderTextColor
+                          : colors.themelightText,
+                    },
+                  ]}
+                >
+                  Please note that we don't generate analysis of children up to 15 years of age
+                </Text>
+              </View>
             </View>
 
             {/* One time Unlock Section */}
@@ -254,6 +529,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.regular,
     lineHeight: 22,
+    textAlign: 'left',
+  },
+  subSectionTitle: {
+    fontSize: 15,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    marginTop: responsiveWidth('3%'),
+    marginBottom: responsiveWidth('2%'),
+  },
+  bulletPointContainer: {
+    flexDirection: 'row',
+    marginBottom: responsiveWidth('3%'),
+    alignItems: 'flex-start',
+  },
+  bulletPoint: {
+    fontSize: 16,
+    marginRight: responsiveWidth('2%'),
+    marginTop: 2,
+    color: '#DF8A5D',
+  },
+  bulletContent: {
+    flex: 1,
+  },
+  bulletTitle: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    marginBottom: responsiveWidth('1%'),
+    lineHeight: 20,
+  },
+  bulletDescription: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    lineHeight: 20,
+    textAlign: 'left',
+  },
+  transitSection: {
+    marginTop: responsiveWidth('2%'),
+  },
+  noteSection: {
+    marginTop: responsiveWidth('4%'),
+    paddingTop: responsiveWidth('3%'),
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(223, 138, 93, 0.2)',
+  },
+  noteText: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontStyle: 'italic',
+    lineHeight: 18,
     textAlign: 'left',
   },
   freeBadge: {

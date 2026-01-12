@@ -14,6 +14,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  Switch,
 } from 'react-native';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -92,6 +93,44 @@ const AddNewMember = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Centralized function to close all modals
+  const closeAllModals = () => {
+    setShowGenderModal(false);
+    setShowPredictionTypeModal(false);
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+    setIsPlaceDropdownOpen(false);
+    // Don't close confirm modal here as it's a special case
+  };
+
+  // Optimized modal handlers - ensure only one modal opens at a time
+  const openGenderModal = () => {
+    closeAllModals();
+    setShowGenderModal(true);
+  };
+
+  const openPredictionTypeModal = () => {
+    closeAllModals();
+    setShowPredictionTypeModal(true);
+  };
+
+  const openDatePicker = () => {
+    closeAllModals();
+    setShowDatePicker(true);
+  };
+
+  const openTimePicker = () => {
+    closeAllModals();
+    setShowTimePicker(true);
+  };
+
+  const togglePlaceDropdown = () => {
+    if (!isPlaceDropdownOpen) {
+      closeAllModals();
+    }
+    setIsPlaceDropdownOpen(!isPlaceDropdownOpen);
+  };
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
   const [iosTempDate, setIosTempDate] = useState<Date | null>(null);
@@ -102,6 +141,7 @@ const AddNewMember = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [places, setPlaces] = useState<Place[]>([]);
   const [isPlaceDropdownOpen, setIsPlaceDropdownOpen] = useState(false);
+  const [showPersonalDetails, setShowPersonalDetails] = useState(false);
 
   const genderOptions = ['Male', 'Female', 'Other'];
   const predictionTypeOptions = ['Bullet', 'Paragraph'];
@@ -141,6 +181,22 @@ const AddNewMember = () => {
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
+
+  // Cleanup: Close all modals when component unmounts
+  useEffect(() => {
+    return () => {
+      closeAllModals();
+    };
+  }, []);
+
+  // Close modals when navigation focus changes
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      closeAllModals();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   // Convert places to dropdown format
   const getDropdownData = (): DropdownItem[] => {
@@ -460,16 +516,16 @@ const AddNewMember = () => {
         // Check if we came from MemberPlanManagement
         const fromMemberPlanManagement = route.params?.fromMemberPlanManagement;
 
-        // Step 1: Handle payment only if fromMemberPlanManagement is true
-        if (fromMemberPlanManagement) {
-          const paymentSuccessful = await handlePayment();
+        // // Step 1: Handle payment only if fromMemberPlanManagement is true
+        // if (fromMemberPlanManagement) {
+        //   const paymentSuccessful = await handlePayment();
           
-          if (!paymentSuccessful) {
-            // Payment failed or was cancelled, stop here
-            helpers.setSubmitting(false);
-            return;
-          }
-        }
+        //   if (!paymentSuccessful) {
+        //     // Payment failed or was cancelled, stop here
+        //     helpers.setSubmitting(false);
+        //     return;
+        //   }
+        // }
 
         // Step 2: Proceed with creating birth data (for both flows)
         const response = await createBirthData(values);
@@ -634,6 +690,8 @@ const AddNewMember = () => {
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          nestedScrollEnabled={true}
         >
           {/* Header */}
           <View style={styles.headerWrap}>
@@ -666,7 +724,7 @@ const AddNewMember = () => {
                   },
                 ]}
               >
-                Add Details
+                Enter Your Birth Details
               </Text>
             </View>
           </View>
@@ -725,6 +783,11 @@ const AddNewMember = () => {
                 value={formik.values.firstName}
                 onChangeText={formik.handleChange('firstName')}
                 onBlur={formik.handleBlur('firstName')}
+                onFocus={() => {
+                  if (isPlaceDropdownOpen) {
+                    setIsPlaceDropdownOpen(false);
+                  }
+                }}
               />
               {formik.touched.firstName && formik.errors.firstName && (
                 <Text style={styles.errorText}>{formik.errors.firstName}</Text>
@@ -756,6 +819,11 @@ const AddNewMember = () => {
                 value={formik.values.lastName}
                 onChangeText={formik.handleChange('lastName')}
                 onBlur={formik.handleBlur('lastName')}
+                onFocus={() => {
+                  if (isPlaceDropdownOpen) {
+                    setIsPlaceDropdownOpen(false);
+                  }
+                }}
               />
               {formik.touched.lastName && formik.errors.lastName && (
                 <Text style={styles.errorText}>{formik.errors.lastName}</Text>
@@ -776,7 +844,7 @@ const AddNewMember = () => {
                         : colors.borderColor,
                   },
                 ]}
-                onPress={() => setShowGenderModal(true)}
+                onPress={openGenderModal}
               >
                 <Text
                   style={[
@@ -827,7 +895,7 @@ const AddNewMember = () => {
                         : colors.borderColor,
                   },
                 ]}
-                onPress={() => setShowPredictionTypeModal(true)}
+                onPress={openPredictionTypeModal}
               >
                 <Text
                   style={[
@@ -881,7 +949,7 @@ const AddNewMember = () => {
                         : colors.borderColor,
                   },
                 ]}
-                onPress={() => setShowDatePicker(true)}
+                onPress={openDatePicker}
               >
                 <Text
                   style={[
@@ -933,7 +1001,7 @@ const AddNewMember = () => {
                         : colors.borderColor,
                   },
                 ]}
-                onPress={() => setShowTimePicker(true)}
+                onPress={openTimePicker}
               >
                 <Text
                   style={[
@@ -986,7 +1054,7 @@ const AddNewMember = () => {
                   },
                 ]}
                 onPress={() => {
-                  setIsPlaceDropdownOpen(!isPlaceDropdownOpen);
+                  togglePlaceDropdown();
                   if (!isPlaceDropdownOpen && searchQuery.trim()) {
                     searchPlaces(searchQuery);
                   }
@@ -1116,7 +1184,7 @@ const AddNewMember = () => {
                         ]}
                         onPress={() => {
                           handlePlaceSelect(item);
-                          setIsPlaceDropdownOpen(false);
+                          closeAllModals();
                         }}
                         activeOpacity={0.7}
                       >
@@ -1146,39 +1214,105 @@ const AddNewMember = () => {
               )}
             </View>
 
-            {/* What Do You Do */}
+            {/* Personal Details Toggle Section */}
             <View style={styles.inputContainer}>
-              <TextInput
+              <Text
                 style={[
-                  styles.textAreaInput,
+                  styles.inputTitleText,
                   {
-                    backgroundColor:
-                      theme === 'dark' ? colors.cardBackground : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeBorderDropdown
-                        : colors.borderColor,
                     color:
                       theme === 'dark'
                         ? colors.themeTextWhite
                         : colors.DarkNavy,
+                    // marginTop: responsiveWidth(3),
                   },
                 ]}
-                placeholder="Personalized predictions depend on the level of details shared by you - more precise, accurate, and comprehensive details will help generate relatable predictions."
-                placeholderTextColor={
-                  theme === 'dark' ? colors.themeTextWhite : colors.grayText
-                }
-                value={formik.values.whatDoYouDo}
-                onChangeText={formik.handleChange('whatDoYouDo')}
-                onBlur={formik.handleBlur('whatDoYouDo')}
-                multiline={true}
-                numberOfLines={5}
-                textAlignVertical="top"
-              />
-              {formik.touched.whatDoYouDo && formik.errors.whatDoYouDo && (
-                <Text style={styles.errorText}>
-                  {formik.errors.whatDoYouDo}
+              >
+                For Hyper-Personal Predictions, please fill in the details
+                below. You can amend these details at any time. The next
+                fortnightly predictions will include the updated information.
+              </Text>
+              <View style={styles.toggleContainer}>
+                <Switch
+                  value={showPersonalDetails}
+                  style={{
+                    marginRight: Platform.OS === 'ios' ? responsiveWidth(5) : responsiveWidth(2),
+                  }}
+                  onValueChange={setShowPersonalDetails}
+                  trackColor={{
+                    false: theme === 'dark' ? colors.borderColor : '#E0E0E0',
+                    true: colors.Orangeaccentcolor,
+                  }}
+                  thumbColor={
+                    showPersonalDetails
+                      ? colors.white
+                      : theme === 'dark'
+                      ? colors.themeTextWhite
+                      : '#F4F3F4'
+                  }
+                  ios_backgroundColor={
+                    theme === 'dark' ? colors.borderColor : '#E0E0E0'
+                  }
+                />
+                <Text
+                  style={[
+                    styles.toggleLabel,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Personal Details
                 </Text>
+              </View>
+
+              {/* What Do You Do - Only show when toggle is ON */}
+              {showPersonalDetails && (
+                <>
+                  <TextInput
+                    style={[
+                      styles.textAreaInput,
+                      {
+                        backgroundColor:
+                          theme === 'dark'
+                            ? colors.cardBackground
+                            : colors.white,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeBorderDropdown
+                            : colors.borderColor,
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                        marginTop: responsiveWidth(2),
+                      },
+                    ]}
+                    placeholder="Personalized predictions depend on the level of details shared by you - more precise, accurate, and comprehensive details will help generate relatable predictions."
+                    placeholderTextColor={
+                      theme === 'dark' ? colors.themeTextWhite : colors.grayText
+                    }
+                    value={formik.values.whatDoYouDo}
+                    onChangeText={formik.handleChange('whatDoYouDo')}
+                    onBlur={formik.handleBlur('whatDoYouDo')}
+                    onFocus={() => {
+                      if (isPlaceDropdownOpen) {
+                        setIsPlaceDropdownOpen(false);
+                      }
+                    }}
+                    multiline={true}
+                    numberOfLines={5}
+                    textAlignVertical="top"
+                  />
+                  {formik.touched.whatDoYouDo && formik.errors.whatDoYouDo && (
+                    <Text style={styles.errorText}>
+                      {formik.errors.whatDoYouDo}
+                    </Text>
+                  )}
+                </>
               )}
             </View>
 
@@ -1213,7 +1347,7 @@ const AddNewMember = () => {
                   ? 'Processing Payment...'
                   : formik.isSubmitting
                   ? 'Saving...'
-                  : 'Add Details'}
+                  : 'Continue'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1225,12 +1359,12 @@ const AddNewMember = () => {
         visible={showGenderModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowGenderModal(false)}
+        onRequestClose={closeAllModals}
       >
         <TouchableOpacity
           activeOpacity={1}
           style={styles.modalBackdrop}
-          onPress={() => setShowGenderModal(false)}
+          onPress={closeAllModals}
         >
           <View
             style={[
@@ -1263,7 +1397,7 @@ const AddNewMember = () => {
                   ]}
                   onPress={() => {
                     formik.setFieldValue('gender', item);
-                    setShowGenderModal(false);
+                    closeAllModals();
                   }}
                 >
                   <Text
@@ -1307,12 +1441,12 @@ const AddNewMember = () => {
         visible={showPredictionTypeModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowPredictionTypeModal(false)}
+        onRequestClose={closeAllModals}
       >
         <TouchableOpacity
           activeOpacity={1}
           style={styles.modalBackdrop}
-          onPress={() => setShowPredictionTypeModal(false)}
+          onPress={closeAllModals}
         >
           <View
             style={[
@@ -1346,7 +1480,7 @@ const AddNewMember = () => {
                   ]}
                   onPress={() => {
                     formik.setFieldValue('predictionType', item);
-                    setShowPredictionTypeModal(false);
+                    closeAllModals();
                   }}
                 >
                   <Text
@@ -1398,12 +1532,12 @@ const AddNewMember = () => {
           maximumDate={new Date()}
           theme={'light'}
           onConfirm={date => {
-            setShowDatePicker(false);
+            closeAllModals();
             setSelectedDate(date);
             formik.setFieldValue('dateOfBirth', formatDate(date));
           }}
           onCancel={() => {
-            setShowDatePicker(false);
+            closeAllModals();
           }}
         />
       )}
@@ -1453,7 +1587,7 @@ const AddNewMember = () => {
               >
                 <TouchableOpacity
                   onPress={() => {
-                    setShowDatePicker(false);
+                    closeAllModals();
                     setIosTempDate(null);
                   }}
                 >
@@ -1476,7 +1610,7 @@ const AddNewMember = () => {
                     const finalDate = iosTempDate || selectedDate || new Date();
                     setSelectedDate(finalDate);
                     formik.setFieldValue('dateOfBirth', formatDate(finalDate));
-                    setShowDatePicker(false);
+                    closeAllModals();
                     setIosTempDate(null);
                   }}
                 >
@@ -1515,12 +1649,12 @@ const AddNewMember = () => {
           // is24Hour={false}
           theme={'light'}
           onConfirm={time => {
-            setShowTimePicker(false);
+            closeAllModals();
             setSelectedTime(time);
             formik.setFieldValue('timeOfBirth', formatTime(time));
           }}
           onCancel={() => {
-            setShowTimePicker(false);
+            closeAllModals();
           }}
         />
       )}
@@ -1570,7 +1704,7 @@ const AddNewMember = () => {
               >
                 <TouchableOpacity
                   onPress={() => {
-                    setShowTimePicker(false);
+                    closeAllModals();
                     setIosTempTime(null);
                   }}
                 >
@@ -1593,7 +1727,7 @@ const AddNewMember = () => {
                     const finalTime = iosTempTime || selectedTime || new Date();
                     setSelectedTime(finalTime);
                     formik.setFieldValue('timeOfBirth', formatTime(finalTime));
-                    setShowTimePicker(false);
+                    closeAllModals();
                     setIosTempTime(null);
                   }}
                 >
@@ -1654,8 +1788,8 @@ const AddNewMember = () => {
                 },
               ]}
             >
-              Please check your details. Only Personal details can be edited
-              later — all other fields are final
+              Please check your details. Only personal details can be edited
+              later. The birth details are final
             </Text>
             <View style={styles.confirmModalButtons}>
               <TouchableOpacity
@@ -1744,7 +1878,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'android' ? 60 : 60,
+    // paddingBottom: Platform.OS === 'android' ? 60 : 60,
   },
   headerWrap: {
     flexDirection: 'row',
@@ -1786,6 +1920,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     paddingHorizontal: 20,
+    marginBottom: responsiveWidth(5),
   },
   formContainerTitle: {
     marginBottom: 20,
@@ -1801,8 +1936,27 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     textAlign: 'center',
   },
+  toggleContainer: {
+    flexDirection: 'row',
+    // justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: responsiveWidth(2),
+  },
+  toggleLabel: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600',
+  },
   inputContainer: {
     marginBottom: 20,
+  },
+  inputTitleText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600',
+    // color: color.themeTextWhite,
+    marginBottom: 10,
+    marginLeft: 10,
   },
   input: {
     backgroundColor: 'rgba(34, 49, 73, 1)',
@@ -1871,7 +2025,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: responsiveWidth('2.5'),
     // alignItems: 'center',
-    marginTop: responsiveWidth('3%'),
+    // marginTop: responsiveWidth('3%'),
     marginBottom: responsiveWidth('20%'),
   },
   saveButtonText: {

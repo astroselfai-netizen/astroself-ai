@@ -14,6 +14,7 @@ import {
   StatusBar,
   Modal,
   FlatList,
+  Switch,
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
@@ -39,7 +40,6 @@ import { useTheme } from '../../context/ThemeContext';
 import HomeImageSlider from '../../components/HomeImageSlider';
 import { baseURL } from '../../utils/http';
 import LottieView from 'lottie-react-native';
-import FreePointsModal from '../../components/FreePointsModal';
 import { getCardIcon } from '../../utils/cardIconMapper';
 // Removed BlurView to avoid external dependency for blur
 
@@ -61,6 +61,12 @@ export type RootStackParamList = {
   NakshatraScreen: undefined;
   ResourcesScreen: undefined;
   SettingsScreen: undefined;
+  PurchasedHistoryScreen: undefined;
+  HelpCenterScreen: undefined;
+  FaqsScreen: undefined;
+  PrivacyPolicyScreen: undefined;
+  TermsAndConditions: undefined;
+  AboutUsScreen: undefined;
 };
 
 type HomeScreenNavigationProp = StackNavigationProp<
@@ -237,7 +243,17 @@ const HomeScreen = () => {
   const userService = serviceFactory.get<UserService>('UserService');
   const [_currentGroup, setCurrentGroup] = useState(0);
   const { membersData, loading, refreshProfileData } = useProfileData();
-  const { theme, colors } = useTheme();
+  const { theme, colors, toggleTheme } = useTheme();
+  const [darkMode, setDarkMode] = useState(theme === 'dark');
+
+  // Sync local state with theme context
+  React.useEffect(() => {
+    setDarkMode(theme === 'dark');
+  }, [theme]);
+
+  const handleThemeToggle = () => {
+    toggleTheme();
+  };
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [titleContainerLayout, setTitleContainerLayout] = useState<{
@@ -247,7 +263,6 @@ const HomeScreen = () => {
     height: number;
   } | null>(null);
   const titleContainerRef = useRef<View>(null);
-  const [showFreePointsModal, setShowFreePointsModal] = useState(false);
 
   // Debug membersData whenever it changes
   useEffect(() => {
@@ -518,40 +533,6 @@ const HomeScreen = () => {
     }
   }, [membersData, userService, loading, fetchDasha]);
 
-  // Check if free points modal should be shown after login
-  useEffect(() => {
-    const checkAndShowFreePointsModal = async () => {
-      try {
-        const shouldShow = await AsyncStorage.getItem('SHOW_FREE_POINTS_MODAL');
-        if (shouldShow === 'true') {
-          // Get current user ID
-          const userDataStr = await AsyncStorage.getItem('USER_DATA');
-          if (userDataStr) {
-            const userData = JSON.parse(userDataStr);
-            const userId = userData._id || userData.user_id || userData.id;
-            if (userId) {
-              // Mark this user as having seen the modal
-              await AsyncStorage.setItem(
-                `FREE_POINTS_MODAL_SEEN_${userId}`,
-                'true',
-              );
-
-              // Show modal after a short delay to let the screen load
-              setTimeout(() => {
-                setShowFreePointsModal(true);
-              }, 500);
-
-              // Remove the temporary flag
-              await AsyncStorage.removeItem('SHOW_FREE_POINTS_MODAL');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error checking free points modal flag:', error);
-      }
-    };
-    checkAndShowFreePointsModal();
-  }, []);
 
   // Refresh data every time the Home screen is focused
   useFocusEffect(
@@ -594,6 +575,16 @@ const HomeScreen = () => {
     setCurrentGroup(group);
   };
 
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.multiRemove(['USER_TOKEN', 'USER_DATA']);
+    } catch (e) {
+      // noop
+    } finally {
+      (navigation as any).reset({ index: 0, routes: [{ name: 'Login' }] });
+    }
+  };
+
   const handleCardPress = (cardValue: string) => {
     console.log('Card pressed:', cardValue);
     
@@ -619,19 +610,40 @@ const HomeScreen = () => {
       case 'settings':
         navigation.navigate('SettingsScreen');
         break;
+      case 'darkMode':
+        toggleTheme();
+        break;
+      case 'purchaseHistory':
+        navigation.navigate('PurchasedHistoryScreen');
+        break;
+      case 'helpCenter':
+        navigation.navigate('HelpCenterScreen');
+        break;
+      case 'faqs':
+        navigation.navigate('FaqsScreen');
+        break;
+      case 'privacyPolicy':
+        navigation.navigate('PrivacyPolicyScreen');
+        break;
+      case 'termsOfServices':
+        navigation.navigate('TermsAndConditions');
+        break;
+      case 'aboutUs':
+        navigation.navigate('AboutUsScreen');
+        break;
       default:
         console.log('Unknown card value:', cardValue);
     }
   };
 
   const cardsData = [
-    {
-      id: 1,
-      title: 'Tasks',
-      value: 'task',
-      icon: getCardIcon('Task', 'task'),
-      subtitle: undefined,
-    },
+    // {
+    //   id: 1,
+    //   title: 'Tasks',
+    //   value: 'task',
+    //   icon: getCardIcon('Task', 'task'),
+    //   subtitle: undefined,
+    // },
     {
       id: 2,
       title: 'Charts',
@@ -639,13 +651,13 @@ const HomeScreen = () => {
       icon: getCardIcon('Chart', 'chart'),
       subtitle: undefined,
     },
-    {
-      id: 3,
-      title: 'Profile',
-      value: 'profile',
-      icon: getCardIcon('Profile', 'profile'),
-      subtitle: undefined,
-    },
+    // {
+    //   id: 3,
+    //   title: 'Profile',
+    //   value: 'profile',
+    //   icon: getCardIcon('Profile', 'profile'),
+    //   subtitle: undefined,
+    // },
     {
       id: 4,
       title: 'Plans',
@@ -660,18 +672,68 @@ const HomeScreen = () => {
       icon: getCardIcon('Resources', 'resources'),
       subtitle: undefined,
     },
+    // {
+    //   id: 6,
+    //   title: 'Reports',
+    //   value: 'report',
+    //   icon: getCardIcon('Report', 'report'),
+    //   subtitle: undefined,
+    // },
+    // {
+    //   id: 7,
+    //   title: 'Settings',
+    //   value: 'settings',
+    //   icon: getCardIcon('Settings', 'settings'),
+    //   subtitle: undefined,
+    // },
+    // Settings options from SettingsScreen
     {
-      id: 6,
-      title: 'Reports',
-      value: 'report',
-      icon: getCardIcon('Report', 'report'),
+      id: 8,
+      title: 'Dark Mode',
+      value: 'darkMode',
+      icon: require('../../assets/icons/Dark-Mode.png'),
       subtitle: undefined,
     },
     {
-      id: 7,
-      title: 'Settings',
-      value: 'settings',
-      icon: getCardIcon('Settings', 'settings'),
+      id: 9,
+      title: 'Purchase History',
+      value: 'purchaseHistory',
+      icon: require('../../assets/icons/Purchased-History.png'),
+      subtitle: undefined,
+    },
+    {
+      id: 10,
+      title: 'Help Center',
+      value: 'helpCenter',
+      icon: require('../../assets/icons/info.png'),
+      subtitle: undefined,
+    },
+    {
+      id: 11,
+      title: 'Faqs',
+      value: 'faqs',
+      icon: require('../../assets/icons/Faqs.png'),
+      subtitle: undefined,
+    },
+    {
+      id: 12,
+      title: 'Privacy & Policy',
+      value: 'privacyPolicy',
+      icon: require('../../assets/icons/document.png'),
+      subtitle: undefined,
+    },
+    {
+      id: 13,
+      title: 'Terms of Services',
+      value: 'termsOfServices',
+      icon: require('../../assets/icons/Terms-of-Services.png'),
+      subtitle: undefined,
+    },
+    {
+      id: 14,
+      title: 'About us',
+      value: 'aboutUs',
+      icon: require('../../assets/icons/About-us.png'),
       subtitle: undefined,
     },
   ];
@@ -859,7 +921,7 @@ const HomeScreen = () => {
             </View> */}
 
             {/* Mahadasha Card */}
-            <ImageBackground
+            {/* <ImageBackground
               source={
                 theme === 'dark'
                   ? require('../../assets/image/DarkBackground.png')
@@ -971,7 +1033,7 @@ const HomeScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Modal Overlay with Dropdown positioned below title */}
+                
                 <Modal
                   visible={isMemberDropdownOpen}
                   transparent={true}
@@ -1056,7 +1118,7 @@ const HomeScreen = () => {
                   </TouchableOpacity>
                 </Modal>
 
-                {/* Dasha Data */}
+              
                 {membersData?.length > 0 ? (
                   <>
                     {dashaLoading ? (
@@ -1167,18 +1229,6 @@ const HomeScreen = () => {
                         ))}
                       </ScrollView>
                     )}
-                    {/* Dots indicator (grouped by 3) */}
-                    {/* <View style={styles.dotsContainer}>
-                      {Array.from({ length: numGroups }).map((_, idx) => (
-                        <View
-                          key={idx}
-                          style={[
-                            styles.dot,
-                            { opacity: currentGroup === idx ? 1 : 0.4 },
-                          ]}
-                        />
-                      ))}
-                    </View> */}
                   </>
                 ) : (
                   <View style={styles.emptyStateContainer}>
@@ -1233,7 +1283,7 @@ const HomeScreen = () => {
                   </View>
                 )}
               </View>
-            </ImageBackground>
+            </ImageBackground> */}
             {/* overlay view */}
             {/* <View style={styles.overlayContainer}>
               
@@ -1809,8 +1859,8 @@ const HomeScreen = () => {
               style={[
                 styles.newHomeContainer,
                 {
-                  backgroundColor:
-                    theme === 'dark' ? colors.primary : colors.white,
+                  // backgroundColor:
+                  //   theme === 'dark' ? colors.primary : colors.white,
                   borderColor:
                     theme === 'dark'
                       ? colors.themeBorderDropdown
@@ -1821,43 +1871,58 @@ const HomeScreen = () => {
               <View style={styles.content}>
                 <View style={styles.cardsGrid}>
                   {cardsData.map(card => (
-                    <TouchableOpacity
+                    <View
                       key={card.id}
                       style={[
                         styles.card,
                         {
                           backgroundColor:
-                            theme === 'dark' ? colors.DarkNavy : colors.surface,
+                            theme === 'dark' ? colors.DarkNavy : colors.white,
                           borderColor:
                             theme === 'dark'
-                              ? colors.themeBorderDropdown
+                              ? colors.themeTextWhite
                               : colors.borderColor,
-                          // boxShadow: theme === 'dark' ? '' : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
+                          borderWidth: theme === 'dark' ? 1 : 1,
+                          boxShadow:
+                            theme === 'dark'
+                              ? '0px 0px 10px rgba(255, 255, 255, 0.35) inset'
+                              : '0px 0px 10px rgba(0, 0, 0, 0.35) inset',
                         },
                       ]}
-                      onPress={() => handleCardPress(card.value)}
-                      activeOpacity={0.7}
                     >
-                      <View style={styles.cardIconContainer}>
-                        {/* <Image source={card.icon} style={styles.cardIcon} /> */}
-                      </View>
-                      <Text
-                        style={[
-                          styles.cardText,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
+                      <TouchableOpacity
+                        style={styles.cardContent}
+                        onPress={() => card.value !== 'darkMode' && handleCardPress(card.value)}
+                        activeOpacity={card.value === 'darkMode' ? 1 : 0.7}
+                        disabled={card.value === 'darkMode'}
                       >
-                        {card.title}
-                      </Text>
-                      {card.subtitle && (
+                        <View style={styles.cardIconContainer}>
+                          {card.value === 'darkMode' ? (
+                            <Switch
+                              value={darkMode}
+                              onValueChange={handleThemeToggle}
+                              trackColor={{ false: '#767577', true: colors.accent }}
+                              thumbColor={darkMode ? '#fff' : '#f4f3f4'}
+                              style={styles.switch}
+                            />
+                          ) : (
+                            <Image
+                              source={card.icon}
+                              style={[
+                                styles.cardIcon,
+                                {
+                                  tintColor:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            />
+                          )}
+                        </View>
                         <Text
                           style={[
-                            styles.cardSubtitle,
+                            styles.cardText,
                             {
                               color:
                                 theme === 'dark'
@@ -1866,53 +1931,47 @@ const HomeScreen = () => {
                             },
                           ]}
                         >
-                          {card.subtitle}
+                          {card.title}
                         </Text>
-                      )}
-                    </TouchableOpacity>
+                        {card.subtitle && (
+                          <Text
+                            style={[
+                              styles.cardSubtitle,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {card.subtitle}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   ))}
                 </View>
               </View>
+              {/* Logout Button */}
+              <TouchableOpacity
+                style={styles.logoutBtn}
+                activeOpacity={0.7}
+                onPress={handleLogout}
+              >
+                <Image
+                  source={require('../../assets/icons/Log-out.png')}
+                  style={[styles.logoutIcon, { tintColor: colors.accent }]}
+                />
+                <Text style={[styles.logoutText, { color: colors.accent }]}>
+                  Logout
+                </Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         </MainContainer>
       </KeyboardAvoidingView>
 
-      {/* Free Points Modal */}
-      <FreePointsModal
-        visible={showFreePointsModal}
-        onClose={async () => {
-          setShowFreePointsModal(false);
-
-          // Navigate to ChatWithPrompts after modal closes
-          try {
-            // Navigate to ChatTab with ChatWithPrompts
-            setTimeout(() => {
-              const rootNavigation = navigation.getParent();
-              if (rootNavigation) {
-                (rootNavigation as any).navigate('ChatTab', {
-                  screen: 'ChatWithPrompts',
-                  params: {
-                    userId: membersData[0]?.id,
-                    cardTitles: 'Snapshot Prediction',
-                    tab: 'LifeNow',
-                    planet: null,
-                  },
-                });
-              } else {
-                navigation.navigate('ChatWithPrompts' as any, {
-                  userId: membersData[0]?.id,
-                  cardTitles: 'Snapshot Prediction',
-                  tab: 'LifeNow',
-                  planet: null,
-                });
-              }
-            }, 10);
-          } catch (error) {
-            console.error('Error navigating to ChatWithPrompts:', error);
-          }
-        }}
-      />
     </View>
   );
 };
@@ -2806,8 +2865,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   newHomeContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(238, 229, 202, 1)',
+    // flex: 1,
+    // backgroundColor: 'rgba(238, 229, 202, 1)',
     paddingHorizontal: responsiveWidth(3),
     marginHorizontal: responsiveWidth(2),
     marginTop: responsiveHeight(2),
@@ -2829,13 +2888,21 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#223149',
-    borderRadius: 20,
+    borderRadius: 14,
+    borderWidth: 0.2,
     padding: responsiveWidth(2),
     alignItems: 'center',
     justifyContent: 'center',
     width: '48%',
     height: responsiveHeight(9),
     marginBottom: responsiveHeight(1.5),
+    position: 'relative',
+  },
+  cardContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   cardIconContainer: {
     marginBottom: responsiveHeight(1),
@@ -2843,8 +2910,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardIcon: {
-    width: responsiveWidth(15),
-    height: responsiveWidth(15),
+    width: responsiveWidth(7),
+    height: responsiveWidth(7),
   },
   cardText: {
     color: color.themeTextWhite,
@@ -2860,6 +2927,31 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     textAlign: 'center',
     letterSpacing: -0.14,
+  },
+  switch: {
+    transform: [{ scaleX: 1 }, { scaleY: 1 }],
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    borderColor: color.Orangeaccentcolor,
+    justifyContent: 'center',
+    // marginHorizontal: responsiveWidth(5),
+    marginBottom: Platform.OS === 'android' ? responsiveHeight(1) : responsiveHeight(2),
+    marginTop: responsiveHeight(2),
+    paddingVertical: responsiveWidth(2),
+  },
+  logoutIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+    marginRight: responsiveWidth(5),
+  },
+  logoutText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
   },
 });
 

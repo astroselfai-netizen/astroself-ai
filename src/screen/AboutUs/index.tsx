@@ -40,6 +40,33 @@ const AboutUsScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<AboutUsScreenNavigationProp>();
 
+  const features = [
+    'Vedic Astrology',
+    'Planetary Patterns',
+    'Repetition Logic',
+    'Birth Chart Signatures',
+    'Transits',
+    'Nakshatras',
+    'Padas',
+    'Real-Life Updates',
+  ];
+
+  const experiencePoints = [
+    "you're taking small steps toward alignment",
+    "you're reconnecting with your strengths",
+    "something inside you feels understood",
+    "you're being guided, not judged",
+    "you're gaining clarity, not fear",
+    "you're discovering your own patterns",
+  ];
+
+  const missionStatements = [
+    'To help people understand themselves— softly, honestly, and consistently.',
+    'To offer guidance that grows with them.',
+    'To become a quiet presence that encourages reflection',
+    'To bring ancient wisdom and modern intelligence together in the service of inner clarity.',
+  ];
+
   return (
     <ImageBackground
       source={
@@ -58,11 +85,10 @@ const AboutUsScreen = () => {
 
       <MainContainer>
         {/* Header */}
-        <View style={styles.headerRow}>
+        <View style={styles.headerWrap}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backBtn}
-            activeOpacity={0.7}
           >
             <Image
               source={require('../../assets/icons/back.png')}
@@ -70,159 +96,522 @@ const AboutUsScreen = () => {
                 styles.backIcon,
                 {
                   tintColor:
-                    theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             />
           </TouchableOpacity>
-          <View style={styles.headerCenter}>
+          <View style={styles.backIconWrap}>
             <Text
               style={[
-                styles.headerTitle,
+                styles.topBarText,
                 {
                   color:
                     theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
-              About Astroself AI
+              About Astroself.Ai
             </Text>
           </View>
         </View>
 
-        {/* Main Content Card */}
+        {/* Main Content */}
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Top Banner with Logo and Title */}
+          {/* Why we built this app Section */}
+          <View style={styles.whyWeBuiltSection}>
+            <View style={styles.whyWeBuiltContent}>
+              {/* Chart Graphic - Left Side */}
+              <View style={styles.chartContainer}>
+                <Image
+                  source={require('../../assets/icons/About-us-img.png')}
+                  style={styles.chartImage}
+                />
+              </View>
 
+              {/* Text Content - Right Side */}
+            </View>
+            <View style={styles.whyWeBuiltTextContainer}>
+              {/* <Text
+                style={[
+                  styles.whyWeBuiltTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Why we built this app
+              </Text>
+              <Text
+                style={[
+                  styles.whyWeBuiltSubtitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.textSecondary || '#999'
+                        : colors.textSecondary || '#666',
+                  },
+                ]}
+              >
+                Most of us move through life with questions no one teaches us to
+                ask
+              </Text> */}
+              <View style={styles.questionsList}>
+                <Text
+                  style={[
+                    styles.questionItem,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Why do I react this way?
+                </Text>
+                <Text
+                  style={[
+                    styles.questionItem,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Where is my energy flowing right now?
+                </Text>
+                <Text
+                  style={[
+                    styles.questionItem,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  What am I naturally good at?
+                </Text>
+                <Text
+                  style={[
+                    styles.questionItem,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  What is shifting in me that I cannot see?
+                </Text>
+                <Text
+                  style={[
+                    styles.questionItem,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Why do certain patterns repeat?
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Traditional astrology card */}
           <View
             style={[
-              styles.contentCard,
+              styles.whiteCard,
               {
-                backgroundColor:
-                  theme === 'dark'
-                    ? colors.cardBackground
-                    : colors.surfaceOpacity,
+                backgroundColor: colors.white,
               },
             ]}
           >
-            {/* <View style={styles.topBanner}> */}
+            <Text
+              style={[
+                styles.cardText,
+                {
+                  color: colors.DarkNavy,
+                },
+              ]}
+            >
+              Traditional astrology offers answers
+            </Text>
+            <Text
+              style={[
+                styles.cardTextAccent,
+                {
+                  color: colors.Orangeaccentcolor,
+                },
+              ]}
+            >
+              AI offers clarity, speed, and structure.
+            </Text>
+          </View>
 
-            <Image
-              source={require('../../assets/icons/About-us-img.png')}
-              style={styles.zodiacWheel}
-            />
+          {/* App Purpose Statement */}
+          <View style={styles.purposeStatement}>
+            <Text
+              style={[
+                styles.purposeText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              We created this app to bring both worlds together—
+            </Text>
+            <Text
+              style={[
+                styles.purposeText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              not to predict your future,
+            </Text>
+            <Text
+              style={[
+                styles.purposeText,
+                {
+                  color: colors.Orangeaccentcolor,
+                },
+              ]}
+            >
+              but to help you understand your inner world.
+            </Text>
+          </View>
 
-            {/* </View> */}
-
-            {/* Main Content - No Card, Direct on Background */}
-            <View style={styles.mainContent}>
-              {/* Introduction Paragraphs */}
-              <View style={styles.introSection}>
-                <Text
-                  style={[styles.introText, { color: colors.themeTextWhite }]}
-                >
-                  At Astroself, we believe that the universe holds the key to
-                  self discovery and growth. Astrology is not just about
-                  predicting the future it is about understanding yourself, your
-                  challenges, and your opportunities through the wisdom of the
-                  stars.
-                </Text>
-
-                <Text
-                  style={[styles.introText, { color: colors.themeTextWhite }]}
-                >
-                  Founded with the vision of blending ancient astrological
-                  knowledge with modern technology, Astroself is designed to
-                  make accurate guidance simple, accessible, and personalized
-                  for everyone. Whether you seek clarity in relationships,
-                  career, health, or personal growth, our platform provides
-                  insights that help you make confident decisions and live in
-                  harmony with cosmic rhythms.
-                </Text>
-
-                <Text
-                  style={[styles.introText, { color: colors.themeTextWhite }]}
-                >
-                  Our team of expert astrologers, supported by advanced digital
-                  tools, ensures that every prediction and reading is
-                  meaningful, reliable, and easy to understand. We are committed
-                  to guiding you on a journey of self awareness, helping you
-                  unlock your true potential and align with the universe's flow.
-                </Text>
-
-                <Text
-                  style={[styles.introText, { color: colors.themeTextWhite }]}
-                >
-                  At Astroself, we don't just predict we empower.
-                </Text>
-              </View>
-
-              {/* Vision Section */}
-              <View style={styles.visionSection}>
-                <View style={styles.visionContent}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      { color: colors.themeTextWhite },
-                    ]}
-                  >
-                    Vision
-                  </Text>
-                  <Text
-                    style={[
-                      styles.sectionText,
-                      { color: colors.themeTextWhite },
-                    ]}
-                  >
-                    To be the most trusted global platform that empowers
-                    individuals to connect with the wisdom of the cosmos,
-                    unlocking clarity, confidence, & harmony in their personal &
-                    spiritual journey.
-                  </Text>
-
-                  <View style={styles.visionImageContainer}>
-                    <Image
-                      source={require('../../assets/image/Vision.png')}
-                      style={styles.visionImage}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              {/* Mission Section */}
-              <View style={styles.missionSection}>
-                <View style={styles.missionContent}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      { color: colors.themeTextWhite },
-                    ]}
-                  >
-                    Mission
-                  </Text>
-                  <Text
-                    style={[
-                      styles.sectionText,
-                      { color: colors.themeTextWhite },
-                    ]}
-                  >
-                    Astroself blends ancient astrology with modern technology to
-                    deliver simple, accurate guidance that helps people realize
-                    their potential & live in harmony.
-                  </Text>
-                  <View style={styles.missionImageContainer}>
-                    <Image
-                      source={require('../../assets/image/Mission.png')}
-                      style={styles.missionImage}
-                    />
-                  </View>
-                </View>
-              </View>
+          {/* Astrology is not about fate card */}
+          <View
+            style={[
+              styles.whiteCard,
+              {
+                backgroundColor: colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.cardTitle,
+                {
+                  color: colors.DarkNavy,
+                },
+              ]}
+            >
+              Astrology is not about fate. It is about awareness.
+            </Text>
+            <Text
+              style={[
+                styles.cardBodyText,
+                {
+                  color: colors.DarkNavy,
+                },
+              ]}
+            >
+              It teaches us where our strengths lie, where we get stuck, and
+              what part of us is calling for attention. AI helps decode these
+              patterns quickly and clearly, so you can see yourself from a wider
+              lens—without complexity or confusion.
+            </Text>
+            <View style={styles.quoteContainer}>
+              <View
+                style={[
+                  styles.quoteLine,
+                  {
+                    backgroundColor: colors.Orangeaccentcolor,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.quoteText,
+                  {
+                    color: colors.DarkNavy,
+                  },
+                ]}
+              >
+                "This app exists to hold up a mirror, gently revealing what you
+                might overlook in the rush of daily life"
+              </Text>
             </View>
+          </View>
+
+          {/* Interactive Mode Buttons */}
+          <View style={styles.modeButtonsContainer}>
+            {['Gentle', 'Modern', 'Guided', 'Ancient'].map(mode => (
+              <View
+                key={mode}
+                style={[
+                  styles.modeButton,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modeButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  {mode}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* What Makes Us Different Section */}
+          <View style={styles.differentSection}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              What Makes Us Different
+            </Text>
+            <Text
+              style={[
+                styles.sectionSubtitle,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.textSecondary || '#999'
+                      : colors.textSecondary || '#666',
+                },
+              ]}
+            >
+              We are not here to entertain. We are here to support your
+              awareness journey.
+            </Text>
+
+            {/* Features Grid */}
+            <View style={styles.featuresGrid}>
+              {features.map((feature, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.featureCard,
+                    {
+                      backgroundColor: colors.white,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.featureText,
+                      {
+                        color: colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {feature}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <Text
+              style={[
+                styles.featuresFooter,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.textSecondary || '#999'
+                      : colors.textSecondary || '#666',
+                },
+              ]}
+            >
+              To Create Reflections That Feel Personal, Grounded, And
+              Evolving—As You Evolve.
+            </Text>
+          </View>
+
+          {/* The Experience We Want You to Have Section */}
+          <View style={styles.experienceSection}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              The Experience We Want You to Have
+            </Text>
+            <View style={styles.experienceList}>
+              {experiencePoints.map((point, index) => (
+                <Text
+                  key={index}
+                  style={[
+                    styles.experiencePoint,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  {point}
+                </Text>
+              ))}
+            </View>
+          </View>
+
+          {/* Our Mission Section */}
+          <View style={styles.missionSection}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Our Mission
+            </Text>
+            <View
+              style={[
+                styles.whiteCard,
+                {
+                  backgroundColor: colors.white,
+                },
+              ]}
+            >
+              {missionStatements.map((statement, index) => (
+                <View key={index} style={styles.missionStatementContainer}>
+                  <View
+                    style={[
+                      styles.missionQuoteLine,
+                      {
+                        backgroundColor: colors.Orangeaccentcolor,
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.missionStatement,
+                      {
+                        color: colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {statement}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* App Purpose Footer */}
+          <View style={styles.footerSection}>
+            <Text
+              style={[
+                styles.footerText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              If this app makes you feel even{' '}
+              <Text
+                style={[
+                  styles.footerAccent,
+                  {
+                    color: colors.Orangeaccentcolor,
+                  },
+                ]}
+              >
+                5% more understood,
+              </Text>
+            </Text>
+            <Text
+              style={[
+                styles.footerText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.footerAccent,
+                  {
+                    color: colors.Orangeaccentcolor,
+                  },
+                ]}
+              >
+                5% more grounded,
+              </Text>
+            </Text>
+            <Text
+              style={[
+                styles.footerText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.footerAccent,
+                  {
+                    color: colors.Orangeaccentcolor,
+                  },
+                ]}
+              >
+                5% more aware of your patterns
+              </Text>
+            </Text>
+            <Text
+              style={[
+                styles.footerText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              then it has fulfilled its purpose
+            </Text>
           </View>
         </ScrollView>
       </MainContainer>
@@ -231,36 +620,46 @@ const AboutUsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  backgroundImage: {
     flex: 1,
+    width: '100%',
+    height: '100%',
   },
   scrollViewContent: {
     flexGrow: 1,
-    minHeight: '100%',
     paddingBottom: Platform.OS === 'android' ? 70 : 70,
+    paddingHorizontal: responsiveWidth(4),
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     marginTop:
       Platform.OS === 'android'
         ? responsiveHeight('0.5%')
         : responsiveWidth('12%'),
-    // paddingHorizontal: responsiveWidth('2'),
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+    paddingHorizontal: responsiveWidth(5),
+    marginBottom: responsiveWidth(2),
     position: 'relative',
     minHeight: 50,
   },
+  backIconWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topBarText: {
+    fontSize: 24,
+    fontFamily: fontFamily.regular,
+    // fontWeight: '600',
+    color: '#F6EFD9',
+  },
   backBtn: {
-      // position: 'absolute',
-      left: responsiveWidth('5'),
-      // padding: 8,
-      // top:
-      //   Platform.OS === 'android'
-      //     ? responsiveWidth('11.5%')
-      //     : responsiveWidth('2%'),
-      // zIndex: 1,
+    padding: responsiveWidth(2),
+    marginRight: responsiveWidth(4),
+    zIndex: 10,
   },
   backIcon: {
     width: responsiveWidth(5),
@@ -268,145 +667,273 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     tintColor: '#FFFFFF',
   },
+  headerWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 60,
+    paddingHorizontal: 20,
+    // marginBottom: 20,
+    position: 'relative',
+  },
   headerCenter: {
-    flex: 1,
+    position: 'absolute',
+    left: 0,
+    right: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
+    pointerEvents: 'none',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
+    fontFamily: fontFamily.semiBold,
+    textAlign: 'center',
+  },
+  // Why we built this app Section
+  whyWeBuiltSection: {
+    marginTop: responsiveWidth(4),
+    marginBottom: responsiveWidth(4),
+    width: '100%',
+  },
+  whyWeBuiltContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: responsiveWidth(4),
+    width: '100%',
+  },
+  chartContainer: {
+    width: 408,
+    height: 180,
+    // flexShrink: 0,
+  },
+  chartImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  whyWeBuiltTextContainer: {
+    flex: 1,
+    paddingTop: responsiveWidth(1),
+    alignItems: 'center',
+  },
+  whyWeBuiltTitle: {
+    fontSize: 20,
+    fontFamily: fontFamily.semiBold,
+    marginBottom: responsiveWidth(2.5),
+    lineHeight: 28,
+  },
+  whyWeBuiltSubtitle: {
+    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    lineHeight: 22,
+    marginBottom: responsiveWidth(4),
+    opacity: 0.8,
+  },
+  questionsList: {
+    gap: responsiveWidth(2),
+  },
+  questionItem: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 24,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  // White Card Styles
+  whiteCard: {
+    borderRadius: 12,
+    padding: responsiveWidth(4),
+    marginBottom: responsiveWidth(4),
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    alignItems: 'center',
+  },
+  cardText: {
+    fontSize: 16,
+    fontFamily: fontFamily.semiBold,
+    marginBottom: responsiveWidth(1),
+    textAlign: 'center',
+  },
+  cardTextAccent: {
+    fontSize: 16,
     fontFamily: fontFamily.regular,
     textAlign: 'center',
   },
-  contentCard: {
-    borderRadius: 8,
-    marginHorizontal: responsiveWidth('4'),
-    marginTop: responsiveWidth('2%'),
-    borderWidth: 0.2,
-    borderColor: '#EEE5CA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    marginBottom: responsiveWidth('5%'),
-    // paddingVertical: Platform.OS === 'android' ? 10 : responsiveWidth('1'),
-    // paddingHorizontal: 20,
-    // shadowColor: '#000',
-    // shadowOffset: {
-    //   width: 0,
-    //   height: 2,
-    // },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 4,
-    // elevation: 3,
+  cardTitle: {
+    fontSize: 18,
+    fontFamily: fontFamily.semiBold,
+    marginBottom: responsiveWidth(2),
+    textAlign: 'center',
   },
-  section: {
-    marginBottom: 10,
+  cardBodyText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 22,
+    marginBottom: responsiveWidth(3),
+    textAlign: 'center',
+  },
+  quoteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: responsiveWidth(2),
+    width: '100%',
+    justifyContent: 'center',
+  },
+  quoteLine: {
+    width: 4,
+    height: '100%',
+    marginRight: responsiveWidth(2),
+    borderRadius: 2,
+  },
+  quoteText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontStyle: 'italic',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  // Purpose Statement
+  purposeStatement: {
+    marginBottom: responsiveWidth(4),
+    gap: responsiveWidth(1),
+    alignItems: 'center',
+  },
+  purposeText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  // Mode Buttons
+  modeButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: responsiveWidth(2),
+    marginBottom: responsiveWidth(5),
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: responsiveWidth(3),
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeButtonText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600',
+  },
+  // What Makes Us Different Section
+  differentSection: {
+    marginBottom: responsiveWidth(5),
+    alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontFamily: fontFamily.regular,
-    marginBottom: 10,
-    lineHeight: 24,
+    fontSize: 20,
+    fontFamily: fontFamily.semiBold,
+    marginBottom: responsiveWidth(2),
+    textAlign: 'center',
   },
-  sectionText: {
+  sectionSubtitle: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
     lineHeight: 20,
-    textAlign: 'left',
+    marginBottom: responsiveWidth(4),
+    textAlign: 'center',
   },
-  // New About Us Styles
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: responsiveWidth(2),
+    marginBottom: responsiveWidth(4),
   },
-  // Top Banner Styles
-  topBanner: {
-   
-   
+  featureCard: {
+    width: '48%',
+    padding: responsiveWidth(3),
+    borderRadius: 8,
+    marginBottom: responsiveWidth(2),
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: responsiveWidth(12),
   },
-
-  zodiacWheel: {
-    width:"100%",
-    height: responsiveHeight(18),
-    // borderRadius: 50,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    resizeMode: "cover",
-    // boxShadow: '3px 3px 3px 0px rgba(0, 0, 0, 0.35)',
-  },
-  titleContainer: {
-    flex: 1,
-  },
-  brandTitle: {
-    fontSize: 28,
-    fontFamily: fontFamily.bold,
-    color: '#FFFFFF',
-    textAlign: 'left',
-  },
-  // Main Content Styles
-  mainContent: {
-    paddingHorizontal: responsiveWidth(3),
-    paddingVertical: responsiveWidth(3),
-  },
-  introSection: {
-    // marginBottom: 10,
-  },
-  introText: {
+  featureText: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
-    lineHeight: 24,
-    marginBottom: 10,
-    textAlign: 'left',
+    textAlign: 'center',
   },
-  // Vision Section Styles
-  visionSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
+  featuresFooter: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
-  visionContent: {
-    flex: 1,
-    marginRight: 15,
+  // Experience Section
+  experienceSection: {
+    marginBottom: responsiveWidth(5),
+    alignItems: 'center',
   },
-  visionImageContainer: {
-    width: "105%",
-    height: 120,
-    marginTop: 10,
-    // marginRight: 15,
-    borderRadius: 8,
-    boxShadow: '3px 3px 3px 0px rgba(0, 0, 0, 0.35)',
-  },
-  visionImage: {
+  experienceList: {
+    gap: responsiveWidth(2),
+    marginTop: responsiveWidth(2),
+    alignItems: 'center',
     width: '100%',
-    height: '100%',
-    borderRadius: 8,
-    resizeMode: 'cover',
   },
-  // Mission Section Styles
+  experiencePoint: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  // Mission Section
   missionSection: {
+    marginBottom: responsiveWidth(5),
+    alignItems: 'center',
+  },
+  missionStatementContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    // marginBottom: 20,
-  },
-  missionImageContainer: {
-    width: "100%",
-    height: 120,
-    marginTop: 5,
-    marginRight: 15,
-    borderRadius: 8,
-    boxShadow: '3px 3px 3px 0px rgba(0, 0, 0, 0.35)',
-    // marginTop: 40,
-  },
-  missionImage: {
+    alignItems: 'center',
+    marginBottom: responsiveWidth(3),
     width: '100%',
-    height: '100%',
-    borderRadius: 8,
-    resizeMode: 'cover',
-
+    justifyContent: 'center',
   },
-  missionContent: {
+  missionQuoteLine: {
+    width: 4,
+    height: '100%',
+    marginRight: responsiveWidth(2),
+    borderRadius: 2,
+    minHeight: 20,
+  },
+  missionStatement: {
     flex: 1,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  // Footer Section
+  footerSection: {
+    marginBottom: responsiveWidth(5),
+    gap: responsiveWidth(1),
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  footerAccent: {
+    fontFamily: fontFamily.semiBold,
   },
 });
 

@@ -5,6 +5,32 @@
 export const getCardIcon = (title: string, value?: string): any => {
   const searchText = (value || title).toLowerCase();
 
+  console.log('searchText-->47', searchText);
+
+
+  if (searchText.includes('natal chart insights')) {
+    return require('../assets/icons/GeneralAnalysis/Personality.png');
+  }
+
+  if (searchText.includes('task')) {
+    return require('../assets/icons/home/Task.png');
+  }
+  if (searchText.includes('chart')) {
+    return require('../assets/icons/home/Chart.png');
+  }
+  if (searchText.includes('plans')) {
+    return require('../assets/icons/home/Plans.png');
+  }
+  if (searchText.includes('resources')) {
+    return require('../assets/icons/home/Resources.png');
+  }
+  if (searchText.includes('report')) {
+    return require('../assets/icons/home/Report.png');
+  }
+  if (searchText.includes('settings')) {
+    return require('../assets/icons/home/Setting.png');
+  }
+
   // LifeNow icons (CurrentSituation)
   if (searchText.includes('snapshot prediction')) {
     return require('../assets/icons/SnapshotPrediction/SnapshotPrediction.png');
@@ -21,6 +47,9 @@ export const getCardIcon = (title: string, value?: string): any => {
   if (searchText.includes('life on the horizon')) {
     return require('../assets/icons/chatIcons/Mahadasha-refined-analysis-chat.png');
   }
+
+  console.log('searchText-->44', searchText);
+
 
   // LifeView icons (GeneralAnalysis)
   if (searchText.includes('personality') && !searchText.includes('your')) {

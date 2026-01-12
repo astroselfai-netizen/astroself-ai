@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Image } from 'react-native';
+import { StyleSheet, Image, ImageBackground } from 'react-native';
 import { NavigationProp, StackActions } from '@react-navigation/native';
 
 import { responsiveHeight, responsiveWidth } from '../../constant/theme';
@@ -54,7 +54,7 @@ const SplashScreen = () => {
                   
                   // Navigate to HomeScreen first (which loads MyTabs)
                   // HomeScreen will check the flag and navigate to AddNewMember immediately
-                  navigation.dispatch(StackActions.replace('AddNewMember'));
+                  navigation.dispatch(StackActions.replace('StartExploring'));
                 } else {
                   // User has members, go to home screen
                   console.log('Members found, navigating to HomeScreen');
@@ -92,10 +92,16 @@ const SplashScreen = () => {
   }, [navigation, membersData, user]);
 
   return (
-    <Image
-      source={icons.Ic_splash_Screen}
-      style={[style.SplashScreenPicContainer]}
-    />
+    <ImageBackground
+      source={require('../../assets/image/DarkBackground.png')}
+      // blurRadius={12}
+      style={style.SplashScreenPicContainer}
+    >
+      <Image
+        source={require('../../assets/icons/Subtract-dark.png')}
+        style={[style.SubtractIcon]}
+      />
+    </ImageBackground>
   );
 };
 
@@ -103,8 +109,15 @@ const style = StyleSheet.create({
   SplashScreenPicContainer: {
     height: responsiveHeight('100%'),
     width: responsiveWidth('100%'),
+    alignItems: 'center',
+    justifyContent: 'center',
     // resizeMode: 'contain',
     // transform: [{ rotate: "340deg" }],
+  },
+  SubtractIcon: {
+    height: responsiveWidth(20),
+    width: responsiveWidth(70),
+    resizeMode: 'contain',
   },
 });
 

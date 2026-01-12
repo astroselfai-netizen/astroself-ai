@@ -737,69 +737,85 @@ const NakshatraScreen = () => {
           ]}
         >
           <View style={styles.astroContent}>
-            <View style={styles.astroContentLeft}>
-              <TouchableOpacity
-                style={[
-                  styles.astroButton,
-                  { backgroundColor: colors.Orangeaccentcolor },
-                ]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (selectedMemberId) {
-                    navigation.navigate('ChatTab', {
-                      screen: 'ChatScreen',
-                      params: {
-                        userId: selectedMemberId
-                      },
-                    });
-                  } else {
-                    Alert.alert('Error', 'Please select a member first');
-                  }
-                }}
-              >
-                <Text style={[styles.astroButtonText, { color: colors.white }]}>
-                  Predictions
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View
+            <TouchableOpacity
               style={[
-                styles.dividerLine,
+                styles.astroButton,
                 {
-                  backgroundColor:
-                    theme === 'dark'
-                      ? colors.primaryBlue
-                      : colors.primaryBlue,
+                  backgroundColor: theme === 'dark' ? colors.transparent : colors.white,
+                  borderColor: colors.Orangeaccentcolor,
                 },
               ]}
-            />
-            <View style={styles.astroContentRight}>
-              <TouchableOpacity
-                style={[
-                  styles.astroButton,
-                  { backgroundColor: colors.Orangeaccentcolor },
-                ]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (selectedMemberId) {
-                    navigation.navigate('ReportScreen', {
+              activeOpacity={0.7}
+              onPress={() => {
+                if (selectedMemberId) {
+                  navigation.navigate('ChatTab', {
+                    screen: 'ChatScreen',
+                    params: {
                       userId: selectedMemberId,
-                    });
-                  } else {
-                    Alert.alert('Error', 'Please select a member first');
-                  }
-                }}
+                    },
+                  });
+                } else {
+                  Alert.alert('Error', 'Please select a member first');
+                }
+              }}
+            >
+              <Image
+                source={require('../../assets/icons/home/predictions.png')}
+                style={[
+                  styles.astroButtonIcon,
+                  {
+                    tintColor: colors.Orangeaccentcolor,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.astroButtonText,
+                  { color: colors.Orangeaccentcolor },
+                ]}
               >
-                <Text style={[styles.astroButtonText, { color: colors.white }]}>
-                  Report
-                </Text>
-              </TouchableOpacity>
-            </View>
+                Predictions
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.astroButton,
+                {
+                  backgroundColor: theme === 'dark' ? colors.transparent : colors.white,
+                  borderColor: colors.Orangeaccentcolor,
+                },
+              ]}
+              activeOpacity={0.7}
+              onPress={() => {
+                if (selectedMemberId) {
+                  navigation.navigate('ReportScreen', {
+                    userId: selectedMemberId,
+                  });
+                } else {
+                  Alert.alert('Error', 'Please select a member first');
+                }
+              }}
+            >
+              <Image
+                source={require('../../assets/icons/home/Report.png')}
+                style={[
+                  styles.astroButtonIcon,
+                  {
+                    tintColor: colors.Orangeaccentcolor,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.astroButtonText,
+                  { color: colors.Orangeaccentcolor },
+                ]}
+              >
+                Report
+              </Text>
+            </TouchableOpacity>
           </View>
-          {/* <Image
-            source={require('../../assets/image/Ai-robot.png')}
-            style={styles.astroImage}
-          /> */}
         </View>
 
         {/* Tab Button Section */}
@@ -1611,7 +1627,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     // justifyContent: "space-between",
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 16,
     marginHorizontal: responsiveWidth('3'),
     // marginTop: responsiveWidth(''),
     marginBottom: responsiveWidth('5'),
@@ -1630,49 +1646,35 @@ const styles = StyleSheet.create({
     // elevation: 3,
   },
   astroContent: {
-    // flex: 1,
     width: '100%',
-    // flexWrap: 'wrap',
     flexDirection: 'row',
-    justifyContent: "space-around",
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: responsiveWidth('2'),
-    paddingHorizontal: responsiveWidth('5'),
-    // paddingBottom: responsiveWidth('2'),
-  },
-  astroContentLeft: {
-    // width: '50%',
-  },
-  dividerLine: {
-    width: 1,
-    height: 50,
-    // marginHorizontal: responsiveWidth('3'),
-    // alignSelf: 'center',
-  },
-  astroContentRight: {
-    // width: '50%',
-  },
-  astroTitle: {
-    fontSize: 16,
-    fontFamily: fontFamily.regular,
-    lineHeight: 30,
-    marginBottom: responsiveWidth('2'),
-    textAlignVertical: 'center',
+    paddingVertical: responsiveWidth('4'),
+    paddingHorizontal: responsiveWidth('4'),
+    gap: responsiveWidth('3'),
+    // borderRadius: 16,
   },
   astroButton: {
+    flex: 1,
+    flexDirection: 'row',
     borderRadius: 10,
+    borderWidth: 1,
     paddingVertical: 14,
+    paddingHorizontal: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    width: responsiveHeight('12'),
-    // paddingHorizontal: 14,
-    // marginTop: responsiveWidth('1'),
-    alignSelf: 'flex-start',
+    gap: responsiveWidth('2'),
+  },
+  astroButtonIcon: {
+    width: responsiveWidth('5'),
+    height: responsiveWidth('5'),
+    resizeMode: 'contain',
   },
   astroButtonText: {
-    fontSize: 12,
-    fontFamily: fontFamily.regular,
-    fontWeight: '600' as const,
+    fontSize: 14,
+    fontFamily: fontFamily.medium,
+    fontWeight: '500',
   },
   astroImage: {
     width: responsiveWidth('30%'),

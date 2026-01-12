@@ -1,6 +1,6 @@
 // ChatScreen.tsx
 
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,21 +16,34 @@ import {
   ImageBackground,
   KeyboardAvoidingView,
 } from 'react-native';
-import {font, responsiveHeight, responsiveWidth, fontFamily, color, fontSize} from '../../constant/theme';
+import {
+  font,
+  responsiveHeight,
+  responsiveWidth,
+  fontFamily,
+  color,
+  fontSize,
+} from '../../constant/theme';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useProfileData } from '../../hooks/useProfileData';
 import CurrentSituation from '../../components/CurrentSituation';
 import GeneralAnalysis from '../../components/GeneralAnalysis';
 import SnapshotPredictions from '../../components/SnapshotPredictions';
-import { useNavigation, useFocusEffect, useRoute, RouteProp,  } from '@react-navigation/native';
+import {
+  useNavigation,
+  useFocusEffect,
+  useRoute,
+  RouteProp,
+} from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
-
+import FreePointsModal from '../../components/FreePointsModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RootStackParamList = {
-  ChatScreen: { userId: string };
+  ChatScreen: { userId: string; tab?: string };
 };
 
 type ChatScreenRouteProp = RouteProp<RootStackParamList, 'ChatScreen'>;
@@ -40,45 +53,73 @@ const ChatScreen = () => {
   const [activeTab, setActiveTab] = useState('Current Situation');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
-  const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
+  const [showBuyMembershipModal, setShowBuyMembershipModal] = useState(false);
+  const [membersShownModal, setMembersShownModal] = useState<Set<string>>(new Set());
+  const [showFreePointsModal, setShowFreePointsModal] = useState(false);
+  const showInfoContainer = useSelector(
+    (state: RootState) => state.app.showInfoContainer,
+  );
   const navigation = useNavigation<any>();
-  const { theme ,colors} = useTheme();
-  const {profileData, membersData, loading, error, refreshProfileData } = useProfileData();
+  const { theme, colors } = useTheme();
+  const { profileData, membersData, loading, error, refreshProfileData } =
+    useProfileData();
 
   console.log('profileData===>39', membersData);
 
-  // Check if selected member is a child (age between 15-18 years)
-  const isSelectedMemberChild = React.useMemo(() => {
+  // Get selected member
+  const selectedMember = React.useMemo(() => {
     if (!selectedMemberId || !membersData || !Array.isArray(membersData)) {
       return false;
     }
-    
-    const selectedMember = membersData.find(
-      (m: any) => (m.id || m._id) === selectedMemberId
+    return membersData.find(
+      (m: any) => (m.id || m._id) === selectedMemberId,
     );
-    
+  }, [selectedMemberId, membersData]);
+
+  // Check if selected member is a child (age between 15-18 years)
+  const isSelectedMemberChild = React.useMemo(() => {
     if (!selectedMember || !selectedMember.birth_data) {
       return false;
     }
-    
+
     const { year, month, day } = selectedMember.birth_data;
     if (!year || !month || !day) {
       return false;
     }
-    
+
     // Calculate age
     const birthDate = new Date(year, month - 1, day);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
-    
+
     // Check if age is between 15 and 18 (inclusive)
     return age >= 15 && age <= 18;
-  }, [selectedMemberId, membersData]);
+  }, [selectedMember]);
+
+  // Check if selected member has cosmic_foundation plan
+  const isCosmicFoundationPlan = React.useMemo(() => {
+    const isCosmic = selectedMember?.current_plan === 'cosmic_foundation';
+    console.log('isCosmicFoundationPlan check:', {
+      selectedMemberId,
+      current_plan: selectedMember?.current_plan,
+      isCosmic,
+      selectedMember: selectedMember ? 'exists' : 'null',
+    });
+    return isCosmic;
+  }, [selectedMember, selectedMemberId]);
+
+  // Reset modal state when member changes (but don't clear the Set - we want to remember which members have seen it)
+  useEffect(() => {
+    setShowBuyMembershipModal(false);
+  }, [selectedMemberId]);
 
   // Switch to Current Situation tab if General Analysis is active when showInfoContainer becomes true or if member is child
   useEffect(() => {
@@ -91,6 +132,41 @@ const ChatScreen = () => {
     }
   }, [showInfoContainer, activeTab, isSelectedMemberChild]);
 
+  // Check if free points modal should be shown after login
+  useEffect(() => {
+    const checkAndShowFreePointsModal = async () => {
+      try {
+        const shouldShow = await AsyncStorage.getItem('SHOW_FREE_POINTS_MODAL');
+        if (shouldShow === 'true') {
+          // Get current user ID
+          const userDataStr = await AsyncStorage.getItem('USER_DATA');
+          if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            const userId = userData._id || userData.user_id || userData.id;
+            if (userId) {
+              // Mark this user as having seen the modal
+              await AsyncStorage.setItem(
+                `FREE_POINTS_MODAL_SEEN_${userId}`,
+                'true',
+              );
+
+              // Show modal after a short delay to let the screen load
+              setTimeout(() => {
+                setShowFreePointsModal(true);
+              }, 500);
+
+              // Remove the temporary flag
+              await AsyncStorage.removeItem('SHOW_FREE_POINTS_MODAL');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking free points modal flag:', error);
+      }
+    };
+    checkAndShowFreePointsModal();
+  }, []);
+
   // Refresh data every time user comes to this screen
   useFocusEffect(
     React.useCallback(() => {
@@ -101,13 +177,23 @@ const ChatScreen = () => {
     }, [refreshProfileData]),
   );
 
-  // Set selectedMemberId only when userId comes from route params
+  // Set selectedMemberId and activeTab only when userId comes from route params
   useEffect(() => {
     if (route.params?.userId && route.params.userId.trim() !== '') {
       console.log('Setting member from route params:', route.params.userId);
       setSelectedMemberId(route.params.userId);
     }
-  }, [route.params?.userId]);
+    // Set activeTab if tab parameter is provided
+    if (route.params?.tab) {
+      const tabParam = route.params.tab;
+      // Map tab values to actual tab names
+      if (tabParam === 'Static Predictions' || tabParam === 'staticpredictions' || tabParam === 'LifeNow') {
+        setActiveTab('Current Situation');
+      } else if (tabParam === 'Dynamic Predictions' || tabParam === 'dynamicpredictions' || tabParam === 'LifeView') {
+        setActiveTab('General Analysis');
+      }
+    }
+  }, [route.params?.userId, route.params?.tab]);
 
   // Show error alert if there's an error
   React.useEffect(() => {
@@ -181,42 +267,44 @@ const ChatScreen = () => {
   // Navigate to Nakshatra screen
   const handleNakshatraNavigation = () => {
     if (selectedMemberId) {
-      navigation.navigate('NakshatraScreen', {
-        screen: 'NakshatraScreen',
-        params: {
-          userId: selectedMemberId,
-        },
-      });
+      // navigation.navigate('NakshatraScreen', {
+      //   screen: 'NakshatraScreen',
+      //   params: {
+      //     userId: selectedMemberId,
+      //   },
+      // });
+
+       navigation.navigate('NakshatraScreen', {
+         userId: selectedMemberId,
+       });
     } else {
       Alert.alert('Error', 'Please select a member first');
     }
   };
 
-
- if (loading) {
-   return (
-     <KeyboardAvoidingView
-       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-       style={{ flex: 1, backgroundColor: '#202945' }}
-       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
-     >
-       <MainContainer>
-         <View style={styles.loadingContainer}>
-           <LottieView
-             source={require('../../assets/lottie/loader-Animation-1.json')}
-             autoPlay
-             loop
-             style={styles.lottieAnimation}
-           />
-           {/* <Text style={[styles.loadingText,{
+  if (loading) {
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        style={{ flex: 1, backgroundColor: '#202945' }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
+      >
+        <MainContainer>
+          <View style={styles.loadingContainer}>
+            <LottieView
+              source={require('../../assets/lottie/loader-Animation-1.json')}
+              autoPlay
+              loop
+              style={styles.lottieAnimation}
+            />
+            {/* <Text style={[styles.loadingText,{
               color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
             }]}>Loading profile...</Text> */}
-         </View>
-       </MainContainer>
-     </KeyboardAvoidingView>
-   );
- }
-
+          </View>
+        </MainContainer>
+      </KeyboardAvoidingView>
+    );
+  }
 
   // Show empty state if no members data
   if (!membersData || membersData.length === 0) {
@@ -492,6 +580,7 @@ const ChatScreen = () => {
                             onPress={() => {
                               setSelectedMemberId(item.id || item._id);
                               setIsMemberDropdownOpen(false);
+                              setActiveTab('Current Situation');
                             }}
                             activeOpacity={0.7}
                           >
@@ -641,7 +730,7 @@ const ChatScreen = () => {
             {/* User Details */}
             <View
               style={[
-                styles.userDetailsContainer,
+                styles.userDetailsCard,
                 {
                   backgroundColor:
                     theme === 'dark' ? colors.transparent : colors.white,
@@ -652,22 +741,11 @@ const ChatScreen = () => {
                 },
               ]}
             >
-              <View
-                style={[
-                  styles.detailItem,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparent : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeBorderDropdown
-                        : colors.borderColor,
-                  },
-                ]}
-              >
+              {/* Date of Birth */}
+              <View style={styles.birthInfoRow}>
                 <Text
                   style={[
-                    styles.detailLabel,
+                    styles.birthInfoLabel,
                     {
                       color:
                         theme === 'dark'
@@ -676,102 +754,59 @@ const ChatScreen = () => {
                     },
                   ]}
                 >
-                  Date of Birth
+                  Date Of Birth :{' '}
                 </Text>
-                <View>
+                <Text
+                  style={[
+                    styles.birthInfoValue,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
                   {selectedMemberId &&
                   membersData?.find(
                     (m: any) => (m.id || m._id) == selectedMemberId,
-                  )?.birth_data ? (
-                    (() => {
-                      const member = membersData.find(
-                        (m: any) => (m.id || m._id) == selectedMemberId,
-                      );
-                      const { day, month, year, hour, min } = member.birth_data;
-                      const dateStr = new Date(
-                        year,
-                        month - 1,
-                        day,
-                      ).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      });
+                  )?.birth_data
+                    ? (() => {
+                        const member = membersData.find(
+                          (m: any) => (m.id || m._id) == selectedMemberId,
+                        );
+                        const { day, month, year, hour, min } =
+                          member.birth_data;
+                        const dateStr = new Date(
+                          year,
+                          month - 1,
+                          day,
+                        ).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        });
 
-                      // Format time in 12-hour format with AM/PM
-                      let timeStr = '';
-                      if (hour !== undefined && min !== undefined) {
-                        const hour12 = hour % 12 || 12;
-                        const minute = min < 10 ? `0${min}` : min;
-                        const ampm = hour >= 12 ? 'PM' : 'AM';
-                        timeStr = `${hour12}:${minute} ${ampm}`;
-                      }
+                        // Format time in 12-hour format with AM/PM
+                        let timeStr = '';
+                        if (hour !== undefined && min !== undefined) {
+                          const hour12 = hour % 12 || 12;
+                          const minute = min < 10 ? `0${min}` : min;
+                          const ampm = hour >= 12 ? 'PM' : 'AM';
+                          timeStr = ` ${hour12}:${minute} ${ampm}`;
+                        }
 
-                      return (
-                        <>
-                          <Text
-                            style={[
-                              styles.detailValue,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {dateStr}
-                          </Text>
-                          {timeStr ? (
-                            <Text
-                              style={[
-                                styles.detailValue,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                            >
-                              {timeStr}
-                            </Text>
-                          ) : null}
-                        </>
-                      );
-                    })()
-                  ) : (
-                    <Text
-                      style={[
-                        styles.detailValue,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Not Available
-                    </Text>
-                  )}
-                </View>
+                        return `${dateStr}${timeStr}`;
+                      })()
+                    : 'Not Available'}
+                </Text>
               </View>
-              <View
-                style={[
-                  styles.detailSeparator,
-                  {
-                    backgroundColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              />
-              <View style={styles.detailItem}>
+
+              {/* Place of Birth */}
+              <View style={styles.birthInfoRow}>
                 <Text
                   style={[
-                    styles.detailLabel,
+                    styles.birthInfoLabel,
                     {
                       color:
                         theme === 'dark'
@@ -780,11 +815,11 @@ const ChatScreen = () => {
                     },
                   ]}
                 >
-                  Place of Birth
+                  Place Of Birth :{' '}
                 </Text>
                 <Text
                   style={[
-                    styles.detailValue,
+                    styles.birthInfoValue,
                     {
                       color:
                         theme === 'dark'
@@ -805,21 +840,35 @@ const ChatScreen = () => {
               </View>
             </View>
 
-            {/* Nakshatra & Dasha Button */}
-            <View style={styles.nakshatraButtonContainer}>
+            {/* Charts & Report Buttons */}
+            <View style={styles.actionButtonsContainer}>
               <TouchableOpacity
-                style={styles.nakshatraButton}
+                style={[
+                  styles.actionButton,
+                  {
+                    borderColor: colors.Orangeaccentcolor,
+                  },
+                ]}
                 onPress={handleNakshatraNavigation}
                 activeOpacity={0.8}
               >
+                <Image
+                  source={require('../../assets/icons/home/Chart.png')}
+                  style={[
+                    styles.actionButtonIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.Orangeaccentcolor
+                          : colors.Orangeaccentcolor,
+                    },
+                  ]}
+                />
                 <Text
                   style={[
-                    styles.nakshatraButtonText,
+                    styles.actionButtonText,
                     {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.surface,
+                      color: colors.Orangeaccentcolor,
                     },
                   ]}
                 >
@@ -827,31 +876,13 @@ const ChatScreen = () => {
                 </Text>
               </TouchableOpacity>
 
-              {/* <TouchableOpacity
-                style={styles.nakshatraButton}
-                onPress={() => {
-                  navigation.navigate('DashboardTasksScreen', {
-                    userId: selectedMemberId,
-                  });
-                }}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.nakshatraButtonText,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.surface,
-                    },
-                  ]}
-                >
-                  Tasks
-                </Text>
-              </TouchableOpacity> */}
               <TouchableOpacity
-                style={styles.nakshatraButton}
+                style={[
+                  styles.actionButton,
+                  {
+                    borderColor: colors.Orangeaccentcolor,
+                  },
+                ]}
                 onPress={() => {
                   navigation.navigate('ReportScreen', {
                     userId: selectedMemberId,
@@ -859,14 +890,23 @@ const ChatScreen = () => {
                 }}
                 activeOpacity={0.8}
               >
+                <Image
+                  source={require('../../assets/icons/home/Report.png')}
+                  style={[
+                    styles.actionButtonIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.Orangeaccentcolor
+                          : colors.Orangeaccentcolor,
+                    },
+                  ]}
+                />
                 <Text
                   style={[
-                    styles.nakshatraButtonText,
+                    styles.actionButtonText,
                     {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.surface,
+                      color: colors.Orangeaccentcolor,
                     },
                   ]}
                 >
@@ -994,7 +1034,7 @@ const ChatScreen = () => {
                   },
                 ]}
               >
-                Life now
+                Static Predictions
               </Text>
             </TouchableOpacity>
 
@@ -1018,7 +1058,14 @@ const ChatScreen = () => {
               ]}
               onPress={() => {
                 if (!showInfoContainer && !isSelectedMemberChild) {
-                  setActiveTab('General Analysis');
+                  // Check if member has cosmic_foundation plan
+                  if (isCosmicFoundationPlan) {
+                    // Check if modal was already shown for this member
+                    setShowBuyMembershipModal(true);
+                    // Mark this member as having seen t
+                  } else {
+                    setActiveTab('General Analysis');
+                  }
                 }
               }}
               disabled={showInfoContainer || isSelectedMemberChild}
@@ -1043,7 +1090,7 @@ const ChatScreen = () => {
                   },
                 ]}
               >
-                Life view
+                Dynamic Predictions
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -1056,10 +1103,14 @@ const ChatScreen = () => {
           ) : activeTab === 'Current Situation' ? (
             <CurrentSituation
               selectedMemberId={selectedMemberId || ''}
+              current_plan={selectedMember?.current_plan}
               isChild={isSelectedMemberChild}
             />
           ) : (
-            <GeneralAnalysis selectedMemberId={selectedMemberId || ''} />
+            <GeneralAnalysis
+              current_plan={selectedMember?.current_plan}
+              selectedMemberId={selectedMemberId || ''}
+            />
           )}
         </View>
         {/* {activeTab === 'General Analysis' ? (
@@ -1068,7 +1119,97 @@ const ChatScreen = () => {
         {/* {activeTab === 'General Analysis' && (
           <GeneralAnalysis selectedMemberId={selectedMemberId} />
         )} */}
+
+        <View style={styles.bottomNavigation}>
+          <TouchableOpacity
+            style={[
+              styles.bottomNavigationButton,
+              { backgroundColor: colors.Orangeaccentcolor },
+            ]}
+            onPress={() => {
+              navigation.navigate('AddNewMember');
+            }}
+          >
+            <Text
+              style={[
+                styles.bottomNavigationButtonText,
+                { color: colors.white },
+              ]}
+            >
+              Create New Chart
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      {/* Buy Memberships Modal */}
+      <Modal
+        visible={showBuyMembershipModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowBuyMembershipModal(false);
+          // Mark member as having seen the modal when closed
+          if (selectedMemberId) {
+            setMembersShownModal(prev => new Set(prev).add(selectedMemberId));
+          }
+        }}
+      >
+        <View style={styles.buyMembershipModalOverlay}>
+          <View style={styles.buyMembershipModalContainer}>
+            {/* Icon */}
+
+            {/* Title */}
+            <Text style={styles.modalTitle}>Upgrade Plan</Text>
+
+            {/* Body Text */}
+            <Text style={styles.modalBodyText}>
+              To Access Dynamic Predictions, Please Upgrade Your Plan.
+            </Text>
+
+            {/* Action Buttons */}
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.buyButton]}
+                onPress={() => {
+                  // Mark member as having seen the modal
+                  if (selectedMemberId) {
+                    setMembersShownModal(prev =>
+                      new Set(prev).add(selectedMemberId),
+                    );
+                  }
+                  setShowBuyMembershipModal(false);
+                  navigation.navigate('PaidPlanScreen');
+                }}
+              >
+                <Text style={styles.buyButtonText}>Buy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  // Mark member as having seen the modal
+                  if (selectedMemberId) {
+                    setMembersShownModal(prev =>
+                      new Set(prev).add(selectedMemberId),
+                    );
+                  }
+                  setShowBuyMembershipModal(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Free Points Modal */}
+      <FreePointsModal
+        visible={showFreePointsModal}
+        onClose={async () => {
+          setShowFreePointsModal(false);
+        }}
+      />
     </MainContainer>
   );
 };
@@ -1126,7 +1267,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     paddingHorizontal: responsiveWidth(4),
-    paddingBottom: responsiveHeight(15), // Space for bottom navigation
+    paddingBottom: responsiveHeight(13), // Space for bottom navigation
   },
   profileIcon: {
     width: responsiveWidth('7%'),
@@ -1264,64 +1405,58 @@ const styles = StyleSheet.create({
     opacity: 0.3,
     // marginVertical: responsiveHeight(1.5),
   },
-  userDetailsContainer: {
+  userDetailsCard: {
+    borderRadius: 12,
+    paddingHorizontal: responsiveWidth(4),
+    // paddingVertical: responsiveWidth(2),
+    // marginBottom: responsiveWidth(3),
+    // borderWidth: 1,
+  },
+  birthInfoRow: {
     flexDirection: 'row',
-    // marginBottom: responsiveHeight(2),
+    // marginBottom: responsiveHeight(1.5),
+    flexWrap: 'wrap',
+    paddingTop: responsiveHeight(0.5),
   },
-  detailItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  detailLabel: {
-    color: color.themeTextWhite,
+  birthInfoLabel: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
-    // fontWeight: '400',
     marginBottom: responsiveHeight(0.5),
   },
-  detailValue: {
-    color: color.themeTextWhite,
+  birthInfoValue: {
     fontSize: 14,
-    fontFamily: fontFamily.regular,
-    // textTransform: 'capitalize',
-    textAlign: 'center',
-    // fontWeight: '500',
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    flex: 1,
   },
-  detailSeparator: {
-    width: 1,
-    backgroundColor: '#F6EFD9',
-    opacity: 0.3,
-    marginHorizontal: responsiveWidth(2),
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: responsiveWidth(3),
+    marginTop: responsiveHeight(1),
+    paddingHorizontal: responsiveWidth(3),
+    paddingBottom: responsiveHeight(0.5),
   },
-  nakshatraButtonContainer: {
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    // gap: responsiveWidth(10),
-    justifyContent: 'space-around',
-    // marginBottom: responsiveHeight(2),
-  },
-  nakshatraButton: {
-    backgroundColor: '#DF8A5D',
-    borderRadius: 10,
-    // width: responsiveWidth('40%'),
-    // flex: 1,
-    // marginHorizontal: responsiveWidth('20'),
-    paddingVertical: 14,
-    paddingHorizontal: 34,
     justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginTop: responsiveHeight(1),
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: responsiveWidth(2),
+    paddingHorizontal: responsiveWidth(4),
+    gap: responsiveWidth(2),
   },
-  nakshatraButtonText: {
-    color: color.themeTextWhite,
-    fontSize: 12,
-    fontFamily: fontFamily.regular,
-    fontWeight: '600',
-    lineHeight: 18, // 150% of 12px = 18px
-    letterSpacing: 0.6,
-    // paddingHorizontal: responsiveWidth('2%'),
-    textAlign: 'center',
+  actionButtonIcon: {
+    width: responsiveWidth(5),
+    height: responsiveWidth(5),
+    resizeMode: 'contain',
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontFamily: fontFamily.medium,
+    fontWeight: '500',
   },
   tabsContainer: {
     borderRadius: 10,
@@ -1385,13 +1520,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bottomNavigation: {
+    // backgroundColor: '#223149',
+    // paddingVertical: responsiveHeight(1),
+    // paddingHorizontal: responsiveWidth(2),
+    // marginBottom: responsiveHeight(2),
+    marginTop: responsiveHeight(2),
+  },
+  bottomNavigationButton: {
     flexDirection: 'row',
-    backgroundColor: '#223149',
-    paddingVertical: responsiveHeight(1),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    paddingVertical: 14,
     paddingHorizontal: responsiveWidth(2),
-    borderTopWidth: 1,
-    borderTopColor: '#FFFFFF',
-    opacity: 0.1,
+  },
+  bottomNavigationButtonText: {
+    color: color.themeTextWhite,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400' as const,
   },
   navItem: {
     flex: 1,
@@ -1480,9 +1627,7 @@ const styles = StyleSheet.create({
       Platform.OS === 'android'
         ? responsiveHeight('1.5')
         : responsiveWidth('0'),
-    // justifyContent: 'space-between',
     justifyContent: 'center',
-    alignItems: 'center',
   },
   emptyStateContent: {
     flex: 1,
@@ -1530,6 +1675,99 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     marginLeft: 10,
     marginRight: 10,
+  },
+  // Buy Memberships Modal styles
+  buyMembershipModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth(4),
+  },
+  buyMembershipModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: responsiveHeight(3),
+    paddingHorizontal: responsiveWidth(5),
+    width: '100%',
+    maxWidth: responsiveWidth(85),
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalIconContainer: {
+    marginBottom: responsiveHeight(2),
+    alignItems: 'center',
+  },
+  modalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#DF8A5D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#DF8A5D',
+  },
+  modalIconText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: fontFamily.bold,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#223149',
+    fontFamily: fontFamily.bold,
+    marginBottom: responsiveHeight(1.5),
+    textAlign: 'center',
+  },
+  modalBodyText: {
+    fontSize: 14,
+    color: '#666666',
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: responsiveHeight(3),
+    paddingHorizontal: responsiveWidth(2),
+  },
+  modalButtonsContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+    gap: responsiveWidth(3),
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: responsiveHeight(1.5),
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buyButton: {
+    backgroundColor: '#DF8A5D',
+  },
+  cancelButton: {
+    backgroundColor: '#223149',
+  },
+  buyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: fontFamily.bold,
+  },
+  cancelButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: fontFamily.bold,
   },
 });
 

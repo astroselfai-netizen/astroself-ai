@@ -4,14 +4,16 @@ declare module 'react-native-razorpay' {
     image?: string;
     currency?: string;
     key: string;
-    amount: number;
+    amount?: number;
     order_id?: string;
+    subscription_id?: string;
     name?: string;
     prefill?: {
       email?: string;
       contact?: string;
       name?: string;
     };
+    notes?: Record<string, any>;
     theme?: {
       color?: string;
     };

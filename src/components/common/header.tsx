@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     // justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: responsiveWidth(4),
+    paddingHorizontal: responsiveWidth(3),
     paddingTop: responsiveWidth(1),
     // paddingBottom: responsiveWidth(2),
   },
@@ -133,8 +133,8 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   leftIconStyle: {
-    height: responsiveWidth("10%"),
-    width: responsiveWidth("35%"),
+    height: responsiveWidth("15%"),
+    width: responsiveWidth("30%"),
     resizeMode: 'contain',
   },
   iconContainer: {
@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconContainerLeft: {
-    height: responsiveWidth("10%"),
-    width: responsiveWidth("35%"),
+    height: responsiveWidth("15%"),
+    width: responsiveWidth("30%"),
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -119,8 +119,8 @@ android {
         applicationId "com.astroself.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 15
-        versionName "1.14"
+        versionCode 20
+        versionName "1.19"
         
         // Enable bundle splitting for different architectures
         ndk {

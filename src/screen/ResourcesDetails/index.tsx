@@ -61,66 +61,507 @@ const ResourcesDetailsScreen = () => {
 
   console.log('book---->', book);
 
-  // Function to split summary text
-  const splitSummaryText = (text: string) => {
-    if (!text) return { firstPart: '', secondPart: '' };
-    
-    // Split by double line breaks to get sections
-    const sections = text.split('\r\n\r\n');
-    const firstPartSections = [];
-    const secondPartSections = [];
-    
-    let currentLength = 0;
-    const maxLength = 225; // Approximate character limit for 225 height
-    
-    for (let i = 0; i < sections.length; i++) {
-      if (currentLength + sections[i].length <= maxLength) {
-        firstPartSections.push(sections[i]);
-        currentLength += sections[i].length;
-      } else {
-        secondPartSections.push(sections[i]);
-      }
-    }
-    
-    return {
-      firstPart: firstPartSections,
-      secondPart: secondPartSections
-    };
-  };
-
-  const { firstPart, secondPart } = splitSummaryText(book?.summary || '');
 
 
     useEffect(() => {
       if (book?.summary) {
-        const summaryParagraphs = book.summary
-          .split(/\r?\n\r?\n+/) // Split by blank lines
-          .map((para: any) => para.trim())
-          .filter((para: any) => para.length > 0);
+        // Check if content contains HTML tags
+        const hasHTML = /<[^>]+>/.test(book.summary);
+        
+        if (hasHTML) {
+          // For HTML content, split by h3 tags to create sections
+          const htmlSections = book.summary.split(/(?=<h3)/i);
+          const cleanedSections = htmlSections
+            .map((section: string) => section.trim())
+            .filter((section: string) => section.length > 0);
 
-        let charCount = 0;
-        const splitIndex = summaryParagraphs.findIndex((para: any) => {
-          charCount += para.length;
-          return charCount > 500; // Split after 500 characters
-        });
+          let charCount = 0;
+          const splitIndex = cleanedSections.findIndex((section: string) => {
+            charCount += section.length;
+            return charCount > 500; // Split after 500 characters
+          });
 
-        if (splitIndex === -1) {
-          setInitialSummary(summaryParagraphs);
-          setRemainingSummary([]);
+          if (splitIndex === -1) {
+            setInitialSummary(cleanedSections);
+            setRemainingSummary([]);
+          } else {
+            setInitialSummary(cleanedSections.slice(0, splitIndex + 1));
+            setRemainingSummary(cleanedSections.slice(splitIndex + 1));
+          }
         } else {
-          setInitialSummary(summaryParagraphs.slice(0, splitIndex + 1));
-          setRemainingSummary(summaryParagraphs.slice(splitIndex + 1));
+          // Original logic for plain text
+          const summaryParagraphs = book.summary
+            .split(/\r?\n\r?\n+/) // Split by blank lines
+            .map((para: any) => para.trim())
+            .filter((para: any) => para.length > 0);
+
+          let charCount = 0;
+          const splitIndex = summaryParagraphs.findIndex((para: any) => {
+            charCount += para.length;
+            return charCount > 500; // Split after 500 characters
+          });
+
+          if (splitIndex === -1) {
+            setInitialSummary(summaryParagraphs);
+            setRemainingSummary([]);
+          } else {
+            setInitialSummary(summaryParagraphs.slice(0, splitIndex + 1));
+            setRemainingSummary(summaryParagraphs.slice(splitIndex + 1));
+          }
         }
       }
     }, [book]);
 
-  // Function to check if text is a heading (converted from test.tsx logic)
-  const isHeading = (text: string) => {
-    return text.length < 80 && !text.endsWith('.') && !text.endsWith('?');
+  // Function to decode HTML entities
+  const decodeHTML = (text: string) => {
+    if (!text) return '';
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ');
   };
 
-  // Function to render summary paragraphs (converted from test.tsx)
+  // Function to check if a line is a numbered list item
+  const isNumberedListItem = (text: string): boolean => {
+    const trimmed = text.trim();
+    // Check for numbered lists (1., 2., etc.) at the start
+    return /^\d+\.\s/.test(trimmed);
+  };
+
+  // Function to parse numbered list item
+  const parseNumberedListItem = (text: string): { number: string; content: string } => {
+    const trimmed = text.trim();
+    const match = trimmed.match(/^(\d+\.)\s*(.*)$/);
+    if (match) {
+      return {
+        number: match[1],
+        content: match[2] || '',
+      };
+    }
+    return { number: '', content: trimmed };
+  };
+
+  // Function to check if a line is a bullet point
+  const isBulletPoint = (text: string): boolean => {
+    const trimmed = text.trim();
+    // Check for bullet points (•, -, *, etc.) at the start
+    return /^[•\-*]\s/.test(trimmed);
+  };
+
+  // Function to parse bullet point
+  const parseBulletPoint = (text: string): { bullet: string; content: string } => {
+    const trimmed = text.trim();
+    const match = trimmed.match(/^([•\-*])\s*(.*)$/);
+    if (match) {
+      return {
+        bullet: match[1],
+        content: match[2] || '',
+      };
+    }
+    return { bullet: '', content: trimmed };
+  };
+
+  // Function to parse text with nested strong tags
+  const parseTextWithNestedTags = (text: string) => {
+    if (!text) return [];
+    
+    const parts: any[] = [];
+    const strongRegex = /<strong>(.*?)<\/strong>/gi;
+    let lastIndex = 0;
+    let match;
+    let keyCounter = 0;
+
+    while ((match = strongRegex.exec(text)) !== null) {
+      // Add text before strong tag
+      if (match.index > lastIndex) {
+        const beforeText = text.substring(lastIndex, match.index);
+        const cleanedBefore = decodeHTML(beforeText.replace(/<[^>]*>/g, ''));
+        if (cleanedBefore.trim()) {
+          parts.push({ type: 'text', content: cleanedBefore, key: `text-${keyCounter++}` });
+        }
+      }
+      // Add strong content
+      const strongContent = decodeHTML(match[1]);
+      if (strongContent.trim()) {
+        parts.push({ type: 'strong', content: strongContent, key: `strong-${keyCounter++}` });
+      }
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      const remaining = text.substring(lastIndex);
+      const cleanedRemaining = decodeHTML(remaining.replace(/<[^>]*>/g, ''));
+      if (cleanedRemaining.trim()) {
+        parts.push({ type: 'text', content: cleanedRemaining, key: `text-${keyCounter++}` });
+      }
+    }
+
+    // If no strong tags found, return the whole text
+    if (parts.length === 0) {
+      const cleanedText = decodeHTML(text.replace(/<[^>]*>/g, ''));
+      if (cleanedText.trim()) {
+        parts.push({ type: 'text', content: cleanedText, key: `text-${keyCounter++}` });
+      }
+    }
+
+    return parts;
+  };
+
+  // Function to parse and render HTML content
+  const parseHTMLContent = (htmlString: string) => {
+    if (!htmlString) return [];
+
+    const elements: any[] = [];
+    let keyCounter = 0;
+
+    // Split by block-level tags (h3, p) while preserving them
+    const blockTagRegex = /<(h3|p)([^>]*)>(.*?)<\/\1>/gis;
+    const brRegex = /<br\s*\/?>/gi;
+    
+    let lastIndex = 0;
+    let match;
+
+    // First, find all block tags
+    const blockTags: any[] = [];
+    while ((match = blockTagRegex.exec(htmlString)) !== null) {
+      blockTags.push({
+        type: match[1].toLowerCase(),
+        fullMatch: match[0],
+        content: match[3],
+        index: match.index,
+        endIndex: match.index + match[0].length,
+      });
+    }
+
+    // Process block tags in order
+    blockTags.forEach((blockTag) => {
+      // Add any text or br tags before this block tag
+      const beforeText = htmlString.substring(lastIndex, blockTag.index);
+      
+      // Check for br tags in the before text
+      const brMatches = beforeText.match(brRegex);
+      if (brMatches) {
+        brMatches.forEach(() => {
+          elements.push({
+            type: 'br',
+            key: `br-${keyCounter++}`,
+          });
+        });
+      }
+      
+      // Add the block tag
+      const content = blockTag.content;
+      const hasNestedTags = /<strong>|<b>/.test(content);
+      
+      elements.push({
+        type: blockTag.type,
+        content: content,
+        hasNestedTags: hasNestedTags,
+        key: `block-${keyCounter++}`,
+      });
+
+      lastIndex = blockTag.endIndex;
+    });
+
+    // Handle remaining content after last block tag
+    if (lastIndex < htmlString.length) {
+      const remaining = htmlString.substring(lastIndex);
+      const brMatches = remaining.match(brRegex);
+      if (brMatches) {
+        brMatches.forEach(() => {
+          elements.push({
+            type: 'br',
+            key: `br-${keyCounter++}`,
+          });
+        });
+      }
+    }
+
+    return elements;
+  };
+
+  // Function to render HTML elements
+  const renderHTMLElements = (htmlString: string) => {
+    const elements = parseHTMLContent(htmlString);
+    const baseTextColor = theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy;
+
+    return elements.map((element) => {
+      switch (element.type) {
+        case 'h3':
+          const h3Parts = parseTextWithNestedTags(element.content);
+          return (
+            <Text
+              key={element.key}
+              style={[
+                styles.summaryText,
+                {
+                  color: baseTextColor,
+                  fontWeight: '700',
+                  fontSize: 18,
+                  // marginTop: 2,
+                  marginBottom: 8,
+                  lineHeight: 24,
+                },
+              ]}
+            >
+              {h3Parts.map((part) => {
+                if (part.type === 'strong') {
+                  return (
+                    <Text key={part.key} style={{ fontWeight: '700' }}>
+                      {part.content}
+                    </Text>
+                  );
+                }
+                return part.content;
+              })}
+            </Text>
+          );
+
+        case 'p':
+          const pContent = element.content;
+          const cleanedPContent = decodeHTML(pContent.replace(/<[^>]*>/g, ''));
+          
+          if (!cleanedPContent.trim()) {
+            // Empty paragraph, just add spacing
+            return <View key={element.key} style={{ height: 8 }} />;
+          }
+
+          // Check if paragraph contains numbered list items or bullet points
+          const lines = cleanedPContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+          const hasNumberedList = lines.some(line => isNumberedListItem(line));
+          const hasBulletPoints = lines.some(line => isBulletPoint(line));
+
+          if (hasNumberedList) {
+            // Render as numbered list with proper alignment
+            return (
+              <View key={element.key} style={{ }}>
+                {lines.map((line, lineIndex) => {
+                  if (isNumberedListItem(line)) {
+                    const { number, content } = parseNumberedListItem(line);
+                    const contentParts = parseTextWithNestedTags(content);
+                    
+                    return (
+                      <View
+                        key={`list-item-${lineIndex}`}
+                        style={styles.listItemContainer}
+                      >
+                        <Text
+                          style={[
+                            styles.listNumber,
+                            {
+                              color: baseTextColor,
+                            },
+                          ]}
+                        >
+                          {number}
+                        </Text>
+                        <View style={styles.listContentContainer}>
+                          <Text
+                            style={[
+                              styles.summaryText,
+                              {
+                                color: baseTextColor,
+                                fontWeight: 'normal',
+                                fontSize: 14,
+                                lineHeight: 22,
+                              },
+                            ]}
+                          >
+                            {contentParts.map((part) => {
+                              if (part.type === 'strong') {
+                                return (
+                                  <Text key={part.key} style={{ fontWeight: '700' }}>
+                                    {part.content}
+                                  </Text>
+                                );
+                              }
+                              return part.content;
+                            })}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  } else {
+                    // Regular text line (not a numbered list item)
+                    const textParts = parseTextWithNestedTags(line);
+                    return (
+                      <Text
+                        key={`text-line-${lineIndex}`}
+                        style={[
+                          styles.summaryText,
+                          {
+                            color: baseTextColor,
+                            fontWeight: 'normal',
+                            fontSize: 14,
+                            // marginBottom: lineIndex < lines.length - 1 ? 6 : 0,
+                            lineHeight: 22,
+                          },
+                        ]}
+                      >
+                        {textParts.map((part) => {
+                          if (part.type === 'strong') {
+                            return (
+                              <Text key={part.key} style={{ fontWeight: '700' }}>
+                                {part.content}
+                              </Text>
+                            );
+                          }
+                          return part.content;
+                        })}
+                      </Text>
+                    );
+                  }
+                })}
+              </View>
+            );
+          }
+
+          if (hasBulletPoints) {
+            // Render as bullet list with proper alignment
+            return (
+              <View key={element.key} style={{ }}>
+                {lines.map((line, lineIndex) => {
+                  if (isBulletPoint(line)) {
+                    const { bullet, content } = parseBulletPoint(line);
+                    const contentParts = parseTextWithNestedTags(content);
+                    
+                    return (
+                      <View
+                        key={`bullet-item-${lineIndex}`}
+                        style={styles.listItemContainer}
+                      >
+                        <Text
+                          style={[
+                            styles.bulletPoint,
+                            {
+                              color: baseTextColor,
+                            },
+                          ]}
+                        >
+                          {bullet}
+                        </Text>
+                        <View style={styles.listContentContainer}>
+                          <Text
+                            style={[
+                              styles.summaryText,
+                              {
+                                color: baseTextColor,
+                                fontWeight: 'normal',
+                                fontSize: 14,
+                                lineHeight: 22,
+                              },
+                            ]}
+                          >
+                            {contentParts.map((part) => {
+                              if (part.type === 'strong') {
+                                return (
+                                  <Text key={part.key} style={{ fontWeight: '700' }}>
+                                    {part.content}
+                                  </Text>
+                                );
+                              }
+                              return part.content;
+                            })}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  } else {
+                    // Regular text line (not a bullet point)
+                    const textParts = parseTextWithNestedTags(line);
+                    return (
+                      <Text
+                        key={`text-line-${lineIndex}`}
+                        style={[
+                          styles.summaryText,
+                          {
+                            color: baseTextColor,
+                            fontWeight: 'normal',
+                            fontSize: 14,
+                            lineHeight: 22,
+                          },
+                        ]}
+                      >
+                        {textParts.map((part) => {
+                          if (part.type === 'strong') {
+                            return (
+                              <Text key={part.key} style={{ fontWeight: '700' }}>
+                                {part.content}
+                              </Text>
+                            );
+                          }
+                          return part.content;
+                        })}
+                      </Text>
+                    );
+                  }
+                })}
+              </View>
+            );
+          }
+
+          // Regular paragraph (no numbered list or bullets)
+          const pParts = parseTextWithNestedTags(element.content);
+          return (
+            <Text
+              key={element.key}
+              style={[
+                styles.summaryText,
+                {
+                  color: baseTextColor,
+                  fontWeight: 'normal',
+                  fontSize: 14,
+                  // marginBottom: 12,
+                  lineHeight: 22,
+                },
+              ]}
+            >
+              {pParts.map((part) => {
+                if (part.type === 'strong') {
+                  return (
+                    <Text key={part.key} style={{ fontWeight: '700' }}>
+                      {part.content}
+                    </Text>
+                  );
+                }
+                return part.content;
+              })}
+            </Text>
+          );
+
+        case 'br':
+          return <View key={element.key} style={{ height: 8 }} />;
+
+        default:
+          return null;
+      }
+    });
+  };
+
+  // Function to render summary paragraphs (updated to handle HTML)
   const renderSummaryParagraphs = (paragraphs: string[]) => {
+    console.log('paragraphs---->', paragraphs);
+
+    if (!paragraphs || paragraphs.length === 0) {
+      return null;
+    }
+
+    // Check if content contains HTML tags
+    const hasHTML = paragraphs.some((para) => 
+      /<[^>]+>/.test(para)
+    );
+
+    if (hasHTML) {
+      // Join all paragraphs and render as HTML
+      const htmlContent = paragraphs.join('');
+      return renderHTMLElements(htmlContent);
+    }
+
+    // Fallback to original rendering for plain text
     return paragraphs.map((para: string, index: number) => {
       const baseStyle = [
         styles.summaryText,
@@ -129,7 +570,9 @@ const ResourcesDetailsScreen = () => {
         },
       ];
 
-      if (isHeading(para)) {
+      const isHeading = para.length < 80 && !para.endsWith('.') && !para.endsWith('?');
+
+      if (isHeading) {
         return (
           <Text key={index} style={[
             ...baseStyle, 
@@ -280,7 +723,7 @@ const ResourcesDetailsScreen = () => {
 
               {/* Summary Section */}
               <View style={styles.summarySection}>
-                <Text
+                {/* <Text
                   style={[
                     styles.summaryTitle,
                     {
@@ -292,7 +735,7 @@ const ResourcesDetailsScreen = () => {
                   ]}
                 >
                   Summary
-                </Text>
+                </Text> */}
                 {/* Get a Copy Button */}
                 <TouchableOpacity
                   style={[
@@ -405,6 +848,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    marginBottom: responsiveWidth('10%'),
   },
   bookCoverSection: {
     width: 150,
@@ -483,7 +927,7 @@ const styles = StyleSheet.create({
   summaryText: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
-    lineHeight: 20,
+    lineHeight: 15,
     // textAlign: 'left',
     // marginBottom: responsiveWidth('2.5%'),
     // paddingRight: responsiveWidth('2%'),
@@ -495,7 +939,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: responsiveWidth('1%'),
+    marginTop: responsiveWidth('5%'),
     marginBottom: responsiveWidth('3%'),
     alignSelf: 'center',
   },
@@ -526,6 +970,28 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     // marginBottom: responsiveHeight('1%'),
     lineHeight: 20,
+  },
+  listItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    // marginBottom: 8,
+  },
+  listNumber: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 22,
+    minWidth: responsiveWidth(4),
+  },
+  bulletPoint: {
+    fontSize: 10,
+    fontFamily: fontFamily.regular,
+    lineHeight: 22,
+    minWidth: responsiveWidth(2),
+    // marginTop: 2,
+  },
+  listContentContainer: {
+    flex: 1,
+    // paddingLeft: responsiveWidth(1),
   },
 });
 

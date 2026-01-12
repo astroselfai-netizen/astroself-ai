@@ -6,6 +6,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import {
   font,
+  fontFamily,
+  fontSize,
   responsiveWidth,
 } from '../constant/theme';
 import {
@@ -49,6 +51,7 @@ import EditAllTaskSelectionScreen from '../screen/EditAllTaskSelection';
 import PurchasedHistoryScreen from '../screen/PurchasedHistory';
 import DashboardTasksDoNotScreen from '../screen/DashboardTasksDoNot';
 import MemberPlanManagement from '../screen/MemberPlanManagement';
+import StartExploring from '../screen/StartExploring';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -57,56 +60,69 @@ const Tab = createBottomTabNavigator();
 function createAppStack(initialRouteName) {
   return function AppStack() {
     return (
-      <Stack.Navigator 
+      <Stack.Navigator
         initialRouteName={initialRouteName}
         screenOptions={{ headerShown: false }}
       >
-      {/* Main Tab Screens */}
-      <Stack.Screen name="HomeScreen" component={HomeScreen} />
-      <Stack.Screen name="ChatScreen" component={ChatScreen} />
-      <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-      <Stack.Screen name="NakshatraScreen" component={NakshatraScreen} />
-      <Stack.Screen name="SettingsScreen" component={SettingsScreen} />
-      
-      {/* All other screens - accessible from anywhere */}
-      <Stack.Screen name="BasicDeatil" component={BasicDeatil} />
-      <Stack.Screen name="AddNewMember" component={AddNewMember} />
-      <Stack.Screen name="MemberManagement" component={MemberManagement} />
-      <Stack.Screen
-        name="NotificationScreen"
-        component={NotificationScreen}
-      />
-      <Stack.Screen
-        name="ChatWithPrompts"
-        component={ChatWithPromptsScreen}
-      />
-      <Stack.Screen
-        name="PrivacyPolicyScreen"
-        component={PrivacyPolicyScreen}
-      />
-      <Stack.Screen
-        name="TermsAndConditions"
-        component={TermsAndConditions}
-      />
-      <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
-      <Stack.Screen name="ResourcesScreen" component={ResourcesScreen} />
-      <Stack.Screen
-        name="ResourcesDetailsScreen"
-        component={ResourcesDetailsScreen}
-      />
-      <Stack.Screen name="PaidPlanScreen" component={PaidPlanScreen} />
-      <Stack.Screen name="FaqsScreen" component={FaqsScreen} />
-      <Stack.Screen name="ReportScreen" component={ReportScreen} />
-      <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
-      <Stack.Screen
-        name="DashboardTasksScreen"
-        component={DashboardTasksScreen}
-      />
-      <Stack.Screen name="EditAllTaskSelectionScreen" component={EditAllTaskSelectionScreen} />
-      <Stack.Screen name="PurchasedHistoryScreen" component={PurchasedHistoryScreen} />
-      <Stack.Screen name="DashboardTasksDoNotScreen" component={DashboardTasksDoNotScreen} />
-      <Stack.Screen name="MemberPlanManagement" component={MemberPlanManagement} />
-    </Stack.Navigator>
+        {/* Main Tab Screens */}
+        <Stack.Screen name="HomeScreen" component={HomeScreen} />
+        <Stack.Screen name="ChatScreen" component={ChatScreen} />
+        <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+        <Stack.Screen name="NakshatraScreen" component={NakshatraScreen} />
+        <Stack.Screen name="SettingsScreen" component={SettingsScreen} />
+
+        {/* All other screens - accessible from anywhere */}
+        <Stack.Screen name="BasicDeatil" component={BasicDeatil} />
+        <Stack.Screen name="AddNewMember" component={AddNewMember} />
+        <Stack.Screen name="StartExploring" component={StartExploring} />
+        <Stack.Screen name="MemberManagement" component={MemberManagement} />
+        <Stack.Screen
+          name="NotificationScreen"
+          component={NotificationScreen}
+        />
+        <Stack.Screen
+          name="ChatWithPrompts"
+          component={ChatWithPromptsScreen}
+        />
+        <Stack.Screen
+          name="PrivacyPolicyScreen"
+          component={PrivacyPolicyScreen}
+        />
+        <Stack.Screen
+          name="TermsAndConditions"
+          component={TermsAndConditions}
+        />
+        <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
+        <Stack.Screen name="ResourcesScreen" component={ResourcesScreen} />
+        <Stack.Screen
+          name="ResourcesDetailsScreen"
+          component={ResourcesDetailsScreen}
+        />
+        <Stack.Screen name="PaidPlanScreen" component={PaidPlanScreen} />
+        <Stack.Screen name="FaqsScreen" component={FaqsScreen} />
+        <Stack.Screen name="ReportScreen" component={ReportScreen} />
+        <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
+        <Stack.Screen
+          name="DashboardTasksScreen"
+          component={DashboardTasksScreen}
+        />
+        <Stack.Screen
+          name="EditAllTaskSelectionScreen"
+          component={EditAllTaskSelectionScreen}
+        />
+        <Stack.Screen
+          name="PurchasedHistoryScreen"
+          component={PurchasedHistoryScreen}
+        />
+        <Stack.Screen
+          name="DashboardTasksDoNotScreen"
+          component={DashboardTasksDoNotScreen}
+        />
+        <Stack.Screen
+          name="MemberPlanManagement"
+          component={MemberPlanManagement}
+        />
+      </Stack.Navigator>
     );
   };
 }
@@ -117,6 +133,8 @@ const ChatStack = createAppStack('ChatScreen');
 const ProfileStack = createAppStack('ProfileScreen');
 const TasksStack = createAppStack('DashboardTasksScreen');
 const SettingsStack = createAppStack('SettingsScreen');
+const ReportStack = createAppStack('ReportScreen');
+const ResourcesStack = createAppStack('ResourcesScreen');
 
 function MainNavigator() {
   return (
@@ -133,8 +151,9 @@ function MainNavigator() {
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="ForgotPasswordOtp" component={ForgotPasswordOtp} />
         <Stack.Screen name="AddNewMember" component={AddNewMember} />
+        {/* <Stack.Screen name="ChatScreen" component={ChatScreen} /> */}
+        <Stack.Screen name="StartExploring" component={StartExploring} />
         <Stack.Screen name="NakshatraScreen" component={NakshatraScreen} />
-
         <Stack.Screen name="Register" component={Register} />
         {/* Main app with tabs - tabs will be visible on all screens inside MyTabs */}
         <Stack.Screen name="HomeScreen" component={MyTabs} />
@@ -188,55 +207,6 @@ function MyTabs() {
           ),
         }}
       >
-        <Tab.Screen
-          name="HomeTab"
-          component={HomeStack}
-          options={{
-            tabBarIcon: ({ focused }) => (
-              <View style={styles.tabItemContainer}>
-                <Image
-                  source={focused ? icons.icHomeActive : icons.icHome}
-                  style={[
-                    styles.iconStyle,
-                    {
-                      tintColor: focused
-                        ? colors.Orangeaccentcolor
-                        : colors.textSecondary,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    {
-                      color: focused
-                        ? colors.Orangeaccentcolor
-                        : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  Dashboard
-                </Text>
-              </View>
-            ),
-          }}
-          listeners={({ navigation, route }) => ({
-            tabPress: e => {
-              const state = navigation.getState();
-              const tabRoute = state.routes.find(r => r.key === route.key);
-              const nestedState = tabRoute?.state;
-              const currentRoute = nestedState?.routes[nestedState?.index];
-
-              // If not on HomeScreen, navigate to it
-              if (currentRoute?.name !== 'HomeScreen') {
-                e.preventDefault();
-                navigation.navigate('HomeTab', {
-                  screen: 'HomeScreen',
-                });
-              }
-            },
-          })}
-        />
         <Tab.Screen
           name="ChatTab"
           component={ChatStack}
@@ -315,7 +285,7 @@ function MyTabs() {
                     },
                   ]}
                 >
-                  Profile
+                  My Members
                 </Text>
               </View>
             ),
@@ -337,6 +307,59 @@ function MyTabs() {
             },
           })}
         />
+
+        <Tab.Screen
+          name="ReportTab"
+          component={ReportStack}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View style={styles.tabItemContainer}>
+                <Image
+                  source={focused ? icons.icReportActive : icons.icReport}
+                  style={[
+                    styles.iconStyle,
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                      width: responsiveWidth(6.5),
+                      height: responsiveWidth(6.5),
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  Reports
+                </Text>
+              </View>
+            ),
+          }}
+          listeners={({ navigation, route }) => ({
+            tabPress: e => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+
+              // If not on DashboardTasksScreen, navigate to it
+              if (currentRoute?.name !== 'ReportScreen') {
+                e.preventDefault();
+                navigation.navigate('ReportTab', {
+                  screen: 'ReportScreen',
+                });
+              }
+            },
+          })}
+        />
+
         <Tab.Screen
           name="TasksTab"
           component={TasksStack}
@@ -387,6 +410,58 @@ function MyTabs() {
                 e.preventDefault();
                 navigation.navigate('TasksTab', {
                   screen: 'DashboardTasksScreen',
+                });
+              }
+            },
+          })}
+        />
+      
+        <Tab.Screen
+          name="HomeTab"
+          component={HomeStack}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View style={styles.tabItemContainer}>
+                <Image
+                  source={focused ? icons.icHomeActive : icons.icHome}
+                  style={[
+                    styles.iconStyle,
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                      width: responsiveWidth(6),
+                      height: responsiveWidth(6),
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  Dashboard
+                </Text>
+              </View>
+            ),
+          }}
+          listeners={({ navigation, route }) => ({
+            tabPress: e => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+
+              // If not on HomeScreen, navigate to it
+              if (currentRoute?.name !== 'HomeScreen') {
+                e.preventDefault();
+                navigation.navigate('HomeTab', {
+                  screen: 'HomeScreen',
                 });
               }
             },
@@ -467,10 +542,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabLabel: {
-    ...font.caption,
+    fontSize: fontSize.xxsmall,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
     marginTop: 4,
     textAlign: 'center',
-    width: responsiveWidth('20%'),
+    width: responsiveWidth('19%'),
   },
   iconStyle: {
     height: responsiveWidth(7),

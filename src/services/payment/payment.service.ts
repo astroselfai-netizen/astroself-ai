@@ -65,6 +65,16 @@ export interface UserReportVerifyResponse {
   data?: any;
 }
 
+export interface PurchasedReport {
+  report_type: string;
+  verified_at: string;
+}
+
+export interface PurchasedReportsResponse {
+  status: string;
+  data: PurchasedReport[];
+}
+
 export interface PaymentDetailsResponse {
   status: boolean;
   data: {
@@ -106,6 +116,26 @@ export interface PaymentDetailsResponse {
       updated_at: string | null;
     } | null;
   };
+}
+
+export interface CreateSubscriptionRequest {
+  plan_id: string;
+  user_id: string;
+  member_user_id: string;
+  notes?: Record<string, any>;
+}
+
+export interface CreateSubscriptionResponse {
+  status?: string;
+  subscription_id?: string;
+  short_url?: string;
+  payment_url?: string;
+  open_in_browser?: boolean;
+  razorpay_key?: string;
+  sub_status?: string;
+  success?: boolean;
+  message?: string;
+  data?: any;
 }
 
 class PaymentService extends Service {
@@ -227,6 +257,37 @@ class PaymentService extends Service {
     }
   }
 
+  async getPurchasedReports(userId: string): Promise<PurchasedReportsResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Fetching purchased reports for userId:', userId);
+
+      const response = await http.get(`/user/success-reports?user_id=${userId}`, {
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('Purchased reports response:--->', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching purchased reports:', error);
+      if (error.response) {
+        throw new Error(error.response.data?.message || 'Failed to fetch purchased reports');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while fetching purchased reports');
+      }
+    }
+  }
+
   async getPaymentDetails(userId: string): Promise<PaymentDetailsResponse> {
     try {
       const token = await AsyncStorage.getItem('USER_TOKEN');
@@ -256,6 +317,153 @@ class PaymentService extends Service {
         throw new Error('Network error. Please check your connection.');
       } else {
         throw new Error('Something went wrong while fetching payment details');
+      }
+    }
+  }
+
+  async getPaymentHistory(userId: string): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Fetching payment history for userId:', userId);
+      const response = await http.get(`/user/payment-history/${userId}`, {
+        headers: {
+          accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log('Payment history response:--->', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching payment history:', error);
+      if (error.response) {
+        throw new Error(
+          error.response.data?.message || 'Failed to fetch payment history',
+        );
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while fetching payment history');
+      }
+    }
+  }
+
+  async getAutoPay(userId: string): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Fetching auto pay for userId:', userId);
+      const response = await http.get(`/user/auto-pay/${userId}`, {
+        headers: {
+          accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log('Auto pay response:--->', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching auto pay:', error);
+      if (error.response) {
+        throw new Error(
+          error.response.data?.message || 'Failed to fetch auto pay',
+        );
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while fetching auto pay');
+      }
+    }
+  }
+
+  async cancelSubscription(
+    subscriptionId: string,
+    memberUserId: string,
+    cancelImmediately: boolean = true,
+  ): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Cancelling subscription:', {
+        subscription_id: subscriptionId,
+        member_user_id: memberUserId,
+        cancel_immediately: cancelImmediately,
+      });
+
+      const response = await http.post(
+        `/autopay/cancel-subscription`,
+        {
+          subscription_id: subscriptionId,
+          cancel_immediately: cancelImmediately,
+          member_user_id: memberUserId,
+        },
+        {
+          headers: {
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      console.log('Cancel subscription response:--->', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error cancelling subscription:', error);
+      if (error.response) {
+        throw new Error(
+          error.response.data?.message || 'Failed to cancel subscription',
+        );
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while cancelling subscription');
+      }
+    }
+  }
+
+  async createSubscription(subscriptionData: CreateSubscriptionRequest): Promise<CreateSubscriptionResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Create subscription request:--->', subscriptionData);
+
+      const response = await http.post(
+        `mobile/autopay/create-subscription`,
+        subscriptionData,
+        {
+          headers: {
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      console.log('Create subscription response:--->', response.data);
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error creating subscription:', error);
+      if (error.response) {
+        throw new Error(error.response.data?.message || 'Failed to create subscription');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while creating subscription');
       }
     }
   }

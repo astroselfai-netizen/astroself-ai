@@ -82,6 +82,7 @@ export const darkTheme = {
     textSecondary: '#F6EFD9',
     accent: '#DF8A5D',
     Orangeaccentcolor: '#DF8A5D',
+    ofwhite: 'rgb(245, 245, 245)',
     accentLight: '#F2994A',
     primaryBlue: 'rgba(73, 108, 168, 1)',
     borderColor: '#EEE5CA',

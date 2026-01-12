@@ -4,10 +4,11 @@ import ChatWithPrompts from '../../components/ChatWithPrompts';
 
 const ChatWithPromptsScreen = () => {
   const route = useRoute();
-  const { userId, cardTitles, tab, planet, current_plan } = route.params as { 
+  const { userId, cardTitles, tab, planet, current_plan, subCards } = route.params as { 
     userId: string; 
     cardTitles?: string; 
     tab?: string; 
+    subCards?: Array<{ id: number; title: string }>;
     planet?: string; 
     current_plan?: string;
   };
@@ -15,7 +16,7 @@ const ChatWithPromptsScreen = () => {
   console.log('userId---->', userId);
   console.log('cardTitles---->', cardTitles);
 
-  return <ChatWithPrompts userId={userId} planet={planet} cardTitles={cardTitles} tab={tab} current_plan={current_plan} />;
+  return <ChatWithPrompts subCards={subCards} userId={userId} planet={planet} cardTitles={cardTitles} tab={tab} current_plan={current_plan} />;
 };
 
 export default ChatWithPromptsScreen;

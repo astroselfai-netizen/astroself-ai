@@ -28,6 +28,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
 import PaymentService from '../../services/payment/payment.service';
 import LottieView from 'lottie-react-native';
+import Toast from 'react-native-toast-message';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -46,46 +47,91 @@ type PurchasedHistoryScreenNavigationProp = NavigationProp<RootStackParamList, '
 const PurchasedHistoryScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<PurchasedHistoryScreenNavigationProp>();
-  const { membersData, profileData } = useProfileData();
-  const [activeTab, setActiveTab] = useState<'Reports' | 'Memberships'>(
-    'Reports',
+  const { profileData } = useProfileData();
+  const [activeTab, setActiveTab] = useState<'Purchase History' | 'Auto Payment'>(
+    'Purchase History',
   );
-  const [purchasedReportsData, setPurchasedReportsData] = useState<any[]>([]);
-  const [purchasedMembershipsData, setPurchasedMembershipsData] = useState<any[]>([]);
+  const [purchaseHistoryData, setPurchaseHistoryData] = useState<any[]>([]);
+  const [autoPayData, setAutoPayData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
   const fetchedUserIdRef = useRef<string | null>(null);
 
-  // Map report types to display names
-  const getReportTypeDisplayName = (reportType: string): string => {
-    const reportTypeMap: { [key: string]: string } = {
-      nakshatra: 'Nakshatra Report',
-      adl: 'Antardasha Report',
-      tarot: 'Tarot Card Reading',
-      numerology: 'Numerology Insights',
-      vedic: 'Vedic Astrology Chart',
-      compatibility: 'Compatibility Analysis',
-    };
-    return reportTypeMap[reportType.toLowerCase()] || `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`;
-  };
-
-  // Format date from API response
-  const formatDate = useCallback((dateStr: string | null): string => {
+  // Format date and time from API response - "12 Nov 2025 10:30 AM"
+  const formatDateTime = useCallback((dateStr: string | null): string => {
     if (!dateStr) return 'N/A';
     
-    // Handle format like "13-Nov-2025 09:56" or "13-Nov-2025"
     try {
+      // Handle format like "24-Dec-2025 05:43" or "29-Dec-2025 13:39"
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) {
-        // Try parsing with moment or manual parsing
+        // Try manual parsing for "DD-MMM-YYYY HH:MM" format
         const parts = dateStr.split(' ');
-        if (parts.length > 0) {
-          return parts[0]; // Return "13-Nov-2025" format
+        if (parts.length >= 2) {
+          const datePart = parts[0]; // "24-Dec-2025"
+          const timePart = parts[1]; // "05:43"
+          
+          const [day, monthName, year] = datePart.split('-');
+          const monthNames: { [key: string]: string } = {
+            'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+            'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+            'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+          };
+          const month = monthNames[monthName] || '01';
+          
+          const [hour, minute] = timePart.split(':');
+          const hourNum = parseInt(hour, 10);
+          const ampm = hourNum >= 12 ? 'PM' : 'AM';
+          const displayHour = hourNum > 12 ? hourNum - 12 : hourNum === 0 ? 12 : hourNum;
+          const displayMinute = minute.padStart(2, '0');
+          
+          const monthDisplayNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const monthDisplay = monthDisplayNames[parseInt(month, 10) - 1];
+          
+          return `${day} ${monthDisplay} ${year} ${displayHour}:${displayMinute} ${ampm}`;
         }
         return dateStr;
       }
       
-      // Format as "DD MMM YYYY"
+      // Format as "DD MMM YYYY HH:MM AM/PM"
+      const day = date.getDate();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear();
+      const hour = date.getHours();
+      const minute = date.getMinutes();
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+      const displayMinute = minute.toString().padStart(2, '0');
+      
+      return `${day} ${month} ${year} ${displayHour}:${displayMinute} ${ampm}`;
+    } catch (e) {
+      return dateStr;
+    }
+  }, []);
+
+  // Format date only - "12 Nov 2025"
+  const formatDate = useCallback((dateStr: string | null): string => {
+    if (!dateStr) return 'N/A';
+    
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        const parts = dateStr.split(' ');
+        if (parts.length > 0) {
+          const datePart = parts[0]; // "24-Dec-2025"
+          const [day, monthName, year] = datePart.split('-');
+          const monthNames: { [key: string]: string } = {
+            'Jan': 'Jan', 'Feb': 'Feb', 'Mar': 'Mar', 'Apr': 'Apr',
+            'May': 'May', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Aug',
+            'Sep': 'Sep', 'Oct': 'Oct', 'Nov': 'Nov', 'Dec': 'Dec'
+          };
+          return `${day} ${monthNames[monthName] || monthName} ${year}`;
+        }
+        return dateStr;
+      }
+      
       const day = date.getDate();
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const month = monthNames[date.getMonth()];
@@ -96,28 +142,32 @@ const PurchasedHistoryScreen = () => {
     }
   }, []);
 
-  // Get member name from user_id
-  const getMemberName = useCallback((userId: string): string => {
-    if (!membersData || membersData.length === 0) {
-      return 'User Report';
+  // Format amount
+  const formatAmount = useCallback((amount: any): string => {
+    if (!amount) return 'N/A';
+    if (Array.isArray(amount)) {
+      return amount[0]?.toString() || 'N/A';
     }
-    
-    const member = membersData.find(
-      (m: any) => (m.id || m._id) === userId
-    );
-    
-    if (member) {
-      const firstName = member.first_name || '';
-      const lastName = member.last_name || '';
-      const fullName = `${firstName} ${lastName}`.trim();
-      return fullName || member.full_name || 'User Report';
-    }
-    
-    return 'User Report';
-  }, [membersData]);
+    return amount.toString();
+  }, []);
 
-  // Fetch payment details
-  const fetchPaymentDetails = useCallback(async () => {
+  // Format card info - "ICIC - Visa •••• 8242"
+  const formatCardInfo = useCallback((card: any): string => {
+    if (!card) return 'N/A';
+    // Map issuer to bank name
+    const bankMap: { [key: string]: string } = {
+      'UTIB': 'ICIC',
+      'HDFC': 'HDFC',
+      'SBIN': 'SBI',
+    };
+    const bankName = bankMap[card.issuer] || card.issuer || '';
+    const network = card.network || '';
+    const last4 = card.last4 || '';
+    return bankName && network ? `${bankName} - ${network} •••• ${last4}` : `•••• ${last4}`;
+  }, []);
+
+  // Fetch payment history and auto pay
+  const fetchPaymentData = useCallback(async () => {
     try {
       // Get user ID from profileData
       const userId = profileData?._id;
@@ -137,80 +187,182 @@ const PurchasedHistoryScreen = () => {
       fetchedUserIdRef.current = userId;
 
       const paymentService = new PaymentService();
-      const response = await paymentService.getPaymentDetails(userId);
 
-      if (response.status && response.data) {
-        // Transform reports data
-        const reports = response.data.reports || [];
-        const transformedReports = reports.map((report: any, index: number) => ({
-          id: report.order_id || report.payment_id || `report-${index}`,
-          userReportName: getMemberName(report.user_id),
-          title: getReportTypeDisplayName(report.report_type),
-          date: formatDate(report.created_at),
-          price: report.amount?.toString() || '0',
-          status: report.status,
-          orderId: report.order_id,
-          paymentId: report.payment_id,
-        }));
+      // Fetch Payment History
+      try {
+        const paymentHistoryResponse = await paymentService.getPaymentHistory(userId);
 
-        setPurchasedReportsData(transformedReports);
-
-        // Transform subscription data
-        const subscription = response.data.subscription;
-        if (subscription) {
-          const transformedMemberships = [
-            {
-              id: subscription.payment_id || 'membership-1',
-              membershipName: subscription.plan_name || 'Current Plan',
-              membershipType: subscription.plan_name || 'Active Membership',
-              dateRange: `${formatDate(
-                subscription.start_plan_time,
-              )} to ${formatDate(subscription.end_plan_time)}`,
-              price: subscription.amount?.toString() || '0',
-              status: subscription.status,
-              paymentId: subscription.payment_id,
-              members: subscription.members || 0,
-              startPlanTime: subscription.start_plan_time,
-              endPlanTime: subscription.end_plan_time,
-              planName: subscription.plan_name,
-              amount: subscription.amount,
-            },
-          ];
-          setPurchasedMembershipsData(transformedMemberships);
-        } else {
-          setPurchasedMembershipsData([]);
+        console.log('paymentHistoryResponse--?>', paymentHistoryResponse);
+        if (paymentHistoryResponse.status === 'success' && paymentHistoryResponse.data) {
+          const combinedItems = paymentHistoryResponse.data.combined_items || [];
+          const transformedHistory = combinedItems.map((item: any, index: number) => {
+            // Format plan name for display
+            const planName = item.plan_name || '';
+            const formattedPlanName = planName
+              .split('_')
+              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+            
+            // Generate description - for subscriptions show "Annual Membership Renewal - Premium Plan"
+            // For reports show "Purchased Nakshatra Report for Member Name"
+            let description = '';
+            if (item.type === 'subscription') {
+              if (planName === 'eternal_path' || planName.includes('premium')) {
+                description = `Annual Membership Renewal - Premium Plan`;
+              } else {
+                description = `${formattedPlanName} Subscription`;
+              }
+            } else {
+              // For reports, we need to check if there's a report_type or similar
+              const reportType = item.report_type || '';
+              const reportTypeMap: { [key: string]: string } = {
+                'nakshatra': 'Nakshatra Report',
+                'adl': 'Antardasha Report',
+                'tarot': 'Tarot Card Reading',
+                'numerology': 'Numerology Insights',
+                'vedic': 'Vedic Astrology Chart',
+                'compatibility': 'Compatibility Analysis',
+              };
+              const reportDisplayName = reportTypeMap[reportType.toLowerCase()] || formattedPlanName || 'Report';
+              description = `Purchased ${reportDisplayName}`;
+            }
+            
+            // Get date time - prefer verified_at, then activated_at
+            const dateTime = item.verified_at || item.activated_at || null;
+            
+            return {
+              id: item.unique_code || `history-${index}`,
+              dateTime: formatDateTime(dateTime),
+              description: description,
+              amount: formatAmount(item.amount),
+              currency: item.currency || 'INR',
+              uniqueCode: item.unique_code || 'N/A',
+              verifiedAt: item.verified_at,
+              activatedAt: item.activated_at,
+              card: item.card ? formatCardInfo(item.card) : null,
+              type: item.type || 'subscription',
+              planName: planName,
+              status: item.status || 'N/A',
+            };
+          });
+          setPurchaseHistoryData(transformedHistory);
         }
+      } catch (err: any) {
+        console.error('Error fetching payment history:', err);
+        setPurchaseHistoryData([]);
+      }
+
+      // Fetch Auto Pay
+      try {
+        const autoPayResponse = await paymentService.getAutoPay(userId);
+        if (autoPayResponse.status === 'success' && autoPayResponse.data) {
+          const subscriptions = autoPayResponse.data.subscriptions || [];
+          const transformedAutoPay = subscriptions.map((sub: any, index: number) => ({
+            id: sub.subscription_id || sub.unique_code || `autopay-${index}`,
+            subscriptionId: sub.subscription_id || 'N/A',
+            planName: sub.plan_name || 'N/A',
+            memberName: sub.name || 'N/A',
+            memberUserId: sub.member_user_id || 'N/A',
+            status: sub.status || 'N/A',
+            startPlan: formatDate(sub.start_plan),
+            endPlan: formatDate(sub.end_plan),
+            validityDate: `${formatDate(sub.start_plan)} - ${formatDate(sub.end_plan)}`,
+            uniqueCode: sub.unique_code || 'N/A',
+            verifiedAt: sub.verified_at,
+            activatedAt: sub.activated_at,
+            card: sub.card ? formatCardInfo(sub.card) : null,
+            type: sub.type || 'subscription',
+          }));
+          setAutoPayData(transformedAutoPay);
+        }
+      } catch (err: any) {
+        console.error('Error fetching auto pay:', err);
+        setAutoPayData([]);
       }
     } catch (err: any) {
-      console.error('Error fetching payment details:', err);
-      setError(err.message || 'Failed to fetch payment details');
-      Alert.alert('Error', err.message || 'Failed to fetch payment details', [
+      console.error('Error fetching payment data:', err);
+      setError(err.message || 'Failed to fetch payment data');
+      Alert.alert('Error', err.message || 'Failed to fetch payment data', [
         { text: 'OK' },
-        { text: 'Retry', onPress: fetchPaymentDetails },
+        { text: 'Retry', onPress: fetchPaymentData },
       ]);
     } finally {
       setLoading(false);
     }
-  }, [profileData?._id, getMemberName, formatDate]);
+  }, [profileData?._id, formatDate, formatDateTime, formatAmount, formatCardInfo]);
+
+  // Handle Cancel Autopay
+  const handleCancelAutopay = useCallback(async (subscription: any) => {
+    Alert.alert(
+      'Cancel Autopay',
+      `Are you sure you want to cancel the autopay subscription for ${subscription.memberName}?`,
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setCancellingSubscription(subscription.id);
+              const paymentService = new PaymentService();
+              
+              await paymentService.cancelSubscription(
+                subscription.subscriptionId,
+                subscription.memberUserId,
+                true, // cancel_immediately
+              );
+
+              Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Autopay subscription cancelled successfully',
+                position: 'top',
+                topOffset: 60,
+                visibilityTime: 3000,
+              });
+
+              // Refresh data
+              fetchedUserIdRef.current = null;
+              await fetchPaymentData();
+            } catch (err: any) {
+              console.error('Error cancelling subscription:', err);
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: err.message || 'Failed to cancel subscription',
+                position: 'top',
+                topOffset: 60,
+                visibilityTime: 3000,
+              });
+            } finally {
+              setCancellingSubscription(null);
+            }
+          },
+        },
+      ],
+    );
+  }, [fetchPaymentData]);
 
   // Fetch data when profileData becomes available or changes
   React.useEffect(() => {
     if (profileData?._id && fetchedUserIdRef.current !== profileData._id) {
-      fetchPaymentDetails();
+      fetchPaymentData();
     }
-  }, [profileData?._id, fetchPaymentDetails]);
+  }, [profileData?._id, fetchPaymentData]);
 
   // Fetch data when screen comes into focus (only if profileData is available)
   useFocusEffect(
     React.useCallback(() => {
-      console.log('Purchased History screen focused, fetching payment details...');
+      console.log('Purchased History screen focused, fetching payment data...');
       if (profileData?._id) {
         // Reset the ref to allow refetch on focus
-        if (fetchedUserIdRef.current !== profileData._id) {
-          fetchPaymentDetails();
-        }
+        fetchedUserIdRef.current = null;
+        fetchPaymentData();
       }
-    }, [profileData?._id, fetchPaymentDetails]),
+    }, [profileData?._id, fetchPaymentData]),
   );
 
   return (
@@ -304,7 +456,7 @@ const PurchasedHistoryScreen = () => {
           <TouchableOpacity
             style={[
               styles.tab,
-              activeTab === 'Reports' && {
+              activeTab === 'Purchase History' && {
                 ...styles.activeTab,
                 borderBottomColor:
                   theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
@@ -318,7 +470,7 @@ const PurchasedHistoryScreen = () => {
                     : colors.borderColor,
               },
             ]}
-            onPress={() => setActiveTab('Reports')}
+            onPress={() => setActiveTab('Purchase History')}
           >
             <Text
               style={[
@@ -326,20 +478,20 @@ const PurchasedHistoryScreen = () => {
                 {
                   color: theme === 'dark' ? colors.white : colors.DarkNavy,
                 },
-                activeTab === 'Reports' && {
+                activeTab === 'Purchase History' && {
                   color:
                     theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
                 },
               ]}
             >
-              Reports
+              Purchase History
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
               styles.tab,
-              activeTab === 'Memberships' && {
+              activeTab === 'Auto Payment' && {
                 ...styles.activeTab,
                 borderBottomColor:
                   theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
@@ -353,7 +505,7 @@ const PurchasedHistoryScreen = () => {
                     : colors.borderColor,
               },
             ]}
-            onPress={() => setActiveTab('Memberships')}
+            onPress={() => setActiveTab('Auto Payment')}
           >
             <Text
               style={[
@@ -361,13 +513,13 @@ const PurchasedHistoryScreen = () => {
                 {
                   color: theme === 'dark' ? colors.white : colors.DarkNavy,
                 },
-                activeTab === 'Memberships' && {
+                activeTab === 'Auto Payment' && {
                   color:
                     theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
                 },
               ]}
             >
-              Memberships
+              Auto Payment
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -410,16 +562,19 @@ const PurchasedHistoryScreen = () => {
                     theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
                 },
               ]}
-              onPress={fetchPaymentDetails}
+              onPress={fetchPaymentData}
             >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <>
-            {activeTab === 'Reports' && (
-              <View style={styles.purchasedReportsContainer}>
-                {purchasedReportsData.length === 0 ? (
+            {activeTab === 'Purchase History' && (
+              <View style={[styles.tableContainer,{borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,}]}>
+                {purchaseHistoryData.length === 0 ? (
                   <View style={styles.emptyContainer}>
                     <Text
                       style={[
@@ -432,160 +587,230 @@ const PurchasedHistoryScreen = () => {
                         },
                       ]}
                     >
-                      No purchased reports found
+                      No purchase history found
                     </Text>
                   </View>
                 ) : (
-                  purchasedReportsData.map(report => (
-                    <ImageBackground
-                      blurRadius={12}
-                      key={report.id}
-                      source={
-                        theme === 'dark'
-                          ? require('../../assets/image/DarkBackground.png')
-                          : require('../../assets/image/LightBackground.png')
-                      }
+                  <>
+                    {/* Table Header */}
+                    <View
                       style={[
-                        styles.purchasedReportCardImageBackground,
+                        styles.tableHeader,
                         {
-                          backgroundColor:
+                          backgroundColor: colors.DarkNavy || '#1A1F3A',
+                          borderBottomWidth: 1,
+                          borderBottomColor:
                             theme === 'dark'
-                              ? colors.transparentBg
-                              : colors.white,
-                          borderColor:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
+                              ? colors.themeBorderDropdown
                               : colors.borderColor,
                         },
                       ]}
-                      imageStyle={[
-                        styles.purchasedReportCardImageStyle,
-                        {
-                          backgroundColor:
-                            theme === 'dark'
-                              ? colors.transparentBg
-                              : colors.white,
-                        },
-                      ]}
                     >
-                      <View
+                      <Text style={[styles.tableHeaderText, { flex: 1.2 }]}>
+                        DATE & TIME
+                      </Text>
+                      <Text style={[styles.tableHeaderText, { flex: 2 }]}>
+                        DESCRIPTION
+                      </Text>
+                      <Text
                         style={[
-                          styles.purchasedReportCard,
+                          styles.tableHeaderText,
+                          { flex: 1, textAlign: 'right' },
+                        ]}
+                      >
+                        AMOUNT
+                      </Text>
+                    </View>
+
+                    {/* Table Rows */}
+                    {purchaseHistoryData.map((item, index) => (
+                      <View
+                        key={item.id || index}
+                        style={[
+                          styles.tableRow,
                           {
                             backgroundColor:
                               theme === 'dark'
-                                ? colors.transparentBg
+                                ? colors.DarkNavy
                                 : colors.white,
-                            borderColor:
+                            borderBottomColor:
                               theme === 'dark'
-                                ? colors.themeTextWhite
+                                ? colors.themeBorderDropdown
                                 : colors.borderColor,
                           },
                         ]}
                       >
-                        {/* Top Row: User Name + Price */}
-                        <View style={styles.purchasedReportTopRow}>
-                          {/* Left: Checkmark Icon + User Report Name */}
-                          <View style={styles.purchasedReportUserInfo}>
-                            <View style={styles.checkmarkIconContainer}>
-                              <Image
-                                source={require('../../assets/icons/checkIcon.png')}
-                                resizeMode="contain"
-                                style={styles.checkmarkIcon}
-                                tintColor={
-                                  theme === 'dark'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.Orangeaccentcolor
-                                }
-                              />
-                            </View>
-                            <Text
-                              style={[
-                                styles.purchasedReportUserName,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                            >
-                              {report.userReportName}
-                            </Text>
-                          </View>
-
-                          {/* Right: Price */}
-                          <Text
-                            style={[
-                              styles.purchasedReportPrice,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            ₹ {report.price}
-                          </Text>
-                        </View>
-
-                        {/* Middle Row: Report Title + Date (Left) and Download Button (Right) */}
-                        <View style={styles.purchasedReportMiddleRow}>
-                          {/* Left: Title and Date */}
-                          <View style={styles.purchasedReportLeftSectionh}>
-                            <Text
-                              style={[
-                                styles.purchasedReportTitle,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                            >
-                              {report.title}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.purchasedReportDate,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                            >
-                              {report.date}
-                            </Text>
-                          </View>
-
-                          {/* Right: Download Button */}
-                          {/* <TouchableOpacity
-                      style={styles.purchasedReportDownloadButton}
-                      onPress={() => {
-                        // Handle download
-                        console.log('Download report:', report.id);
-                      }}
-                    >
-                      <Text style={styles.purchasedReportDownloadButtonText}>
-                        Download
-                      </Text>
-                    </TouchableOpacity> */}
-                        </View>
+                        <Text
+                          style={[
+                            styles.tableCellText,
+                            {
+                              flex: 1,
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {item.dateTime}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.tableCellText,
+                            {
+                              flex: 2,
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {item.description}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.tableCellAmount,
+                            {
+                              flex: 1,
+                              textAlign: 'right',
+                              color: '#4CAF50', // Green color for amount
+                            },
+                          ]}
+                        >
+                          {item.amount !== 'N/A' ? `₹${item.amount}` : 'N/A'}
+                        </Text>
                       </View>
-                    </ImageBackground>
-                  ))
+                    ))}
+                  </>
                 )}
               </View>
             )}
 
-            {activeTab === 'Memberships' && (
-              <View style={styles.purchasedReportsContainer}>
-                {purchasedMembershipsData.length === 0 ? (
-                  <View style={styles.emptyContainer}>
+            {activeTab === 'Auto Payment' && (
+              <View style={[styles.tableContainer,{borderColor:
+                theme === 'dark'
+                  ? colors.themeBorderDropdown
+                  : colors.borderColor,}]}>
+                {/* Filter Section */}
+                {/* <View
+                  style={[
+                    styles.filterContainer,
+                    {
+                      backgroundColor:
+                        theme === 'dark'
+                          ? colors.transparentBg
+                          : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterLabel,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Filter:
+                  </Text>
+                  <View style={styles.filterInputsContainer}>
+                    <View
+                      style={[
+                        styles.filterInput,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.DarkNavy
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeBorderDropdown
+                              : colors.borderColor,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterInputText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.textSecondary || '#999'
+                                : colors.textSecondary || '#666',
+                          },
+                        ]}
+                      >
+                        From Date
+                      </Text>
+                      <Text
+                        style={[
+                          styles.filterInputText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.textSecondary || '#999'
+                                : colors.textSecondary || '#666',
+                          },
+                        ]}
+                      >
+                        📅
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.filterInput,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.DarkNavy
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.themeBorderDropdown
+                              : colors.borderColor,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterInputText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.textSecondary || '#999'
+                                : colors.textSecondary || '#666',
+                          },
+                        ]}
+                      >
+                        End Date
+                      </Text>
+                      <Text
+                        style={[
+                          styles.filterInputText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.textSecondary || '#999'
+                                : colors.textSecondary || '#666',
+                          },
+                        ]}
+                      >
+                        📅
+                      </Text>
+                    </View>
+                  </View>
+                </View> */}
+
+                {autoPayData.length === 0 ? (
+                  <View style={[styles.emptyContainer]}>
                     <Text
                       style={[
                         styles.emptyText,
@@ -597,81 +822,97 @@ const PurchasedHistoryScreen = () => {
                         },
                       ]}
                     >
-                      No active memberships found
+                      No auto payment subscriptions found
                     </Text>
                   </View>
                 ) : (
-                  purchasedMembershipsData.map(membership => (
-                    <ImageBackground
-                      blurRadius={12}
-                      key={membership.id}
-                      source={
-                        theme === 'dark'
-                          ? require('../../assets/image/DarkBackground.png')
-                          : require('../../assets/image/LightBackground.png')
-                      }
+                  <>
+                    {/* Table Header */}
+                    <View
                       style={[
-                        styles.purchasedReportCardImageBackground,
+                        styles.tableHeader,
                         {
-                          backgroundColor:
+                          backgroundColor: colors.DarkNavy || '#1A1F3A',
+                          borderBottomWidth: 1,
+                          borderBottomColor:
                             theme === 'dark'
-                              ? colors.transparentBg
-                              : colors.white,
-                          borderColor:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.borderColor,
-                        },
-                      ]}
-                      imageStyle={[
-                        styles.purchasedReportCardImageStyle,
-                        {
-                          backgroundColor:
-                            theme === 'dark'
-                              ? colors.transparentBg
-                              : colors.white,
-                          borderColor:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
+                              ? colors.themeBorderDropdown
                               : colors.borderColor,
                         },
                       ]}
                     >
+                      <Text style={[styles.tableHeaderText, { flex: 1 }]}>
+                        NAME
+                      </Text>
+                      <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>
+                        VALIDITY DATE
+                      </Text>
+                      <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>
+                        LINKED CARD
+                      </Text>
+                      <Text style={[styles.tableHeaderText, { flex: 1.2 }]}>
+                        ACTION
+                      </Text>
+                    </View>
+
+                    {/* Table Rows */}
+                    {autoPayData.map((subscription, index) => (
                       <View
+                        key={subscription.id || index}
                         style={[
-                          styles.purchasedReportCard,
+                          styles.tableRow,
                           {
                             backgroundColor:
                               theme === 'dark'
-                                ? colors.transparentBg
+                                ? colors.DarkNavy
                                 : colors.white,
-                            borderColor:
+                            borderBottomColor:
                               theme === 'dark'
-                                ? colors.themeTextWhite
+                                ? colors.themeBorderDropdown
                                 : colors.borderColor,
                           },
                         ]}
                       >
-                        {/* Top Row: Membership Name + Price */}
-                        <View style={styles.purchasedReportTopRow}>
-                          {/* Left: Checkmark Icon + Membership Name */}
-                          <View style={styles.purchasedReportUserInfo}>
-                            <View style={styles.checkmarkIconContainer}>
-                              <Image
-                                source={require('../../assets/icons/checkIcon.png')}
-                                resizeMode="contain"
-                                style={styles.checkmarkIcon}
-                                tintColor={
-                                  theme === 'dark'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.Orangeaccentcolor
-                                }
-                              />
-                            </View>
-                            <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.tableCellText,
+                            {
+                              flex: 1,
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {subscription.memberName}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.tableCellText,
+                            {
+                              flex: 1.5,
+                              color:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                        >
+                          {subscription.validityDate}
+                        </Text>
+                        <View
+                          style={{
+                            flex: 1.5,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                          }}
+                        >
+                          {subscription.card && subscription.card !== 'N/A' ? (
+                            <>
                               <Text
                                 style={[
-                                  styles.purchasedReportUserName,
+                                  styles.tableCellText,
                                   {
                                     color:
                                       theme === 'dark'
@@ -680,64 +921,52 @@ const PurchasedHistoryScreen = () => {
                                   },
                                 ]}
                               >
-                                payment id: {membership.paymentId}
+                                💳 {subscription.card}
                               </Text>
-                            </View>
-                          </View>
-
-                          {/* Right: Price */}
-                          <Text
+                            </>
+                          ) : (
+                            <Text
+                              style={[
+                                styles.tableCellText,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.textSecondary || '#999'
+                                      : colors.textSecondary || '#666',
+                                },
+                              ]}
+                            >
+                              N/A
+                            </Text>
+                          )}
+                        </View>
+                        <View
+                          style={[
+                            styles.actionButtonsContainer,
+                            {
+                              flex: 1.5,
+                            },
+                          ]}
+                        >
+                          <TouchableOpacity
                             style={[
-                              styles.purchasedReportPrice,
+                              styles.actionButton,
+                              styles.changeCardButton,
                               {
-                                color:
+                                backgroundColor:
                                   theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                                fontSize: 20,
+                                    ? colors.transparentBg
+                                    : '#F5F5F5',
+                                borderColor:
+                                  theme === 'dark'
+                                    ? colors.themeBorderDropdown
+                                    : colors.borderColor,
                               },
                             ]}
                           >
-                            ₹ {membership.amount || membership.price}
-                          </Text>
-                        </View>
-
-                        {/* Middle Row: Membership Details + Date Range (Left) and Renew Button (Right) */}
-                        <View style={styles.purchasedReportMiddleRow}>
-                          {/* Left: Details and Date Range */}
-                          <View style={styles.purchasedReportLeftSection}>
-                            <View style={styles.statusMembersRow}>
-                              <Text
-                                style={[
-                                  styles.purchasedReportTitle,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.themeTextWhite
-                                        : colors.DarkNavy,
-                                  },
-                                ]}
-                              >
-                                Status: {membership.status}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.purchasedReportTitle,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.themeTextWhite
-                                        : colors.DarkNavy,
-                                    marginLeft: responsiveWidth(25),
-                                  },
-                                ]}
-                              >
-                                Members: {membership.members || 0}
-                              </Text>
-                            </View>
                             <Text
                               style={[
-                                styles.purchasedReportDate,
+                                styles.actionButtonText,
                                 {
                                   color:
                                     theme === 'dark'
@@ -745,27 +974,55 @@ const PurchasedHistoryScreen = () => {
                                       : colors.DarkNavy,
                                 },
                               ]}
+                              numberOfLines={2}
                             >
-                              Active from: {membership.dateRange}
+                              Change Card
                             </Text>
-                          </View>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.actionButton,
+                              // styles.cancelButton,
+                              {
+                                backgroundColor:
+                                  theme === 'dark'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.Orangeaccentcolor,
+                                borderColor:
+                                  theme === 'dark'
+                                    ? colors.themeBorderDropdown
+                                    : colors.borderColor,
+                              },
 
-                          {/* Right: Renew Button */}
-                          {/* <TouchableOpacity
-                      style={styles.purchasedReportDownloadButton}
-                      onPress={() => {
-                        // Handle renew
-                        console.log('Renew membership:', membership.id);
-                      }}
-                    >
-                      <Text style={styles.purchasedReportDownloadButtonText}>
-                        Renew
-                      </Text>
-                    </TouchableOpacity> */}
+                              cancellingSubscription === subscription.id && {
+                                opacity: 0.6,
+                              },
+                            ]}
+                            onPress={() => handleCancelAutopay(subscription)}
+                            disabled={
+                              cancellingSubscription === subscription.id
+                            }
+                          >
+                            {cancellingSubscription === subscription.id ? (
+                              <LottieView
+                                source={require('../../assets/lottie/loader-Animation-1.json')}
+                                autoPlay
+                                loop
+                                style={styles.buttonLoader}
+                              />
+                            ) : (
+                              <Text
+                                style={styles.cancelButtonText}
+                                numberOfLines={2}
+                              >
+                                Cancel Autopay
+                              </Text>
+                            )}
+                          </TouchableOpacity>
                         </View>
                       </View>
-                    </ImageBackground>
-                  ))
+                    ))}
+                  </>
                 )}
               </View>
             )}
@@ -1033,6 +1290,116 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     marginBottom: responsiveWidth(1),
     fontWeight: '700',
+  },
+  // Table Styles
+  tableContainer: {
+    marginHorizontal: responsiveWidth(3),
+    marginTop: responsiveWidth(2),
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    overflow: 'hidden',
+    paddingVertical: responsiveWidth(3),
+    paddingHorizontal: responsiveWidth(3),
+    backgroundColor: '#1A1F3A',
+  },
+  tableHeaderText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: responsiveWidth(3),
+    paddingHorizontal: responsiveWidth(3),
+    borderBottomWidth: 1,
+    alignItems: 'center',
+  },
+  tableCellText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+  },
+  tableCellAmount: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600',
+  },
+  // Filter Styles
+  filterContainer: {
+    marginHorizontal: responsiveWidth(3),
+    marginTop: responsiveWidth(2),
+    marginBottom: responsiveWidth(3),
+    padding: responsiveWidth(3),
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    marginBottom: responsiveWidth(2),
+  },
+  filterInputsContainer: {
+    flexDirection: 'row',
+    gap: responsiveWidth(2),
+  },
+  filterInput: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: responsiveWidth(2.5),
+    paddingHorizontal: responsiveWidth(3),
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  filterInputText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+  },
+  // Action Button Styles
+  actionButtonsContainer: {
+    flexDirection: 'column',
+    gap: responsiveWidth(2),
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  actionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: responsiveWidth(1.5),
+    paddingHorizontal: responsiveWidth(2),
+    borderRadius: 6,
+    borderWidth: 1,
+    minWidth: responsiveWidth(25),
+    width: '100%',
+  },
+  changeCardButton: {
+    // Grey button
+  },
+  cancelButton: {
+    backgroundColor: '#FF3B30',
+    borderColor: '#FF3B30',
+  },
+  actionButtonText: {
+    fontSize: 10,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 10,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  buttonLoader: {
+    width: responsiveWidth(6),
+    height: responsiveWidth(6),
   },
   checkIcon: {
     width: responsiveWidth(4),

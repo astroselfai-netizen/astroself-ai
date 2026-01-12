@@ -38,7 +38,7 @@ import Toast from 'react-native-toast-message';
 
 // Razorpay Configuration
 const RAZORPAY_CONFIG = {
-  TEST_KEY: 'rzp_test_GIgkz0qhMQzJxv',
+  TEST_KEY: 'rzp_test_Rueu06YDULsQCD',
   LIVE_KEY: 'rzp_live_t11y7Cds0JWo47',
   PLAN_ID: 'd461266c-574b-4312-994a-ebd2b5cf6dc3',
   IS_TEST_MODE: true, // Set to false for production
@@ -70,6 +70,8 @@ const ReportScreen = () => {
   const [processingReportId, setProcessingReportId] = useState<string | null>(
     null,
   );
+  const [purchasedReports, setPurchasedReports] = useState<any[]>([]);
+  const [loadingPurchasedReports, setLoadingPurchasedReports] = useState(false);
 
   // Profile member dropdown state
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -83,10 +85,48 @@ const ReportScreen = () => {
     }
   }, [userId]);
 
+  // Fetch purchased reports when purchased tab is active
+  useEffect(() => {
+    const fetchPurchasedReports = async () => {
+      if (activeTab === 'purchased' && selectedMemberId) {
+        try {
+          setLoadingPurchasedReports(true);
+          const response = await paymentService.getPurchasedReports(selectedMemberId);
+          if (response.status === 'success' && response.data) {
+            setPurchasedReports(response.data);
+          } else {
+            setPurchasedReports([]);
+          }
+        } catch (error: any) {
+          console.error('Error fetching purchased reports:', error);
+          setPurchasedReports([]);
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: error.message || 'Failed to fetch purchased reports',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3000,
+          });
+        } finally {
+          setLoadingPurchasedReports(false);
+        }
+      }
+    };
+
+    fetchPurchasedReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedMemberId]);
+
   // Show more state for each report
   const [expandedReports, setExpandedReports] = useState<Set<string>>(
     new Set(),
   );
+
+  // Payment success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalTitle, setSuccessModalTitle] = useState('');
+  const [successModalMessage, setSuccessModalMessage] = useState('');
 
   // Toggle expanded state for reports
   const toggleReportExpanded = (reportId: string) => {
@@ -142,12 +182,12 @@ const ReportScreen = () => {
       ],
     },
     {
-      id: 'lords-of-destiny',
+      id: 'lord',
       title: 'Lords of Destiny',
       description: 'The Structural Framework of Your Chart',
       price: '699',
       featuresTitel: 'Our Lords Report Covers',
-      isComingSoon: true,
+      isComingSoon: false,
       features: [
         'Built purely on Ascendant (Lagna) analysis, not Moon Lagna — giving you a clear, structure-based reading of your true life design.',
         'Understand how each house lord directs key areas like career, love, wealth, health, and inner purpose.',
@@ -159,12 +199,12 @@ const ReportScreen = () => {
       ],
     },
     {
-      id: 'planets-in-motion',
+      id: 'planet',
       title: 'Planets in Motion',
       description: 'The Living Pulse of Your Birth Chart',
       price: '699',
       featuresTitel: 'Our Planet Report Covers',
-      isComingSoon: true,
+      isComingSoon: false,
       features: [
         'Based purely on Ascendant (Lagna) analysis, not Moon Lagna — offering a precise reading rooted in your true chart structure.',
         'Understand how every planet channels its influence through the house it occupies, shaping your thoughts, career path, emotions, and relationships.',
@@ -295,15 +335,10 @@ const ReportScreen = () => {
           await refreshProfileData();
         }
 
-        // Show success message
-        Toast.show({
-          type: 'success',
-          text1: 'Payment Successful',
-          text2: `Payment verified successfully. Your report is being generated and will be sent to your email within 24 hours.`,
-          visibilityTime: 4000,
-          // autoHide: true,
-          // topOffset: 60,
-        });
+        // Show success modal
+        setSuccessModalTitle('Payment Successful');
+        setSuccessModalMessage('Payment Successful. Your report is being generated and will be sent to your email within 1 hour.');
+        setShowSuccessModal(true);
       } else {
         // Payment verification failed
         console.log('Payment verification failed:', verifyResponse);
@@ -959,13 +994,274 @@ const ReportScreen = () => {
 
         {activeTab === 'purchased' && (
           <View style={styles.reportsContainerpurchased}>
-            <Image
-              source={require('../../assets/icons/coming-soon.png')}
-              style={styles.emptyStateImagepurchased}
-            />
+            {loadingPurchasedReports ? (
+              <View style={styles.loadingContainer}>
+                <Text
+                  style={[
+                    styles.loadingText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Loading purchased reports...
+                </Text>
+              </View>
+            ) : purchasedReports.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                {/* <Image
+                  source={require('../../assets/icons/coming-soon.png')}
+                  style={styles.emptyStateImagepurchased}
+                /> */}
+                <Text
+                  style={[
+                    styles.emptyStateText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  No purchased reports found
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.purchasedReportsList}>
+                {purchasedReports.map((report, index) => {
+                  // Find report details from reportsData
+                  const reportDetails = reportsData.find(
+                    r => r.id === report.report_type,
+                  );
+                  const reportTitle = reportDetails?.title || report.report_type;
+                  const reportDescription =
+                    reportDetails?.description || 'Report';
+
+                  // Format verified_at date
+                  const formatDate = (dateStr: string) => {
+                    try {
+                      // Parse "31-Dec-2025 05:40"
+                      const [datePart, timePart] = dateStr.split(' ');
+                      const [day, monthName, year] = datePart.split('-');
+                      const monthNames: { [key: string]: string } = {
+                        Jan: 'January',
+                        Feb: 'February',
+                        Mar: 'March',
+                        Apr: 'April',
+                        May: 'May',
+                        Jun: 'June',
+                        Jul: 'July',
+                        Aug: 'August',
+                        Sep: 'September',
+                        Oct: 'October',
+                        Nov: 'November',
+                        Dec: 'December',
+                      };
+                      const month = monthNames[monthName] || monthName;
+                      return `${day} ${month} ${year}${timePart ? ` at ${timePart}` : ''}`;
+                    } catch (e) {
+                      return dateStr;
+                    }
+                  };
+
+                  return (
+                    <ImageBackground
+                      blurRadius={12}
+                      key={`${report.report_type}-${index}`}
+                      source={
+                        theme === 'dark'
+                          ? require('../../assets/image/DarkBackground.png')
+                          : require('../../assets/image/LightBackground.png')
+                      }
+                      style={[
+                        styles.reportCardImageBackground,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparentBg
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.borderColor
+                              : colors.borderColor,
+                        },
+                      ]}
+                      imageStyle={[
+                        styles.reportCardImageStyle,
+                        {
+                          backgroundColor:
+                            theme === 'dark'
+                              ? colors.transparentBg
+                              : colors.white,
+                          borderColor:
+                            theme === 'dark'
+                              ? colors.borderColor
+                              : colors.borderColor,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.reportCard,
+                          {
+                            backgroundColor:
+                              theme === 'dark'
+                                ? colors.transparentBg
+                                : colors.white,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.borderColor
+                                : colors.borderColor,
+                          },
+                        ]}
+                      >
+                        <View style={styles.reportCardHeader}>
+                          <View
+                            style={[
+                              styles.purchasedBadge,
+                              {
+                                backgroundColor: colors.Orangeaccentcolor,
+                              },
+                            ]}
+                          >
+                            <Text style={styles.purchasedBadgeText}>
+                              Purchased
+                            </Text>
+                          </View>
+                          <Text
+                            style={[
+                              styles.reportTitle,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {reportTitle}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.reportDescription,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {reportDescription}
+                          </Text>
+                          <View style={styles.verifiedDateContainer}>
+                            <Text
+                              style={[
+                                styles.verifiedDateLabel,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.themeTextWhite
+                                      : colors.DarkNavy,
+                                },
+                              ]}
+                            >
+                              Verified on:
+                            </Text>
+                            <Text
+                              style={[
+                                styles.verifiedDateValue,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? colors.accent
+                                      : colors.Orangeaccentcolor,
+                                },
+                              ]}
+                            >
+                              {formatDate(report.verified_at)}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    
+                    </ImageBackground>
+                  );
+                })}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
+
+      {/* Payment Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.successModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSuccessModal(false)}
+        >
+          <View
+            style={[
+              styles.successModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <View style={styles.successModalContent}>
+              <Text
+                style={[
+                  styles.successModalTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {successModalTitle}
+              </Text>
+              <Text
+                style={[
+                  styles.successModalMessage,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {successModalMessage}
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.successModalButton,
+                  {
+                    backgroundColor: colors.Orangeaccentcolor,
+                  },
+                ]}
+                onPress={() => setShowSuccessModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.successModalButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </MainContainer>
   );
 };
@@ -1199,18 +1495,66 @@ const styles = StyleSheet.create({
     paddingVertical: responsiveWidth(2),
   },
   reportsContainerpurchased: {
-    // flex: 1,
+    marginHorizontal: responsiveWidth(3),
+    paddingVertical: responsiveWidth(2),
+  },
+  purchasedReportsList: {
+    marginTop: responsiveWidth(2),
+  },
+  emptyStateContainer: {
     marginTop: responsiveWidth(30),
     justifyContent: 'center',
     alignItems: 'center',
-    // marginHorizontal: responsiveWidth(3),
-    // paddingVertical: responsiveWidth(2),
   },
-
   emptyStateImagepurchased: {
     width: responsiveWidth(40),
     height: responsiveWidth(40),
     resizeMode: 'contain',
+  },
+  emptyStateText: {
+    marginTop: responsiveWidth(5),
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    marginTop: responsiveWidth(30),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+  },
+  purchasedBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: responsiveWidth(3),
+    paddingVertical: responsiveWidth(1.5),
+    borderRadius: 12,
+    marginBottom: responsiveWidth(2),
+  },
+  purchasedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+  },
+  verifiedDateContainer: {
+    marginTop: responsiveWidth(3),
+    paddingTop: responsiveWidth(3),
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  verifiedDateLabel: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    marginBottom: responsiveWidth(1),
+    opacity: 0.7,
+  },
+  verifiedDateValue: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
   },
   reportCardImageBackground: {
     borderRadius: 16,
@@ -1337,6 +1681,58 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: fontFamily.regular,
+    fontWeight: '600',
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContainer: {
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: responsiveWidth(10),
+    maxWidth: '90%',
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  successModalContent: {
+    alignItems: 'center',
+  },
+  successModalTitle: {
+    fontSize: 20,
+    fontFamily: fontFamily.bold,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  successModalMessage: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  successModalButton: {
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 120,
+  },
+  successModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: fontFamily.semiBold,
     fontWeight: '600',
   },
 });

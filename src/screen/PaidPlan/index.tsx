@@ -46,6 +46,7 @@ export type RootStackParamList = {
   ForgotPasswordOtp: undefined;
   AddNewMember: undefined;
   MemberPlanManagement: undefined;
+  ProfileScreen:undefined;
 };
 
 type PaidPlanScreenNavigationProp = StackNavigationProp<
@@ -75,205 +76,7 @@ const PaidPlanScreen = () => {
 
   // Payment handling function
   const handleAddMemberPayment = async () => {
-    try {
-      setIsProcessingPayment(true);
-
-      // Get current user data
-      const userDataString = await AsyncStorage.getItem('USER_DATA');
-      if (!userDataString) {
-        throw new Error('User data not found. Please login again.');
-      }
-
-      const currentUserData = JSON.parse(userDataString);
-      const userId = currentUserData._id || currentUserData.user_id;
-
-      if (!userId) {
-        throw new Error('User ID not found. Please login again.');
-      }
-
-      // Validate selectedMemberCount
-      if (!memberCount || memberCount < 1) {
-        throw new Error('Invalid member count selected');
-      }
-
-      // Create order
-      const orderData = {
-        plan_id: RAZORPAY_CONFIG.PLAN_ID,
-        user_id: userId,
-        receipt: paymentService.generateReceipt(),
-        members: memberCount,
-        notes: {
-          action: 'add_new_member',
-          user_name:
-            `${currentUserData.first_name || ''} ${
-              currentUserData.last_name || ''
-            }`.trim() || 'User',
-        },
-      };
-
-      const orderResponse = await paymentService.createOrder(orderData);
-
-      // Validate order response
-      if (!orderResponse || !orderResponse.order_id || !orderResponse.amount) {
-        throw new Error('Invalid order response from server');
-      }
-
-      // Razorpay payment options
-      const options = {
-        description: `Add ${memberCount} Member${
-          memberCount > 1 ? 's' : ''
-        } to Astroself`,
-        currency: 'INR',
-        key: RAZORPAY_CONFIG.TEST_KEY,
-        amount: orderResponse.amount,
-        order_id: orderResponse.order_id,
-        name: 'Astroself',
-        prefill: {
-          email: currentUserData.email || 'user@example.com',
-          contact: currentUserData.phone || '9999999999',
-          name:
-            `${currentUserData.first_name || ''} ${
-              currentUserData.last_name || ''
-            }`.trim() || 'User',
-        },
-        theme: { color: '#DF8A5D' },
-      };
-
-      // Open Razorpay checkout
-      const paymentResponse = await RazorpayCheckout.open(options);
-
-      // Verify payment
-      const verifyData = {
-        current_plan_id: RAZORPAY_CONFIG.PLAN_ID,
-        user_id: userId,
-        user_name:
-          `${currentUserData.first_name || ''} ${
-            currentUserData.last_name || ''
-          }`.trim() || 'User',
-        email: currentUserData.email || 'user@example.com',
-        razorpay_payment_id: paymentResponse.razorpay_payment_id,
-        razorpay_order_id: paymentResponse.razorpay_order_id,
-        razorpay_signature: paymentResponse.razorpay_signature,
-        members: memberCount,
-      };
-
-      const verifyResponse = await paymentService.verifyPayment(verifyData);
-      console.log('Verify response:', verifyResponse);
-
-      // Check if payment is successful based on response
-      const isSuccess =
-        verifyResponse.success === true ||
-        String(verifyResponse.success) === 'true' ||
-        verifyResponse?.status === 'success' ||
-        (verifyResponse.message &&
-          verifyResponse.message
-            .toLowerCase()
-            .includes('verified successfully')) ||
-        (verifyResponse.message &&
-          verifyResponse.message.toLowerCase().includes('payment successful'));
-
-      if (isSuccess) {
-        // Payment successful, navigate to AddNewMember screen
-        Toast.show({
-          type: 'success',
-          text1: 'Payment Successful',
-          text2: `You can now add ${memberCount} member${
-            memberCount > 1 ? 's' : ''
-          }.`,
-          position: 'top',
-          topOffset: 60,
-          visibilityTime: 3000,
-        });
-
-        // Navigate to AddNewMember screen
-        navigation.navigate('MemberPlanManagement');
-      } else {
-        throw new Error(
-          verifyResponse.message || 'Payment verification failed',
-        );
-      }
-    } catch (paymentError: any) {
-      let errorMessage = 'Payment failed. Please try again.';
-      let alertTitle = 'Payment Failed';
-
-      console.log('Payment error details:', paymentError);
-
-      // Check if this is a Razorpay cancellation error (iOS pattern)
-      if (
-        paymentError.code === 0 &&
-        paymentError.description === 'Payment processing cancelled by user' &&
-        paymentError.details?.error?.reason === 'payment_cancelled'
-      ) {
-        // User cancelled the payment - show consistent message
-        console.log('Payment cancelled by user (iOS pattern)');
-        Alert.alert('Payment Failed', 'Payment processing cancelled by user', [
-          { text: 'OK', style: 'default' },
-        ]);
-        return;
-      }
-
-      // Check if this is a Razorpay cancellation error (Android pattern)
-      if (
-        paymentError.error?.code === 'BAD_REQUEST_ERROR' &&
-        paymentError.error?.reason === 'payment_error' &&
-        paymentError.error?.step === 'payment_authentication'
-      ) {
-        // User cancelled the payment - show consistent message
-        console.log('Payment cancelled by user (Android pattern)');
-        Alert.alert('Payment Failed', 'Payment processing cancelled by user', [
-          { text: 'OK', style: 'default' },
-        ]);
-        return;
-      }
-
-      // Check for other Razorpay cancellation patterns
-      if (
-        paymentError.code === 'PAYMENT_CANCELLED' ||
-        paymentError.reason === 'payment_cancelled' ||
-        (paymentError.message &&
-          paymentError.message.toLowerCase().includes('cancelled')) ||
-        (paymentError.description &&
-          paymentError.description.toLowerCase().includes('cancelled'))
-      ) {
-        // User cancelled the payment - show consistent message
-        console.log('Payment cancelled by user (alternative pattern)');
-        Alert.alert('Payment Failed', 'Payment processing cancelled by user', [
-          { text: 'OK', style: 'default' },
-        ]);
-        return;
-      }
-
-      if (paymentError.description) {
-        errorMessage = paymentError.description;
-      } else if (paymentError.message) {
-        errorMessage = paymentError.message;
-      }
-
-      // Check if the error message indicates success but was caught as error
-      if (
-        errorMessage.toLowerCase().includes('verified successfully') ||
-        errorMessage.toLowerCase().includes('payment successful')
-      ) {
-        // Payment was actually successful
-        Toast.show({
-          type: 'success',
-          text1: 'Payment Successful',
-          text2: `You can now add ${memberCount} member${
-            memberCount > 1 ? 's' : ''
-          }.`,
-          position: 'top',
-          topOffset: 60,
-          visibilityTime: 3000,
-        });
-
-        navigation.navigate('MemberPlanManagement');
-        return;
-      }
-
-      Alert.alert(alertTitle, errorMessage, [{ text: 'OK', style: 'default' }]);
-    } finally {
-      setIsProcessingPayment(false);
-    }
+  navigation.navigate('ProfileScreen');
   };
 
   return (
@@ -467,6 +270,20 @@ const PaidPlanScreen = () => {
           <View style={styles.tabContentContainer}>
             {activeTab === 'paid' && (
               <View style={styles.planContent}>
+                {/* Most Popular Tag */}
+                <View style={styles.mostPopularTag}>
+                  <Text
+                    style={[
+                      styles.mostPopularText,
+                      {
+                        color: theme === 'dark' ? colors.white : colors.white,
+                      },
+                    ]}
+                  >
+                    MOST POPULAR
+                  </Text>
+                </View>
+
                 {/* Plan Title and Price */}
                 <View style={styles.planHeader}>
                   <Text
@@ -478,7 +295,7 @@ const PaidPlanScreen = () => {
                       },
                     ]}
                   >
-                    Eternal Path
+                    Paid Plan - What You Unlock
                   </Text>
                   <View style={styles.priceContainer}>
                     <Text
@@ -492,17 +309,6 @@ const PaidPlanScreen = () => {
                     >
                       999
                     </Text>
-                    <Text
-                      style={[
-                        styles.priceUnit,
-                        {
-                          color:
-                            theme === 'dark' ? colors.white : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      (INR)/annum
-                    </Text>
                   </View>
                 </View>
 
@@ -515,11 +321,12 @@ const PaidPlanScreen = () => {
                     },
                   ]}
                 >
-                  Your Chart, Your Story - Evolving In Real Time:
+                  Experience The Complete Power Of Natal Insights + Dynamic Planetary Intelligence + Karma-Aligned Action - Combined Into One Seamless, Evolving Journey.
                 </Text>
 
                 {/* Features List */}
                 <View style={styles.featuresList}>
+                  {/* Module 1: Natal Chart-Based Insights */}
                   <View style={styles.featureItem}>
                     <Image
                       source={require('../../assets/icons/checkIcon.png')}
@@ -537,7 +344,7 @@ const PaidPlanScreen = () => {
                           },
                         ]}
                       >
-                        12 houses, 360* you
+                        Natal Chart-Based Insights
                       </Text>
                       <Text
                         style={[
@@ -548,11 +355,280 @@ const PaidPlanScreen = () => {
                           },
                         ]}
                       >
-                        Explore your entire life in detail, covering aspects like career, love, money, family, health, and spirituality. Each house of the chart is decoded in a blended format to show how lords, planets, and aspects shape different areas of life.
+                        Deep, holistic interpretations drawn from your complete birth chart, covering:
                       </Text>
+                      <View style={styles.bulletPointContainer}>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Core personality and soul desires
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Income, wealth, and professional pathways
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Natural energy flow and rejuvenation patterns
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        {'\n'}Blended predictions across all 12 houses, using:
+                      </Text>
+                      <View style={[styles.bulletPointContainer, styles.subBulletPointContainer]}>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            House lords
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Signs and planets
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Nakshatras and padas
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        {'\n'}This module also includes:
+                      </Text>
+                      <View style={[styles.bulletPointContainer, styles.subBulletPointContainer]}>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            100 BNN snapshot predictions
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Planetary strength & weakness analysis (exalted, debilitated, marankaraka, etc.)
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Blank chart-based predictions
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Hyper-personalised insights based on the details you share.
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
 
+                  {/* Module 2: Dynamic Insights */}
                   <View style={styles.featureItem}>
                     <Image
                       source={require('../../assets/icons/checkIcon.png')}
@@ -570,7 +646,7 @@ const PaidPlanScreen = () => {
                           },
                         ]}
                       >
-                        Blended Analysis
+                        Dynamic Insights (Active Planet + Transits)
                       </Text>
                       <Text
                         style={[
@@ -581,11 +657,134 @@ const PaidPlanScreen = () => {
                           },
                         ]}
                       >
-                        Deep dive into planetary strengths, lords through houses, conjunctions, circuits, 6/8/12 placements, Rahu-Ketu influences, and maraka challenges. Strengths with Guidance to provide clear insights on personal strengths and practical steps to manage obstacles.
+                        Living guidance that evolves as your life and planets move:
                       </Text>
+                      <View style={styles.bulletPointContainer}>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Identification of your most active planet right now
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            How current transits are influencing your natal chart
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Jupiter, Saturn, Rahu, and Ketu connections with your active planet
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Transit-triggered combinations already present in your chart
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Insights refreshed, aligned with planetary movement and any life updates you provide
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
 
+                  {/* Module 3: Dynamic Task Module */}
                   <View style={styles.featureItem}>
                     <Image
                       source={require('../../assets/icons/checkIcon.png')}
@@ -603,7 +802,7 @@ const PaidPlanScreen = () => {
                           },
                         ]}
                       >
-                        Transit Torchlight
+                        Dynamic Task Module - Karma-Aligned Action
                       </Text>
                       <Text
                         style={[
@@ -614,512 +813,135 @@ const PaidPlanScreen = () => {
                           },
                         ]}
                       >
-                        Tracks planetary movements every 15 days against your chart to refresh predictions, likened to a guiding torchlight.
+                        Turn awareness into real-world momentum (Available exclusively on the mobile app):
                       </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.featureItem}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      resizeMode="contain"
-                      style={styles.checkIcon}
-                    />
-                    <View style={styles.featureTextContainer}>
-                      <Text
-                        style={[
-                          styles.featureText,
-                          styles.featureTitle,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Always Up-to-Date
-                      </Text>
-                      <Text
-                        style={[
-                          styles.featureDescription,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Update your details anytime to instantly see how predictions shift with your personal journey.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.featureItem}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      resizeMode="contain"
-                      style={styles.checkIcon}
-                    />
-                    <View style={styles.featureTextContainer}>
-                      <Text
-                        style={[
-                          styles.featureText,
-                          styles.featureTitle,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        AI-Powered Precision
-                      </Text>
-                      <Text
-                        style={[
-                          styles.featureDescription,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Fusion of Ancient Vedic + BNN wisdom with cutting-edge AI to provide sharp, hyper-personal insights.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.featureItem}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      resizeMode="contain"
-                      style={styles.checkIcon}
-                    />
-                    <View style={styles.featureTextContainer}>
-                      <Text
-                        style={[
-                          styles.featureText,
-                          styles.featureTitle,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        For every paid membership
-                      </Text>
-                      <Text
-                        style={[
-                          styles.featureDescription,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Personality analysis is offered free for members between 15 to 18 years of age.
-                      </Text>
+                      <View style={styles.bulletPointContainer}>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Personalised Do's & Don'ts based on your active planet
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Create tasks aligned with your current planetary phase
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Track progress and maintain consistency
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Build habits that resonate with your present planetary energy
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
                 </View>
 
-                {/* Member Management Section */}
-                <View
+                {/* Buy Premium Access Button */}
+                <TouchableOpacity
+                  onPress={handleAddMemberPayment}
                   style={[
-                    styles.freePlanSeparator,
+                    styles.buyPremiumButton,
                     {
                       backgroundColor:
                         theme === 'dark'
-                          ? colors.Orangeaccentcolor
+                          ? '#DF8A5D'
                           : colors.Orangeaccentcolor,
                     },
                   ]}
-                />
-                <View style={styles.memberSection}>
+                  disabled={isProcessingPayment}
+                >
                   <Text
                     style={[
-                      styles.addMemberTitle,
+                      styles.buyPremiumButtonText,
                       {
-                        color:
-                          theme === 'dark' ? colors.white : colors.DarkNavy,
+                        color: theme === 'dark' ? colors.white : colors.DarkNavy,
                       },
                     ]}
                   >
-                    Go premium and see your life in a whole new light.
+                    Buy Premium Access
                   </Text>
-                  <View
-                    style={[
-                      styles.addMemberCard,
-                      {
-                        backgroundColor:
-                          theme === 'dark' ? colors.transparent : colors.white,
-                      },
-                    ]}
-                  >
-                    <View style={styles.addMemberCardLeft}>
-                      {/* Member Count Selector */}
-                      <View style={styles.memberCountContainer}>
-                        <TouchableOpacity
-                          style={[
-                            styles.countButton,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.Orangeaccentcolor
-                                  : colors.Orangeaccentcolor,
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.themeBorderDropdown
-                                  : colors.borderColor,
-                            },
-                            memberCount <= 1 && styles.countButtonDisabled,
-                          ]}
-                          onPress={() => {
-                            if (memberCount > 1) {
-                              setMemberCount(memberCount - 1);
-                            }
-                          }}
-                          disabled={memberCount <= 1}
-                        >
-                          <Text
-                            style={[
-                              styles.countButtonText,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.white
-                                    : colors.white,
-                              },
-                              memberCount <= 1 &&
-                                styles.countButtonTextDisabled,
-                            ]}
-                          >
-                            -
-                          </Text>
-                        </TouchableOpacity>
-
-                        <View style={styles.memberCountDisplay}>
-                          <Text
-                            style={[
-                              styles.memberCountNumber,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.white
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {memberCount.toString().padStart(2, '0')}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.memberCountLabel,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.white
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            Member{memberCount > 1 ? 's' : ''}
-                          </Text>
-                        </View>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.countButton,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.Orangeaccentcolor
-                                  : colors.Orangeaccentcolor,
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.themeBorderDropdown
-                                  : colors.themeBorderDropdown,
-                            },
-                          ]}
-                          onPress={() => {
-                            setMemberCount(memberCount + 1);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.countButtonText,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.white
-                                    : colors.surface,
-                              },
-                            ]}
-                          >
-                            +
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    {/* 3D Human Figures Icon */}
-                    <View style={styles.addMemberCardRight}>
-                      <Image
-                        source={require('../../assets/icons/AddUser.png')}
-                        style={styles.addUserIcon3D}
-                      />
-                    </View>
-                  </View>
-                  {/* <Text
-                    style={[
-                      styles.remainingSlotsText,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.white
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    {Math.max(
-                      0,
-                      (profileData?.members_allow || 0) -
-                        (profileData?.current_members || 0),
-                    ) === 0 &&
-                    Math.max(
-                      0,
-                      (profileData?.child_allow || 0) -
-                        (profileData?.current_child || 0),
-                    ) === 0
-                      ? 'No members or children available'
-                      : `You can create ${Math.max(
-                          0,
-                          (profileData?.members_allow || 0) -
-                            (profileData?.current_members || 0),
-                        )} more Member${
-                          Math.max(
-                            0,
-                            (profileData?.members_allow || 0) -
-                              (profileData?.current_members || 0),
-                          ) !== 1
-                            ? 's'
-                            : ''
-                        }${
-                          Math.max(
-                            0,
-                            (profileData?.members_allow || 0) -
-                              (profileData?.current_members || 0),
-                          ) > 0 &&
-                          Math.max(
-                            0,
-                            (profileData?.child_allow || 0) -
-                              (profileData?.current_child || 0),
-                          ) > 0
-                            ? ' and '
-                            : ''
-                        }${
-                          Math.max(
-                            0,
-                            (profileData?.child_allow || 0) -
-                              (profileData?.current_child || 0),
-                          ) > 0
-                            ? ` ${Math.max(
-                                0,
-                                (profileData?.child_allow || 0) -
-                                  (profileData?.current_child || 0),
-                              )} more Child${
-                                Math.max(
-                                  0,
-                                  (profileData?.child_allow || 0) -
-                                    (profileData?.current_child || 0),
-                                ) !== 1
-                                  ? 'ren'
-                                  : ''
-                              }`
-                            : ''
-                        }`}
-                  </Text> */}
-                  <View style={styles.priceContainerLeft}>
-                    {(() => {
-                      // Get plan price and calculate total
-                      const planPrice = 999;
-                      const originalPrice = memberCount * planPrice;
-                      const hasDiscount = memberCount >= 5;
-                      const discountPercent = hasDiscount ? 10 : 0;
-                      const discountAmount = hasDiscount ? (originalPrice * discountPercent) / 100 : 0;
-                      const totalPrice = originalPrice - discountAmount;
-
-                      return (
-                        <>
-                          {hasDiscount && (
-                            <View style={styles.discountRow}>
-                              <Text
-                                style={[
-                                  styles.originalPriceLabel,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.themeTextWhite
-                                        : colors.DarkNavy,
-                                  },
-                                ]}
-                              >
-                                Original Price :
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.originalPriceValue,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.grayText || '#999'
-                                        : colors.grayText || '#999',
-                                  },
-                                ]}
-                              >
-                                ₹{originalPrice}
-                              </Text>
-                            </View>
-                          )}
-                          {hasDiscount && (
-                            <View style={styles.discountRow}>
-                              <Text
-                                style={[
-                                  styles.discountLabel,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.Orangeaccentcolor
-                                        : colors.Orangeaccentcolor,
-                                  },
-                                ]}
-                              >
-                                Discount ({discountPercent}%) :
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.discountValue,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.Orangeaccentcolor
-                                        : colors.Orangeaccentcolor,
-                                  },
-                                ]}
-                              >
-                                - ₹{discountAmount}
-                              </Text>
-                            </View>
-                          )}
-                          <View style={styles.totalPriceRow}>
-                            <Text
-                              style={[
-                                styles.totalPriceLabel,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                            >
-                              Total Amount :
-                            </Text>
-                            <Text
-                              style={[
-                                styles.totalPriceValue,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                            >
-                              {''} ₹{totalPrice}
-                            </Text>
-                          </View>
-                        </>
-                      );
-                    })()}
-                  </View>
-
-                  <View style={styles.priceAndButtonWrapper}>
-                    <View style={styles.buttonContainer}>
-                      <TouchableOpacity
-                        onPress={handleAddMemberPayment}
-                        style={[
-                          styles.actionButton,
-                          styles.addButton,
-                          {
-                            backgroundColor:
-                              theme === 'dark'
-                                ? '#DF8A5D'
-                                : colors.Orangeaccentcolor,
-                            borderColor:
-                              theme === 'dark'
-                                ? '#DF8A5D'
-                                : colors.Orangeaccentcolor,
-                          },
-                        ]}
-                        disabled={isProcessingPayment}
-                      >
-                        <Text
-                          style={[
-                            styles.actionButtonText,
-                            {
-                              color:
-                                theme === 'dark' ? colors.white : colors.white,
-                            },
-                          ]}
-                        >
-                          {isProcessingPayment ? 'Processing...' : 'Add'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {/* Only show Create button if there are remaining member or child slots */}
-                      {/* {(Math.max(
-                      0,
-                      (profileData?.members_allow || 0) -
-                        (profileData?.current_members || 0),
-                    ) > 0 ||
-                      Math.max(
-                        0,
-                        (profileData?.child_allow || 0) -
-                          (profileData?.current_child || 0),
-                      ) > 0) && ( */}
-                      <TouchableOpacity
-                        onPress={() =>
-                          navigation.navigate('MemberPlanManagement')
-                        }
-                        style={[
-                          styles.actionButton,
-                          styles.createButton,
-                          {
-                            backgroundColor:
-                              theme === 'dark' ? 'transparent' : colors.white,
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.white
-                                : colors.primaryBlue,
-                          },
-                        ]}
-                        disabled={isProcessingPayment}
-                      >
-                        <Text
-                          style={[
-                            styles.actionButtonText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.white
-                                  : colors.primaryBlue,
-                            },
-                          ]}
-                        >
-                          Manage Plan
-                        </Text>
-                      </TouchableOpacity>
-                      {/* )} */}
-                    </View>
-                  </View>
-                </View>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -1140,142 +962,383 @@ const PaidPlanScreen = () => {
                       },
                     ]}
                   >
-                    Cosmic Foundation
-                  </Text>
-                </View>
-                <View style={styles.freePlanHeader}>
-                  <Text
-                    style={[
-                      styles.freePlanTitle,
-                      {
-                        color:
-                          theme === 'dark' ? colors.white : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Free*
+                    Free Version Includes (One-Time Access)
                   </Text>
                 </View>
 
                 {/* Free Plan Features List */}
                 <View style={styles.featuresList}>
                   <View style={styles.featureItem}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      resizeMode="contain"
-                      style={styles.checkIcon}
-                    />
-                    <View style={styles.featureTextContainer}>
-                      <Text
-                        style={[
-                          styles.featureText,
-                          styles.featureTitle,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Snapshot Predictions
-                      </Text>
-                      <Text
-                        style={[
-                          styles.featureDescription,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Quick, powerful insights into what's happening in your life right now. Get instant clarity on immediate influences shaping your career, relationships, health, and finances.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.featureItem}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      resizeMode="contain"
-                      style={styles.checkIcon}
-                    />
-                    <View style={styles.featureTextContainer}>
-                      <Text
-                        style={[
-                          styles.featureText,
-                          styles.featureTitle,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        One time Unlock Your Cosmic Path with Ai Powered Predictions
-                      </Text>
-                      <Text
-                        style={[
-                          styles.featureDescription,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Receive deep insights, personalized guidance, and cosmic clarity. Embark on a Journey of self-discovery and transformation today.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.featureItem}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      resizeMode="contain"
-                      style={styles.checkIcon}
-                    />
-                    <View style={styles.featureTextContainer}>
-                      <Text
-                        style={[
-                          styles.featureText,
-                          styles.featureTitle,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Personality Insights - Soul Goals & Mind Patterns Unlocked
-                      </Text>
-                      <Text
-                        style={[
-                          styles.featureDescription,
-                          {
-                            color:
-                              theme === 'dark' ? colors.white : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Discover your hidden drives, inner desires, and the deeper thought patterns guiding your choices. Get to know yourself on a deeper level and uncover the strengths you already carry.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.featureItem}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      resizeMode="contain"
-                      style={styles.checkIcon}
-                    />
                     <Text
                       style={[
-                        styles.featureText,
-                        styles.featureTitle,
+                        styles.bulletPoint,
                         {
                           color:
                             theme === 'dark' ? colors.white : colors.DarkNavy,
                         },
                       ]}
                     >
-                      Free for 1 Member one time
+                      {'\u2022'}
                     </Text>
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        100 BNN Snapshot Predictions
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Concise insights highlighting the key themes, patterns, and energies currently influencing your life.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text
+                      style={[
+                        styles.bulletPoint,
+                        {
+                          color:
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {'\u2022'}
+                    </Text>
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        In-Depth Personality Insights
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Discover your soul's desires, sources of happiness, rejuvenation triggers, natural energy flow, and core temperament — interpreted based on your gender.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text
+                      style={[
+                        styles.bulletPoint,
+                        {
+                          color:
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {'\u2022'}
+                    </Text>
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Income & Wealth Potential
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Identify natural pathways for financial growth, career opportunities, and areas where money and success may flow more easily.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text
+                      style={[
+                        styles.bulletPoint,
+                        {
+                          color:
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {'\u2022'}
+                    </Text>
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Current Antardasha Analysis
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Understand which antardasha you are currently running and how it impacts your mindset, decisions, and life experiences.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text
+                      style={[
+                        styles.bulletPoint,
+                        {
+                          color:
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {'\u2022'}
+                    </Text>
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Most Active Planet
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Learn which planet is currently dominant in your chart and how its influence may show up in your daily life.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text
+                      style={[
+                        styles.bulletPoint,
+                        {
+                          color:
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {'\u2022'}
+                    </Text>
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Strengths & Watch-Out Areas
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Clear highlights of what's supporting you, along with patterns or tendencies you should be cautious about.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text
+                      style={[
+                        styles.bulletPoint,
+                        {
+                          color:
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {'\u2022'}
+                    </Text>
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Key Planetary Connections
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Insights into whether Jupiter, Saturn, Rahu, or Ketu are influencing your active planet — and what that connection may indicate for inner experiences and external events.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.featureItem}>
+                    <Text
+                      style={[
+                        styles.bulletPoint,
+                        {
+                          color:
+                            theme === 'dark' ? colors.white : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {'\u2022'}
+                    </Text>
+                    <View style={styles.featureTextContainer}>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          styles.featureTitle,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Transit Snapshot (Excluding Moon)
+                      </Text>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        A focused view of how current transits interact with your natal chart, including:
+                      </Text>
+                      <View style={styles.bulletPointContainer}>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Existing planetary combinations that are getting activated
+                          </Text>
+                        </View>
+                        <View style={styles.bulletPointRow}>
+                          <Text
+                            style={[
+                              styles.bulletSymbol,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {'\u2022'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bulletPointText,
+                              {
+                                color:
+                                  theme === 'dark' ? colors.white : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            Transit planets (except the Moon) forming meaningful connections with natal planets
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        style={[
+                          styles.featureDescription,
+                          {
+                            color:
+                              theme === 'dark' ? colors.white : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        {'\n'}This provides a grounded understanding of the themes currently unfolding in your life.
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
@@ -1290,7 +1353,7 @@ const PaidPlanScreen = () => {
                       },
                     ]}
                   >
-                    *Our system does not allow creating charts for users below 15 years of age
+                    *Astrological analysis is not generated for children up to 15 years of age.
                   </Text>
                 </View>
 
@@ -1482,7 +1545,7 @@ const styles = StyleSheet.create({
   },
   featureItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: responsiveWidth(2),
   },
   checkIcon: {
@@ -1490,6 +1553,15 @@ const styles = StyleSheet.create({
     height: responsiveWidth(5),
     resizeMode: 'contain',
     marginRight: responsiveWidth(2),
+  },
+  bulletPoint: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    marginRight: responsiveWidth(1.5),
+    marginTop: responsiveWidth(0.5),
+    lineHeight: 20,
+    width: responsiveWidth(3),
+    textAlign: 'left',
   },
   featureText: {
     fontSize: 14,
@@ -1500,6 +1572,8 @@ const styles = StyleSheet.create({
   },
   featureTextContainer: {
     flex: 1,
+    flexShrink: 1,
+    paddingLeft: 0,
   },
   featureTitle: {
     fontWeight: '700',
@@ -1511,6 +1585,38 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 18,
     marginTop: 2,
+    paddingLeft: 0,
+    textAlign: 'left',
+    includeFontPadding: false,
+    textAlignVertical: 'top',
+  },
+  bulletPointContainer: {
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  subBulletPointContainer: {
+    paddingLeft: responsiveWidth(4),
+  },
+  bulletPointRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 2,
+  },
+  bulletSymbol: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    marginRight: responsiveWidth(1.5),
+    marginTop: 0,
+    lineHeight: 18,
+    width: responsiveWidth(3),
+  },
+  bulletPointText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
+    lineHeight: 18,
+    flex: 1,
+    flexShrink: 1,
   },
   // Disclaimer Styles
   disclaimerContainer: {
@@ -1711,6 +1817,36 @@ const styles = StyleSheet.create({
     marginTop: responsiveWidth(2),
     marginBottom: responsiveWidth(2),
     borderRadius: 1,
+  },
+  mostPopularTag: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#223149',
+    paddingHorizontal: responsiveWidth(3),
+    paddingVertical: responsiveWidth(1),
+    borderRadius: 4,
+    marginBottom: responsiveWidth(2),
+  },
+  mostPopularText: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    fontWeight: '700' as const,
+    letterSpacing: 0.5,
+  },
+  buyPremiumButton: {
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: responsiveWidth(4),
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: responsiveHeight(3),
+    marginBottom: responsiveHeight(2),
+  },
+  buyPremiumButtonText: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    fontWeight: '700' as const,
+    letterSpacing: 0.3,
   },
 });
 

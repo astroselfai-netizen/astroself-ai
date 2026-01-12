@@ -14,6 +14,10 @@ import IcBall from './icons/Ic-ball.png';
 import Icback from './icons/back.png';
 import IcrightNote from './icons/note-right.png';
 import Icclose from './icons/close.png';
+import icReportActive from './icons/Report-active.png';
+import icReport from './icons/Report-inactive.png';
+import icResourcesActive from './icons/Resources-active.png';
+import icResources from './icons/Resources-inactive.png';
 // import splashLight from './image/SplashScreenLight.png';
 
 
@@ -25,6 +29,8 @@ export const icons = {
   Ic_google: gicons,
   icHomeActive: homeActive,
   icHome: icHome,
+  icResourcesActive: icResourcesActive,
+  icResources: icResources,
   icChat: icChat,
   IcChatActive: icChatActive,
   icProfileActive: icProfileActive,
@@ -37,5 +43,7 @@ export const icons = {
   Icback: Icback,
   IcrightNote: IcrightNote,
   Icclose: Icclose,
+  icReportActive: icReportActive,
+  icReport: icReport,
 };
 

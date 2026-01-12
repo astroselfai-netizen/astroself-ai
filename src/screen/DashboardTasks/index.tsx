@@ -305,7 +305,6 @@ const DashboardTasksScreen = () => {
   const karmicScore = karmicProgress?.completed ?? closedKarmicPoints.length;
   const maxScore = karmicProgress?.total ?? (tasks.length > 0 ? tasks.length : 10);
   const progressPercentage = maxScore > 0 ? (karmicScore / maxScore) * 100 : 0;
-  const radius = 50;
 
   const toggleTaskCompletion = (taskId: number) => {
     // Simple local state update - no API call here
@@ -537,10 +536,10 @@ const DashboardTasksScreen = () => {
           ) : (
             <ProgressChart
               data={progressData}
-              width={130}
-              height={130}
-              strokeWidth={10}
-              radius={radius}
+              width={120}
+              height={120}
+              strokeWidth={12}
+              radius={50}
               hideLegend={true}
               chartConfig={chartConfig}
               style={styles.progressChart}
@@ -582,10 +581,10 @@ const DashboardTasksScreen = () => {
                 ]}
               >
                 {selectedTab === 'Today'
-                  ? "Today's Score"
+                  ? "Total Score"
                   : selectedTab === 'Weekly'
-                  ? 'Weekly Score'
-                  : 'Monthly Score'}
+                  ? 'Total Score'
+                  : 'Total Score'}
               </Text>
             </>
           )}
@@ -664,7 +663,7 @@ const DashboardTasksScreen = () => {
               },
             ]}
           >
-          Tasks Dashboard
+            Tasks Dashboard
           </Text>
         </View>
         <TouchableOpacity
@@ -923,11 +922,11 @@ const DashboardTasksScreen = () => {
               </Text>
 
               {/* Tabs */}
-              <View style={styles.tabsContainer}>
+              {/* <View style={styles.tabsContainer}>
                 {renderTabButton('Today', selectedTab === 'Today')}
                 {renderTabButton('Weekly', selectedTab === 'Weekly')}
                 {renderTabButton('Monthly', selectedTab === 'Monthly')}
-              </View>
+              </View> */}
 
               {/* Progress Card */}
               <View
@@ -943,21 +942,92 @@ const DashboardTasksScreen = () => {
                   },
                 ]}
               >
-                <View style={styles.progressCardHeader}>
+                {/* Left Section */}
+                <View style={styles.progressCardLeftSection}>
                   <Text
                     style={[
                       styles.progressCardTitle,
                       {
-                        color:
-                          theme === 'dark' ? colors.DarkNavy : colors.DarkNavy,
+                        color: colors.DarkNavy,
                       },
                     ]}
                   >
                     Your Tasks Progress
                   </Text>
-                  {/* <Text style={styles.starEmoji}>🌟</Text> */}
+
+                  {/* Task Completed Section */}
+                  <View style={styles.progressStatSection}>
+                    <Text
+                      style={[
+                        styles.progressStatNumber,
+                        {
+                          color: colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {closedKarmicPoints.length}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.progressStatLabel,
+                        {
+                          color: colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Tasks
+                    </Text>
+                  </View>
+
+                  {/* Separator Line */}
+                  <View
+                    style={[
+                      styles.progressSeparator,
+                      {
+                        backgroundColor: colors.DarkNavy,
+                      },
+                    ]}
+                  />
+
+                  {/* Current Streak Section */}
+                  <View style={styles.progressStatSection}>
+                    <Text
+                      style={[
+                        styles.progressStatNumber,
+                        {
+                          color: colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {(karmicProgress as any)?.current_streak || 0}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.progressStatLabel,
+                        {
+                          color: colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      Days
+                    </Text>
+                  </View>
                 </View>
-                {renderCircularProgress()}
+
+                {/* Vertical Divider */}
+                <View
+                  style={[
+                    styles.progressVerticalDivider,
+                    {
+                      backgroundColor: colors.DarkNavy,
+                    },
+                  ]}
+                />
+
+                {/* Right Section - Circular Progress */}
+                <View style={styles.progressCardRightSection}>
+                  {renderCircularProgress()}
+                </View>
               </View>
             </View>
             {/* Karmic Action Section - only show if tasks exist */}
@@ -1195,7 +1265,7 @@ const DashboardTasksScreen = () => {
                         { color: colors.themeTextWhite },
                       ]}
                     >
-                      Open Tasks
+                      Your Tasks for the day
                     </Text>
                     {openKarmicPoints && openKarmicPoints.length > 0 ? (
                       openKarmicPoints.map(task => (
@@ -1229,7 +1299,7 @@ const DashboardTasksScreen = () => {
                             {task.description?.replace(/^[•\s]+/, '').trim() ||
                               task.description}
                           </Text>
-                          <View style={styles.taskTagContainer}>
+                          {/* <View style={styles.taskTagContainer}>
                             <View
                               style={[
                                 styles.taskTag,
@@ -1259,7 +1329,7 @@ const DashboardTasksScreen = () => {
                                 {task.type}
                               </Text>
                             </View>
-                          </View>
+                          </View> */}
                         </View>
                       ))
                     ) : (
@@ -1335,7 +1405,7 @@ const DashboardTasksScreen = () => {
                             {task.description?.replace(/^[•\s]+/, '').trim() ||
                               task.description}
                           </Text>
-                          <View style={styles.taskTagContainer}>
+                          {/* <View style={styles.taskTagContainer}>
                             <View
                               style={[
                                 styles.taskTag,
@@ -1365,7 +1435,7 @@ const DashboardTasksScreen = () => {
                                 {task.type}
                               </Text>
                             </View>
-                          </View>
+                          </View> */}
                         </View>
                       ))
                     ) : (
@@ -1416,7 +1486,7 @@ const DashboardTasksScreen = () => {
                     },
                   ]}
                 >
-                  <Text
+                  {/* <Text
                     style={[
                       styles.emptyStateText,
                       {
@@ -1427,8 +1497,35 @@ const DashboardTasksScreen = () => {
                       },
                     ]}
                   >
-                    No tasks found
-                  </Text>
+                    Create and perform tasks to track your progress.
+                  </Text> */}
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate('EditAllTaskSelectionScreen', {
+                        userId: selectedMemberId || undefined,
+                      })
+                    }
+                    style={[
+                      styles.addTaskButton,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavy : colors.white,
+                        borderColor: colors.Orangeaccentcolor,
+                        borderWidth: 1,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.addTaskButtonText,
+                        {
+                          color: colors.Orangeaccentcolor,
+                        },
+                      ]}
+                    >
+                      Select the tasks curated by our AI
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -1531,41 +1628,71 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   progressCard: {
-    // backgroundColor: '#F5F5DC',
     borderRadius: 15,
     borderWidth: 0.2,
-    padding: responsiveWidth(3),
-    alignItems: 'center',
-  },
-  progressCardHeader: {
+    padding: responsiveWidth(4),
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: responsiveHeight(1),
-    alignSelf: 'flex-start',
+    minHeight: responsiveHeight(20),
+  },
+  progressCardLeftSection: {
+    flex: 1,
+    paddingRight: responsiveWidth(3),
+  },
+  progressCardRightSection: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: responsiveWidth(3),
   },
   progressCardTitle: {
     fontSize: 16,
     fontFamily: fontFamily.regular,
     fontWeight: '600',
-    marginRight: 8,
+    marginBottom: responsiveWidth(2),
+  },
+  progressStatSection: {
+    // marginBottom: responsiveHeight(1.5),
+  },
+  progressStatNumber: {
+    fontSize: 28,
+    fontFamily: fontFamily.bold,
+    fontWeight: '700',
+    lineHeight: 34,
+  },
+  progressStatLabel: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    marginTop: 2,
+  },
+  progressSeparator: {
+    height: 1,
+    width: '100%',
+    // marginVertical: responsiveHeight(1),
+    opacity: 0.3,
+  },
+  progressVerticalDivider: {
+    width: 1,
+    height: '80%',
+    opacity: 0.3,
+    marginHorizontal: responsiveWidth(2),
   },
   starEmoji: {
     fontSize: 18,
   },
   progressContainer: {
-    width: 110,
-    height: 110,
-    // backgroundColor: 'white',
+    width: 120,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   chartWrapper: {
-    width: 110,
-    height: 110,
+    width: 120,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: 'transparent',
   },
   backgroundCircle: {
     position: 'absolute',
@@ -1583,15 +1710,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   progressScore: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: fontFamily.bold,
-    color: '#223149',
+    fontWeight: '700',
+    color: '#23304D',
+    lineHeight: 30,
   },
   progressLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: fontFamily.regular,
-    color: '#223149',
-    // marginTop: 4,
+    color: '#23304D',
+    marginTop: 4,
   },
   actionSection: {
     flexDirection: 'row',
@@ -1726,6 +1855,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.regular,
     textAlign: 'center',
+    marginBottom: responsiveWidth(3),
+  },
+  addTaskButton: {
+    borderRadius: 8,
+    paddingVertical: responsiveWidth(2),
+    paddingHorizontal: responsiveWidth(6),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: responsiveWidth(2),
+  },
+  addTaskButtonText: {
+    fontSize: 16,
+    fontFamily: fontFamily.medium,
   },
   loadingContainer: {
     paddingVertical: responsiveHeight(10),

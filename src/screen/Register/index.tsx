@@ -116,10 +116,9 @@ const Register = () => {
         // Set flag to navigate to AddNewMember after HomeScreen loads
         await AsyncStorage.setItem('NAVIGATE_TO_ADD_MEMBER', 'true');
         
-        // Navigate to HomeScreen first (which loads MyTabs)
-        // HomeScreen will check the flag and navigate to AddNewMember immediately
+        // Navigate to StartExploring screen first
         navigation.dispatch(
-          StackActions.replace('AddNewMember')
+          StackActions.replace('StartExploring')
         );
       } else {
         console.log('Members found, navigating to HomeScreen');
@@ -135,7 +134,7 @@ const Register = () => {
         //   StackActions.replace('HomeScreen')
         // );
         setTimeout(() => {
-          (navigation as any).navigate('AddNewMember');
+          (navigation as any).navigate('StartExploring');
         }, 200);
       } catch (fallbackError) {
         console.error('Fallback navigation error:', fallbackError);
@@ -825,7 +824,7 @@ const Register = () => {
             {formik.touched.email && formik.errors.email && (
               <Text style={styles.errorText}>{formik.errors.email}</Text>
             )}
-            <View style={styles.phoneRow}>
+            {/* <View style={styles.phoneRow}>
               <TouchableOpacity
                 onPress={() => setIsCcModalVisible(true)}
                 style={[
@@ -886,7 +885,7 @@ const Register = () => {
             </View>
             {formik.touched.phone && formik.errors.phone && (
               <Text style={styles.errorText}>{formik.errors.phone}</Text>
-            )}
+            )} */}
             <View
               style={[
                 styles.passwordInputContainer,

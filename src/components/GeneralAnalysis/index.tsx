@@ -16,22 +16,24 @@ import {
 } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import HouseService from '../../services/house/house.service';
+import HouseService, { CardDataItem } from '../../services/house/house.service';
 import { getCardIcon } from '../../utils/cardIconMapper';
 
 interface GeneralAnalysisProps {
   selectedMemberId?: string;
+  current_plan?: string;
 }
 
 interface CardData {
   id: number;
   title: string;
   value: string;
+  current_plan?: string;
   subtitle?: string;
   icon: any;
 }
 
-const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) => {
+const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId, current_plan }) => {
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
   const [cards, setCards] = useState<CardData[]>([]);
@@ -44,24 +46,22 @@ const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) =
     setLoading(true);
     setError(null);
     try {
-      const headings = await HouseService.getPredictionHeadings(selectedMemberId, 'lifeview');
+      const headings = await HouseService.getPredictionHeadings(selectedMemberId, 'dynamicpredictions');
       console.log('Prediction headings fetched:', headings);
       
-      // Map API response object to cards array
-      // API returns: { "1": "Personality", "2": "Family & Values", ... }
-      const mappedCards: CardData[] = Object.entries(headings)
-        .sort(([keyA], [keyB]) => parseInt(keyA, 10) - parseInt(keyB, 10)) // Sort by numeric key
-        .map(([key, title]) => {
-          const titleStr = title || '';
-          
-          return {
-            id: parseInt(key, 10),
-            title: titleStr,
-            value: titleStr,
-            subtitle: '',
-            icon: getCardIcon(titleStr, titleStr),
-          };
-        });
+      // Map API response array to cards array
+      // API returns: [{ card_type: "Personality" }, { card_type: "Family & Values" }, ...]
+      const mappedCards: CardData[] = headings.map((item: CardDataItem, index: number) => {
+        const titleStr = item.card_type || '';
+        
+        return {
+          id: index + 1,
+          title: titleStr,
+          value: titleStr,
+          subtitle: '',
+          icon: getCardIcon(titleStr, titleStr),
+        };
+      });
       
       setCards(mappedCards);
     } catch (err: any) {
@@ -85,6 +85,7 @@ const GeneralAnalysis: React.FC<GeneralAnalysisProps> = ({ selectedMemberId }) =
     navigation.navigate('ChatWithPrompts', {
       userId: selectedMemberId,
       cardTitles: cardValue,
+      current_plan: current_plan,
       tab: 'LifeView',
     });
   };

@@ -51,7 +51,7 @@ type EditAllTaskSelectionScreenRouteProp = RouteProp<
 interface TaskItem {
   id: number;
   description: string;
-  frequency: 'Daily' | 'Weekly' | 'Monthly';
+  // frequency: 'Daily' | 'Weekly' | 'Monthly' | '';
   selected: boolean;
   status?: 'Done' | 'pending';
   track?: string;
@@ -75,6 +75,7 @@ const EditAllTaskSelectionScreen = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isCreateTaskModalVisible, setIsCreateTaskModalVisible] = useState(false);
   const [newTaskDescription, setNewTaskDescription] = useState('');
+  // const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   // Set selectedMemberId only when userId comes from route params
   useEffect(() => {
@@ -215,15 +216,18 @@ const EditAllTaskSelectionScreen = () => {
             
             console.log(`Task ${index + 1}: "${task.task.substring(0, 40)}..." | API timing_status: "${task.timing_status}" (type: ${typeof task.timing_status}) | Mapped to: "${timingStatus}"`);
             
+            // If task is selected and has a valid track value, use it; otherwise empty
+            // let frequencyValue: 'Daily' | 'Weekly' | 'Monthly' | '' = '';
+            // if (task.selected && task.track) {
+            //   if (task.track === 'Daily' || task.track === 'Weekly' || task.track === 'Monthly') {
+            //     frequencyValue = task.track as 'Daily' | 'Weekly' | 'Monthly';
+            //   }
+            // }
+            
             return {
               id: index + 1,
               description: task.task,
-              frequency:
-                task.track === 'Daily' ||
-                task.track === 'Weekly' ||
-                task.track === 'Monthly'
-                  ? (task.track as 'Daily' | 'Weekly' | 'Monthly')
-                  : 'Daily',
+              // frequency: frequencyValue,
               selected: task.selected,
               status: task.status,
               track: task.track,
@@ -268,22 +272,34 @@ const EditAllTaskSelectionScreen = () => {
 
   const toggleTaskSelection = (taskId: number) => {
     setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId ? { ...task, selected: !task.selected } : task,
-      ),
+      prevTasks.map(task => {
+        if (task.id === taskId) {
+          const newSelected = !task.selected;
+          // If unselecting, clear frequency; if selecting, keep existing frequency
+          return {
+            ...task,
+            selected: newSelected,
+            // frequency: newSelected ? task.frequency : '',
+            track: newSelected ? task.track : '',
+          };
+        }
+        return task;
+      }),
     );
   };
 
-  const updateTaskFrequency = (
-    taskId: number,
-    frequency: 'Daily' | 'Weekly' | 'Monthly',
-  ) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId ? { ...task, frequency, track: frequency } : task,
-      ),
-    );
-  };
+  // const updateTaskFrequency = (
+  //   taskId: number,
+  //   frequency: 'Daily' | 'Weekly' | 'Monthly',
+  // ) => {
+  //   setTasks(prevTasks =>
+  //     prevTasks.map(task =>
+  //       task.id === taskId ? { ...task, frequency, track: frequency } : task,
+  //     ),
+  //   );
+  //   // Clear validation errors when user selects frequency
+  //   setShowValidationErrors(false);
+  // };
 
   const handleCreateTask = async () => {
     if (!newTaskDescription.trim()) {
@@ -303,10 +319,10 @@ const EditAllTaskSelectionScreen = () => {
       const newTask: TaskItem = {
         id: tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1,
         description: newTaskDescription.trim(),
-        frequency: 'Daily',
+        // frequency: '',
         selected: true,
         status: 'pending',
-        track: 'Daily',
+        track: '',
         timing_status: 'new',
       };
 
@@ -356,7 +372,8 @@ const EditAllTaskSelectionScreen = () => {
           task: task.description,
           selected: task.selected,
           status: wasUnselected ? 'pending' : (task.status || 'pending'),
-          track: task.frequency as 'Daily' | 'Weekly' | 'Monthly' | '',
+          // track: (task.frequency || '') as 'Daily' | 'Weekly' | 'Monthly' | '',
+          track: (task.track || '') as 'Daily' | 'Weekly' | 'Monthly' | '',
           timing_status: finalTimingStatus,
         };
       });
@@ -392,6 +409,38 @@ const EditAllTaskSelectionScreen = () => {
       Alert.alert('Error', 'User ID not found');
       return;
     }
+
+    // Validate: If task is selected, track/frequency must be selected
+    // const invalidTasks = tasks.filter(
+    //   task => task.selected && (!task.frequency || (task.frequency as string).trim() === '')
+    // );
+
+    // if (invalidTasks.length > 0) {
+    //   // Show validation errors on screen
+    //   setShowValidationErrors(true);
+      
+    //   // Create message with task descriptions that are missing frequency
+    //   const taskDescriptions = invalidTasks
+    //     .map((task, index) => {
+    //       const shortDesc = task.description.length > 50 
+    //         ? task.description.substring(0, 50) + '...' 
+    //         : task.description;
+    //       return `${index + 1}. ${shortDesc}`;
+    //     })
+    //     .join('\n');
+
+    //   const message =
+    //     'Please select frequency (Daily/Weekly/Monthly) for the following task';
+    //   Alert.alert(
+    //     'Validation Error',
+    //     message,
+    //     [{ text: 'OK' }]
+    //   );
+    //   return;
+    // }
+
+    // Clear validation errors if validation passes
+    // setShowValidationErrors(false);
 
     try {
       setSaving(true);
@@ -435,7 +484,8 @@ const EditAllTaskSelectionScreen = () => {
           task: task.description,
           selected: task.selected,
           status: wasUnselected ? 'pending' : (task.status || 'pending'),
-          track: task.frequency as 'Daily' | 'Weekly' | 'Monthly' | '',
+          // track: (task.frequency || '') as 'Daily' | 'Weekly' | 'Monthly' | '',
+          track: (task.track || '') as 'Daily' | 'Weekly' | 'Monthly' | '',
           timing_status: finalTimingStatus,
         };
       });
@@ -669,62 +719,72 @@ const EditAllTaskSelectionScreen = () => {
               <Text
                 style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
               >
-                Select Your Tasks
+                {/* Select Tasks And Frequency */}
+                Select Tasks
               </Text>
               {/* <Text style={styles.moonIcon}>🌙</Text> */}
             </View>
 
-            {/* create task */}
-            <TouchableOpacity
-              onPress={() => setIsCreateTaskModalVisible(true)}
+            <View
               style={[
-                styles.createTaskButton,
+                styles.sectionTitleContainer,
                 {
-                  backgroundColor:
-                    theme === 'dark'
-                      ? colors.Orangeaccentcolor
-                      : colors.Orangeaccentcolor,
+                  marginLeft: -responsiveWidth(15),
                 },
               ]}
             >
-              <Text
+              {/* create task */}
+              <TouchableOpacity
+                onPress={() => setIsCreateTaskModalVisible(true)}
                 style={[
-                  styles.editBtnText,
-                  { color: theme === 'dark' ? colors.white : colors.white },
+                  styles.createTaskButton,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.Orangeaccentcolor
+                        : colors.Orangeaccentcolor,
+                  },
                 ]}
               >
-                Create Task
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={saving || loading}
-              style={[
-                styles.editBtn,
-                {
-                  backgroundColor:
-                    theme === 'dark'
-                      ? colors.Orangeaccentcolor
-                      : colors.Orangeaccentcolor,
-                  opacity: saving || loading ? 0.5 : 1,
-                },
-              ]}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
                 <Text
                   style={[
                     styles.editBtnText,
-                    {
-                      color: theme === 'dark' ? colors.white : colors.white,
-                    },
+                    { color: theme === 'dark' ? colors.white : colors.white },
                   ]}
                 >
-                  Save
+                  Add Custom Task
                 </Text>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSave}
+                disabled={saving || loading}
+                style={[
+                  styles.editBtn,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.Orangeaccentcolor
+                        : colors.Orangeaccentcolor,
+                    opacity: saving || loading ? 0.5 : 1,
+                  },
+                ]}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.editBtnText,
+                      {
+                        color: theme === 'dark' ? colors.white : colors.white,
+                      },
+                    ]}
+                  >
+                    Save
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -797,7 +857,7 @@ const EditAllTaskSelectionScreen = () => {
                               backgroundColor:
                                 task.timing_status === 'new'
                                   ? '#4CAF50'
-                                  : '#9E9E9E'
+                                  : '#9E9E9E',
                             },
                           ]}
                         >
@@ -843,7 +903,7 @@ const EditAllTaskSelectionScreen = () => {
                 </View>
 
                 {/* Frequency Buttons */}
-                <View style={styles.frequencyButtonsContainer}>
+                {/* <View style={styles.frequencyButtonsContainer}>
                   {(['Daily', 'Weekly', 'Monthly'] as const).map(freq => (
                     <TouchableOpacity
                       key={freq}
@@ -887,7 +947,19 @@ const EditAllTaskSelectionScreen = () => {
                       </Text>
                     </TouchableOpacity>
                   ))}
-                </View>
+                </View> */}
+                {/* {showValidationErrors && task.selected && (!task.frequency || (task.frequency as string).trim() === '') && (
+                  <Text
+                    style={[
+                      styles.validationErrorText,
+                      {
+                        color: '#FF6B6B',
+                      },
+                    ]}
+                  >
+                    Please select frequency for this task
+                  </Text>
+                )} */}
               </View>
             ))
           )}
@@ -1086,13 +1158,17 @@ const styles = StyleSheet.create({
   sectionTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: responsiveWidth(3),
+    // width: '50%',
+    gap: responsiveWidth(2),
+   
+    // marginBottom: responsiveWidth(3),
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: fontFamily.regular,
+    width: '60%',
     fontWeight: '600',
-    marginRight: responsiveWidth(2),
+    // marginRight: responsiveWidth(2),
   },
   moonIcon: {
     fontSize: 20,
@@ -1212,6 +1288,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginHorizontal: responsiveWidth(2),
     marginBottom: responsiveWidth(3),
   },
   taskCard: {
@@ -1284,30 +1361,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     // marginBottom: responsiveWidth(2),
   },
-  frequencyButtonsContainer: {
-    flexDirection: 'row',
-    gap: responsiveWidth(2),
-    marginTop: responsiveWidth(2),
-  },
-  frequencyButton: {
-    paddingVertical: responsiveWidth(1.5),
-    paddingHorizontal: responsiveWidth(3),
-    borderRadius: 6,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: responsiveWidth(20),
-  },
-  frequencyButtonSelected: {
-    // Selected style handled by backgroundColor
-  },
-  frequencyButtonUnselected: {
-    // Unselected style handled by backgroundColor and borderColor
-  },
-  frequencyButtonText: {
-    fontSize: 12,
-    fontFamily: fontFamily.medium,
-  },
+  // frequencyButtonsContainer: {
+  //   flexDirection: 'row',
+  //   gap: responsiveWidth(2),
+  //   marginTop: responsiveWidth(2),
+  // },
+  // frequencyButton: {
+  //   paddingVertical: responsiveWidth(1.5),
+  //   paddingHorizontal: responsiveWidth(3),
+  //   borderRadius: 6,
+  //   borderWidth: 1,
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   minWidth: responsiveWidth(20),
+  // },
+  // frequencyButtonSelected: {
+  //   // Selected style handled by backgroundColor
+  // },
+  // frequencyButtonUnselected: {
+  //   // Unselected style handled by backgroundColor and borderColor
+  // },
+  // frequencyButtonText: {
+  //   fontSize: 12,
+  //   fontFamily: fontFamily.medium,
+  // },
   checkboxContainer: {
     marginLeft: responsiveWidth(2),
   },
@@ -1536,6 +1613,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  validationErrorText: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    marginTop: responsiveWidth(1),
+    marginLeft: responsiveWidth(1),
   },
 });
 

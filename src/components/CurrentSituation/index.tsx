@@ -13,7 +13,7 @@ import {
   color,
 } from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
-import HouseService from '../../services/house/house.service';
+import HouseService, { CardDataItem } from '../../services/house/house.service';
 import { useTheme } from '../../context/ThemeContext';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
@@ -23,6 +23,7 @@ interface CurrentSituationProps {
   // Define any props that the CurrentSituation component might need
   selectedMemberId?: string;
   isChild?: boolean;
+  current_plan?: string;
 }
 
 interface CardData {
@@ -31,9 +32,10 @@ interface CardData {
   value: string;
   subtitle?: string;
   icon: any;
+  subCards?: Array<{ id: number; title: string }>;
 }
 
-const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false }) => {
+const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false, current_plan }) => {
   const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
@@ -47,36 +49,41 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
     setCardsLoading(true);
     setError(null);
     try {
-      const headings = await HouseService.getPredictionHeadings(selectedMemberId, 'lifenow');
+      const headings = await HouseService.getPredictionHeadings(
+        selectedMemberId,
+        'staticpredictions',
+      );
       console.log('Prediction headings fetched:', headings);
       
-      // Map API response object to cards array
-      // API returns: { "1": "Snapshot Predictions", "2": "Your Personality", ... }
-      const mappedCards: CardData[] = Object.entries(headings)
-        .sort(([keyA], [keyB]) => parseInt(keyA, 10) - parseInt(keyB, 10)) // Sort by numeric key
-        .map(([key, title]) => {
-          const titleStr = title || '';
-          // Normalize values for cards
-          let valueStr = titleStr;
-          
-          // "Snapshot Predictions" -> "Snapshot Prediction" (singular)
-          if (titleStr === 'Snapshot Predictions') {
-            valueStr = 'Snapshot Prediction';
-          }
-          // "Active Planet - {planet}" or any variation -> "Antardasha"
-          else if (titleStr.toLowerCase().includes('active planet') || 
-                   titleStr.toLowerCase().includes('antardasha')) {
-            valueStr = 'Antardasha';
-          }
-          
-          return {
-            id: parseInt(key, 10),
-            title: titleStr,
-            value: valueStr,
-            subtitle: '',
-            icon: getCardIcon(titleStr, valueStr),
-          };
-        });
+      // Map API response array to cards array
+      // API returns: [{ card_type: "Snapshot Predictions" }, { card_type: "Natal Chart Insights", sub_card: [...] }]
+      const mappedCards: CardData[] = headings.map((item: CardDataItem, index: number) => {
+        const titleStr = item.card_type || '';
+        // Normalize values for cards
+        let valueStr = titleStr;
+        
+        // "Snapshot Predictions" -> "Snapshot Prediction" (singular)
+        if (titleStr === 'Snapshot Predictions') {
+          valueStr = 'Snapshot Prediction';
+        }
+        // "Active Planet - {planet}" or any variation -> "Antardasha"
+        else if (titleStr.toLowerCase().includes('active planet') || 
+                 titleStr.toLowerCase().includes('antardasha')) {
+          valueStr = 'Antardasha';
+        }
+
+        console.log('titleStr-->75', titleStr);
+        console.log('valueStr-->76', valueStr);
+        
+        return {
+          id: index + 1,
+          title: titleStr,
+          value: valueStr,
+          subtitle: '',
+          icon: getCardIcon(titleStr, valueStr),
+          subCards: item.sub_card || undefined,
+        };
+      });
       
       setCards(mappedCards);
     } catch (err: any) {
@@ -93,20 +100,34 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
     }
   }, [selectedMemberId, fetchPredictionHeadings]);
 
-  const handleCardPress = (cardValue: string) => {
+  const handleCardPress = (card: CardData) => {
     // Prevent navigation to disabled cards
-    if (showInfoContainer && !cardValue.toLowerCase().includes('snapshot')) {
+    const cardValueLower = card.value.toLowerCase();
+    if (showInfoContainer && !cardValueLower.includes('snapshot')) {
       return;
     }
     
-    console.log('cardTitle-->24', cardValue);
+    console.log('cardTitle-->24', card.title);
     console.log('selectedMemberId-->25', selectedMemberId);
-    // Navigate to ChatWithPrompts screen for General Analysis
-    navigation.navigate('ChatWithPrompts', {
+    
+    // If card is "Natal Chart Insights" and has sub_cards, pass them
+    const navigationParams: any = {
       userId: selectedMemberId,
-      cardTitles: cardValue,
+      cardTitles:
+        card.title === 'Natal Chart Insights'
+          ? 'Natal Chart Insights'
+          : card.value,
       tab: 'LifeNow',
-    });
+      current_plan: current_plan,
+    };
+    
+    // Pass sub_cards if available
+    if (card.title === 'Natal Chart Insights' && card.subCards && card.subCards.length > 0) {
+      navigationParams.subCards = card.subCards;
+    }
+    
+    // Navigate to ChatWithPrompts screen
+    navigation.navigate('ChatWithPrompts', navigationParams);
   };
 
   return (
@@ -144,10 +165,11 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
               const isPersonality = cardValueLower.includes('personality') && cardValueLower.includes('your');
               const isLifeAtMoment = cardValueLower.includes('life at the moment');
               const isAntardasha = cardValueLower.includes('antardasha') || cardValueLower.includes('active planet');
+              const isNatalChartInsights = cardValueLower.includes('natal chart insights') && current_plan === 'cosmic_foundation';
               
               const isDisabledByInfoContainer = showInfoContainer && (isPersonality || isLifeAtMoment || isAntardasha);
               const isDisabledByChild = isChild && (isLifeAtMoment || isAntardasha);
-              const isDisabled = isDisabledByInfoContainer || isDisabledByChild;
+              const isDisabled = isDisabledByInfoContainer || isDisabledByChild || isNatalChartInsights;
             
             return (
             <TouchableOpacity
@@ -168,7 +190,7 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
                   opacity: isDisabled ? 0.5 : 1,
                 },
               ]}
-              onPress={() => !isDisabled && handleCardPress(card.value)}
+              onPress={() => !isDisabled && handleCardPress(card)}
               disabled={isDisabled}
             >
               <View style={styles.cardIconContainer}>

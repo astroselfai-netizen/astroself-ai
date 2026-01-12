@@ -572,6 +572,7 @@ const ProfileScreen = () => {
                             theme === 'dark'
                               ? colors.themeTextWhite
                               : colors.DarkNavy,
+                              fontWeight: '600',
                         },
                       ]}
                       numberOfLines={1}
@@ -581,9 +582,9 @@ const ProfileScreen = () => {
                     </Text>
                   </View>
 
-                  {/* Bottom Row: Phone Number and Membership Plan */}
+                  {/* Bottom Row: Total member and Need to Renew */}
                   <View style={styles.profileInfoBottomRow}>
-                    {/* Phone Number */}
+                    {/* Total member */}
                     <View style={styles.profileInfoBottomItem}>
                       <Text
                         style={[
@@ -596,7 +597,7 @@ const ProfileScreen = () => {
                           },
                         ]}
                       >
-                        Phone Number
+                        Total member
                       </Text>
                       <Text
                         style={[
@@ -608,14 +609,12 @@ const ProfileScreen = () => {
                                 : colors.DarkNavy,
                           },
                         ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
                       >
-                        {displayPhone}
+                        {membersData?.length || 0}
                       </Text>
                     </View>
 
-                    {/* Membership Plan */}
+                    {/* Need to Renew */}
                     <View
                       style={[
                         styles.profileInfoBottomItem,
@@ -630,10 +629,11 @@ const ProfileScreen = () => {
                               theme === 'dark'
                                 ? colors.themeTextWhite
                                 : colors.DarkNavy,
+                            textAlign: 'right',
                           },
                         ]}
                       >
-                        Membership Plan
+                        Need to Renew
                       </Text>
                       <Text
                         style={[
@@ -643,12 +643,16 @@ const ProfileScreen = () => {
                               theme === 'dark'
                                 ? colors.themeTextWhite
                                 : colors.DarkNavy,
+                            textAlign: 'right',
                           },
                         ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
                       >
-                        {getDisplayMembershipPlan()}
+                        {membersData?.filter((member: any) => {
+                          // Check if member needs renewal (you can adjust this logic based on your requirements)
+                          // For now, checking if current_plan is 'cosmic_foundation' or if there's an expiry date
+                          const plan = member.current_plan;
+                          return !plan || plan === 'cosmic_foundation' || plan === 'Plan Expiry date';
+                        }).length || 0}
                       </Text>
                     </View>
                   </View>
@@ -1293,10 +1297,11 @@ const styles = StyleSheet.create({
     color: color.themeTextWhite,
     // ...font.h6,
     fontSize: 24,
-    fontWeight: '500',
+    fontWeight: '600',
     fontFamily: fontFamily.regular,
     lineHeight: 30,
     letterSpacing: -0.20,
+    marginBottom: responsiveWidth('2'),
   },
   emailSection: {
     // marginBottom: responsiveWidth('4'),
@@ -1685,6 +1690,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    // marginTop: responsiveWidth('2'),
   },
   profileInfoBottomItem: {
     flex: 1,
@@ -1692,6 +1698,7 @@ const styles = StyleSheet.create({
   profileInfoBottomItemLast: {
     marginRight: 0,
     alignItems: 'flex-end',
+    flex: 1,
   },
   profileInfoLabelNew: {
     fontSize: 14,
