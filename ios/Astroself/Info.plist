@@ -89,6 +89,8 @@
 	</array>
 	<key>UIBackgroundModes</key>
 	<array/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string></string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen.storyboard</string>
 	<key>UIRequiredDeviceCapabilities</key>
