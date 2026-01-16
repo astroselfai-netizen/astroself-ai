@@ -12,9 +12,7 @@ import {
   Image,
   Alert,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
 import {
   fontFamily,
   responsiveWidth,
@@ -60,8 +58,6 @@ const ResourcesDetailsScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [initialSummary, setInitialSummary] = useState<string[]>([]);
   const [remainingSummary, setRemainingSummary] = useState<string[]>([]);
-  const [showWebViewModal, setShowWebViewModal] = useState(false);
-  const [bookUrl, setBookUrl] = useState<string>('');
 
   console.log('book---->', book);
 
@@ -654,35 +650,6 @@ const ResourcesDetailsScreen = () => {
     }
   };
 
-  const handleViewInBrowser = async () => {
-    if (!book) {
-      Alert.alert('Error', 'Book information not available.');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      const response = await booksService.viewBook(book.title || '');
-      
-      if (response.status && response.book_url) {
-        // Set book URL and show WebView modal
-        setBookUrl(response.book_url);
-        setShowWebViewModal(true);
-      } else {
-        Alert.alert('Error', 'Failed to get book URL. Please try again.');
-      }
-    } catch (error: any) {
-      console.error('Error viewing book:', error);
-      Alert.alert(
-        'Error', 
-        error?.message || 'Failed to open book. Please check your internet connection and try again.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     // <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
     <MainContainer>
@@ -802,7 +769,7 @@ const ResourcesDetailsScreen = () => {
                     },
                   ]}
                   activeOpacity={0.8}
-                  onPress={handleViewInBrowser}
+                  onPress={() => handleSendEmail(user?.email || '')}
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -832,119 +799,6 @@ const ResourcesDetailsScreen = () => {
           </View>
         </View>
       </ScrollView>
-
-      {/* WebView Modal for Book */}
-      <Modal
-        visible={showWebViewModal}
-        transparent={false}
-        animationType="slide"
-        onRequestClose={() => setShowWebViewModal(false)}
-      >
-        <View
-          style={[
-            styles.webViewContainer,
-            {
-              backgroundColor:
-                theme === 'dark' ? colors.DarkNavy : colors.white,
-            },
-          ]}
-        >
-          {/* Header with Close Button */}
-          <View
-            style={[
-              styles.webViewHeader,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.DarkNavy : colors.white,
-                borderBottomColor:
-                  theme === 'dark'
-                    ? colors.themeBorderDropdown
-                    : colors.borderColor,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.webViewCloseButton}
-              onPress={() => setShowWebViewModal(false)}
-            >
-              <Text
-                style={[
-                  styles.webViewCloseText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                ✕
-              </Text>
-            </TouchableOpacity>
-            <Text
-              style={[
-                styles.webViewTitle,
-                {
-                  color:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.DarkNavy,
-                },
-              ]}
-            >
-              {book?.title || 'Book'}
-            </Text>
-            <View style={styles.webViewCloseButton} />
-          </View>
-
-          {/* WebView */}
-          {bookUrl ? (
-            <WebView
-              source={{ uri: bookUrl }}
-              style={styles.webView}
-              startInLoadingState={true}
-              renderLoading={() => (
-                <View
-                  style={[
-                    styles.webViewLoadingContainer,
-                    {
-                      backgroundColor:
-                        theme === 'dark' ? colors.DarkNavy : colors.white,
-                    },
-                  ]}
-                >
-                  <ActivityIndicator
-                    size="large"
-                    color={colors.Orangeaccentcolor}
-                  />
-                  <Text
-                    style={[
-                      styles.webViewLoadingText,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Loading book...
-                  </Text>
-                </View>
-              )}
-              onError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error('WebView error: ', nativeEvent);
-                Alert.alert(
-                  'Error',
-                  'Failed to load book. Please try again.',
-                  [{ text: 'OK', onPress: () => setShowWebViewModal(false) }]
-                );
-              }}
-            />
-          ) : null}
-        </View>
-      </Modal>
     </MainContainer>
     // </View>
   );
@@ -1159,54 +1013,6 @@ const styles = StyleSheet.create({
   listContentContainer: {
     flex: 1,
     // paddingLeft: responsiveWidth(1),
-  },
-  // WebView Modal styles
-  webViewContainer: {
-    flex: 1,
-  },
-  webViewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: responsiveWidth(4),
-    paddingVertical: responsiveWidth(3),
-    borderBottomWidth: 1,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + responsiveWidth(3) : responsiveWidth(3),
-  },
-  webViewCloseButton: {
-    width: responsiveWidth(10),
-    height: responsiveWidth(10),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  webViewCloseText: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  webViewTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontFamily: fontFamily.semiBold,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginHorizontal: responsiveWidth(2),
-  },
-  webView: {
-    flex: 1,
-  },
-  webViewLoadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  webViewLoadingText: {
-    marginTop: responsiveWidth(3),
-    fontSize: 14,
-    fontFamily: fontFamily.regular,
   },
 });
 

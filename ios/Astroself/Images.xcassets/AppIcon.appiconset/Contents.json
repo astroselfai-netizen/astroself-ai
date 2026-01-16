@@ -37,23 +37,13 @@
     },
     {
       "idiom" : "iphone",
-      "scale" : "3x",
-      "size" : "60x60"
-    },
-    {
-      "idiom" : "iphone",
-      "scale" : "1x",
-      "size" : "120x120"
-    },
-    {
-      "idiom" : "iphone",
       "scale" : "2x",
       "size" : "120x120"
     },
     {
       "idiom" : "iphone",
       "scale" : "3x",
-      "size" : "120x120"
+      "size" : "60x60"
     },
     {
       "idiom" : "ios-marketing",
