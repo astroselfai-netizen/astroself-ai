@@ -1,5 +1,6 @@
 # Resolve react_native_pods.rb with node to allow for hoisting
 use_frameworks! :linkage => :static
+install! 'cocoapods', :generate_multiple_pod_projects => true
 
 require Pod::Executable.execute_command('node', ['-p',
   'require.resolve(
