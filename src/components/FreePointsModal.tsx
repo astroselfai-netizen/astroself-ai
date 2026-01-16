@@ -367,7 +367,7 @@ const FreePointsModal = ({ visible, onClose }: FreePointsModalProps) => {
             </View>
 
             {/* One time Unlock Section */}
-            <View style={styles.section}>
+            {/* <View style={styles.section}>
               <Text
                 style={[
                   styles.sectionTitle,
@@ -395,10 +395,10 @@ const FreePointsModal = ({ visible, onClose }: FreePointsModalProps) => {
                 Receive deep insights, personalized guidance, and cosmic clarity.
                 Embark on a Journey of self-discovery and transformation today.
               </Text>
-            </View>
+            </View> */}
 
             {/* Personality Insights Section */}
-            <View style={styles.section}>
+            {/* <View style={styles.section}>
               <Text
                 style={[
                   styles.sectionTitle,
@@ -427,10 +427,10 @@ const FreePointsModal = ({ visible, onClose }: FreePointsModalProps) => {
                 thought patterns guiding your choices. Get to know yourself on a
                 deeper level and uncover the strengths you already carry.
               </Text>
-            </View>
+            </View> */}
 
             {/* Free for 1 Member */}
-            <View style={styles.freeBadge}>
+            {/* <View style={styles.freeBadge}>
               <Text
                 style={[
                   styles.freeBadgeText,
@@ -444,10 +444,10 @@ const FreePointsModal = ({ visible, onClose }: FreePointsModalProps) => {
               >
                 Free for 1 Member one time
               </Text>
-            </View>
+            </View> */}
 
             {/* Disclaimer */}
-            <Text
+            {/* <Text
               style={[
                 styles.disclaimer,
                 {
@@ -460,7 +460,7 @@ const FreePointsModal = ({ visible, onClose }: FreePointsModalProps) => {
             >
               *Our system does not allow creating charts for users below 15 years
               of age
-            </Text>
+            </Text> */}
 
             {/* Close Button */}
             <TouchableOpacity

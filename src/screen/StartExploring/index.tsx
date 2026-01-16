@@ -26,15 +26,25 @@ const StartExploring = () => {
           <View style={style.titleContainer}>
             <Text style={style.stylishText}>
               CREATE CHART AND{'\n\n'}
-              <Text style={style.subText}>START EXPLORING</Text>
+              <Text style={style.stylishText}>START EXPLORING</Text>
             </Text>
           </View>
           <View style={style.buttonContainer}>
             <TouchableOpacity
-              style={[style.continueButton,{borderColor: color.Orangeaccentcolor}]}
+              style={[
+                style.continueButton,
+                { borderColor: color.Orangeaccentcolor },
+              ]}
               onPress={() => navigation.navigate('AddNewMember')}
             >
-              <Text style={[style.continueButtonText,{color: color.Orangeaccentcolor}]}>Continue</Text>
+              <Text
+                style={[
+                  style.continueButtonText,
+                  { color: color.Orangeaccentcolor },
+                ]}
+              >
+                Continue
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

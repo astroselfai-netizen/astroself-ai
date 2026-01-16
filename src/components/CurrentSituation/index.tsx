@@ -24,6 +24,7 @@ interface CurrentSituationProps {
   selectedMemberId?: string;
   isChild?: boolean;
   current_plan?: string;
+  onShowBuyMembershipModal?: (featureName?: string) => void;
 }
 
 interface CardData {
@@ -35,7 +36,7 @@ interface CardData {
   subCards?: Array<{ id: number; title: string }>;
 }
 
-const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false, current_plan }) => {
+const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false, current_plan, onShowBuyMembershipModal }) => {
   const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
@@ -110,6 +111,13 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
     console.log('cardTitle-->24', card.title);
     console.log('selectedMemberId-->25', selectedMemberId);
     
+    // If card is "Natal Chart Insights" and current_plan is "cosmic_foundation", show Buy Memberships Modal
+    const isNatalChartInsights = card.title === 'Natal Chart Insights';
+    if (isNatalChartInsights && current_plan === 'cosmic_foundation' && onShowBuyMembershipModal) {
+      onShowBuyMembershipModal('Natal Chart Insights');
+      return;
+    }
+    
     // If card is "Natal Chart Insights" and has sub_cards, pass them
     const navigationParams: any = {
       userId: selectedMemberId,
@@ -165,11 +173,11 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
               const isPersonality = cardValueLower.includes('personality') && cardValueLower.includes('your');
               const isLifeAtMoment = cardValueLower.includes('life at the moment');
               const isAntardasha = cardValueLower.includes('antardasha') || cardValueLower.includes('active planet');
-              const isNatalChartInsights = cardValueLower.includes('natal chart insights') && current_plan === 'cosmic_foundation';
+              // Don't disable Natal Chart Insights for cosmic_foundation - we'll show modal instead
               
               const isDisabledByInfoContainer = showInfoContainer && (isPersonality || isLifeAtMoment || isAntardasha);
               const isDisabledByChild = isChild && (isLifeAtMoment || isAntardasha);
-              const isDisabled = isDisabledByInfoContainer || isDisabledByChild || isNatalChartInsights;
+              const isDisabled = isDisabledByInfoContainer || isDisabledByChild;
             
             return (
             <TouchableOpacity

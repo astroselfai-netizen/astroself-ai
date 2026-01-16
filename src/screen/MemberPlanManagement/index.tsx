@@ -1599,7 +1599,7 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
                   },
                 ]}
               >
-                Paid Plan – What You Unlock
+                Annual Plan – What You Unlock
               </Text>
             </View>
 
@@ -1776,7 +1776,7 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
               ) : (
                 <>
                   <Text style={styles.premiumModalBuyButtonText}>
-                    Buy Premium Access
+                    Buy an Annual Plan
                   </Text>
                   {/* <Text style={styles.premiumModalBuyButtonArrow}>→</Text> */}
                 </>

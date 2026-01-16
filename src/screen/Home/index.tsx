@@ -717,7 +717,7 @@ const HomeScreen = () => {
     },
     {
       id: 12,
-      title: 'Privacy & Policy',
+      title: 'Privacy Policy',
       value: 'privacyPolicy',
       icon: require('../../assets/icons/document.png'),
       subtitle: undefined,

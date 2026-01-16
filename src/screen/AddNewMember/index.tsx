@@ -143,7 +143,7 @@ const AddNewMember = () => {
   const [isPlaceDropdownOpen, setIsPlaceDropdownOpen] = useState(false);
   const [showPersonalDetails, setShowPersonalDetails] = useState(false);
 
-  const genderOptions = ['Male', 'Female', 'Other'];
+  const genderOptions = ['Male', 'Female'];
   const predictionTypeOptions = ['Bullet', 'Paragraph'];
 
   // Search places using Google Places API
@@ -573,8 +573,35 @@ const AddNewMember = () => {
           
           // 5 seconds delay
         } else {
-          // Navigate to HomeScreen (for login/registration flow - normal flow without payment)
-          navigation.navigate('HomeScreen');
+          // Navigate directly to ChatWithPrompts with Snapshot Prediction through ChatTab
+          // Use the same pattern as the if block above
+          const rootNavigation = navigation.getParent();
+          if (rootNavigation) {
+            // Navigate to HomeScreen first, then to ChatTab
+            navigation.navigate('HomeScreen' as any);
+            // Use a delay to ensure HomeScreen is mounted, then navigate to ChatTab
+            setTimeout(() => {
+              (rootNavigation as any).navigate('ChatTab', {
+                screen: 'ChatWithPrompts',
+                params: {
+                  userId: response.user_id,
+                  cardTitles: 'Snapshot Prediction',
+                  tab: 'LifeNow',
+                  planet: null,
+                },
+              });
+            }, 500);
+          } else {
+
+            navigation.navigate('HomeScreen' as any);
+            // Fallback to direct navigation if parent not available
+            navigation.navigate('ChatWithPrompts' as any, {
+              userId: response.user_id,
+              cardTitles: 'Snapshot Prediction',
+              tab: 'LifeNow',
+              planet: null,
+            });
+          }
         }
       } catch (error: any) {
         console.error('Error in onSubmit:', error);
@@ -724,7 +751,7 @@ const AddNewMember = () => {
                   },
                 ]}
               >
-                Enter Your Birth Details
+               { route.params?.fromMemberPlanManagement ? 'Enter Birth Details' : 'Enter Your Birth Details'}
               </Text>
             </View>
           </View>
@@ -1236,7 +1263,10 @@ const AddNewMember = () => {
                 <Switch
                   value={showPersonalDetails}
                   style={{
-                    marginRight: Platform.OS === 'ios' ? responsiveWidth(5) : responsiveWidth(2),
+                    marginRight:
+                      Platform.OS === 'ios'
+                        ? responsiveWidth(5)
+                        : responsiveWidth(2),
                   }}
                   onValueChange={setShowPersonalDetails}
                   trackColor={{

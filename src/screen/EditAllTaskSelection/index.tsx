@@ -75,6 +75,7 @@ const EditAllTaskSelectionScreen = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isCreateTaskModalVisible, setIsCreateTaskModalVisible] = useState(false);
   const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   // const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   // Set selectedMemberId only when userId comes from route params
@@ -498,11 +499,8 @@ const EditAllTaskSelectionScreen = () => {
         insights: insights,
       });
 
-      Alert.alert('Success', 'Tasks updated successfully', [
-        { text: 'OK', onPress: () => {
-          navigation.goBack();
-        } },
-      ]);
+      // Show success modal instead of Alert
+      setShowSuccessModal(true);
     } catch (error: any) {
       console.error('Error updating tasks:', error);
       Alert.alert(
@@ -715,21 +713,24 @@ const EditAllTaskSelectionScreen = () => {
         {/* Select Your Karmic Points Section */}
         <View style={styles.pointsSection}>
           <View style={styles.saveButtonContainer}>
-            <View style={styles.sectionTitleContainer}>
+            <View style={[styles.sectionTitleContainer,{backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white , borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor, }]}>
               <Text
                 style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
               >
                 {/* Select Tasks And Frequency */}
-                Select Tasks
+                Daily tasks suggested for you to navigate this time period
               </Text>
               {/* <Text style={styles.moonIcon}>🌙</Text> */}
             </View>
 
             <View
               style={[
-                styles.sectionTitleContainer,
+                styles.sectionTitleContainer2,
                 {
-                  marginLeft: -responsiveWidth(15),
+                  // marginLeft: -responsiveWidth(15),
                 },
               ]}
             >
@@ -786,6 +787,7 @@ const EditAllTaskSelectionScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
+
           {loading ? (
             <View style={styles.loadingContainer}>
               <LottieView
@@ -1080,6 +1082,80 @@ const EditAllTaskSelectionScreen = () => {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSuccessModal(false);
+          navigation.goBack();
+        }}
+      >
+        <TouchableOpacity
+          style={styles.successModalOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowSuccessModal(false);
+            navigation.goBack();
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={e => e.stopPropagation()}
+            style={[
+              styles.successModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.successModalTitle,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Success
+            </Text>
+            <Text
+              style={[
+                styles.successModalMessage,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Congratulations on selecting the tasks! You are encouraged to come
+              back and update the tasks every day and see your progress!
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.successModalButton,
+                {
+                  backgroundColor: colors.Orangeaccentcolor,
+                },
+              ]}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.goBack();
+              }}
+            >
+              <Text style={styles.successModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </MainContainer>
   );
 };
@@ -1134,6 +1210,7 @@ const styles = StyleSheet.create({
   },
   editBtn: {
     // width: responsiveWidth(15),
+    flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
@@ -1156,17 +1233,25 @@ const styles = StyleSheet.create({
     marginBottom: responsiveWidth(5),
   },
   sectionTitleContainer: {
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: responsiveWidth(2),
+    marginBottom: responsiveWidth(3),
+  },
+  sectionTitleContainer2: {
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    // width: '50%',
+    justifyContent: 'space-between',
+    // borderWidth: 1,
+    // padding: responsiveWidth(2),
+    marginBottom: responsiveWidth(3),
     gap: responsiveWidth(2),
-   
-    // marginBottom: responsiveWidth(3),
   },
   sectionTitle: {
     fontSize: 18,
     fontFamily: fontFamily.regular,
-    width: '60%',
+    // width: '60%',
     fontWeight: '600',
     // marginRight: responsiveWidth(2),
   },
@@ -1285,11 +1370,12 @@ const styles = StyleSheet.create({
     marginTop: responsiveWidth(3),
   },
   saveButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: responsiveWidth(2),
-    marginBottom: responsiveWidth(3),
+    // flexDirection: 'row',
+    // flex: 1,
+    // justifyContent: 'space-between',
+    // alignItems: 'center',
+    // marginHorizontal: responsiveWidth(2),
+    // marginBottom: responsiveWidth(3),
   },
   taskCard: {
     // backgroundColor: '#223149',
@@ -1544,6 +1630,7 @@ const styles = StyleSheet.create({
   },
   createTaskButton: {
     // width: responsiveWidth(15),
+    flex: 1,
     backgroundColor: '#DF8A5D',
     paddingVertical: 8,
     paddingHorizontal: 14,
@@ -1619,6 +1706,48 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     marginTop: responsiveWidth(1),
     marginLeft: responsiveWidth(1),
+  },
+  // Success Modal styles
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContainer: {
+    width: '85%',
+    maxWidth: responsiveWidth(85),
+    borderRadius: 8,
+    padding: responsiveWidth(5),
+    alignItems: 'center',
+  },
+  successModalTitle: {
+    fontSize: 20,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    marginBottom: responsiveWidth(3),
+    textAlign: 'center',
+  },
+  successModalMessage: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: responsiveWidth(5),
+    lineHeight: 20,
+  },
+  successModalButton: {
+    borderRadius: 8,
+    paddingVertical: responsiveWidth(3),
+    paddingHorizontal: responsiveWidth(8),
+    minWidth: responsiveWidth(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
   },
 });
 

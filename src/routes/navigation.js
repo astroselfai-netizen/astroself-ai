@@ -151,6 +151,7 @@ function MainNavigator() {
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
         <Stack.Screen name="ForgotPasswordOtp" component={ForgotPasswordOtp} />
         <Stack.Screen name="AddNewMember" component={AddNewMember} />
+        <Stack.Screen name="ChatWithPrompts" component={ChatWithPromptsScreen} />
         {/* <Stack.Screen name="ChatScreen" component={ChatScreen} /> */}
         <Stack.Screen name="StartExploring" component={StartExploring} />
         <Stack.Screen name="NakshatraScreen" component={NakshatraScreen} />

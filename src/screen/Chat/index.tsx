@@ -15,6 +15,7 @@ import {
   Alert,
   ImageBackground,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import {
   font,
@@ -41,6 +42,10 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
 import FreePointsModal from '../../components/FreePointsModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RazorpayCheckout from 'react-native-razorpay';
+import serviceFactory from '../../services/serviceFactory';
+import PaymentService from '../../services/payment/payment.service';
+import Toast from 'react-native-toast-message';
 
 type RootStackParamList = {
   ChatScreen: { userId: string; tab?: string };
@@ -54,8 +59,12 @@ const ChatScreen = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
   const [showBuyMembershipModal, setShowBuyMembershipModal] = useState(false);
+  const [modalFeatureName, setModalFeatureName] = useState<string>('Dynamic Predictions');
   const [membersShownModal, setMembersShownModal] = useState<Set<string>>(new Set());
   const [showFreePointsModal, setShowFreePointsModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [creatingSubscription, setCreatingSubscription] = useState(false);
+  const [showPaymentSuccessLoader, setShowPaymentSuccessLoader] = useState(false);
   const showInfoContainer = useSelector(
     (state: RootState) => state.app.showInfoContainer,
   );
@@ -63,6 +72,8 @@ const ChatScreen = () => {
   const { theme, colors } = useTheme();
   const { profileData, membersData, loading, error, refreshProfileData } =
     useProfileData();
+  const user = useSelector((state: RootState) => state.app.user);
+  const paymentService = serviceFactory.get<PaymentService>('PaymentService');
 
   console.log('profileData===>39', membersData);
 
@@ -279,6 +290,171 @@ const ChatScreen = () => {
        });
     } else {
       Alert.alert('Error', 'Please select a member first');
+    }
+  };
+
+  // Handle opening premium modal
+  const handleOpenPremiumModal = () => {
+    setShowPremiumModal(true);
+  };
+
+  // Handle closing premium modal
+  const handleClosePremiumModal = () => {
+    setShowPremiumModal(false);
+  };
+
+  // Handle Buy Premium Access
+  const handleBuyPremiumAccess = async () => {
+    if (!selectedMember || !user) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Member or user information not found',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+      return;
+    }
+
+    try {
+      setCreatingSubscription(true);
+
+      const planId = 'd461266c-574b-4312-994a-ebd2b5cf6dc3'; // Premium plan ID
+      const userId = user?._id || (user as any)?.id || '';
+      const memberUserId =
+        selectedMember.id ||
+        selectedMember._id ||
+        '';
+
+      // First create subscription
+      const subscriptionResponse = await paymentService.createSubscription({
+        plan_id: planId,
+        user_id: userId,
+        member_user_id: memberUserId,
+        notes: {
+          action: 'premium_subscription',
+          member_name: selectedMember.full_name || 'Member',
+        },
+      });
+
+      console.log('Subscription created:', subscriptionResponse);
+
+      // Check if subscription was created
+      if (!subscriptionResponse.subscription_id) {
+        throw new Error('Subscription ID not received from server');
+      }
+
+      if (!subscriptionResponse.razorpay_key) {
+        throw new Error('Razorpay key not received from server');
+      }
+
+      // Get user data for prefill
+      const userDataString = await AsyncStorage.getItem('USER_DATA');
+      let currentUserData: any = {};
+      if (userDataString) {
+        currentUserData = JSON.parse(userDataString);
+      }
+
+      // Close the premium modal before opening Razorpay
+      handleClosePremiumModal();
+      setShowBuyMembershipModal(false);
+
+      // Razorpay payment options for subscription
+      const options = {
+        key: subscriptionResponse.razorpay_key,
+        amount: (subscriptionResponse as any).amount || 99900, // Amount in paise (999 INR)
+        currency: (subscriptionResponse as any).currency || 'INR',
+        name: 'Astroself',
+        description: 'Premium Subscription',
+        subscription_id: subscriptionResponse.subscription_id,
+        prefill: {
+          email: currentUserData.email || '',
+          contact: currentUserData.phone || '',
+          name: currentUserData.full_name || currentUserData.name || '',
+        },
+        theme: { color: '#DF8A5D' },
+      };
+
+      try {
+        // Open Razorpay checkout modal
+        const paymentData = await RazorpayCheckout.open(options);
+
+        console.log('Payment response:', paymentData);
+
+        // Payment successful
+        if (paymentData) {
+          // Show progress loader for 5 seconds
+          setShowPaymentSuccessLoader(true);
+          
+          // Wait for 5 seconds
+          setTimeout(() => {
+            setShowPaymentSuccessLoader(false);
+            
+            // Show success toast
+            Toast.show({
+              type: 'success',
+              text1: 'Payment Successful',
+              text2: 'Your premium subscription has been activated',
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 3000,
+              onHide: async () => {
+                // Refresh profile data after toast is dismissed
+                await refreshProfileData();
+              },
+            });
+          }, 5000);
+        }
+      } catch (razorpayError: any) {
+        console.error('Razorpay error:', razorpayError);
+
+        // Check if it's a cancellation
+        const isCancelled =
+          razorpayError?.code === 'BAD_REQUEST_ERROR' ||
+          razorpayError?.code === 'NETWORK_ERROR' ||
+          razorpayError?.description?.toLowerCase().includes('cancelled') ||
+          razorpayError?.reason?.toLowerCase().includes('cancelled') ||
+          razorpayError?.step === 'payment_cancelled';
+
+        if (isCancelled) {
+          // User cancelled, don't show error
+          console.log('Payment cancelled by user');
+          Toast.show({
+            type: 'info',
+            text1: 'Payment Cancelled',
+            text2: 'You can try again later',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 2000,
+          });
+        } else {
+          // Show error for other cases
+          Toast.show({
+            type: 'error',
+            text1: 'Payment Error',
+            text2:
+              razorpayError?.description ||
+              razorpayError?.message ||
+              'Payment failed. Please try again.',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3000,
+          });
+        }
+      }
+    } catch (subscriptionError: any) {
+      console.error('Error creating subscription:', subscriptionError);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: subscriptionError.message || 'Failed to create subscription',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+    } finally {
+      setCreatingSubscription(false);
     }
   };
 
@@ -910,7 +1086,7 @@ const ChatScreen = () => {
                     },
                   ]}
                 >
-                  Report
+                  Reports
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1061,6 +1237,7 @@ const ChatScreen = () => {
                   // Check if member has cosmic_foundation plan
                   if (isCosmicFoundationPlan) {
                     // Check if modal was already shown for this member
+                    setModalFeatureName('Dynamic Predictions');
                     setShowBuyMembershipModal(true);
                     // Mark this member as having seen t
                   } else {
@@ -1105,6 +1282,10 @@ const ChatScreen = () => {
               selectedMemberId={selectedMemberId || ''}
               current_plan={selectedMember?.current_plan}
               isChild={isSelectedMemberChild}
+              onShowBuyMembershipModal={featureName => {
+                setModalFeatureName(featureName || 'Dynamic Predictions');
+                setShowBuyMembershipModal(true);
+              }}
             />
           ) : (
             <GeneralAnalysis
@@ -1127,7 +1308,7 @@ const ChatScreen = () => {
               { backgroundColor: colors.Orangeaccentcolor },
             ]}
             onPress={() => {
-              navigation.navigate('AddNewMember');
+              navigation.navigate('AddNewMember', { fromMemberPlanManagement: true });
             }}
           >
             <Text
@@ -1149,6 +1330,7 @@ const ChatScreen = () => {
         animationType="fade"
         onRequestClose={() => {
           setShowBuyMembershipModal(false);
+          setModalFeatureName('Dynamic Predictions'); // Reset to default
           // Mark member as having seen the modal when closed
           if (selectedMemberId) {
             setMembersShownModal(prev => new Set(prev).add(selectedMemberId));
@@ -1164,7 +1346,7 @@ const ChatScreen = () => {
 
             {/* Body Text */}
             <Text style={styles.modalBodyText}>
-              To Access Dynamic Predictions, Please Upgrade Your Plan.
+              To Access {modalFeatureName}, Please Upgrade Your Plan.
             </Text>
 
             {/* Action Buttons */}
@@ -1179,7 +1361,9 @@ const ChatScreen = () => {
                     );
                   }
                   setShowBuyMembershipModal(false);
-                  navigation.navigate('PaidPlanScreen');
+                  setModalFeatureName('Dynamic Predictions'); // Reset to default
+                  // Open Premium Plan Modal instead of navigating
+                  handleOpenPremiumModal();
                 }}
               >
                 <Text style={styles.buyButtonText}>Buy</Text>
@@ -1194,11 +1378,287 @@ const ChatScreen = () => {
                     );
                   }
                   setShowBuyMembershipModal(false);
+                  setModalFeatureName('Dynamic Predictions'); // Reset to default
                 }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Premium Plan Modal */}
+      <Modal
+        visible={showPremiumModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleClosePremiumModal}
+      >
+        <TouchableOpacity
+          style={styles.premiumModalOverlay}
+          activeOpacity={1}
+          onPress={handleClosePremiumModal}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={e => e.stopPropagation()}
+            style={[
+              styles.premiumModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            {/* Close Button */}
+            <TouchableOpacity
+              style={styles.premiumModalCloseButton}
+              onPress={handleClosePremiumModal}
+            >
+              <Text
+                style={[
+                  styles.premiumModalCloseText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                ✕
+              </Text>
+            </TouchableOpacity>
+
+            {/* Header with Crown Icon */}
+            <View style={styles.premiumModalHeader}>
+              <Text style={styles.premiumModalCrownIcon}>👑</Text>
+              <Text
+                style={[
+                  styles.premiumModalTitle,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Annual Plan – What You Unlock
+              </Text>
+            </View>
+
+            {/* Price */}
+            <View style={styles.premiumModalPriceContainer}>
+              <Text
+                style={[
+                  styles.premiumModalPrice,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                999
+              </Text>
+              <Text
+                style={[
+                  styles.premiumModalPriceUnit,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                INR/year
+              </Text>
+            </View>
+
+            {/* Description */}
+            <Text
+              style={[
+                styles.premiumModalDescription,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Experience the full power of{' '}
+              <Text style={styles.premiumModalBoldText}>
+                Natal Insights + Dynamic Planetary Insights + Action Alignment
+              </Text>{' '}
+              in one seamless journey.
+            </Text>
+
+            {/* Features List */}
+            <View style={styles.premiumModalFeaturesContainer}>
+              {/* Feature 1 */}
+              <View style={styles.premiumModalFeatureItem}>
+                <Text style={styles.premiumModalCheckIcon}>✓</Text>
+                <View style={styles.premiumModalFeatureTextContainer}>
+                  <Text
+                    style={[
+                      styles.premiumModalFeatureTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Natal Chart-Based Insights:
+                  </Text>
+                  <Text
+                    style={[
+                      styles.premiumModalFeatureDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Deep interpretations of core personality, soul desires, &
+                    blended predictions for all 12 houses. Includes 100 BNN
+                    snapshot predictions, planetary strength/weakness, &
+                    hyper-personalisation.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Feature 2 */}
+              <View style={styles.premiumModalFeatureItem}>
+                <Text style={styles.premiumModalCheckIcon}>✓</Text>
+                <View style={styles.premiumModalFeatureTextContainer}>
+                  <Text
+                    style={[
+                      styles.premiumModalFeatureTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Dynamic Insights (Active Planet + Transits):
+                  </Text>
+                  <Text
+                    style={[
+                      styles.premiumModalFeatureDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Guidance that evolves: your most active planet, transit
+                    influences, and refreshed updates every 15 days with new
+                    planetary movements.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Feature 3 */}
+              <View style={styles.premiumModalFeatureItem}>
+                <Text style={styles.premiumModalCheckIcon}>✓</Text>
+                <View style={styles.premiumModalFeatureTextContainer}>
+                  <Text
+                    style={[
+                      styles.premiumModalFeatureTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Dynamic Task Module (Mobile App Only):
+                  </Text>
+                  <Text
+                    style={[
+                      styles.premiumModalFeatureDescription,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Karma-Aligned Action: Turn insights into momentum with
+                    personalised Do's & Don'ts, track progress, and build habits
+                    aligned with your planetary phase.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Buy Premium Access Button */}
+            <TouchableOpacity
+              style={[
+                styles.premiumModalBuyButton,
+                {
+                  backgroundColor: colors.Orangeaccentcolor,
+                  opacity: creatingSubscription ? 0.6 : 1,
+                },
+              ]}
+              onPress={handleBuyPremiumAccess}
+              disabled={creatingSubscription}
+            >
+              {creatingSubscription ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <>
+                  <Text style={styles.premiumModalBuyButtonText}>
+                    Buy an Annual Plan
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Payment Success Progress Loader Modal */}
+      <Modal
+        visible={showPaymentSuccessLoader}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.paymentLoaderOverlay}>
+          <View
+            style={[
+              styles.paymentLoaderContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.Orangeaccentcolor} />
+            <Text
+              style={[
+                styles.paymentLoaderText,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Verifying your payment... Please wait
+            </Text>
           </View>
         </View>
       </Modal>
@@ -1768,6 +2228,134 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     fontFamily: fontFamily.bold,
+  },
+  // Premium Plan Modal styles
+  premiumModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  premiumModalContainer: {
+    width: '90%',
+    maxWidth: responsiveWidth(90),
+    borderRadius: 20,
+    padding: responsiveWidth(5),
+    maxHeight: '90%',
+  },
+  premiumModalCloseButton: {
+    position: 'absolute',
+    top: responsiveWidth(3),
+    right: responsiveWidth(3),
+    width: responsiveWidth(8),
+    height: responsiveWidth(8),
+    borderRadius: responsiveWidth(4),
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  premiumModalCloseText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  premiumModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: responsiveWidth(2),
+    marginBottom: responsiveWidth(3),
+  },
+  premiumModalCrownIcon: {
+    fontSize: 24,
+    marginRight: responsiveWidth(2),
+  },
+  premiumModalTitle: {
+    fontSize: 16,
+    fontFamily: fontFamily.semiBold,
+    flex: 1,
+  },
+  premiumModalPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: responsiveWidth(3),
+  },
+  premiumModalPrice: {
+    fontSize: 36,
+    fontFamily: fontFamily.bold,
+    marginRight: responsiveWidth(1),
+  },
+  premiumModalPriceUnit: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+  },
+  premiumModalDescription: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 20,
+    marginBottom: responsiveWidth(4),
+  },
+  premiumModalBoldText: {
+    fontWeight: 'bold',
+    fontFamily: fontFamily.semiBold,
+  },
+  premiumModalFeaturesContainer: {
+    marginBottom: responsiveWidth(4),
+  },
+  premiumModalFeatureItem: {
+    flexDirection: 'row',
+    marginBottom: responsiveWidth(3),
+    alignItems: 'flex-start',
+  },
+  premiumModalCheckIcon: {
+    fontSize: 20,
+    color: '#DF8A5D',
+    marginRight: responsiveWidth(2),
+    marginTop: responsiveWidth(0.5),
+  },
+  premiumModalFeatureTextContainer: {
+    flex: 1,
+  },
+  premiumModalFeatureTitle: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    marginBottom: responsiveWidth(1),
+  },
+  premiumModalFeatureDescription: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    lineHeight: 18,
+  },
+  premiumModalBuyButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: responsiveWidth(3),
+    borderRadius: 12,
+    marginTop: responsiveWidth(2),
+  },
+  premiumModalBuyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+  },
+  // Payment Success Loader Modal styles
+  paymentLoaderOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paymentLoaderContainer: {
+    borderRadius: 20,
+    padding: responsiveWidth(8),
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: responsiveWidth(60),
+  },
+  paymentLoaderText: {
+    marginTop: responsiveWidth(4),
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
   },
 });
 

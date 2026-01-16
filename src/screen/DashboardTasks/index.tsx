@@ -26,6 +26,7 @@ import { ProgressChart } from 'react-native-chart-kit';
 import taskService, { Task, KarmicProgressResponse } from '../../services/task/task.service';
 import LottieView from 'lottie-react-native';
 import { useProfileData } from '../../hooks/useProfileData';
+import { icons } from '../../assets';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -76,6 +77,7 @@ const DashboardTasksScreen = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [karmicProgress, setKarmicProgress] = useState<KarmicProgressResponse | null>(null);
   const [karmicProgressLoading, setKarmicProgressLoading] = useState(false);
+  const [showProgressCardModal, setShowProgressCardModal] = useState(false);
 
   // Set selectedMemberId based on primary member from membersData (only initially)
   useEffect(() => {
@@ -885,7 +887,7 @@ const DashboardTasksScreen = () => {
                   <TouchableOpacity
                     style={[
                       styles.astroButton,
-                      { backgroundColor: colors.Orangeaccentcolor },
+                      { borderColor: colors.Orangeaccentcolor },
                     ]}
                     activeOpacity={0.7}
                     onPress={() => {
@@ -900,7 +902,7 @@ const DashboardTasksScreen = () => {
                     }}
                   >
                     <Text
-                      style={[styles.astroButtonText, { color: colors.white }]}
+                      style={[styles.astroButtonText, { color: colors.Orangeaccentcolor }]}
                     >
                       View
                     </Text>
@@ -915,120 +917,32 @@ const DashboardTasksScreen = () => {
 
             {/* Karmic Progress Score Section */}
             <View style={styles.progressSection}>
-              <Text
-                style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
-              >
-                Tasks Progress Score
-              </Text>
+              <View style={[styles.progressScoreHeader, { backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white , borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor, }]}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    { color: colors.themeTextWhite },
+                  ]}
+                >
+                  Tasks Progress Score
+                </Text>
 
+                <TouchableOpacity
+                  style={[styles.progressScoreButton, { borderColor: colors.Orangeaccentcolor }]}
+                  onPress={() => setShowProgressCardModal(true)}
+                >
+                  <Text style={[styles.progressScoreButtonText, { color: colors.Orangeaccentcolor }]}>View</Text>
+                </TouchableOpacity>
+              </View>
               {/* Tabs */}
               {/* <View style={styles.tabsContainer}>
                 {renderTabButton('Today', selectedTab === 'Today')}
                 {renderTabButton('Weekly', selectedTab === 'Weekly')}
                 {renderTabButton('Monthly', selectedTab === 'Monthly')}
               </View> */}
-
-              {/* Progress Card */}
-              <View
-                style={[
-                  styles.progressCard,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.themeTextWhite : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.surfaceOpacity,
-                  },
-                ]}
-              >
-                {/* Left Section */}
-                <View style={styles.progressCardLeftSection}>
-                  <Text
-                    style={[
-                      styles.progressCardTitle,
-                      {
-                        color: colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Your Tasks Progress
-                  </Text>
-
-                  {/* Task Completed Section */}
-                  <View style={styles.progressStatSection}>
-                    <Text
-                      style={[
-                        styles.progressStatNumber,
-                        {
-                          color: colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      {closedKarmicPoints.length}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.progressStatLabel,
-                        {
-                          color: colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Tasks
-                    </Text>
-                  </View>
-
-                  {/* Separator Line */}
-                  <View
-                    style={[
-                      styles.progressSeparator,
-                      {
-                        backgroundColor: colors.DarkNavy,
-                      },
-                    ]}
-                  />
-
-                  {/* Current Streak Section */}
-                  <View style={styles.progressStatSection}>
-                    <Text
-                      style={[
-                        styles.progressStatNumber,
-                        {
-                          color: colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      {(karmicProgress as any)?.current_streak || 0}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.progressStatLabel,
-                        {
-                          color: colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Days
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Vertical Divider */}
-                <View
-                  style={[
-                    styles.progressVerticalDivider,
-                    {
-                      backgroundColor: colors.DarkNavy,
-                    },
-                  ]}
-                />
-
-                {/* Right Section - Circular Progress */}
-                <View style={styles.progressCardRightSection}>
-                  {renderCircularProgress()}
-                </View>
-              </View>
             </View>
             {/* Karmic Action Section - only show if tasks exist */}
             {tasks.length > 0 && (
@@ -1532,6 +1446,147 @@ const DashboardTasksScreen = () => {
           </>
         )}
       </ScrollView>
+
+      {/* Progress Card Modal */}
+      <Modal
+        visible={showProgressCardModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowProgressCardModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.progressModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowProgressCardModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={e => e.stopPropagation()}
+            style={styles.progressModalContainer}
+          >
+            {/* Close Button */}
+            <TouchableOpacity
+              style={styles.progressModalCloseButton}
+              onPress={() => setShowProgressCardModal(false)}
+            >
+              <Image
+                source={icons.Icclose}
+                style={[
+                  styles.progressModalCloseIcon,
+                  {
+                    tintColor:
+                      theme === 'dark'
+                        ? colors.DarkNavy
+                        : colors.DarkNavy,
+                  },
+                ]}
+              />
+            </TouchableOpacity>
+
+            {/* Progress Card Content */}
+            <View
+              style={[
+                styles.progressCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.surfaceOpacity,
+                },
+              ]}
+            >
+              {/* Left Section */}
+              <View style={styles.progressCardLeftSection}>
+                <Text
+                  style={[
+                    styles.progressCardTitle,
+                    {
+                      color: colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Your Tasks Progress
+                </Text>
+
+                {/* Task Completed Section */}
+                <View style={styles.progressStatSection}>
+                  <Text
+                    style={[
+                      styles.progressStatNumber,
+                      {
+                        color: colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {closedKarmicPoints.length}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.progressStatLabel,
+                      {
+                        color: colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Tasks
+                  </Text>
+                </View>
+
+                {/* Separator Line */}
+                <View
+                  style={[
+                    styles.progressSeparator,
+                    {
+                      backgroundColor: colors.DarkNavy,
+                    },
+                  ]}
+                />
+
+                {/* Current Streak Section */}
+                <View style={styles.progressStatSection}>
+                  <Text
+                    style={[
+                      styles.progressStatNumber,
+                      {
+                        color: colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {(karmicProgress as any)?.current_streak || 0}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.progressStatLabel,
+                      {
+                        color: colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Days
+                  </Text>
+                </View>
+              </View>
+
+              {/* Vertical Divider */}
+              <View
+                style={[
+                  styles.progressVerticalDivider,
+                  {
+                    backgroundColor: colors.DarkNavy,
+                  },
+                ]}
+              />
+
+              {/* Right Section - Circular Progress */}
+              <View style={styles.progressCardRightSection}>
+                {renderCircularProgress()}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </MainContainer>
   );
 };
@@ -1588,12 +1643,32 @@ const styles = StyleSheet.create({
   progressSection: {
     marginBottom: responsiveWidth(5),
   },
+  progressScoreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    justifyContent: 'space-between',
+    padding: responsiveWidth(2),
+    borderRadius: 12,
+    marginBottom: responsiveWidth(4),
+    // borderWidth: 1,
+    // borderColor: colors.Orangeaccentcolor,
+  },
+  progressScoreButton: {
+    paddingVertical: responsiveWidth(1),
+    paddingHorizontal: responsiveWidth(4),
+    borderRadius: 8,
+    // backgroundColor: colors.Orangeaccentcolor,
+    borderWidth: 1,
+    // borderColor: colors.Orangeaccentcolor,
+  },
+  progressScoreButtonText: {},
   sectionTitle: {
     fontSize: 20,
     fontFamily: fontFamily.regular,
     fontWeight: '600',
-   
-    marginBottom: responsiveWidth(2),
+    marginLeft: responsiveWidth(2),
+    // marginBottom: responsiveWidth(2),
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -1613,7 +1688,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8C00',
   },
   tabButtonUnselected: {
-   
     borderWidth: 0.2,
     borderColor: '#FFFFFF',
   },
@@ -1735,7 +1809,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionDateText: {
-   fontSize: 14,
+    fontSize: 14,
     fontFamily: fontFamily.regular,
     fontWeight: '600',
   },
@@ -1994,7 +2068,7 @@ const styles = StyleSheet.create({
   astroContent: {
     width: '100%',
     flexDirection: 'row',
-    justifyContent: "space-between",
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: responsiveWidth('1'),
     paddingHorizontal: responsiveWidth('3'),
@@ -2013,11 +2087,13 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
   astroButton: {
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 8,
+    // paddingVertical: 10,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingVertical: responsiveWidth(1),
+    paddingHorizontal: responsiveWidth(4),
     alignSelf: 'flex-start',
   },
   astroButtonText: {
@@ -2030,6 +2106,37 @@ const styles = StyleSheet.create({
     height: responsiveWidth('30%'),
     resizeMode: 'contain',
     marginRight: responsiveWidth('2'),
+  },
+  // Progress Card Modal styles
+  progressModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressModalContainer: {
+    width: '90%',
+    maxWidth: responsiveWidth(90),
+    borderRadius: 20,
+    padding: responsiveWidth(5),
+    position: 'relative',
+  },
+  progressModalCloseButton: {
+    position: 'absolute',
+    top: responsiveWidth(5),
+    right: responsiveWidth(5),
+    width: responsiveWidth(10),
+    height: responsiveWidth(10),
+    borderRadius: responsiveWidth(5),
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    backgroundColor: 'transparent',
+  },
+  progressModalCloseIcon: {
+    width: responsiveWidth(6),
+    height: responsiveWidth(6),
+    resizeMode: 'contain',
   },
 });
 
