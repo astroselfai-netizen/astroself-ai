@@ -58,10 +58,10 @@
 			</dict>
 		</dict>
 	</dict>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string></string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to photos to let you upload a profile picture</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>This app needs notification permission to send you important updates and alerts.</string>
 	<key>RCTNewArchEnabled</key>
@@ -88,9 +88,9 @@
 		<string>InterExtraLight.ttf</string>
 	</array>
 	<key>UIBackgroundModes</key>
-	<array/>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string></string>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen.storyboard</string>
 	<key>UIRequiredDeviceCapabilities</key>
