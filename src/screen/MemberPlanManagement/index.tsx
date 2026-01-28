@@ -15,6 +15,7 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
+  Linking,
 } from 'react-native';
 
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -826,6 +827,40 @@ const MemberPlanManagement = () => {
         throw new Error('Subscription ID not received from server');
       }
 
+      // iOS: open short_url / payment_url in browser instead of Razorpay SDK
+      if (Platform.OS === 'ios') {
+        const paymentUrl =
+          subscriptionResponse.short_url || subscriptionResponse.payment_url;
+
+        if (!paymentUrl) {
+          throw new Error('Payment URL not received from server');
+        }
+
+        // Close modal before opening browser
+        handleClosePremiumModal();
+
+        const supported = await Linking.canOpenURL(paymentUrl);
+        if (!supported) {
+          throw new Error('Unable to open payment URL');
+        }
+
+        Toast.show({
+          type: 'info',
+          text1: 'Redirecting to Payment',
+          text2: 'Opening secure payment page in your browser',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 2000,
+        });
+
+        await Linking.openURL(paymentUrl);
+
+        // For iOS browser flow, server/webhook will update subscription.
+        // App can refresh profile data when user returns (handled elsewhere via focus).
+        return;
+      }
+
+      // Android: use Razorpay SDK as before
       if (!subscriptionResponse.razorpay_key) {
         throw new Error('Razorpay key not received from server');
       }
@@ -867,13 +902,13 @@ const MemberPlanManagement = () => {
       };
 
       try {
-        // Open Razorpay checkout modal
+        // Open Razorpay checkout modal (Android only)
+        console.log('Razorpay options:', options);
         const paymentData = await RazorpayCheckout.open(options);
 
         console.log('Payment response:', paymentData);
 
         // Payment successful
-
         if (paymentData) {
           Toast.show({
             type: 'success',

@@ -757,7 +757,7 @@ const ResourcesDetailsScreen = () => {
                     <Text style={styles.getCopyButtonText}>Get a Copy</Text>
                   )}
                 </TouchableOpacity>
-
+{/* 
                 <TouchableOpacity
                   style={[
                     styles.getCopyButton,
@@ -777,7 +777,7 @@ const ResourcesDetailsScreen = () => {
                   ) : (
                     <Text style={styles.getCopyButtonText}>View in Browser</Text>
                   )}
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
             </View>
 

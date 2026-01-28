@@ -1,6 +1,6 @@
 // BasicDeatil.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -122,6 +122,21 @@ const AddNewMember = () => {
 
   const openTimePicker = () => {
     closeAllModals();
+    // Always initialize iosTempTime - use selectedTime if exists, otherwise use current time
+    // let initialTime: Date;
+    // if (selectedTime) {
+    //   initialTime = new Date(selectedTime);
+    // } else {
+    //   // Use current time, but ensure it's a fresh date object
+    //   initialTime = new Date();
+    // }
+    // // Create a fresh date object to avoid reference issues
+    // const freshTime = new Date(initialTime.getTime());
+    // // Update defaultTimeRef to match initialTime
+    // defaultTimeRef.current = new Date(freshTime);
+    // // Set iosTempTime with a fresh date object
+    // setIosTempTime(new Date(freshTime));
+    // console.log('Time picker opened with time:', freshTime.toLocaleTimeString());
     setShowTimePicker(true);
   };
 
@@ -135,6 +150,15 @@ const AddNewMember = () => {
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
   const [iosTempDate, setIosTempDate] = useState<Date | null>(null);
   const [iosTempTime, setIosTempTime] = useState<Date | null>(null);
+  // Stable default date to prevent picker reset on re-renders
+  // Initialize with current time, not a fixed 5:30 AM
+  const getDefaultTime = () => {
+    const now = new Date();
+    // Set to a reasonable default time (12:00 PM) if needed
+    now.setHours(12, 0, 0, 0);
+    return now;
+  };
+  const defaultTimeRef = useRef<Date>(getDefaultTime());
   const [tempHour, setTempHour] = useState(12);
   const [tempMinute, setTempMinute] = useState(0);
   const [tempAmPm, setTempAmPm] = useState('AM');
@@ -1714,17 +1738,24 @@ const AddNewMember = () => {
                   Select Time of Birth
                 </Text>
               </View>
-              <DateTimePicker
-                value={iosTempTime || selectedTime || new Date()}
+
+              {/* iOS Time Picker using react-native-date-picker */}
+              <DatePicker
+                date={iosTempTime || defaultTimeRef.current}
                 mode="time"
-                display="spinner"
-                is24Hour={false}
-                onChange={(event: any, time?: Date) => {
-                  if (time) setIosTempTime(time);
+                locale="en"
+                minuteInterval={1}
+                theme={theme === 'dark' ? 'dark' : 'light'}
+                onDateChange={time => {
+                  console.log('time-->ios date-picker', time);
+                  const newTime = new Date(time);
+                  console.log('Time changed to:', newTime.toLocaleTimeString());
+                  setIosTempTime(newTime);
+                  defaultTimeRef.current = newTime;
                 }}
-                themeVariant={theme === 'dark' ? 'dark' : 'light'}
                 style={{ alignSelf: 'stretch' }}
               />
+
               <View
                 style={{
                   flexDirection: 'row',
@@ -1754,11 +1785,16 @@ const AddNewMember = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
-                    const finalTime = iosTempTime || selectedTime || new Date();
+                    if (!iosTempTime) {
+                      console.warn('iosTempTime is null when confirming time');
+                      return;
+                    }
+                    const finalTime = new Date(iosTempTime);
+                    console.log('Time confirmed (iOS date-picker):', finalTime.toLocaleTimeString());
                     setSelectedTime(finalTime);
                     formik.setFieldValue('timeOfBirth', formatTime(finalTime));
+                    defaultTimeRef.current = finalTime;
                     closeAllModals();
-                    setIosTempTime(null);
                   }}
                 >
                   <Text

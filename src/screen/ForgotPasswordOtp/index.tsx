@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthContainer } from '../../components/common/AuthContainer';
 import BackIcon from '../../assets/icons/back.png';
+import { useTheme } from '../../context/ThemeContext';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -34,6 +35,7 @@ type LoginScreenNavigationProp = StackNavigationProp<
 
 const ForgotPasswordOtp = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
+  const theme = useTheme();
   // Hardcoded email for demo, replace with actual email logic if needed
   const email = 'abc@gmail.com';
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -101,8 +103,8 @@ const ForgotPasswordOtp = () => {
               style={{ alignItems: 'center', marginTop: responsiveWidth('4%') }}
             >
               <Image
-                source={require('../../assets/icons/Subtract-dark.png')}
-                style={styles.astroIcon}
+                source={theme === 'dark' ? require('../../assets/icons/Subtract-dark.png') : require('../../assets/icons/Subtract-light.png')}
+                style={[styles.astroIcon,theme === 'dark' ? { tintColor: colors.themeTextWhite } : { tintColor: colors.DarkNavy }]}
               />
 
               <Image

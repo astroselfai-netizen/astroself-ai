@@ -95,6 +95,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
       userInfo: dataDict
     )
   }
+  
+  // MARK: - Razorpay URL Handling
+  func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    // Handle Razorpay URL callbacks
+    // The react-native-razorpay module automatically handles URL callbacks
+    // through the React Native bridge when the URL scheme is registered in Info.plist
+    // We just need to return true to indicate the URL was handled
+    return true
+  }
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {

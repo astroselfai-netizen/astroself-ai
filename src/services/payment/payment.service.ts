@@ -1,6 +1,7 @@
 import { Service } from '../Service';
 import http from '../../utils/http';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 export interface CreateOrderRequest {
   plan_id: string;
@@ -441,8 +442,16 @@ class PaymentService extends Service {
 
       console.log('Create subscription request:--->', subscriptionData);
 
+      // Use different endpoints for Android and iOS
+      // Android: mobile endpoint (used with Razorpay SDK)
+      // iOS: normal endpoint which returns short_url for browser-based flow
+      const endpoint =
+        Platform.OS === 'ios'
+          ? `autopay/create-subscription`
+          : `mobile/autopay/create-subscription`;
+
       const response = await http.post(
-        `mobile/autopay/create-subscription`,
+        endpoint,
         subscriptionData,
         {
           headers: {

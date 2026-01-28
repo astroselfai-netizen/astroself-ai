@@ -394,8 +394,8 @@ const ContinueWithOtp = () => {
           {/* Astroself logo and OTP illustration */}
           <View style={styles.headerContainer}>
             <Image
-              source={require('../../assets/icons/Subtract-dark.png')}
-              style={styles.astroIcon}
+              source={theme === 'dark' ? require('../../assets/icons/Subtract-dark.png') : require('../../assets/icons/Subtract-light.png')}
+              style={[styles.astroIcon,theme === 'dark' ? { tintColor: colors.themeTextWhite } : { tintColor: colors.DarkNavy }]}
             />
             <Image
               source={require('../../assets/image/otpMail.png')}

@@ -27,8 +27,7 @@ react {
 
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
-    // nodeExecutableAndArgs = ["/Users/nikul/.nvm/versions/node/v20.19.1/bin/node"]
-    nodeExecutableAndArgs = ["node"]
+    nodeExecutableAndArgs = ["/Users/nikul/.nvm/versions/node/v20.19.1/bin/node"]
     //
     //   The command to run when bundling. By default is 'bundle'
     // bundleCommand = "ram-bundle"
@@ -119,8 +118,8 @@ android {
         applicationId "com.astroself.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 20
-        versionName "1.19"
+        versionCode 22
+        versionName "1.21"
         
         // Enable bundle splitting for different architectures
         ndk {

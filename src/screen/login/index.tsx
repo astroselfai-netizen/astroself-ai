@@ -400,7 +400,7 @@ const Login = () => {
                     ? require('../../assets/icons/Subtract-dark.png')
                     : require('../../assets/icons/Subtract-light.png')
                 }
-                style={styles.astroIcon}
+                style={[styles.astroIcon,theme === 'dark' ? { tintColor: colors.themeTextWhite } : { tintColor: colors.DarkNavy }]}
               />
             </View>
             {/* Astrology wheel and planets (placeholders) */}

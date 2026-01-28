@@ -89,7 +89,7 @@ APP_BASE_NAME=${0##*/}
 APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
 
 # Add node/npm bin directory to PATH for npx command
-# export PATH="/Users/nikul/.nvm/versions/node/v20.19.1/bin:$PATH"
+export PATH="/Users/nikul/.nvm/versions/node/v20.19.1/bin:$PATH"
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD=maximum

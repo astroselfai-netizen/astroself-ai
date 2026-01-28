@@ -82,6 +82,8 @@ class BooksService {
         },
       );
 
+      console.log('response---->', response);
+
       if (!response.status) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

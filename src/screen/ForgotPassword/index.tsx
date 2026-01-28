@@ -133,8 +133,8 @@ const ForgotPassword = () => {
           {/* Sun Icon and Astroself */}
           <View style={styles.centeredHeader}>
             <Image
-              source={require('../../assets/icons/Subtract-dark.png')}
-              style={styles.sunIcon}
+              source={theme === 'dark' ? require('../../assets/icons/Subtract-dark.png') : require('../../assets/icons/Subtract-light.png')}
+              style={[styles.sunIcon,theme === 'dark' ? { tintColor: colors.themeTextWhite } : { tintColor: colors.DarkNavy }]}
             />
             {/* <Text style={styles.astroselfText}>Astroself</Text> */}
           </View>
