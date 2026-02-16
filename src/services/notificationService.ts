@@ -66,7 +66,7 @@ class NotificationService {
   }
 
   // Helper method to get FCM token with retries (for iOS)
-  private async getFCMTokenWithRetry(maxRetries: number = 10, delay: number = 2000): Promise<string | null> {
+  private async getFCMTokenWithRetry(maxRetries: number = 1, delay: number = 2000): Promise<string | null> {
     console.log(`🔄 Starting getToken() retry mechanism (${maxRetries} attempts, ${delay}ms delay)`);
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -220,7 +220,7 @@ class NotificationService {
         
         // Step 3: Try direct getToken() call with retries
         console.log('📱 Step 3: Calling messaging().getToken()...');
-        const token = await this.getFCMTokenWithRetry(10, 2000);
+        const token = await this.getFCMTokenWithRetry(1, 2000);
         
         if (token) {
           console.log('✅ Got FCM token via retry mechanism:', token);
@@ -239,7 +239,7 @@ class NotificationService {
             if (this.tokenPromiseResolve === resolve) {
               reject(new Error('Timeout waiting for FCM token via callback'));
             }
-          }, 20000);
+          }, 10000);
         });
         
         try {

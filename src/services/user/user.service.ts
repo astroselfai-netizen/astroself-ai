@@ -1106,4 +1106,41 @@ export default class UserService extends Service {
       throw error;
     }
   }
+
+  /**
+   * Delete user account
+   * @param userId - User ID to delete
+   */
+  async deleteUser(userId: string): Promise<{
+    status: boolean;
+    message?: string;
+  }> {
+    try {
+      console.log('Deleting user with ID:', userId);
+      
+      const axiosResponse = await http.delete(`/mobile/delete/users?user_id=${userId}`, {
+        headers: {
+          'accept': 'application/json',
+        },
+      });
+
+      console.log('Delete user response:', axiosResponse.data);
+
+      if (axiosResponse?.data?.status !== false) {
+        return {
+          status: true,
+          message: axiosResponse?.data?.message || 'Account deleted successfully',
+        };
+      } else {
+        throw new Error(axiosResponse?.data?.message || 'Failed to delete account');
+      }
+    } catch (error: any) {
+      console.error('Delete user error:', error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to delete account. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
 }

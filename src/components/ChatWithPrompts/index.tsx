@@ -138,14 +138,15 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
    const topicOptions = [
      { title: 'Your Tendencies', value: 'Your Tendencies' },
      { title: 'Summary', value: 'Summary' },
-     { title: 'Predictions set 1-L', value: 'Lords in Houses' },
-     { title: 'Predictions set 2-P', value: 'Planets in Signs' },
-     { title: 'Predictions set 3-N', value: 'Nakshatra Themes' },
+     { title: 'Predictions bases on Lords', value: 'Lords in Houses' },
+     { title: 'Predictions based on Planets', value: 'Planets in Signs' },
+     { title: 'Predictions based on Nakshtra', value: 'Nakshatra Themes' },
    ];
 
   // Special topic options for Antardasha
   const antardashaTopicOptions = [
     { title: 'General Analysis', value: 'General Analysis' },
+    { title: 'Active Planet Connections', value: 'Active Planet Connections' },
     { title: 'Planet', value: 'Planet' },
     { title: 'Nakshatra', value: 'Nakshatra' },
     { title: 'Moon Lagna', value: 'Moon Lagna' },
@@ -154,6 +155,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   // Labels for Antardasha topic options
   const antardashaTopicLabels = [
     { title: 'General Analysis', value: 'General Analysis' },
+    { title: 'Active Planet Connections', value: 'Active Planet Connections' },
     { title: 'Prediction Set 1-P', value: 'Prediction Set 1-P' },
     { title: 'Prediction Set 2-N', value: 'Prediction Set 2-N' },
     { title: 'Prediction Set 3-ML', value: 'Prediction Set 3-ML' },
@@ -262,7 +264,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
       if (selectedCardTitle) {
         // If selectedCardTitle starts with 'Active Planet -', set mainHeading to 'Antardasha'
-        if (selectedCardTitle.startsWith('Active Planet -')) {
+        if (selectedCardTitle.startsWith('Active Planet -') || selectedCardTitle.startsWith('Current Phase of Life -')) {
           mainHeading = 'Antardasha';
         } else {
           switch (selectedCardTitle) {
@@ -385,6 +387,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         case 'Life at the Moment':
           apiTopic = 'Life at the Moment';
           break;
+        case 'Active Planet Connections':
+          apiTopic = 'Active Planet Connections';
+          break;
         default:
           apiTopic = 'Blended Predictions';
       }
@@ -397,9 +402,11 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       );
 
       let response;
+
       
+    console.log('mainHeading---->402', mainHeading);
       // Handle different API calls based on mainHeading
-      if (mainHeading === 'Antardasha') {
+      if (mainHeading === 'Antardasha' ) {
 
         if (apiTopic === 'Your Tendencies') {
           apiTopic = 'General Analysis';
@@ -410,14 +417,14 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           mainHeading,
           apiTopic, // In this case, apiTopic contains the planet parameter
         );
-      } else if (mainHeading === 'Current predictions' || mainHeading === 'Additional Predictions' || mainHeading === 'Life on the Horizon' || mainHeading === 'Life at the Moment') {
+      } else if (mainHeading === 'Current predictions' || mainHeading === 'Additional Predictions' || mainHeading === 'Next 30 to 45 Days' || mainHeading === 'Next 6 to 30 Months') {
         const categorizeResponse = await userService.getDashaCategorizeData(
           userId,
           mainHeading,
         );
         // Store updated_list for 'Life at the Moment' only
-        if (mainHeading === 'Life at the Moment' && categorizeResponse.updated_list) {
-          setUpdatedList(categorizeResponse.updated_list);
+        if (mainHeading === 'Next 30 to 45 Days' || mainHeading === 'Next 6 to 30 Months' && categorizeResponse.updated_list) {
+          setUpdatedList(categorizeResponse.updated_list || {});
         } else {
           setUpdatedList({});
         }
@@ -498,16 +505,16 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
       // Call appropriate AI response API based on selectedCardTitle
       let aiResponse;
-      if (selectedCardTitle === 'Antardasha') {
+      if (selectedCardTitle === 'Antardasha' || selectedCardTitle === 'Next 30 to 45 Days' || selectedCardTitle === 'Next 6 to 30 Months' ) {
         aiResponse = await userService.getAntardashaAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
           selectedCardTitle || 'Antardasha',
           topicTitle || 'General Analysis',
         );
-      } else if (selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle === 'Current predictions' || selectedCardTitle === 'Additional Predictions' || selectedCardTitle === 'Life on the Horizon' || selectedCardTitle === 'Life at the Moment') {
+      } else if (selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle === 'Current predictions' || selectedCardTitle === 'Additional Predictions' || selectedCardTitle === 'Life on the Horizon' || selectedCardTitle === 'Life at the Moment' || selectedCardTitle?.startsWith('Current Phase of Life -') ) {
         // For Current predictions and Additional Predictions, call the dasha AI response API
         // If selectedCardTitle starts with 'Active Planet -', use 'Antardasha' instead
-        const cardTitleForApi = selectedCardTitle?.startsWith('Active Planet -') ? 'Antardasha' : (selectedCardTitle || 'Additional Predictions');
+        const cardTitleForApi = selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle?.startsWith('Current Phase of Life -') ? 'Antardasha' : (selectedCardTitle || 'Additional Predictions');
         aiResponse = await userService.getDashaAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
           cardTitleForApi,
@@ -517,7 +524,6 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
         // userId = profileData;
       //  const plan = profileData?.current_plan;
-        // console.log('userId---->435', plan);
         aiResponse = await userService.getGenerateHeadingAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
           selectedCardTitle || 'General Analysis',
@@ -1347,6 +1353,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           selectedCardTitle?.includes('Additional Predictions') ||
           // selectedCardTitle?.includes('Life on the Horizon') ||
           selectedCardTitle?.includes('Life at the Moment') ||
+          selectedCardTitle?.includes('Next 30 to 45 Days') ||
+          selectedCardTitle?.includes('Next 6 to 30 Months') ||
           selectedCardTitle?.includes('Your Personality');
 
         // Don't render tabs if they should be hidden
@@ -1357,7 +1365,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         console.log('selectedCardTitle---->1355', selectedCardTitle);
 
         // Check if selectedCardTitle is 'Antardasha' or starts with 'Active Planet -'
-        const isAntardasha = selectedCardTitle === 'Antardasha' || selectedCardTitle?.startsWith('Active Planet -');
+        const isAntardasha = selectedCardTitle === 'Antardasha' || selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle?.startsWith('Current Phase of Life -');
 
         const tabOptions =
           isAntardasha

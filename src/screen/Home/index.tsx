@@ -15,6 +15,7 @@ import {
   Modal,
   FlatList,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
@@ -41,6 +42,7 @@ import HomeImageSlider from '../../components/HomeImageSlider';
 import { baseURL } from '../../utils/http';
 import LottieView from 'lottie-react-native';
 import { getCardIcon } from '../../utils/cardIconMapper';
+import Toast from 'react-native-toast-message';
 // Removed BlurView to avoid external dependency for blur
 
 export type RootStackParamList = {
@@ -263,6 +265,8 @@ const HomeScreen = () => {
     height: number;
   } | null>(null);
   const titleContainerRef = useRef<View>(null);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   // Debug membersData whenever it changes
   useEffect(() => {
@@ -631,8 +635,69 @@ const HomeScreen = () => {
       case 'aboutUs':
         navigation.navigate('AboutUsScreen');
         break;
+      case 'deleteAccount':
+        setShowDeleteAccountModal(true);
+        break;
       default:
         console.log('Unknown card value:', cardValue);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      setIsDeletingAccount(true);
+      
+      // Get user ID from current user data
+      const userId = currentUser?._id || currentUser?.user_id || currentUser?.id;
+      
+      if (!userId) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'User ID not found. Please try logging out and logging in again.',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+        setIsDeletingAccount(false);
+        setShowDeleteAccountModal(false);
+        return;
+      }
+
+      // Call delete API
+      await userService.deleteUser(userId);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Account Deleted',
+        text2: 'Your account has been deleted successfully.',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+
+      // Close modal
+      setShowDeleteAccountModal(false);
+      setIsDeletingAccount(false);
+
+      // Clear storage and logout
+      await AsyncStorage.multiRemove(['USER_TOKEN', 'USER_DATA']);
+      
+      // Navigate to login
+      setTimeout(() => {
+        (navigation as any).reset({ index: 0, routes: [{ name: 'Login' }] });
+      }, 1000);
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Delete Failed',
+        text2: error?.message || 'Failed to delete account. Please try again.',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+      setIsDeletingAccount(false);
     }
   };
 
@@ -734,6 +799,13 @@ const HomeScreen = () => {
       title: 'About us',
       value: 'aboutUs',
       icon: require('../../assets/icons/About-us.png'),
+      subtitle: undefined,
+    },
+    {
+      id: 15,
+      title: 'Delete Account',
+      value: 'deleteAccount',
+      icon: require('../../assets/icons/Log-out.png'),
       subtitle: undefined,
     },
   ];
@@ -1972,6 +2044,98 @@ const HomeScreen = () => {
         </MainContainer>
       </KeyboardAvoidingView>
 
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteAccountModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isDeletingAccount && setShowDeleteAccountModal(false)}
+      >
+        <View style={styles.deleteAccountModalOverlay}>
+          <View
+            style={[
+              styles.deleteAccountModalContent,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.deleteAccountModalTitle,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Delete Account
+            </Text>
+            <Text
+              style={[
+                styles.deleteAccountModalMessage,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Are you sure you want to delete your account? This action cannot be undone.
+            </Text>
+            <View style={styles.deleteAccountModalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.deleteAccountModalButton,
+                  styles.deleteAccountModalCancelButton,
+                  {
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.Orangeaccentcolor,
+                  },
+                  isDeletingAccount && styles.deleteAccountModalButtonDisabled,
+                ]}
+                onPress={() => !isDeletingAccount && setShowDeleteAccountModal(false)}
+                disabled={isDeletingAccount}
+              >
+                <Text
+                  style={[
+                    styles.deleteAccountModalButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.deleteAccountModalButton,
+                  styles.deleteAccountModalDeleteButton,
+                  isDeletingAccount && styles.deleteAccountModalButtonDisabled,
+                ]}
+                onPress={handleDeleteAccount}
+                disabled={isDeletingAccount}
+              >
+                {isDeletingAccount ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.deleteAccountModalDeleteButtonText}>Yes, Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -2952,6 +3116,67 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
+  },
+  deleteAccountModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth('5%'),
+  },
+  deleteAccountModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: responsiveWidth('5%'),
+  },
+  deleteAccountModalTitle: {
+    fontSize: 20,
+    fontFamily: fontFamily.regular,
+    fontWeight: '700' as const,
+    marginBottom: responsiveWidth('3%'),
+    textAlign: 'center',
+  },
+  deleteAccountModalMessage: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    lineHeight: 24,
+    marginBottom: responsiveWidth('5%'),
+    textAlign: 'center',
+  },
+  deleteAccountModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: responsiveWidth('3%'),
+  },
+  deleteAccountModalButton: {
+    flex: 1,
+    paddingVertical: responsiveWidth('3%'),
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  deleteAccountModalCancelButton: {
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  deleteAccountModalDeleteButton: {
+    backgroundColor: '#FF3B30',
+  },
+  deleteAccountModalButtonDisabled: {
+    opacity: 0.6,
+  },
+  deleteAccountModalButtonText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as const,
+  },
+  deleteAccountModalDeleteButtonText: {
+    fontSize: 16,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
   },
 });
 

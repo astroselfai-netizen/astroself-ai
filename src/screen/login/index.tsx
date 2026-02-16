@@ -22,7 +22,9 @@ import * as Yup from 'yup';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
 import GoogleAuthService from '../../services/googleAuthService';
+import AppleAuthService from '../../services/appleAuthService';
 import notificationService from '../../services/notificationService';
+import AppleLoginButton from '../../components/AppleLoginButton';
 // import {InputBox} from '../../components/common/inputBox';
 import Toast from 'react-native-toast-message';
 
@@ -91,6 +93,7 @@ const Login = () => {
   }, []);
   const userService = serviceFactory.get<UserService>('UserService');
   const googleAuthService = serviceFactory.get<GoogleAuthService>('GoogleAuthService');
+  const appleAuthService = serviceFactory.get<AppleAuthService>('AppleAuthService');
 
   // Helper function to navigate based on members data
   const navigateAfterAuth = (current_members: number, userData: any) => {
@@ -310,11 +313,88 @@ const Login = () => {
     }
   };
 
+  const handleAppleLogin = async () => {
+    setIsAppleLoading(true);
+    try {
+      const result = await appleAuthService.signInWithApple();
+      
+      if (result.success) {
+        // Use the user data from your backend API
+        const userData = result.user;
+        const token = result.token || result.identityToken;
+
+        // Dispatch user data to Redux state
+        dispatch(setUser(userData));
+        if (token) {
+          dispatch(setUserToken(token));
+        }
+
+        // Check if this user has already seen the free points modal
+        try {
+          const userId = userData._id || userData.user_id || userData.id;
+          if (userId) {
+            const hasSeenModal = await AsyncStorage.getItem(
+              `FREE_POINTS_MODAL_SEEN_${userId}`,
+            );
+            // Only set flag if user hasn't seen the modal before
+            if (!hasSeenModal) {
+              await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking/setting free points modal flag:', error);
+        }
+
+        const message = result.isNewUser 
+          ? 'Welcome! Your account has been created with Apple.'
+          : 'Welcome back! You have successfully logged in with Apple.';
+
+        Toast.show({
+          type: 'success',
+          text1: result.isNewUser ? 'Registration Successful' : 'Login Successful',
+          text2: message,
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+
+        console.log('Apple login result.isNewUser', result?.user?.current_members);
+
+        // Wait a bit for the profile data to be loaded, then check members
+        setTimeout(() => {
+          navigateAfterAuth(result?.user?.current_members || 0, userData);
+        }, 1000);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Apple Login Failed',
+          text2: result.error || 'Failed to login with Apple. Please try again.',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error: any) {
+      console.log('Apple Login Error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Something went wrong with Apple login. Please try again.',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsAppleLoading(false);
+    }
+  };
+
   const [, setKeyboardVisible] = useState(false);
   const [keyboardHeight] = useState(new Animated.Value(0));
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -387,8 +467,8 @@ const Login = () => {
           style={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          scrollEnabled={!isLoading && !isGoogleLoading}
-          pointerEvents={isLoading || isGoogleLoading ? 'none' : 'auto'}
+          scrollEnabled={!isLoading && !isGoogleLoading && !isAppleLoading}
+          pointerEvents={isLoading || isGoogleLoading || isAppleLoading ? 'none' : 'auto'}
         >
           {/* Top Logo and Title */}
           <View style={styles.headerContainer}>
@@ -437,7 +517,7 @@ const Login = () => {
               value={formik.values.email}
               onChangeText={formik.handleChange('email')}
               onBlur={formik.handleBlur('email')}
-              editable={!isLoading && !isGoogleLoading}
+              editable={!isLoading && !isGoogleLoading && !isAppleLoading}
             />
             {formik.touched.email && formik.errors.email && (
               <Text style={styles.errorText}>{formik.errors.email}</Text>
@@ -484,12 +564,12 @@ const Login = () => {
                 value={formik.values.password}
                 onChangeText={formik.handleChange('password')}
                 onBlur={formik.handleBlur('password')}
-                editable={!isLoading && !isGoogleLoading}
+                editable={!isLoading && !isGoogleLoading && !isAppleLoading}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIconContainer}
-                disabled={isLoading || isGoogleLoading}
+                disabled={isLoading || isGoogleLoading || isAppleLoading}
               >
                 <View style={styles.eyeIconWrapper}>
                   <Image
@@ -545,9 +625,9 @@ const Login = () => {
               }}
               style={[
                 styles.loginButton,
-                (isLoading || isGoogleLoading) && styles.loginButtonDisabled,
+                (isLoading || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
               ]}
-              disabled={isLoading || isGoogleLoading}
+              disabled={isLoading || isGoogleLoading || isAppleLoading}
             >
               {isLoading ? (
                 <View style={styles.loaderContainer}>
@@ -571,9 +651,9 @@ const Login = () => {
                       ? colors.Orangeaccentcolor
                       : colors.primaryBlue,
                 },
-                (isLoading || isGoogleLoading) && styles.loginButtonDisabled,
+                (isLoading || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
               ]}
-              disabled={isLoading || isGoogleLoading}
+              disabled={isLoading || isGoogleLoading || isAppleLoading}
             >
               <Text
                 style={[
@@ -637,10 +717,10 @@ const Login = () => {
                       ? colors.themeTextWhite
                       : colors.primaryBlue,
                 },
-                (isLoading || isGoogleLoading) && styles.loginButtonDisabled,
+                (isLoading || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
               ]}
               onPress={handleGoogleLogin}
-              disabled={isLoading || isGoogleLoading}
+              disabled={isLoading || isGoogleLoading || isAppleLoading}
             >
               {isGoogleLoading ? (
                 <View style={styles.loaderContainer}>
@@ -679,6 +759,13 @@ const Login = () => {
                 </>
               )}
             </TouchableOpacity>
+            {/* Apple Login */}
+            <AppleLoginButton
+              onPress={handleAppleLogin}
+              isLoading={isAppleLoading}
+              disabled={isLoading || isGoogleLoading}
+              buttonType="sign-in"
+            />
             {/* Register Link */}
             <View style={styles.registerRow}>
               <Text
@@ -696,8 +783,8 @@ const Login = () => {
               </Text>
               <TouchableOpacity 
                 onPress={handleRegister}
-                disabled={isLoading || isGoogleLoading}
-                style={(isLoading || isGoogleLoading) && styles.disabledTouchable}
+                disabled={isLoading || isGoogleLoading || isAppleLoading}
+                style={(isLoading || isGoogleLoading || isAppleLoading) && styles.disabledTouchable}
               >
                 <Text
                   style={[
@@ -707,7 +794,7 @@ const Login = () => {
                         theme === 'dark'
                           ? colors.Orangeaccentcolor
                           : colors.Orangeaccentcolor,
-                      opacity: isLoading || isGoogleLoading ? 0.5 : 1,
+                      opacity: isLoading || isGoogleLoading || isAppleLoading ? 0.5 : 1,
                     },
                   ]}
                 >

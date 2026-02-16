@@ -26,7 +26,9 @@ import Toast from 'react-native-toast-message';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
 import GoogleAuthService from '../../services/googleAuthService';
+import AppleAuthService from '../../services/appleAuthService';
 import notificationService from '../../services/notificationService';
+import AppleLoginButton from '../../components/AppleLoginButton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -72,6 +74,7 @@ const Register = () => {
   const [countryCode, setCountryCode] = useState('+91');
   const [isCcModalVisible, setIsCcModalVisible] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   
   // OTP related states
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -147,6 +150,7 @@ const Register = () => {
   }, []);
   const userService = serviceFactory.get<UserService>('UserService');
   const googleAuthService = serviceFactory.get<GoogleAuthService>('GoogleAuthService');
+  const appleAuthService = serviceFactory.get<AppleAuthService>('AppleAuthService');
 
   React.useEffect(() => {
     try {
@@ -555,6 +559,82 @@ const Register = () => {
     }
   };
 
+  const handleAppleSignup = async () => {
+    setIsAppleLoading(true);
+    try {
+      const result = await appleAuthService.signInWithApple();
+
+      console.log('Apple Signup Result:', result);
+      
+      if (result.success) {
+        // Use the user data from your backend API
+        const userData = result.user;
+        const token = result.token || result.identityToken;
+
+        // Dispatch user data to Redux state
+        dispatch(setUser(userData));
+        if (token) {
+          dispatch(setUserToken(token));
+        }
+
+        // Check if this user has already seen the free points modal
+        try {
+          const userId = userData._id || userData.user_id || userData.id;
+          if (userId) {
+            const hasSeenModal = await AsyncStorage.getItem(
+              `FREE_POINTS_MODAL_SEEN_${userId}`,
+            );
+            // Only set flag if user hasn't seen the modal before
+            if (!hasSeenModal) {
+              await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking/setting free points modal flag:', error);
+        }
+
+        const message = result.isNewUser 
+          ? 'Welcome! Your account has been created with Apple.'
+          : 'Welcome back! You have successfully logged in with Apple.';
+
+        Toast.show({
+          type: 'success',
+          text1: result.isNewUser ? 'Registration Successful' : 'Login Successful',
+          text2: message,
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+
+        // Wait a bit for the profile data to be loaded, then check members
+        setTimeout(() => {
+          navigateAfterAuth(result?.user?.current_members);
+        }, 1000);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Apple Signup Failed',
+          text2: result.error || 'Failed to sign up with Apple. Please try again.',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error: any) {
+      console.log('Apple Signup Error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Something went wrong with Apple signup. Please try again.',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsAppleLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
@@ -598,8 +678,8 @@ const Register = () => {
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          scrollEnabled={!formik.isSubmitting && !isGoogleLoading}
-          pointerEvents={formik.isSubmitting || isGoogleLoading ? 'none' : 'auto'}
+          scrollEnabled={!formik.isSubmitting && !isGoogleLoading && !isAppleLoading}
+          pointerEvents={formik.isSubmitting || isGoogleLoading || isAppleLoading ? 'none' : 'auto'}
         >
           {/* Title */}
           <View style={styles.titleWrap}>
@@ -1014,10 +1094,10 @@ const Register = () => {
             )}
             <TouchableOpacity
               onPress={formik.handleSubmit as any}
-              disabled={formik.isSubmitting || isGoogleLoading || isSendingOtp || isVerifyingOtp}
+              disabled={formik.isSubmitting || isGoogleLoading || isAppleLoading || isSendingOtp || isVerifyingOtp}
               style={[
                 styles.createAccountButton,
-                (formik.isSubmitting || isGoogleLoading || isSendingOtp || isVerifyingOtp) && styles.loginButtonDisabled,
+                (formik.isSubmitting || isGoogleLoading || isAppleLoading || isSendingOtp || isVerifyingOtp) && styles.loginButtonDisabled,
               ]}
             >
               {formik.isSubmitting || isVerifyingOtp ? (
@@ -1090,10 +1170,10 @@ const Register = () => {
                       ? colors.themeTextWhite
                       : colors.primaryBlue,
                 },
-                (formik.isSubmitting || isGoogleLoading) && styles.loginButtonDisabled,
+                (formik.isSubmitting || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
               ]}
               onPress={handleGoogleSignup}
-              disabled={formik.isSubmitting || isGoogleLoading}
+              disabled={formik.isSubmitting || isGoogleLoading || isAppleLoading}
             >
               {isGoogleLoading ? (
                 <View style={styles.loaderContainer}>
@@ -1132,6 +1212,13 @@ const Register = () => {
                 </>
               )}
             </TouchableOpacity>
+            {/* Apple Signup */}
+            <AppleLoginButton
+              onPress={handleAppleSignup}
+              isLoading={isAppleLoading}
+              disabled={formik.isSubmitting || isGoogleLoading}
+              buttonType="sign-up"
+            />
           </View>
           {/* Footer */}
           <View style={styles.footerWrap}>
@@ -1150,13 +1237,13 @@ const Register = () => {
             </Text>
             <TouchableOpacity 
               onPress={() => navigation.navigate('Login')}
-              disabled={formik.isSubmitting || isGoogleLoading}
+              disabled={formik.isSubmitting || isGoogleLoading || isAppleLoading}
             >
               <Text 
                 style={[
                   styles.loginLink,
                   {
-                    opacity: formik.isSubmitting || isGoogleLoading ? 0.5 : 1,
+                    opacity: formik.isSubmitting || isGoogleLoading || isAppleLoading ? 0.5 : 1,
                   },
                 ]}
               >
