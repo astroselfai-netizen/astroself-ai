@@ -31,8 +31,9 @@ import PaymentService from '../../services/payment/payment.service';
 import serviceFactory from '../../services/serviceFactory';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useTheme } from '../../context/ThemeContext';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setMembersUpdated } from '../../state/slices/appSlice';
+import { RootState } from '../../state/store';
 import { checkAndUpdateMemberCreationTimestamp } from '../../hooks/useMemberCreationTimestamp';
 import { useProfileData } from '../../hooks/useProfileData';
 import LottieView from 'lottie-react-native';
@@ -83,9 +84,15 @@ const AddNewMember = () => {
   const route = useRoute<AddNewMemberRouteProp>();
   const { theme, colors } = useTheme();
   const dispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.app.user);
   const userService = serviceFactory.get<UserService>('UserService');
   const paymentService = serviceFactory.get<PaymentService>('PaymentService');
   const { refreshProfileData } = useProfileData();
+  // Pre-populated name from Sign in with Apple/Google - must not require user to re-enter (App Store Guideline 4.0)
+  const [preloadedName, setPreloadedName] = useState<{
+    firstName: string;
+    lastName: string;
+  } | null>(null);
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showPredictionTypeModal, setShowPredictionTypeModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -221,6 +228,46 @@ const AddNewMember = () => {
 
     return unsubscribe;
   }, [navigation]);
+
+  // Pre-populate name from Sign in with Apple/Google - App Store Guideline 4.0: must not require re-entry
+  useEffect(() => {
+    if (route.params?.fromMemberPlanManagement) {
+      return; // Adding a family member - don't pre-populate with current user's name
+    }
+
+    const loadUserName = async () => {
+      // Try Redux user first (available after Apple/Google sign-in)
+      const userData = user as { first_name?: string; last_name?: string } | undefined;
+      if (userData?.first_name || userData?.last_name) {
+        setPreloadedName({
+          firstName: userData.first_name || '',
+          lastName: userData.last_name || '',
+        });
+        return;
+      }
+
+      // Fallback to AsyncStorage (e.g. app restored from background)
+      try {
+        const userDataString = await AsyncStorage.getItem('USER_DATA');
+        if (userDataString) {
+          const stored = JSON.parse(userDataString) as {
+            first_name?: string;
+            last_name?: string;
+          };
+          if (stored?.first_name || stored?.last_name) {
+            setPreloadedName({
+              firstName: stored.first_name || '',
+              lastName: stored.last_name || '',
+            });
+          }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    };
+
+    loadUserName();
+  }, [user, route.params?.fromMemberPlanManagement]);
 
   // Convert places to dropdown format
   const getDropdownData = (): DropdownItem[] => {
@@ -522,8 +569,8 @@ const AddNewMember = () => {
 
   const formik = useFormik({
     initialValues: {
-      firstName: '',
-      lastName: '',
+      firstName: preloadedName?.firstName ?? '',
+      lastName: preloadedName?.lastName ?? '',
       gender: '',
       predictionType: '',
       dateOfBirth: '',
@@ -532,6 +579,7 @@ const AddNewMember = () => {
       placeOfBirthDisplay: '',
       whatDoYouDo: '',
     },
+    enableReinitialize: true, // Re-populate when Apple/Google name becomes available
     validationSchema,
     onSubmit: async (values, helpers) => {
       try {
