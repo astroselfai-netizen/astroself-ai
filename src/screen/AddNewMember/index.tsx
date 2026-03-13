@@ -348,12 +348,12 @@ const AddNewMember = () => {
 
       // Razorpay payment options
       const options = {
-        description: `Add ${memberCount} Member${memberCount > 1 ? 's' : ''} to Astroself`,
+        description: `Add ${memberCount} Member${memberCount > 1 ? 's' : ''} to Astrodha`,
         currency: 'INR',
         key: RAZORPAY_CONFIG.TEST_KEY,
         amount: orderResponse.amount,
         order_id: orderResponse.order_id,
-        name: 'Astroself',
+        name: 'Astrodha',
         prefill: {
           email: currentUserData.email || 'user@example.com',
           contact: currentUserData.phone || '9999999999',

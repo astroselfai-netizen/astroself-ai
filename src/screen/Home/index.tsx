@@ -837,7 +837,7 @@ const HomeScreen = () => {
                   title=""
                   rightIconContainerStyle={{}}
                   // rightIcon={require('../../assets/icons/Ic-ball.png')}
-                  LeftIcon={colors.subtractIcon}
+                  LeftIcon={require('../../assets/icons/Subtract-dark.png')}
                   // onPressRight={() => navigation.navigate('NotificationScreen')}
                 />
               </View>

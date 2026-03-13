@@ -1,6 +1,6 @@
 {
   "name": "Astroself",
-  "version": "0.0.22",
+  "version": "0.0.23",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -37,8 +37,10 @@
     "react-native-chart-kit": "^6.12.0",
     "react-native-date-picker": "^5.0.13",
     "react-native-element-dropdown": "^2.12.4",
+    "react-native-iap": "^14.7.15",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-localize": "^3.5.2",
+    "react-native-nitro-modules": "^0.35.0",
     "react-native-picker-select": "^9.3.1",
     "react-native-push-notification": "^8.1.1",
     "react-native-razorpay": "^2.3.1",

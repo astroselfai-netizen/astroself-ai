@@ -26,7 +26,7 @@ const AstroselfLogin = () => {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logoText}>☀️ Astroself</Text>
+        <Text style={styles.logoText}>☀️ Astrodha</Text>
       </View>
 
       {/* Illustration */}

@@ -551,7 +551,7 @@ const EditAllTaskSelectionScreen = () => {
               },
             ]}
           >
-            All Points
+            Task Master
           </Text>
         </View>
       </View>
@@ -721,7 +721,7 @@ const EditAllTaskSelectionScreen = () => {
                 style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
               >
                 {/* Select Tasks And Frequency */}
-                Daily tasks suggested for you to navigate this time period
+                Daily tasks suggested for you to navigate This Phase of Life
               </Text>
               {/* <Text style={styles.moonIcon}>🌙</Text> */}
             </View>

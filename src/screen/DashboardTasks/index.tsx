@@ -1034,7 +1034,7 @@ const DashboardTasksScreen = () => {
                             },
                           ]}
                         >
-                          Reset Task
+                        Reset Score
                         </Text>
                       )}
                     </TouchableOpacity>

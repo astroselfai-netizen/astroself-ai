@@ -35,6 +35,26 @@ import PaymentService from '../../services/payment/payment.service';
 import serviceFactory from '../../services/serviceFactory';
 import RazorpayCheckout from 'react-native-razorpay';
 import Toast from 'react-native-toast-message';
+import {
+  initConnection,
+  endConnection,
+  fetchProducts,
+  requestPurchase,
+  purchaseUpdatedListener,
+  purchaseErrorListener,
+  finishTransaction,
+  getTransactionJwsIOS,
+  ErrorCode,
+} from 'react-native-iap';
+import type { Purchase } from 'react-native-iap';
+
+// iOS In-App Purchase product IDs (must match App Store Connect)
+const IAP_REPORT_PRODUCT_IDS: Record<string, string> = {
+  nakshatra: 'com.astroself.report.nakshatra',
+  adl: 'com.astroself.report.adl',
+  lord: 'com.astroself.report.lord',
+  planet: 'com.astroself.report.planet',
+};
 
 // Razorpay Configuration
 const RAZORPAY_CONFIG = {
@@ -217,6 +237,38 @@ const ReportScreen = () => {
     },
   ];
 
+  // Helper: iOS IAP purchase - returns Purchase on success
+  const purchaseReportViaIAP = (productId: string): Promise<Purchase> => {
+    return new Promise((resolve, reject) => {
+      const updateSub = purchaseUpdatedListener((purchase: Purchase) => {
+
+        console.log('====================================');
+        console.log('purchase:--->246', purchase);
+        console.log('====================================');
+        if (purchase.productId === productId) {
+          updateSub.remove();
+          errorSub.remove();
+          resolve(purchase);
+        }
+      });
+      const errorSub = purchaseErrorListener((error) => {
+        updateSub.remove();
+        errorSub.remove();
+        reject(error);
+      });
+      requestPurchase({
+        request: {
+          apple: { sku: productId },
+        },
+        type: 'in-app',
+      }).catch((err) => {
+        updateSub.remove();
+        errorSub.remove();
+        reject(err);
+      });
+    });
+  };
+
   // Payment handling function
   const handleReportPayment = async (reportId: string) => {
     try {
@@ -256,7 +308,80 @@ const ReportScreen = () => {
         throw new Error('Selected member not found.');
       }
 
-      // Create user report order
+      // ---------- iOS: In-App Purchase flow ----------
+
+      console.log('====================================');
+      
+      console.log('====================================');
+      if (Platform.OS === 'ios') {
+        const productId = IAP_REPORT_PRODUCT_IDS[reportId];
+        if (!productId) {
+          throw new Error(`Report "${reportId}" is not configured for in-app purchase.`);
+        }
+
+
+        console.log('Platform.OS:--->313', productId);
+        await initConnection();
+        try {
+          const products = await fetchProducts({
+            skus: [productId],
+            type: 'in-app',
+          });
+
+          console.log('====================================');
+          console.log('products:--->325', products);
+          console.log('====================================');
+          if (!products || products.length === 0) {
+            throw new Error('Report not available for purchase. Please try again later.');
+          }
+
+          const purchase = await purchaseReportViaIAP(productId);
+
+          // Get JWS receipt for backend verification (StoreKit 2)
+          const receipt =
+            (await getTransactionJwsIOS(productId)) ||
+            (purchase as any).transactionReceipt ||
+            purchase.transactionId;
+
+          const verifyResponse = await paymentService.verifyUserReportIAP({
+            user_id: selectedMemberId,
+            report_type: reportId,
+            receipt: receipt || purchase.transactionId,
+            transaction_id: purchase.transactionId,
+            product_id: productId,
+            currency: 'USD',
+          });
+
+          const isSuccess =
+            verifyResponse.success === true ||
+            verifyResponse?.status === 'success' ||
+            String(verifyResponse.success) === 'true' ||
+            (verifyResponse.message &&
+              verifyResponse.message.toLowerCase().includes('verified')) ||
+            (verifyResponse.message &&
+              verifyResponse.message.toLowerCase().includes('successful'));
+
+          if (isSuccess) {
+            await finishTransaction({
+              purchase,
+              isConsumable: false,
+            });
+            if (refreshProfileData) await refreshProfileData();
+            setSuccessModalTitle('Payment Successful');
+            setSuccessModalMessage(
+              'Payment Successful. Your report is being generated and will be sent to your email within 1 hour.',
+            );
+            setShowSuccessModal(true);
+          } else {
+            throw new Error(verifyResponse.message || 'Payment verification failed');
+          }
+        } finally {
+          await endConnection();
+        }
+        return;
+      }
+
+      // ---------- Android: Razorpay flow ----------
       const reportData = {
         report_type: reportId,
         currency: 'INR',
@@ -276,12 +401,10 @@ const ReportScreen = () => {
 
       const orderResponse = await paymentService.createUserReport(reportData);
 
-      // Validate order response
       if (!orderResponse || !orderResponse.order_id || !orderResponse.amount) {
         throw new Error('Invalid order response from server');
       }
 
-      // Razorpay payment options
       const options = {
         description: `Purchase ${
           reportsData.find(r => r.id === reportId)?.title || 'Report'
@@ -302,10 +425,8 @@ const ReportScreen = () => {
         theme: { color: '#DF8A5D' },
       };
 
-      // Open Razorpay checkout
       const paymentResponse = await RazorpayCheckout.open(options);
 
-      // Verify payment
       const verifyData = {
         razorpay_payment_id: paymentResponse.razorpay_payment_id,
         razorpay_order_id: paymentResponse.razorpay_order_id,
@@ -315,7 +436,6 @@ const ReportScreen = () => {
       const verifyResponse = await paymentService.userReportVerify(verifyData);
       console.log('Verify response:', verifyResponse);
 
-      // Check if payment is successful
       const isSuccess =
         verifyResponse.success === true ||
         verifyResponse?.status === 'success' ||
@@ -329,18 +449,14 @@ const ReportScreen = () => {
           verifyResponse.message.toLowerCase().includes('payment successful'));
 
       if (isSuccess) {
-        // Payment successful - refresh profile data
         console.log('Payment successful! Refreshing profile data...');
         if (refreshProfileData) {
           await refreshProfileData();
         }
-
-        // Show success modal
         setSuccessModalTitle('Payment Successful');
         setSuccessModalMessage('Payment Successful. Your report is being generated and will be sent to your email within 1 hour.');
         setShowSuccessModal(true);
       } else {
-        // Payment verification failed
         console.log('Payment verification failed:', verifyResponse);
         throw new Error(
           verifyResponse.message || 'Payment verification failed',
@@ -352,13 +468,26 @@ const ReportScreen = () => {
 
       console.log('Payment error details:', paymentError);
 
+      // Check if this is IAP user cancellation (iOS)
+      if (
+        paymentError.code === ErrorCode?.UserCancelled ||
+        paymentError.code === 'user-cancelled'
+      ) {
+        Toast.show({
+          type: 'info',
+          text1: 'Payment Cancelled',
+          text2: 'Payment was cancelled',
+          visibilityTime: 3000,
+        });
+        return;
+      }
+
       // Check if this is a Razorpay cancellation error
       if (
         paymentError.code === 0 &&
         paymentError.description === 'Payment processing cancelled by user' &&
         paymentError.details?.error?.reason === 'payment_cancelled'
       ) {
-        // User cancelled the payment
         console.log('Payment cancelled by user');
         Toast.show({
           type: 'info',
@@ -378,7 +507,6 @@ const ReportScreen = () => {
         (paymentError.description &&
           paymentError.description.toLowerCase().includes('cancelled'))
       ) {
-        // User cancelled the payment
         console.log('Payment cancelled by user (alternative pattern)');
         Toast.show({
           type: 'info',

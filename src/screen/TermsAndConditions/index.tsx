@@ -120,7 +120,7 @@ const TermsAndConditions = () => {
                 },
               ]}
             >
-              By accessing or using the Astroself AI app, you agree to be bound
+              By accessing or using the Astrodha AI app, you agree to be bound
               by these Terms and Conditions. If you do not agree, you may not
               use the app.
             </Text>
@@ -148,13 +148,13 @@ const TermsAndConditions = () => {
                 },
               ]}
             >
-              Astroself AI provides insights based on astrological calculations
+              Astrodha AI provides insights based on astrological calculations
               and interpretations to assist users in their journey of
               self-awareness and personal growth. While the app aims to provide
               meaningful guidance, it does not guarantee the accuracy,
               completeness, or reliability of the information provided. Users
               are encouraged to combine these insights with their judgment. The
-              developers and operators of Astroself AI are not liable for any
+              developers and operators of Astrodha AI are not liable for any
               damages arising from the use or misuse of the app.
             </Text>
           </View>
@@ -209,7 +209,7 @@ const TermsAndConditions = () => {
                 },
               ]}
             >
-              Astroself AI reserves the right to modify these Terms and
+              Astrodha AI reserves the right to modify these Terms and
               Conditions at any time. Users will be notified of significant
               changes, and continued use of the app constitutes acceptance of
               the updated terms.
@@ -268,7 +268,7 @@ const TermsAndConditions = () => {
               ]}
             >
               In the event of any dispute or claim arising from the use of
-              Astroself AI, the maximum remedy available to the user will be
+              Astrodha AI, the maximum remedy available to the user will be
               limited to the amount paid for the subscription in the previous
               month.
             </Text>
@@ -296,7 +296,7 @@ const TermsAndConditions = () => {
                 },
               ]}
             >
-              Astroself AI is designed as a tool for fostering self-awareness
+              Astrodha AI is designed as a tool for fostering self-awareness
               and personal growth. The app encourages users to explore their
               strengths, challenges, and potential through astrological
               insights, promoting introspection and a deeper connection with

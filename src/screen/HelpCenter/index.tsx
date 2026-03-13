@@ -166,7 +166,7 @@ const HelpCenterScreen = () => {
               },
             ]}
           >
-            Thank you for connecting with Astroself.ai
+            Thank you for connecting with Astrodha.ai
           </Text>
         </View>
 
@@ -209,7 +209,7 @@ const HelpCenterScreen = () => {
                 },
               ]}
             >
-              support@astroself.ai
+              support@astrodha.ai
             </Text>
           </View>
         </View>
@@ -252,7 +252,7 @@ const HelpCenterScreen = () => {
                 },
               ]}
             >
-              www.astroself.ai
+              www.astrodha.ai
             </Text>
           </View>
         </View>

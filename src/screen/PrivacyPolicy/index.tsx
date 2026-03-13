@@ -143,7 +143,7 @@ const PrivacyPolicyScreen = () => {
                 },
               ]}
             >
-              Astroself AI offers a free tier with limited features and a paid
+              Astrodha AI offers a free tier with limited features and a paid
               subscription for full access. All payments are non-refundable, and
               subscriptions cannot be canceled once activated, except as
               required by law. Users are responsible for reviewing their

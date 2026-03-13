@@ -63,6 +63,23 @@ export interface UserReportVerifyRequest {
 export interface UserReportVerifyResponse {
   success: boolean;
   message: string;
+  status?: string;
+  data?: any;
+}
+
+export interface VerifyUserReportIAPRequest {
+  user_id: string;
+  report_type: string;
+  receipt: string;
+  transaction_id: string;
+  product_id: string;
+  currency?: string;
+}
+
+export interface VerifyUserReportIAPResponse {
+  success: boolean;
+  message: string;
+  status?: string;
   data?: any;
 }
 
@@ -254,6 +271,34 @@ class PaymentService extends Service {
         throw new Error('Network error. Please check your connection.');
       } else {
         throw new Error('Something went wrong while verifying user report payment');
+      }
+    }
+  }
+
+  async verifyUserReportIAP(verifyData: VerifyUserReportIAPRequest): Promise<VerifyUserReportIAPResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      const response = await http.post(`/user_report/verify-iap`, verifyData, {
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('User report IAP verify response:--->', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error verifying user report IAP:', error);
+      if (error.response) {
+        throw new Error(error.response.data?.message || 'Failed to verify in-app purchase');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while verifying in-app purchase');
       }
     }
   }

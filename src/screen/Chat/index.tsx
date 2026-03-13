@@ -62,7 +62,7 @@ const ChatScreen = () => {
   const [showBuyMembershipModal, setShowBuyMembershipModal] = useState(false);
   const [modalFeatureName, setModalFeatureName] = useState<string>('Dynamic Predictions');
   const [membersShownModal, setMembersShownModal] = useState<Set<string>>(new Set());
-  const [showFreePointsModal, setShowFreePointsModal] = useState(false);
+  // const [showFreePointsModal, setShowFreePointsModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [creatingSubscription, setCreatingSubscription] = useState(false);
   const [showPaymentSuccessLoader, setShowPaymentSuccessLoader] = useState(false);
@@ -145,39 +145,39 @@ const ChatScreen = () => {
   }, [showInfoContainer, activeTab, isSelectedMemberChild]);
 
   // Check if free points modal should be shown after login
-  useEffect(() => {
-    const checkAndShowFreePointsModal = async () => {
-      try {
-        const shouldShow = await AsyncStorage.getItem('SHOW_FREE_POINTS_MODAL');
-        if (shouldShow === 'true') {
-          // Get current user ID
-          const userDataStr = await AsyncStorage.getItem('USER_DATA');
-          if (userDataStr) {
-            const userData = JSON.parse(userDataStr);
-            const userId = userData._id || userData.user_id || userData.id;
-            if (userId) {
-              // Mark this user as having seen the modal
-              await AsyncStorage.setItem(
-                `FREE_POINTS_MODAL_SEEN_${userId}`,
-                'true',
-              );
+  // useEffect(() => {
+  //   const checkAndShowFreePointsModal = async () => {
+  //     try {
+  //       const shouldShow = await AsyncStorage.getItem('SHOW_FREE_POINTS_MODAL');
+  //       if (shouldShow === 'true') {
+  //         // Get current user ID
+  //         const userDataStr = await AsyncStorage.getItem('USER_DATA');
+  //         if (userDataStr) {
+  //           const userData = JSON.parse(userDataStr);
+  //           const userId = userData._id || userData.user_id || userData.id;
+  //           if (userId) {
+  //             // Mark this user as having seen the modal
+  //             await AsyncStorage.setItem(
+  //               `FREE_POINTS_MODAL_SEEN_${userId}`,
+  //               'true',
+  //             );
 
-              // Show modal after a short delay to let the screen load
-              setTimeout(() => {
-                setShowFreePointsModal(true);
-              }, 500);
+  //             // Show modal after a short delay to let the screen load
+  //             setTimeout(() => {
+  //               setShowFreePointsModal(true);
+  //             }, 500);
 
-              // Remove the temporary flag
-              await AsyncStorage.removeItem('SHOW_FREE_POINTS_MODAL');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error checking free points modal flag:', error);
-      }
-    };
-    checkAndShowFreePointsModal();
-  }, []);
+  //             // Remove the temporary flag
+  //             await AsyncStorage.removeItem('SHOW_FREE_POINTS_MODAL');
+  //           }
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error('Error checking free points modal flag:', error);
+  //     }
+  //   };
+  //   checkAndShowFreePointsModal();
+  // }, []);
 
   // Refresh data every time user comes to this screen
   useFocusEffect(
@@ -401,7 +401,7 @@ const ChatScreen = () => {
         key: subscriptionResponse.razorpay_key,
         amount: (subscriptionResponse as any).amount || 99900, // Amount in paise (999 INR)
         currency: (subscriptionResponse as any).currency || 'INR',
-        name: 'Astroself',
+        name: 'Astrodha',
         description: 'Premium Subscription',
         subscription_id: subscriptionResponse.subscription_id,
         prefill: {
@@ -1246,7 +1246,7 @@ const ChatScreen = () => {
                   },
                 ]}
               >
-                Static Predictions
+                Birth Chart Prediction
               </Text>
             </TouchableOpacity>
 
@@ -1700,12 +1700,12 @@ const ChatScreen = () => {
       </Modal>
 
       {/* Free Points Modal */}
-      <FreePointsModal
+      {/* <FreePointsModal
         visible={showFreePointsModal}
         onClose={async () => {
           setShowFreePointsModal(false);
         }}
-      />
+      /> */}
     </MainContainer>
   );
 };

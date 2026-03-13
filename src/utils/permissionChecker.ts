@@ -161,9 +161,9 @@ class PermissionChecker {
   // Get device-specific permission info
   getDevicePermissionInfo(): string {
     if (Platform.OS === 'ios') {
-      return 'Go to Settings > Notifications > Astroself to enable notifications.';
+      return 'Go to Settings > Notifications > Astrodha to enable notifications.';
     } else if (Platform.OS === 'android') {
-      return 'Go to Settings > Apps > Astroself > Notifications to enable notifications.';
+      return 'Go to Settings > Apps > Astrodha > Notifications to enable notifications.';
     }
     return 'Please check your device settings to enable notifications.';
   }

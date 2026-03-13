@@ -1544,7 +1544,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                             selectedCardTitle === 'Life at the Moment' &&
                             updatedList[topic.title] === true
                               ? '600'
-                              : 'normal',
+                              : '700',
                         },
                       ]}
                     >
@@ -1691,7 +1691,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               ]}
             />
             <View style={styles.modalContent}>
-              <Text
+              {/* <Text
                 style={[
                   styles.modalSectionTitle,
                   {
@@ -1754,7 +1754,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 the most impactful conjunctions As Transit planets keep moving
                 these combinations will also change. Updates in this section
                 happens every 15 days
-              </Text>
+              </Text> */}
 
               <Text
                 style={[
@@ -1925,7 +1925,7 @@ const styles = StyleSheet.create({
   topicTitle: {
     color: color.themeTextWhite,
     // fontSize: fontSize.mini,\
-    fontSize: 14,
+    fontSize: 16,
     // fontWeight: '500',
     fontFamily: fontFamily.regular,
     flex: 1,

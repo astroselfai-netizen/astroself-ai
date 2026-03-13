@@ -319,8 +319,8 @@ function MyTabs() {
       const options = {
         key: subscriptionResponse.razorpay_key,
         subscription_id: subscriptionResponse.subscription_id,
-        name: 'Astroself',
-        description: 'Premium Plan Subscription - Astroself',
+        name: 'Astrodha',
+        description: 'Premium Plan Subscription - Astrodha',
         currency: 'INR',
         prefill: {
           email: currentUserData.email || user?.email || 'user@example.com',

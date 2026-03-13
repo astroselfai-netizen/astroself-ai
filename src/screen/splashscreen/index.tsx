@@ -118,6 +118,7 @@ const style = StyleSheet.create({
     height: responsiveWidth(20),
     width: responsiveWidth(70),
     resizeMode: 'contain',
+    tintColor: 'white',
   },
 });
 

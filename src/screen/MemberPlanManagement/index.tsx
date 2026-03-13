@@ -443,7 +443,7 @@ const MemberItem = React.memo(
                   },
                 ]}
               >
-                Static Predictions
+                Birth Chart Prediction
               </Text>
             </TouchableOpacity>
             {/* Dynamic Predictions - show for all, but check plan on click */}
@@ -879,8 +879,8 @@ const MemberPlanManagement = () => {
       const options = {
         key: subscriptionResponse.razorpay_key,
         subscription_id: subscriptionResponse.subscription_id,
-        name: 'Astroself',
-        description: 'Premium Plan Subscription - Astroself',
+        name: 'Astrodha',
+        description: 'Premium Plan Subscription - Astrodha',
         currency: 'INR',
         prefill: {
           email:
