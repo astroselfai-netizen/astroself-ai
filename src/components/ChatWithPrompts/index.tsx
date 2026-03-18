@@ -125,40 +125,46 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     };
   }, [loadingTopicId]);
 
+  console.log('cardTitles---->128', _tab);
+
   // topic state
   const [selectedTopicValue, setSelectedTopicValue] = useState(
     cardTitles === 'Antardasha'
-      ? 'General Analysis'
+      ? 'summary'
       : _tab === 'SnapCast'
       ? 'Your Personality'
-      : 'Your Tendencies',
+      : _tab === 'LifeNow' 
+      ? 'Your Tendencies' 
+      : 'summary'
   );
 
 
    const topicOptions = [
      { title: 'Your Tendencies', value: 'Your Tendencies' },
      { title: 'Summary', value: 'Summary' },
-     { title: 'Predictions bases on Lords', value: 'Lords in Houses' },
-     { title: 'Predictions based on Planets', value: 'Planets in Signs' },
-     { title: 'Predictions based on Nakshtra', value: 'Nakshatra Themes' },
+     { title: 'Predictions', value: 'Planet' },
+    //  { title: 'Predictions bases on Lords', value: 'Lords in Houses' },
+    //  { title: 'Predictions based on Planets', value: 'Planets in Signs' },
+    //  { title: 'Predictions based on Nakshtra', value: 'Nakshatra Themes' },
    ];
 
   // Special topic options for Antardasha
   const antardashaTopicOptions = [
+    { title: 'Summary', value: 'summary' },
     { title: 'General Analysis', value: 'General Analysis' },
-    { title: 'Active Planet Connections', value: 'Active Planet Connections' },
-    { title: 'Planet', value: 'Planet' },
-    { title: 'Nakshatra', value: 'Nakshatra' },
-    { title: 'Moon Lagna', value: 'Moon Lagna' },
+    // { title: 'Active Planet Connections', value: 'Active Planet Connections' },
+    {title: 'Predictions', value: 'Planet' },
+    // { title: 'Nakshatra', value: 'Nakshatra' },
+    // { title: 'Moon Lagna', value: 'Moon Lagna' },
+    
+
   ];
 
   // Labels for Antardasha topic options
   const antardashaTopicLabels = [
+    { title: 'Summary', value: 'summary' },
+    { title: 'Predictions', value: 'Planet' },
     { title: 'General Analysis', value: 'General Analysis' },
-    { title: 'Active Planet Connections', value: 'Active Planet Connections' },
-    { title: 'Prediction Set 1-P', value: 'Prediction Set 1-P' },
-    { title: 'Prediction Set 2-N', value: 'Prediction Set 2-N' },
-    { title: 'Prediction Set 3-ML', value: 'Prediction Set 3-ML' },
   ];
 
   // No longer fetching cards from API - they come from navigation params
@@ -209,6 +215,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   // Update selectedCardTitle when cardTitles prop changes
   useEffect(() => {
     // If subCards prop is provided, automatically select first sub_card
+
+    console.log('cardTitles---->214', subCards, cardTitles);
     if (subCards && subCards.length > 0) {
       setSelectedCardTitle(subCards[0].title);
     } else {
@@ -263,12 +271,15 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       let mainHeading = 'General Analysis'; // default
 
       if (selectedCardTitle) {
-        // If selectedCardTitle starts with 'Active Planet -', set mainHeading to 'Antardasha'
-        if (selectedCardTitle.startsWith('Active Planet -') || selectedCardTitle.startsWith('Current Phase of Life -')) {
+        if ( selectedCardTitle.startsWith('Current Phase of Life -')) {
           mainHeading = 'Antardasha';
+        }
+        // If selectedCardTitle starts with 'Active Planet -', set mainHeading to 'Antardasha'
+        else if (selectedCardTitle.startsWith('Birth Chart Insights') ) {
+          mainHeading = 'Personality, Attitude, Vitality';
         } else {
           switch (selectedCardTitle) {
-            case 'Natal Chart Insights':
+            case 'Birth Chart Insights':
               mainHeading = 'Personality, Attitude, Vitality';
               break;
           case 'General Analysis':
@@ -314,6 +325,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           case 'Home':
             mainHeading = 'Home, happiness, Emotional foundation';
             break;
+          case 'Birth Chart Insights':
+              mainHeading = 'Your Personality';
+            break;
           case 'Love & Romance':
             mainHeading =
               'Love affairs, Romance, Children, Celebration, hobbies';
@@ -356,9 +370,18 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         case 'Your Tendencies':
           apiTopic = 'Your Tendencies';
           break;
+      
 
-        case 'Summary':
+        case 'Your Personality':
+          apiTopic = 'Blended Predictions';
+            break;
+
+            case 'Summary':
           apiTopic = 'General';
+              break;
+
+        case 'summary':
+          apiTopic = 'summary';
           break;
         case 'Lords in Houses':
           apiTopic = 'Lord';
@@ -417,7 +440,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           mainHeading,
           apiTopic, // In this case, apiTopic contains the planet parameter
         );
-      } else if (mainHeading === 'Current predictions' || mainHeading === 'Additional Predictions' || mainHeading === 'Next 30 to 45 Days' || mainHeading === 'Next 6 to 30 Months') {
+      } else
+      
+      if (mainHeading === 'Current predictions' || mainHeading === 'Additional Predictions' || mainHeading === 'Next 30 to 45 Days' || mainHeading === 'Next 6 to 30 Months') {
         const categorizeResponse = await userService.getDashaCategorizeData(
           userId,
           mainHeading,

@@ -80,14 +80,24 @@ class TaskService {
     try {
       const { user_id, heading, insights } = requestData;
 
-      console.log('requestData -->83', requestData);
-      
+      // Ensure track is capitalized: "daily" -> "Daily", "weekly" -> "Weekly", etc.
+      const normalizedInsights = insights.map(insight => ({
+        ...insight,
+        track:
+          insight.track && typeof insight.track === 'string'
+            ? (insight.track.charAt(0).toUpperCase() +
+                insight.track.slice(1).toLowerCase()) as 'Daily' | 'Weekly' | 'Monthly'
+            : insight.track,
+      }));
+
+      console.log('requestData -->83', { ...requestData, insights: normalizedInsights });
+
       const response = await http.put(
         'task_activity/update',
         {
           user_id,
           heading,
-          insights,
+          insights: normalizedInsights,
         },
         {
           headers: {
@@ -96,6 +106,8 @@ class TaskService {
           },
         },
       );
+
+      console.log('response.data -->99', response.data);
 
       if (response.data) {
         return response.data;

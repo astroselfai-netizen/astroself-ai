@@ -541,6 +541,10 @@ export default class UserService extends Service {
         topic = 'Blended Predictions';
       }
 
+      // if (mainHeading === 'Birth Chart Insights') {
+      //   mainHeading = 'summary';
+      // }
+
       console.log('mainHeading---->399', mainHeading);
       console.log('topic---->400', topic);
 

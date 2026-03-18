@@ -394,7 +394,9 @@ const ContinueWithOtp = () => {
           {/* Astrodha logo and OTP illustration */}
           <View style={styles.headerContainer}>
             <Image
-              source={theme === 'dark' ? require('../../assets/icons/Subtract-dark.png') : require('../../assets/icons/Subtract-light.png')}
+              source={theme === 'dark'
+                ? require('../../assets/icons/Subtract-dark.png')
+                : require('../../assets/icons/Subtract-dark.png')}
               style={[styles.astroIcon,theme === 'dark' ? { tintColor: colors.themeTextWhite } : { tintColor: colors.DarkNavy }]}
             />
             <Image

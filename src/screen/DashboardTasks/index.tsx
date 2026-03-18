@@ -60,6 +60,7 @@ const DashboardTasksScreen = () => {
   const navigation = useNavigation<DashboardTasksScreenNavigationProp>();
   const { membersData } = useProfileData();
   const [selectedTab, setSelectedTab] = useState<'Today' | 'Weekly' | 'Monthly'>('Today');
+  const [tasksContentTab, setTasksContentTab] = useState<'open' | 'closed'>('open');
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -880,7 +881,7 @@ const DashboardTasksScreen = () => {
                       },
                     ]}
                   >
-                    Actions to watch out
+                    Actions you think twice before doing
                   </Text>
                 </View>
                 <View style={styles.astroContentRight}>
@@ -947,7 +948,7 @@ const DashboardTasksScreen = () => {
             {/* Karmic Action Section - only show if tasks exist */}
             {tasks.length > 0 && (
               <View style={styles.actionSection}>
-                <Text
+                {/* <Text
                   style={[
                     styles.actionText,
                     {
@@ -969,7 +970,7 @@ const DashboardTasksScreen = () => {
                   >
                     {karmicActionDate}
                   </Text>
-                </Text>
+                </Text> */}
                 {isEditMode ? (
                   <TouchableOpacity
                     style={[
@@ -1170,17 +1171,127 @@ const DashboardTasksScreen = () => {
                   ))}
                 </View>
               ) : (
-                // Normal Mode UI
+                // Normal Mode UI - Tabbed: Your Tasks for the day | Closed Tasks
                 <>
-                  <View style={styles.pointsSection}>
-                    <Text
+                  <View style={styles.tasksContentTabBar}>
+                    <TouchableOpacity
+                      onPress={() => setTasksContentTab('open')}
                       style={[
-                        styles.sectionTitle,
-                        { color: colors.themeTextWhite },
+                        styles.tasksContentTab,
+                        tasksContentTab === 'open' && styles.tasksContentTabActive,
+                        {
+                          borderColor: colors.Orangeaccentcolor,
+                          backgroundColor:
+                            tasksContentTab === 'open'
+                              ? colors.Orangeaccentcolor
+                              : theme === 'dark'
+                                ? colors.DarkNavy
+                                : colors.white,
+                        },
                       ]}
                     >
-                      Your Tasks for the day
-                    </Text>
+                      <Text
+                        style={[
+                          styles.tasksContentTabText,
+                          {
+                            color:
+                              tasksContentTab === 'open'
+                                ? colors.white
+                                : colors.themeTextWhite,
+                          },
+                        ]}
+                      >
+                        Your Tasks for the day
+                      </Text>
+                      {/* {openKarmicPoints && openKarmicPoints.length > 0 && (
+                        <View
+                          style={[
+                            styles.tasksContentTabBadge,
+                            {
+                              backgroundColor:
+                                tasksContentTab === 'open'
+                                  ? colors.white
+                                  : colors.Orangeaccentcolor,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.tasksContentTabBadgeText,
+                              {
+                                color:
+                                  tasksContentTab === 'open'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.white,
+                              },
+                            ]}
+                          >
+                            {openKarmicPoints.length}
+                          </Text>
+                        </View>
+                      )} */}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setTasksContentTab('closed')}
+                      style={[
+                        styles.tasksContentTab,
+                        tasksContentTab === 'closed' && styles.tasksContentTabActive,
+                        {
+                          borderColor: colors.Orangeaccentcolor,
+                          backgroundColor:
+                            tasksContentTab === 'closed'
+                              ? colors.Orangeaccentcolor
+                              : theme === 'dark'
+                                ? colors.DarkNavy
+                                : colors.white,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.tasksContentTabText,
+                          {
+                            color:
+                              tasksContentTab === 'closed'
+                                ? colors.white
+                                : colors.themeTextWhite,
+                          },
+                        ]}
+                      >
+                        Closed Tasks
+                      </Text>
+                      {/* {closedKarmicPoints && closedKarmicPoints.length > 0 && (
+                        <View
+                          style={[
+                            styles.tasksContentTabBadge,
+                            {
+                              backgroundColor:
+                                tasksContentTab === 'closed'
+                                  ? colors.white
+                                  : colors.Orangeaccentcolor,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.tasksContentTabBadgeText,
+                              {
+                                color:
+                                  tasksContentTab === 'closed'
+                                    ? colors.Orangeaccentcolor
+                                    : colors.white,
+                              },
+                            ]}
+                          >
+                            {closedKarmicPoints.length}
+                          </Text>
+                        </View>
+                      )} */}
+                    </TouchableOpacity>
+                  </View>
+
+                  {tasksContentTab === 'open' ? (
+                  <View style={styles.pointsSection}>
                     {openKarmicPoints && openKarmicPoints.length > 0 ? (
                       openKarmicPoints.map(task => (
                         <View
@@ -1276,16 +1387,8 @@ const DashboardTasksScreen = () => {
                       </View>
                     )}
                   </View>
-
+                  ) : (
                   <View style={styles.pointsSection}>
-                    <Text
-                      style={[
-                        styles.sectionTitle,
-                        { color: colors.themeTextWhite },
-                      ]}
-                    >
-                      Closed Tasks
-                    </Text>
                     {closedKarmicPoints && closedKarmicPoints.length > 0 ? (
                       closedKarmicPoints.map(task => (
                         <View
@@ -1382,6 +1485,7 @@ const DashboardTasksScreen = () => {
                       </View>
                     )}
                   </View>
+                  )}
                 </>
               )
             ) : (
@@ -1835,6 +1939,41 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     color: '#FFFFFF',
   },
+  tasksContentTabBar: {
+    flexDirection: 'row',
+    gap: responsiveWidth(2),
+    marginBottom: responsiveWidth(4),
+  },
+  tasksContentTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: responsiveWidth(3),
+    paddingHorizontal: responsiveWidth(2),
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: responsiveWidth(1.5),
+  },
+  tasksContentTabActive: {
+    borderWidth: 0,
+  },
+  tasksContentTabText: {
+    fontSize: 14,
+    fontFamily: fontFamily.medium,
+  },
+  tasksContentTabBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  tasksContentTabBadgeText: {
+    fontSize: 12,
+    fontFamily: fontFamily.medium,
+  },
   pointsSection: {
     // marginBottom: responsiveWidth(1),
     // marginTop: responsiveWidth(3),
@@ -2074,7 +2213,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: responsiveWidth('3'),
   },
   astroContentLeft: {
-    width: '70%',
+    width: '80%',
   },
   astroContentRight: {
     marginVertical: responsiveWidth(1),
@@ -2094,6 +2233,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: responsiveWidth(1),
     paddingHorizontal: responsiveWidth(4),
+    // marginRight: responsiveWidth(2),
     alignSelf: 'flex-start',
   },
   astroButtonText: {

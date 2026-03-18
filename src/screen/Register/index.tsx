@@ -684,7 +684,9 @@ const Register = () => {
           {/* Title */}
           <View style={styles.titleWrap}>
             <Image
-              source={ theme === 'dark' ? require('../../assets/icons/Subtract-dark.png') : require('../../assets/icons/Subtract-light.png')}
+              source={theme === 'dark'
+                ? require('../../assets/icons/Subtract-dark.png')
+                : require('../../assets/icons/Subtract-dark.png')}
               style={[styles.sunIcon,theme === 'dark' ? { tintColor: colors.themeTextWhite } : { tintColor: colors.DarkNavy }]}
             />
           </View>

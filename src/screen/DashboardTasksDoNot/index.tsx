@@ -508,7 +508,7 @@ const DashboardTasksDoNotScreen = () => {
               <Text
                 style={[styles.sectionTitle, { color: colors.themeTextWhite }]}
               >
-                Actions to watch out
+                Actions you think twice before doing
               </Text>
               {/* <Text style={styles.moonIcon}>🌙</Text> */}
             </View>

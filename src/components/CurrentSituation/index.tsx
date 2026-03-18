@@ -24,6 +24,7 @@ interface CurrentSituationProps {
   selectedMemberId?: string;
   isChild?: boolean;
   current_plan?: string;
+  first_user?: boolean;
   onShowBuyMembershipModal?: (featureName?: string) => void;
 }
 
@@ -36,7 +37,7 @@ interface CardData {
   subCards?: Array<{ id: number; title: string }>;
 }
 
-const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false, current_plan, onShowBuyMembershipModal }) => {
+const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false, current_plan, first_user = false, onShowBuyMembershipModal }) => {
   const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
@@ -111,10 +112,10 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
     console.log('cardTitle-->24', card.title);
     console.log('selectedMemberId-->25', selectedMemberId);
     
-    // If card is "Natal Chart Insights" and current_plan is "cosmic_foundation", show Buy Memberships Modal
-    const isNatalChartInsights = card.title === 'Natal Chart Insights';
-    if (isNatalChartInsights && current_plan === 'cosmic_foundation' && onShowBuyMembershipModal) {
-      onShowBuyMembershipModal('Natal Chart Insights');
+    // If card is "Natal Chart Insights" and current_plan is "cosmic_foundation", show Buy Memberships Modal (first_user gets full access)
+    const isNatalChartInsights = card.title === 'Birth Chart Insights';
+    if (isNatalChartInsights && current_plan === 'cosmic_foundation' && !first_user && onShowBuyMembershipModal) {
+      onShowBuyMembershipModal('Birth Chart Insights');
       return;
     }
     
@@ -122,15 +123,15 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
     const navigationParams: any = {
       userId: selectedMemberId,
       cardTitles:
-        card.title === 'Natal Chart Insights'
-          ? 'Natal Chart Insights'
+        card.title === 'Birth Chart Insights'
+          ? 'Birth Chart Insights'
           : card.value,
       tab: 'LifeNow',
       current_plan: current_plan,
     };
     
     // Pass sub_cards if available
-    if (card.title === 'Natal Chart Insights' && card.subCards && card.subCards.length > 0) {
+    if (card.title === 'Birth Chart Insights' && card.subCards && card.subCards.length > 0) {
       navigationParams.subCards = card.subCards;
     }
     

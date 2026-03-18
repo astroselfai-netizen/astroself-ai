@@ -8,7 +8,7 @@ export const getCardIcon = (title: string, value?: string): any => {
   console.log('searchText-->47', searchText);
 
 
-  if (searchText.includes('natal chart insights')) {
+  if (searchText.includes('birth chart insights')) {
     return require('../assets/icons/GeneralAnalysis/Personality.png');
   }
 

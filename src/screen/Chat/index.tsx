@@ -116,9 +116,12 @@ const ChatScreen = () => {
     return age >= 15 && age <= 18;
   }, [selectedMember]);
 
-  // Check if selected member has cosmic_foundation plan
+  // Check if selected member has cosmic_foundation plan (first_user gets full access - keep enabled)
   const isCosmicFoundationPlan = React.useMemo(() => {
-    const isCosmic = selectedMember?.current_plan === 'cosmic_foundation';
+    console.log('selectedMember---->121', selectedMember);
+    const isCosmic =
+      selectedMember?.current_plan === 'cosmic_foundation' &&
+      !selectedMember?.first_user;
     console.log('isCosmicFoundationPlan check:', {
       selectedMemberId,
       current_plan: selectedMember?.current_plan,
@@ -1269,6 +1272,8 @@ const ChatScreen = () => {
                 },
               ]}
               onPress={() => {
+                console.log('isCosmicFoundationPlan---->1272', isCosmicFoundationPlan);
+                console.log('showInfoContainer---->1273', showInfoContainer);
                 if (!showInfoContainer && !isSelectedMemberChild) {
                   // Check if member has cosmic_foundation plan
                   if (isCosmicFoundationPlan) {
@@ -1317,6 +1322,7 @@ const ChatScreen = () => {
             <CurrentSituation
               selectedMemberId={selectedMemberId || ''}
               current_plan={selectedMember?.current_plan}
+              first_user={!!selectedMember?.first_user}
               isChild={isSelectedMemberChild}
               onShowBuyMembershipModal={featureName => {
                 setModalFeatureName(featureName || 'Dynamic Predictions');
