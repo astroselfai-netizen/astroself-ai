@@ -163,8 +163,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   // Labels for Antardasha topic options
   const antardashaTopicLabels = [
     { title: 'Summary', value: 'summary' },
-    { title: 'Predictions', value: 'Planet' },
     { title: 'General Analysis', value: 'General Analysis' },
+    { title: 'Predictions', value: 'Planet' },
   ];
 
   // No longer fetching cards from API - they come from navigation params

@@ -551,7 +551,7 @@ const EditAllTaskSelectionScreen = () => {
               },
             ]}
           >
-            Task Master
+            Yodha Master
           </Text>
         </View>
       </View>

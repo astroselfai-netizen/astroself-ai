@@ -60,6 +60,8 @@ import DashboardTasksScreen from '../screen/DashboardTasks';
 import EditAllTaskSelectionScreen from '../screen/EditAllTaskSelection';
 import PurchasedHistoryScreen from '../screen/PurchasedHistory';
 import DashboardTasksDoNotScreen from '../screen/DashboardTasksDoNot';
+import TasksForTheDayScreen from '../screen/TasksForTheDay';
+import TaskActivityDetailsScreen from '../screen/TaskActivityDetails';
 import MemberPlanManagement from '../screen/MemberPlanManagement';
 import StartExploring from '../screen/StartExploring';
 
@@ -127,6 +129,14 @@ function createAppStack(initialRouteName) {
         <Stack.Screen
           name="DashboardTasksDoNotScreen"
           component={DashboardTasksDoNotScreen}
+        />
+        <Stack.Screen
+          name="TasksForTheDayScreen"
+          component={TasksForTheDayScreen}
+        />
+        <Stack.Screen
+          name="TaskActivityDetailsScreen"
+          component={TaskActivityDetailsScreen}
         />
         <Stack.Screen
           name="MemberPlanManagement"
@@ -647,7 +657,7 @@ function MyTabs() {
                     },
                   ]}
                 >
-                  Tasks
+                  Yodha
                 </Text>
               </View>
             ),
@@ -697,7 +707,7 @@ function MyTabs() {
             },
           })}
         />
-      
+
         <Tab.Screen
           name="HomeTab"
           component={HomeStack}
@@ -1020,91 +1030,108 @@ function MyTabs() {
             </ScrollView>
 
             {/* Member Dropdown */}
-            {showMemberDropdown && allMembersData && Array.isArray(allMembersData) && allMembersData.length > 0 && (
-              <View style={styles.memberDropdownContainer}>
-                <Text
-                  style={[
-                    styles.memberDropdownLabel,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  Select Member ({allMembersData.length}):
-                </Text>
-                <ScrollView
-                  style={[
-                    styles.memberDropdownList,
-                    {
-                      borderColor:
-                        theme === 'dark'
-                          ? colors.themeBorderDropdown
-                          : colors.borderColor,
-                    },
-                  ]}
-                  nestedScrollEnabled={true}
-                >
-                  {allMembersData.map((member, index) => {
-                    console.log('Rendering member in dropdown:', index, member?.full_name || member?.first_name, member);
-                    const memberId = member.id || member._id;
-                    const isSelected = selectedMemberForSubscription && (
-                      selectedMemberForSubscription.id === memberId ||
-                      selectedMemberForSubscription._id === memberId
-                    );
-                    return (
-                      <TouchableOpacity
-                        key={memberId || index}
-                        style={[
-                          styles.memberDropdownItem,
-                          {
-                            backgroundColor: isSelected
-                              ? colors.Orangeaccentcolor + '20'
-                              : 'transparent',
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.themeBorderDropdown
-                                : colors.borderColor,
-                          },
-                        ]}
-                        onPress={() => {
-                          console.log('Selecting member:', member);
-                          handleMemberSelect(member);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.memberDropdownItemText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member'}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-                {selectedMemberForSubscription && (
+            {showMemberDropdown &&
+              allMembersData &&
+              Array.isArray(allMembersData) &&
+              allMembersData.length > 0 && (
+                <View style={styles.memberDropdownContainer}>
                   <Text
                     style={[
-                      styles.selectedMemberText,
+                      styles.memberDropdownLabel,
                       {
-                        color: colors.Orangeaccentcolor,
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
                       },
                     ]}
                   >
-                    Selected: {selectedMemberForSubscription.full_name || `${selectedMemberForSubscription.first_name || ''} ${selectedMemberForSubscription.last_name || ''}`.trim() || 'Member'}
+                    Select Member ({allMembersData.length}):
                   </Text>
-                )}
-              </View>
-            )}
+                  <ScrollView
+                    style={[
+                      styles.memberDropdownList,
+                      {
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeBorderDropdown
+                            : colors.borderColor,
+                      },
+                    ]}
+                    nestedScrollEnabled={true}
+                  >
+                    {allMembersData.map((member, index) => {
+                      console.log(
+                        'Rendering member in dropdown:',
+                        index,
+                        member?.full_name || member?.first_name,
+                        member,
+                      );
+                      const memberId = member.id || member._id;
+                      const isSelected =
+                        selectedMemberForSubscription &&
+                        (selectedMemberForSubscription.id === memberId ||
+                          selectedMemberForSubscription._id === memberId);
+                      return (
+                        <TouchableOpacity
+                          key={memberId || index}
+                          style={[
+                            styles.memberDropdownItem,
+                            {
+                              backgroundColor: isSelected
+                                ? colors.Orangeaccentcolor + '20'
+                                : 'transparent',
+                              borderColor:
+                                theme === 'dark'
+                                  ? colors.themeBorderDropdown
+                                  : colors.borderColor,
+                            },
+                          ]}
+                          onPress={() => {
+                            console.log('Selecting member:', member);
+                            handleMemberSelect(member);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.memberDropdownItemText,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {member.full_name ||
+                              `${member.first_name || ''} ${
+                                member.last_name || ''
+                              }`.trim() ||
+                              'Member'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                  {selectedMemberForSubscription && (
+                    <Text
+                      style={[
+                        styles.selectedMemberText,
+                        {
+                          color: colors.Orangeaccentcolor,
+                        },
+                      ]}
+                    >
+                      Selected:{' '}
+                      {selectedMemberForSubscription.full_name ||
+                        `${selectedMemberForSubscription.first_name || ''} ${
+                          selectedMemberForSubscription.last_name || ''
+                        }`.trim() ||
+                        'Member'}
+                    </Text>
+                  )}
+                </View>
+              )}
 
             {/* Buy Premium Access Button */}
             {!showMemberDropdown && (
@@ -1161,9 +1188,7 @@ function MyTabs() {
                 styles.upgradeModalTitle,
                 {
                   color:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.DarkNavy,
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >
@@ -1176,9 +1201,7 @@ function MyTabs() {
                 styles.upgradeModalMessage,
                 {
                   color:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.DarkNavy,
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
             >

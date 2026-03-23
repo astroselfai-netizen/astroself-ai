@@ -28,24 +28,6 @@ import LottieView from 'lottie-react-native';
 import Toast from 'react-native-toast-message';
 import RazorpayCheckout from 'react-native-razorpay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  initConnection,
-  endConnection,
-  fetchProducts,
-  requestPurchase,
-  purchaseUpdatedListener,
-  purchaseErrorListener,
-  finishTransaction,
-  getTransactionJwsIOS,
-  getActiveSubscriptions,
-  getAvailablePurchases,
-  hasActiveSubscriptions,
-  restorePurchases,
-} from 'react-native-iap';
-import {   } from 'react-native-iap';
-
-import RNIap from 'react-native-iap';
-import type { Purchase, PurchaseError } from 'react-native-iap';
 import planService from '../../services/plan/plan.service';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
@@ -54,9 +36,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setMembersUpdated } from '../../state/slices/appSlice';
 import { RootState } from '../../state/store';
 import { icons } from '../../assets';
-
-// iOS In-App Subscription product ID for Premium access
-const IAP_PREMIUM_SUBSCRIPTION_PRODUCT_ID = 'com.astroself.ai';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -467,12 +446,11 @@ const MemberItem = React.memo(
                 Birth Chart Prediction
               </Text>
             </TouchableOpacity>
-            {/* Dynamic Predictions - show for all, but check plan on click (first_user gets full access) */}
+            {/* Dynamic Predictions - show for all, but check plan on click */}
             <TouchableOpacity
               onPress={() => {
-                console.log('item.current_plan---->474', item);
-                // Check if user has paid plan or is first_user (keep enabled for first_user)
-                if (item.current_plan === 'eternal_path' || item.first_user) {
+                // Check if user has paid plan
+                if (item.current_plan === 'eternal_path') {
                   // Navigate to Dynamic Predictions
                   navigation.navigate('ChatTab', {
                     screen: 'ChatScreen',
@@ -613,65 +591,6 @@ const MemberPlanManagement = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedMemberForUpgrade, setSelectedMemberForUpgrade] = useState<any>(null);
 
-  // iOS: In-App Purchase helper for premium (consumable-style) purchase
-  const purchasePremiumSubscriptionViaIAP = async (productId: string): Promise<Purchase> => {
-    return new Promise(async (resolve, reject) => {
-      let updateSub: any;
-      let errorSub: any;
-
-      // Listeners ko saaf karne ke liye helper
-      const cleanup = () => {
-        if (updateSub) updateSub.remove();
-        if (errorSub) errorSub.remove();
-      };
-
-      // 1. Success Listener
-      updateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
-        console.log('Purchase successful:', purchase.productId);
-
-        if (purchase.productId === productId) {
-          try {
-            // iOS ke liye transaction finish karna mandatory hai
-            await finishTransaction({ purchase, isConsumable: false });
-            cleanup();
-            resolve(purchase);
-          } catch (finishErr) {
-            console.error('Finish transaction failed', finishErr);
-            cleanup();
-            reject(finishErr);
-          }
-        }
-      });
-
-      // 2. Error Listener
-      errorSub = purchaseErrorListener((error: PurchaseError) => {
-        console.log('Purchase Error:', error.message);
-        // restorePurchases()
-        // finishTransaction()
-        cleanup();
-        reject(error);
-      });
-
-      // 3. Purchase Request Trigger (react-native-iap v14 signature)
-      console.log('requestPurchase:--->653', productId);
-      try {
-        await requestPurchase({
-          request: {
-            apple: {
-              sku: productId,
-              andDangerouslyFinishTransactionAutomatically: false,
-            },
-          },
-          type: 'subs',
-        });
-      } catch (err) {
-        cleanup();
-        restorePurchases()
-        console.error('Request Purchase Error:', err);
-        reject(err);
-      }
-    });
-  };
   // Update local state when membersData changes
   React.useEffect(() => {
     if (membersData) {
@@ -890,88 +809,7 @@ const MemberPlanManagement = () => {
         selectedMemberForSubscription._id ||
         '';
 
-      // ---------- iOS: Apple In-App Purchase flow (consumable-style) ----------
-      if (Platform.OS === 'ios') {
-        const productId = "com.astroself.ai.itme";
-        if (!productId) {
-          throw new Error('Premium subscription product id is not configured.');
-        }
-
-        // Close modal before starting purchase
-        handleClosePremiumModal();
-
-        await initConnection();
-        try {
-          const products = await fetchProducts({
-            skus: [productId],
-            type: 'subs',
-          });
-
-          console.log('products:--->875', products);
-
-      
-
-
-
-          // if (!products || products.length === 0) {
-          //   throw new Error(
-          //     'Subscription currently not available. Please try again later.',
-          //   );
-          // }
-
-          const purchase = await purchasePremiumSubscriptionViaIAP(productId);
-
-          console.log('purchase:--->894', purchase);
-
-          const receipt =
-            (await getTransactionJwsIOS(productId)) ||
-            (purchase as any).transactionReceipt ||
-            purchase.transactionId;
-
-          // TODO: Backend verification for subscription IAP
-          // Example (after adding verifySubscriptionIAP in PaymentService):
-          // const verifyResponse = await paymentService.verifySubscriptionIAP({
-          //   user_id: userId,
-          //   member_user_id: memberUserId,
-          //   plan_id: planId,
-          //   receipt: receipt || purchase.transactionId,
-          //   transaction_id: purchase.transactionId,
-          //   product_id: productId,
-          //   platform: 'ios',
-          // });
-          //
-          // if (!verifyResponse.success) {
-          //   throw new Error(
-          //     verifyResponse.message || 'Subscription verification failed',
-          //   );
-          // }
-
-          await finishTransaction({
-            purchase,
-            isConsumable: true,
-          });
-
-          await refreshProfileData();
-
-          Toast.show({
-            type: 'success',
-            text1: 'Subscription Active',
-            text2:
-              'Premium subscription has been activated for this member on your Apple ID.',
-            position: 'top',
-            topOffset: 60,
-            visibilityTime: 3000,
-          });
-
-          return;
-        } finally {
-          await endConnection();
-        }
-      }
-
-      // ---------- Android: Razorpay subscription flow ----------
-
-      // First create subscription on backend (Android flow)
+      // First create subscription
       const subscriptionResponse = await paymentService.createSubscription({
         plan_id: planId,
         user_id: userId,
@@ -987,6 +825,39 @@ const MemberPlanManagement = () => {
       // Check if subscription was created
       if (!subscriptionResponse.subscription_id) {
         throw new Error('Subscription ID not received from server');
+      }
+
+      // iOS: open short_url / payment_url in browser instead of Razorpay SDK
+      if (Platform.OS === 'ios') {
+        const paymentUrl =
+          subscriptionResponse.short_url || subscriptionResponse.payment_url;
+
+        if (!paymentUrl) {
+          throw new Error('Payment URL not received from server');
+        }
+
+        // Close modal before opening browser
+        handleClosePremiumModal();
+
+        const supported = await Linking.canOpenURL(paymentUrl);
+        if (!supported) {
+          throw new Error('Unable to open payment URL');
+        }
+
+        Toast.show({
+          type: 'info',
+          text1: 'Redirecting to Payment',
+          text2: 'Opening secure payment page in your browser',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 2000,
+        });
+
+        await Linking.openURL(paymentUrl);
+
+        // For iOS browser flow, server/webhook will update subscription.
+        // App can refresh profile data when user returns (handled elsewhere via focus).
+        return;
       }
 
       // Android: use Razorpay SDK as before

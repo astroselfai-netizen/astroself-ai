@@ -666,10 +666,11 @@ const DashboardTasksScreen = () => {
               },
             ]}
           >
-            Tasks Dashboard
+            Your Yodha Guidance
           </Text>
         </View>
-        <TouchableOpacity
+        <View style={styles.headerRight} />
+        {/* <TouchableOpacity
           onPress={() =>
             navigation.navigate('EditAllTaskSelectionScreen', {
               userId: selectedMemberId || undefined,
@@ -687,7 +688,7 @@ const DashboardTasksScreen = () => {
               },
             ]}
           />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
       {/* Profile member dropdown */}
       <View
@@ -853,26 +854,43 @@ const DashboardTasksScreen = () => {
           </View>
         ) : (
           <>
-            {/* Actions you think twice before doing */}
-            <View
-              style={[
-                styles.astroCard,
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.DarkNavy : colors.white,
-                  borderColor:
-                    theme === 'dark'
-                      ? colors.themeBorderDropdown
-                      : colors.borderColor,
-                },
-              ]}
-            >
-              <View style={styles.astroContent}>
-                <View style={styles.astroContentLeft}>
-                  {' '}
+            {/* Top cards (like CurrentSituation cards) */}
+            <View style={styles.topCardsRow}>
+
+                {/* Card 5: Your Strengths during this time period */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={[
+                    styles.topCard,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (selectedMemberId) {
+                      navigation.navigate('TaskActivityDetailsScreen', {
+                        userId: selectedMemberId,
+                        heading: 'Your Strengths during this time period',
+                      });
+                    } else {
+                      Alert.alert('Error', 'Please select a member first');
+                    }
+                  }}
+                >
+                  <View style={styles.topCardIconContainer}>
+                    <Image
+                      source={require('../../assets/icons/home/YourStrengths.png')}
+                      style={styles.topCardIcon}
+                    />
+                  </View>
                   <Text
                     style={[
-                      styles.astroTitle,
+                      styles.topCardTitle,
                       {
                         color:
                           theme === 'dark'
@@ -881,69 +899,241 @@ const DashboardTasksScreen = () => {
                       },
                     ]}
                   >
-                    Actions you think twice before doing
+                    Your Strengths during this time period
                   </Text>
-                </View>
-                <View style={styles.astroContentRight}>
-                  <TouchableOpacity
-                    style={[
-                      styles.astroButton,
-                      { borderColor: colors.Orangeaccentcolor },
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      if (selectedMemberId) {
-                        navigation.navigate('DashboardTasksDoNotScreen', {
-                          userId: selectedMemberId,
-                          heading: 'Actions you think twice before doing',
-                        });
-                      } else {
-                        Alert.alert('Error', 'Please select a member first');
-                      }
-                    }}
-                  >
-                    <Text
-                      style={[styles.astroButtonText, { color: colors.Orangeaccentcolor }]}
-                    >
-                      View
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              {/* <Image
-                source={require('../../assets/image/Ai-robot.png')}
-                style={styles.astroImage}
-              /> */}
-            </View>
+                </TouchableOpacity>
 
-            {/* Karmic Progress Score Section */}
-            <View style={styles.progressSection}>
-              <View style={[styles.progressScoreHeader, { backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white , borderColor:
-                    theme === 'dark'
-                      ? colors.themeBorderDropdown
-                      : colors.borderColor, }]}>
+                {/* Card 6: Some advice to navigate through this time period */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={[
+                    styles.topCard,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (selectedMemberId) {
+                      navigation.navigate('TaskActivityDetailsScreen', {
+                        userId: selectedMemberId,
+                        heading: 'Some advice to navigate through this time period',
+                      });
+                    } else {
+                      Alert.alert('Error', 'Please select a member first');
+                    }
+                  }}
+                >
+                  <View style={styles.topCardIconContainer}>
+                    <Image
+                      source={require('../../assets/icons/home/Someadvice.png')}
+                      style={styles.topCardIcon}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.topCardTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Some advice to navigate through this time period
+                  </Text>
+                </TouchableOpacity>
+              {/* Card 1: Actions you think twice before doing */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[
+                  styles.topCard,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+                onPress={() => {
+                  if (selectedMemberId) {
+                    navigation.navigate('DashboardTasksDoNotScreen', {
+                      userId: selectedMemberId,
+                      heading: 'Actions you think twice before doing',
+                    });
+                  } else {
+                    Alert.alert('Error', 'Please select a member first');
+                  }
+                }}
+              >
+                <View style={styles.topCardIconContainer}>
+                  <Image
+                      source={require('../../assets/icons/home/beforedoing.png')}
+                    style={styles.topCardIcon}
+                  />
+                </View>
                 <Text
                   style={[
-                    styles.sectionTitle,
-                    { color: colors.themeTextWhite },
+                    styles.topCardTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Actions you think twice before doing
+                </Text>
+                {/* <View
+                  style={[
+                    styles.topCardCta,
+                    { backgroundColor: colors.Orangeaccentcolor },
+                  ]}
+                >
+                  <Text style={[styles.topCardCtaText, { color: colors.white }]}>
+                    View
+                  </Text>
+                </View> */}
+              </TouchableOpacity>
+
+              {/* Card 2: Tasks Progress Score */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[
+                  styles.topCard,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+                onPress={() => setShowProgressCardModal(true)}
+              >
+                <View style={styles.topCardIconContainer}>
+                  <Image
+                    source={require('../../assets/icons/home/TasksProgressScore.png')}
+                    style={styles.topCardIcon}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.topCardTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
                   ]}
                 >
                   Tasks Progress Score
                 </Text>
+                {/* <View
+                  style={[
+                    styles.topCardCta,
+                    { backgroundColor: colors.Orangeaccentcolor },
+                  ]}
+                > */}
+                  {/* <Text style={[styles.topCardCtaText, { color: colors.white }]}>
+                    View
+                  </Text>
+                </View> */}
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.progressScoreButton, { borderColor: colors.Orangeaccentcolor }]}
-                  onPress={() => setShowProgressCardModal(true)}
+              {/* Card 3: Tasks You Should Perform Daily */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[
+                  styles.topCard,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+                onPress={() =>
+                  navigation.navigate('EditAllTaskSelectionScreen', {
+                    userId: selectedMemberId || undefined,
+                  })
+                }
+              >
+                <View style={styles.topCardIconContainer}>
+                  <Image
+                      source={require('../../assets/icons/home/PerformDailyTask.png')}
+                    style={styles.topCardIcon}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.topCardTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
                 >
-                  <Text style={[styles.progressScoreButtonText, { color: colors.Orangeaccentcolor }]}>View</Text>
-                </TouchableOpacity>
-              </View>
-              {/* Tabs */}
-              {/* <View style={styles.tabsContainer}>
-                {renderTabButton('Today', selectedTab === 'Today')}
-                {renderTabButton('Weekly', selectedTab === 'Weekly')}
-                {renderTabButton('Monthly', selectedTab === 'Monthly')}
-              </View> */}
+                  Tasks You Should Perform Daily
+                </Text>
+              </TouchableOpacity>
+
+              {/* Card 4: Your Tasks for the day (Open/Closed + Update Task screen) */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[
+                  styles.topCard,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.DarkNavy : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+                onPress={() =>
+                  navigation.navigate('TasksForTheDayScreen', {
+                    userId: selectedMemberId || undefined,
+                  })
+                }
+              >
+                <View style={styles.topCardIconContainer}>
+                  <Image
+                      source={require('../../assets/icons/home/Tasksfortheday.png')}
+                    style={styles.topCardIcon}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.topCardTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Today's Tasks
+                </Text>
+              </TouchableOpacity>
+
+           
             </View>
             {/* Karmic Action Section - only show if tasks exist */}
             {tasks.length > 0 && (
@@ -971,107 +1161,9 @@ const DashboardTasksScreen = () => {
                     {karmicActionDate}
                   </Text>
                 </Text> */}
-                {isEditMode ? (
-                  <TouchableOpacity
-                    style={[
-                      styles.doneButton,
-                      {
-                        backgroundColor:
-                          theme === 'dark'
-                            ? colors.Orangeaccentcolor
-                            : colors.Orangeaccentcolor,
-                        opacity: saving ? 0.6 : 1,
-                      },
-                    ]}
-                    onPress={handleDone}
-                    disabled={saving}
-                    activeOpacity={0.7}
-                  >
-                    {saving ? (
-                      <ActivityIndicator size="small" color={colors.white} />
-                    ) : (
-                      <Text style={styles.doneButtonText}>Done</Text>
-                    )}
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.updateTaskButtonContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.updateTaskButton,
-                        {
-                          backgroundColor:
-                            theme === 'dark'
-                              ? colors.transparentBg
-                              : colors.white,
-                          borderColor:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.surfaceOpacity,
-                          opacity: resetting ? 0.6 : 1,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={handleResetTask}
-                      disabled={resetting}
-                    >
-                      {resetting ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy
-                          }
-                        />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.updateTaskButtonText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                        Reset Score
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.updateTaskButton,
-                        {
-                          backgroundColor:
-                            theme === 'dark'
-                              ? colors.transparentBg
-                              : colors.white,
-                          borderColor:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.surfaceOpacity,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={handleUpdateTask}
-                    >
-                      <Text
-                        style={[
-                          styles.updateTaskButtonText,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        Update Task
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                {/*
+                  Update Task / Done button section (commented out as requested)
+                */}
               </View>
             )}
             {/* Karmic Points Section - only show if tasks exist */}
@@ -1171,322 +1263,10 @@ const DashboardTasksScreen = () => {
                   ))}
                 </View>
               ) : (
-                // Normal Mode UI - Tabbed: Your Tasks for the day | Closed Tasks
-                <>
-                  <View style={styles.tasksContentTabBar}>
-                    <TouchableOpacity
-                      onPress={() => setTasksContentTab('open')}
-                      style={[
-                        styles.tasksContentTab,
-                        tasksContentTab === 'open' && styles.tasksContentTabActive,
-                        {
-                          borderColor: colors.Orangeaccentcolor,
-                          backgroundColor:
-                            tasksContentTab === 'open'
-                              ? colors.Orangeaccentcolor
-                              : theme === 'dark'
-                                ? colors.DarkNavy
-                                : colors.white,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tasksContentTabText,
-                          {
-                            color:
-                              tasksContentTab === 'open'
-                                ? colors.white
-                                : colors.themeTextWhite,
-                          },
-                        ]}
-                      >
-                        Your Tasks for the day
-                      </Text>
-                      {/* {openKarmicPoints && openKarmicPoints.length > 0 && (
-                        <View
-                          style={[
-                            styles.tasksContentTabBadge,
-                            {
-                              backgroundColor:
-                                tasksContentTab === 'open'
-                                  ? colors.white
-                                  : colors.Orangeaccentcolor,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.tasksContentTabBadgeText,
-                              {
-                                color:
-                                  tasksContentTab === 'open'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.white,
-                              },
-                            ]}
-                          >
-                            {openKarmicPoints.length}
-                          </Text>
-                        </View>
-                      )} */}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setTasksContentTab('closed')}
-                      style={[
-                        styles.tasksContentTab,
-                        tasksContentTab === 'closed' && styles.tasksContentTabActive,
-                        {
-                          borderColor: colors.Orangeaccentcolor,
-                          backgroundColor:
-                            tasksContentTab === 'closed'
-                              ? colors.Orangeaccentcolor
-                              : theme === 'dark'
-                                ? colors.DarkNavy
-                                : colors.white,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tasksContentTabText,
-                          {
-                            color:
-                              tasksContentTab === 'closed'
-                                ? colors.white
-                                : colors.themeTextWhite,
-                          },
-                        ]}
-                      >
-                        Closed Tasks
-                      </Text>
-                      {/* {closedKarmicPoints && closedKarmicPoints.length > 0 && (
-                        <View
-                          style={[
-                            styles.tasksContentTabBadge,
-                            {
-                              backgroundColor:
-                                tasksContentTab === 'closed'
-                                  ? colors.white
-                                  : colors.Orangeaccentcolor,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.tasksContentTabBadgeText,
-                              {
-                                color:
-                                  tasksContentTab === 'closed'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.white,
-                              },
-                            ]}
-                          >
-                            {closedKarmicPoints.length}
-                          </Text>
-                        </View>
-                      )} */}
-                    </TouchableOpacity>
-                  </View>
-
-                  {tasksContentTab === 'open' ? (
-                  <View style={styles.pointsSection}>
-                    {openKarmicPoints && openKarmicPoints.length > 0 ? (
-                      openKarmicPoints.map(task => (
-                        <View
-                          key={task.id}
-                          style={[
-                            styles.taskCard,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.DarkNavy
-                                  : colors.white,
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.primaryBlue
-                                  : colors.surfaceOpacity,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.taskDescription,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {task.description?.replace(/^[•\s]+/, '').trim() ||
-                              task.description}
-                          </Text>
-                          {/* <View style={styles.taskTagContainer}>
-                            <View
-                              style={[
-                                styles.taskTag,
-                                {
-                                  backgroundColor:
-                                    theme === 'dark'
-                                      ? colors.Orangeaccentcolor
-                                      : colors.Orangeaccentcolor,
-                                  borderColor:
-                                    theme === 'dark'
-                                      ? colors.Orangeaccentcolor
-                                      : colors.surfaceOpacity,
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.taskTagText,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.themeTextWhite
-                                        : colors.white,
-                                  },
-                                ]}
-                              >
-                                {task.type}
-                              </Text>
-                            </View>
-                          </View> */}
-                        </View>
-                      ))
-                    ) : (
-                      <View
-                        style={[
-                          styles.emptyStateContainer,
-                          {
-                            backgroundColor:
-                              theme === 'dark' ? colors.DarkNavy : colors.white,
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.themeBorderDropdown
-                                : colors.borderColor,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.emptyStateText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          No open tasks
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  ) : (
-                  <View style={styles.pointsSection}>
-                    {closedKarmicPoints && closedKarmicPoints.length > 0 ? (
-                      closedKarmicPoints.map(task => (
-                        <View
-                          key={task.id}
-                          style={[
-                            styles.taskCard,
-                            styles.closedTaskCard,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.DarkNavy
-                                  : colors.white,
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.Orangeaccentcolor
-                                  : colors.Orangeaccentcolor,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.taskDescription,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {task.description?.replace(/^[•\s]+/, '').trim() ||
-                              task.description}
-                          </Text>
-                          {/* <View style={styles.taskTagContainer}>
-                            <View
-                              style={[
-                                styles.taskTag,
-                                {
-                                  backgroundColor:
-                                    theme === 'dark'
-                                      ? colors.Orangeaccentcolor
-                                      : colors.Orangeaccentcolor,
-                                  borderColor:
-                                    theme === 'dark'
-                                      ? colors.Orangeaccentcolor
-                                      : colors.surfaceOpacity,
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.taskTagText,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.themeTextWhite
-                                        : colors.white,
-                                  },
-                                ]}
-                              >
-                                {task.type}
-                              </Text>
-                            </View>
-                          </View> */}
-                        </View>
-                      ))
-                    ) : (
-                      <View
-                        style={[
-                          styles.emptyStateContainer,
-                          {
-                            backgroundColor:
-                              theme === 'dark' ? colors.DarkNavy : colors.white,
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.themeBorderDropdown
-                                : colors.borderColor,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.emptyStateText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          No closed tasks
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  )}
-                </>
+                /*
+                  Your Tasks for the day / Closed Tasks tabs + content (commented out as requested)
+                */
+                <></>
               )
             ) : (
               // Empty state when no tasks
@@ -1586,6 +1366,21 @@ const DashboardTasksScreen = () => {
                 ]}
               />
             </TouchableOpacity>
+
+
+            <View
+              style={[
+                styles.progressCardMain,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.themeTextWhite : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.surfaceOpacity,
+                },
+              ]}
+            >
 
             {/* Progress Card Content */}
             <View
@@ -1688,6 +1483,40 @@ const DashboardTasksScreen = () => {
                 {renderCircularProgress()}
               </View>
             </View>
+
+            {/* Reset Score - inside the white card */}
+            <View style={styles.progressModalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.progressResetButton,
+                  {
+                    borderColor: colors.Orangeaccentcolor,
+                    opacity: resetting ? 0.6 : 1,
+                  },
+                ]}
+                activeOpacity={0.7}
+                onPress={handleResetTask}
+                disabled={resetting}
+              >
+                {resetting ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.Orangeaccentcolor}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.progressResetButtonText,
+                      { color: colors.Orangeaccentcolor },
+                    ]}
+                  >
+                    Reset Score
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            </View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -1700,6 +1529,48 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: responsiveWidth(4),
     paddingBottom: Platform.OS === 'android' ? 85 : 85,
+  },
+  topCardsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    // marginBottom: responsiveWidth(4),
+    // marginTop: responsiveWidth(3),
+  },
+  topCard: {
+    width: '48%',
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: responsiveWidth(3),
+    minHeight: responsiveHeight('16%'),
+    marginTop: responsiveWidth(2),
+    alignItems: 'center',
+    // justifyContent: 'space-between',
+  },
+  topCardIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topCardIcon: {
+    width: responsiveWidth(18),
+    height: responsiveWidth(18),
+    resizeMode: 'contain',
+  },
+  topCardTitle: {
+    fontSize: 14,
+    fontFamily: fontFamily.medium,
+    textAlign: 'center',
+    marginTop: responsiveWidth(3),
+  },
+  topCardCta: {
+    marginTop: responsiveWidth(2),
+    paddingVertical: responsiveWidth(2),
+    paddingHorizontal: responsiveWidth(5),
+    borderRadius: 999,
+  },
+  topCardCtaText: {
+    fontSize: 13,
+    fontFamily: fontFamily.medium,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1715,9 +1586,12 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   backBtn: {
-    width: responsiveWidth(15),
+    width: responsiveWidth(12),
     alignItems: 'flex-start',
     justifyContent: 'center',
+  },
+  headerRight: {
+    width: responsiveWidth(12),
   },
   backIcon: {
     width: responsiveWidth(5),
@@ -1811,6 +1685,14 @@ const styles = StyleSheet.create({
     padding: responsiveWidth(4),
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: responsiveHeight(20),
+  },
+  progressCardMain: {
+    borderRadius: 15,
+    borderWidth: 0.2,
+    padding: responsiveWidth(4),
+    // flexDirection: 'row',
+    // alignItems: 'center',
     minHeight: responsiveHeight(20),
   },
   progressCardLeftSection: {
@@ -2260,6 +2142,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: responsiveWidth(5),
     position: 'relative',
+  },
+  progressModalActions: {
+    marginTop: responsiveWidth(4),
+    alignItems: 'center',
+  },
+  progressResetButton: {
+    width: '70%',
+    borderWidth: 1,
+    borderRadius: 999,
+    backgroundColor: 'transparent',
+    paddingVertical: responsiveWidth(2.6),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressResetButtonText: {
+    fontSize: 14,
+    fontFamily: fontFamily.medium,
   },
   progressModalCloseButton: {
     position: 'absolute',

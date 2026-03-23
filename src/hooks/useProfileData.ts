@@ -86,6 +86,20 @@ export const useProfileData = () => {
     fetchProfileData();
   }, [fetchProfileData]);
 
+  // Poll every 20 seconds when any member has processing_data === true
+  useEffect(() => {
+    const members = membersData || [];
+    const anyProcessing = members.some(
+      (m: any) => m.processing_data === false || m.processing_data === 'false',
+    );
+    if (!anyProcessing) return;
+
+    const intervalId = setInterval(() => {
+      fetchProfileData(true);
+    }, 20000);
+    return () => clearInterval(intervalId);
+  }, [membersData, fetchProfileData]);
+
   return {
     profileData,
     membersData,

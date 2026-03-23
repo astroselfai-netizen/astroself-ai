@@ -342,7 +342,7 @@ const DashboardTasksDoNotScreen = () => {
               },
             ]}
           >
-            All Points
+            Yodha Points
           </Text>
         </View>
       </View>
