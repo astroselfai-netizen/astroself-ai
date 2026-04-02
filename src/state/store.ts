@@ -7,6 +7,12 @@ export const store = configureStore({
     app: appReducer,
     notifications: notificationReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredPaths: ['notifications.settings.lastUpdated'],
+      },
+    }),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

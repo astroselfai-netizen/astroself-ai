@@ -76,6 +76,26 @@ export interface VerifyUserReportIAPRequest {
   currency?: string;
 }
 
+export interface VerifySubscriptionIAPRequest {
+  user_id: string;
+  member_user_id: string;
+  plan_id: string;
+  receipt: string;
+  transaction_id: string;
+  product_id: string;
+  plan_type: 'eternal_path' | 'family_plan';
+  currency?: string;
+  /** Helps backend route StoreKit vs Play Billing */
+  platform?: 'ios' | 'android';
+}
+
+export interface VerifySubscriptionIAPResponse {
+  success: boolean;
+  message: string;
+  status?: string;
+  data?: any;
+}
+
 export interface VerifyUserReportIAPResponse {
   success: boolean;
   message: string;
@@ -303,6 +323,61 @@ class PaymentService extends Service {
     }
   }
 
+  async verifySubscriptionIAP(verifyData: VerifySubscriptionIAPRequest): Promise<VerifySubscriptionIAPResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      const payload: VerifySubscriptionIAPRequest & { platform?: string } = {
+        ...verifyData,
+        platform: verifyData.platform ?? (Platform.OS === 'ios' ? 'ios' : 'android'),
+      };
+      console.log('verifyData------', payload);
+
+      const post = (path: string) =>
+        http.post<VerifySubscriptionIAPResponse>(path, payload, {
+          headers: {
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          timeout: 60000,
+        });
+
+      let response;
+      try {
+        // Prefer mobile route (same as `mobile/autopay/create-subscription`).
+        response = await post('mobile/autopay/verify-iap');
+      } catch (first: any) {
+        if (first?.response?.status === 404) {
+          response = await post('autopay/verify-iap');
+        } else {
+          throw first;
+        }
+      }
+
+      console.log('Subscription IAP verify response:--->', response.data);
+      return response.data;
+    } catch (error: any) {
+      const data = error.response?.data;
+      console.error('Error verifying subscription IAP:', error?.message, data);
+      if (error.response) {
+        const msg =
+          (typeof data === 'string' && data) ||
+          data?.message ||
+          data?.detail ||
+          data?.error ||
+          (Array.isArray(data?.errors) ? data.errors.join(', ') : null);
+        throw new Error(msg || 'Failed to verify subscription');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while verifying subscription');
+      }
+    }
+  }
+
   async getPurchasedReports(userId: string): Promise<PurchasedReportsResponse> {
     try {
       const token = await AsyncStorage.getItem('USER_TOKEN');
@@ -493,7 +568,7 @@ class PaymentService extends Service {
       const endpoint =
         Platform.OS === 'ios'
           ? `autopay/create-subscription`
-          : `mobile/autopay/create-subscription`;
+          : `autopay/create-subscription`;
 
       const response = await http.post(
         endpoint,

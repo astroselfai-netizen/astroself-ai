@@ -87,7 +87,7 @@ const ProfileScreen = () => {
       return null;
     }
 
-    console.log('membersData===>12387', profileData);
+    // console.log('membersData===>12387', profileData);
     
     // Look for a member with primary_member field set to true
     const primaryMember = membersData.find(
@@ -96,7 +96,7 @@ const ProfileScreen = () => {
     );
     
 
-    console.log('primaryMember===>123', primaryMember);
+    // console.log('primaryMember===>123', primaryMember);
     if (primaryMember) {
       return primaryMember;
     }

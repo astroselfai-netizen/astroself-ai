@@ -100,7 +100,7 @@ const MemberItem = React.memo(
     onEdit: () => void;
   }) => {
 
-    console.log('itemitemitemitem', item);
+    // console.log('itemitemitemitem', item);
 
     const { theme, colors } = useTheme();
     const [isExpanded, setIsExpanded] = React.useState(false);

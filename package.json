@@ -42,6 +42,7 @@
     "react-native-localize": "^3.5.2",
     "react-native-nitro-modules": "^0.35.0",
     "react-native-picker-select": "^9.3.1",
+    "react-native-purchases": "^9.14.0",
     "react-native-push-notification": "^8.1.1",
     "react-native-razorpay": "^2.3.1",
     "react-native-responsive-screen": "^1.4.2",

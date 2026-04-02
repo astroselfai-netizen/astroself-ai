@@ -1,6 +1,6 @@
 // MemberManagement.tsx
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,10 +15,9 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
-  Linking,
 } from 'react-native';
 
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 import { useProfileData } from '../../hooks/useProfileData';
@@ -29,13 +28,56 @@ import Toast from 'react-native-toast-message';
 import RazorpayCheckout from 'react-native-razorpay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import planService from '../../services/plan/plan.service';
+import { subscriptionApi } from '../../api/subscriptionApi';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
 import PaymentService from '../../services/payment/payment.service';
+import {
+  getPlanIdForPlatform,
+  getIapProductId,
+  type PlanType,
+} from '../../constant/subscriptionPlans';
+import {
+  useIAP,
+  ErrorCode,
+  type PurchaseError,
+  clearTransactionIOS,
+  deepLinkToSubscriptions,
+  getAvailablePurchases as getAvailablePurchasesNative,
+  fetchProducts as fetchStoreKitProducts,
+} from 'react-native-iap';
+import type { Purchase } from 'react-native-iap';
 import { useDispatch, useSelector } from 'react-redux';
 import { setMembersUpdated } from '../../state/slices/appSlice';
 import { RootState } from '../../state/store';
 import { icons } from '../../assets';
+
+const INDIVIDUAL_FEATURES = [
+  { title: 'Everything in Free', icon: 'star' },
+  {
+    title: 'Dynamic Life Intelligence',
+    sub: ['Real-time transit predictions', 'Life phase intelligence (Antardasha)', 'Active planet influence tracking'],
+  },
+  {
+    title: 'AI Insight Engine',
+    sub: ['Detailed chart interpretation', 'Nakshatra-based predictions', 'Guidance & analysis'],
+  },
+  {
+    title: 'Dynamic Task Module',
+    sub: ['Personalized growth tasks', 'Habit development & tracking', 'Adaptive self-improvement'],
+  },
+];
+
+const FAMILY_FEATURES = [
+  { title: 'Everything in Individual', icon: 'star' },
+  {
+    title: 'Family Intelligence Layer',
+    sub: ['Up to 5 family profiles', 'Individual insights for each member', 'Growth tasks for each member'],
+  },
+  { title: 'Centralized family dashboard', sub: ['Track all profile progress'] },
+  { title: 'Add/change members anytime', icon: 'user-plus' },
+  { title: 'Up to 60% savings versus individual plans', icon: 'percent' },
+];
 
 export type RootStackParamList = {
   Login: undefined;
@@ -45,7 +87,7 @@ export type RootStackParamList = {
   ContinueWithOtp: undefined;
   ChatScreen: undefined;
   NakshatraScreen: { userId: string };
-  MemberPlanManagement: undefined;
+  MemberPlanManagement: { planType?: PlanType };
   AddNewMember: { fromMemberPlanManagement?: boolean } | undefined;
   PurchasedHistoryScreen: undefined;
 };
@@ -54,6 +96,7 @@ type MemberPlanManagementNavigationProp = StackNavigationProp<
   RootStackParamList,
   'MemberPlanManagement'
 >;
+type MemberPlanManagementRouteProp = RouteProp<RootStackParamList, 'MemberPlanManagement'>;
 
 const MemberItem = React.memo(
   ({
@@ -67,6 +110,8 @@ const MemberItem = React.memo(
     onEdit,
     onSubscriptionClick,
     onUpgradeClick,
+    userCurrentPlan: _userCurrentPlan,
+    isSubscriptionLoading,
   }: {
     item: any;
     isSelected: boolean;
@@ -78,11 +123,13 @@ const MemberItem = React.memo(
     onEdit: () => void;
     onSubscriptionClick?: () => void;
     onUpgradeClick?: () => void;
+    userCurrentPlan?: string;
+    isSubscriptionLoading?: boolean;
   }) => {
-    console.log('itemitemitemitem', item);
+    // console.log('itemitemitemitem', item);
 
     const { theme, colors } = useTheme();
-    console.log('MemberItem rendering for:', item);
+    // console.log('MemberItem rendering for:', item);
 
     // Extract name from API response
     const memberName =
@@ -108,9 +155,8 @@ const MemberItem = React.memo(
         'November',
         'December',
       ];
-      return `${months[birthData.month - 1]} ${birthData.day}, ${
-        birthData.year
-      }`;
+      return `${months[birthData.month - 1]} ${birthData.day}, ${birthData.year
+        }`;
     };
 
     const formatBirthTime = (birthData: any) => {
@@ -140,7 +186,7 @@ const MemberItem = React.memo(
           const parts = dateStr.split(' ');
           if (parts.length >= 2) {
             const datePart = parts[0]; // "29-Dec-2026"
-            const timePart = parts[1]; // "13:39"
+            // const timePart = parts[1]; // "13:39"
 
             const [day, monthName, year] = datePart.split('-');
             const monthNames: { [key: string]: string } = {
@@ -340,10 +386,10 @@ const MemberItem = React.memo(
                   backgroundColor: isSelected
                     ? colors.Orangeaccentcolor
                     : isAssigned
-                    ? colors.grayText || '#999'
-                    : theme === 'dark'
-                    ? colors.themeTextWhite
-                    : colors.white,
+                      ? colors.grayText || '#999'
+                      : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.white,
                   opacity: isAssigned || !canSelect ? 0.5 : 1,
                   marginLeft: responsiveWidth('2'),
                 },
@@ -520,38 +566,45 @@ const MemberItem = React.memo(
                 Buy Reports
               </Text>
             </TouchableOpacity>
-            {item.current_plan !== 'eternal_path' && (
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  {
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-                onPress={onSubscriptionClick || (() => {})}
-              >
-                <Text
+            {item.current_plan !== 'family_plan' &&
+              (
+                <TouchableOpacity
                   style={[
-                    styles.actionButtonText,
+                    styles.actionButton,
                     {
-                      color:
+                      borderColor:
                         theme === 'dark'
                           ? colors.themeTextWhite
                           : colors.DarkNavy,
                     },
+                    isSubscriptionLoading && { opacity: 0.6 },
                   ]}
+                  onPress={onSubscriptionClick || (() => { })}
+                  disabled={isSubscriptionLoading}
                 >
-                  {item.current_plan === 'cosmic_foundation'
-                    ? 'Buy Plan'
-                    : item.current_plan === 'renew'
-                    ? 'Renew Plan'
-                    : 'Buy Plan'}
-                </Text>
-              </TouchableOpacity>
-            )}
+                  <Text
+                    style={[
+                      styles.actionButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {isSubscriptionLoading
+                      ? 'Loading...'
+                      : item.current_plan === 'eternal_path'
+                        ? 'Update Plan'
+                        : item.current_plan === 'cosmic_foundation'
+                          ? 'Buy Plan'
+                          : item.current_plan === 'renew'
+                            ? 'Renew Plan'
+                            : 'Buy Plan'}
+                  </Text>
+                </TouchableOpacity>
+              )}
           </View>
         </View>
       </View>
@@ -561,7 +614,9 @@ const MemberItem = React.memo(
 
 const MemberPlanManagement = () => {
   const navigation = useNavigation<MemberPlanManagementNavigationProp>();
+  const route = useRoute<MemberPlanManagementRouteProp>();
   const { theme, colors } = useTheme();
+  const planTypeFromParams = route.params?.planType ?? 'individual';
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.app.user);
   const userService = serviceFactory.get<UserService>('UserService');
@@ -590,6 +645,24 @@ const MemberPlanManagement = () => {
   const [creatingSubscription, setCreatingSubscription] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedMemberForUpgrade, setSelectedMemberForUpgrade] = useState<any>(null);
+  const [userPlanDetails, setUserPlanDetails] = useState<{
+    current_plan: string;
+    members_allow: number;
+    available_members_allow: number;
+    email: string;
+  } | null>(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [isFetchingPlan, setIsFetchingPlan] = useState(false);
+  const [showNoAvailablePlanModal, setShowNoAvailablePlanModal] =
+    useState(false);
+  const [_pendingIosUpgrade, setPendingIosUpgrade] = useState<{
+    sku: string;
+    planType: PlanType;
+    planId: string;
+    userId: string;
+    memberUserId: string;
+  } | null>(null);
 
   // Update local state when membersData changes
   React.useEffect(() => {
@@ -598,16 +671,27 @@ const MemberPlanManagement = () => {
     }
   }, [membersData]);
 
+  const userId = user?._id || (user as any)?.id || '';
+
+  // Fetch user plan details when screen comes into focus
+  const fetchUserPlanDetails = React.useCallback(async () => {
+    if (!userId) return;
+    try {
+      const details = await planService.getUserPlanDetails(userId);
+      setUserPlanDetails(details);
+    } catch (err) {
+      console.error('Failed to fetch user plan details:', err);
+    }
+  }, [userId]);
+
   // Refresh data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      // Refresh profile data when screen comes into focus
       refreshProfileData();
-      // Reset selection state when coming back to screen
       setSelectedMembers(new Set());
       setIsAssignPlanMode(false);
-      // Note: localMembersData will be updated via useEffect when membersData changes
-    }, [refreshProfileData]),
+      fetchUserPlanDetails();
+    }, [refreshProfileData, fetchUserPlanDetails]),
   );
 
   // Use all members (no filtering needed)
@@ -615,22 +699,13 @@ const MemberPlanManagement = () => {
     return localMembersData || [];
   }, [localMembersData]);
 
-  console.log('filteredMembersprofileData------', profileData);
+  // console.log('filteredMembersprofileData------', profileData);
 
   // Calculate member and children counts
   const memberCount = profileData?.members_allow
     ? profileData?.members_allow - profileData?.current_members
     : 0;
-  const childrenCount = profileData?.child_allow
-    ? profileData?.child_allow - profileData?.current_child
-    : 0;
-  const totalAvailablePlans = memberCount + childrenCount;
-
-  // Check if buttons should be enabled
-  // Assign Plan: Only enabled if memberCount > 0
-  const isAssignPlanEnabled = memberCount > 0;
-  // Create Chart: Enabled if any plans available (memberCount or childrenCount)
-  const isCreateChartEnabled = totalAvailablePlans > 0;
+  // child plan counts not used in this screen currently
 
   // Check if member can be selected (not already assigned and within limit)
   const canSelectMember = (memberId: string) => {
@@ -747,11 +822,6 @@ const MemberPlanManagement = () => {
     setIsAssignPlanMode(false);
   };
 
-  // Handle Assign Plan button
-  const handleAssignPlan = () => {
-    setIsAssignPlanMode(true);
-  };
-
   // Handle Create Chart button
   const handleCreateChart = () => {
     navigation.navigate('AddNewMember', { fromMemberPlanManagement: true });
@@ -773,10 +843,235 @@ const MemberPlanManagement = () => {
     setPersonalizedDetailsEnabled(true);
   };
 
-  // Handle opening premium modal
-  const handleOpenPremiumModal = (member: any) => {
-    setSelectedMemberForSubscription(member);
-    setShowPremiumModal(true);
+  // Handle opening premium/assign modal - calls API first to check user plan
+  const handleOpenPremiumModal = async (member: any) => {
+    const userId = user?._id || (user as any)?.id;
+    if (!userId) {
+      Toast.show({ type: 'error', text1: 'Error', text2: 'User not found', position: 'top', topOffset: 60 });
+      return;
+    }
+
+    try {
+      setIsFetchingPlan(true);
+      const planDetails = await planService.getUserPlanDetails(userId);
+
+      console.log('planDetails------', planDetails);
+      setUserPlanDetails(planDetails);
+      setSelectedMemberForSubscription(member);
+
+      if (
+        planDetails.current_plan === 'family_plan' &&
+        Number(planDetails.available_members_allow) <= 0
+      ) {
+        setShowNoAvailablePlanModal(true);
+        return;
+      }
+
+      if (planDetails.current_plan === 'family_plan') {
+        setShowAssignModal(true);
+      } else {
+        setShowPremiumModal(true);
+      }
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: err.message || 'Failed to load plan details',
+        position: 'top',
+        topOffset: 60,
+      });
+    } finally {
+      setIsFetchingPlan(false);
+    }
+  };
+
+  // Handle assign family plan
+  const handleAssignFamilyPlan = async () => {
+    if (!selectedMemberForSubscription || !user) return;
+
+    const userId = user._id || (user as any).id;
+    const birthInputId =
+      selectedMemberForSubscription.birth_input_id ||
+      selectedMemberForSubscription.id ||
+      selectedMemberForSubscription._id;
+
+    if (!birthInputId) {
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Member ID not found', position: 'top', topOffset: 60 });
+      return;
+    }
+
+    try {
+      setIsAssigning(true);
+      const res = await planService.assignFamilyPlan(userId, birthInputId);
+
+      console.log('res------', res);
+
+      if (res.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Plan Assigned',
+          text2: 'Family plan assigned successfully',
+          position: 'top',
+          topOffset: 60,
+        });
+        setShowAssignModal(false);
+        setSelectedMemberForSubscription(null);
+        if (refreshProfileData) await refreshProfileData();
+      } else {
+        const msg = res.message || 'Assign failed';
+        const isAlreadyHad = msg.toLowerCase().includes('already had a plan') || msg.toLowerCase().includes('already had');
+        Toast.show({
+          type: isAlreadyHad ? 'info' : 'error',
+          text1: isAlreadyHad ? 'Already Assigned' : 'Unable to Assign',
+          text2: isAlreadyHad ? 'This member already has a plan' : msg,
+          position: 'top',
+          topOffset: 60,
+        });
+        setShowAssignModal(false);
+        setSelectedMemberForSubscription(null);
+        if (refreshProfileData) await refreshProfileData();
+      }
+    } catch (err: any) {
+      const msg = err.message || 'Failed to assign plan';
+      const isAlreadyHad = msg.toLowerCase().includes('already had');
+      Toast.show({
+        type: isAlreadyHad ? 'info' : 'error',
+        text1: isAlreadyHad ? 'Already Assigned' : 'Error',
+        text2: msg,
+        position: 'top',
+        topOffset: 60,
+      });
+      setShowAssignModal(false);
+      setSelectedMemberForSubscription(null);
+      if (refreshProfileData) await refreshProfileData();
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // Handle Update Plan (upgrade/initiate -> Razorpay -> upgrade/confirm)
+  const handleUpdatePlan = async (member: any) => {
+    if (Platform.OS !== 'android') {
+      // iOS must not use Razorpay; upgrade happens via iOS subscription purchase
+      await handleBuyPremiumAccess('family');
+      return;
+    }
+
+    const uid = user?._id || (user as any)?.id || '';
+    const memberUserId = member?.id || member?._id || '';
+    const familyPlanId = getPlanIdForPlatform('family');
+
+    if (!uid || !memberUserId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'User or member not found',
+        position: 'top',
+        topOffset: 60,
+      });
+      return;
+    }
+
+    try {
+      setCreatingSubscription(true);
+
+      console.log('initiating upgrade------');
+      const initRes = await subscriptionApi.upgradeInitiate({
+        user_id: uid,
+        member_user_id: memberUserId,
+        family_plan_id: familyPlanId,
+      });
+
+      console.log('initRes------', initRes);
+
+      const userDataString = await AsyncStorage.getItem('USER_DATA');
+      const currentUserData: any = userDataString ? JSON.parse(userDataString) : {};
+
+      // Backend returns: razorpay_order_id, amount_paise, currency
+      const orderId =
+        (initRes as any)?.razorpay_order_id ||
+        (initRes as any)?.order_id ||
+        (initRes as any)?.data?.razorpay_order_id ||
+        (initRes as any)?.data?.order_id;
+      const amountPaise =
+        (initRes as any)?.amount_paise ||
+        (initRes as any)?.amount ||
+        (initRes as any)?.data?.amount_paise ||
+        (initRes as any)?.data?.amount;
+      const currency =
+        (initRes as any)?.currency || (initRes as any)?.data?.currency || 'INR';
+
+      // Upgrade initiate may not return key; use stored/app key
+      const key =
+        (initRes as any)?.razorpay_key ||
+        (initRes as any)?.data?.razorpay_key ||
+        currentUserData?.razorpay_key ||
+        'rzp_test_Rueu06YDULsQCD';
+
+      if (!orderId || !amountPaise || !key) {
+        throw new Error((initRes as any)?.message || 'Upgrade initiate failed');
+      }
+
+      const options = {
+        key,
+        order_id: orderId,
+        amount: Number(amountPaise),
+        currency,
+        name: 'Astroself',
+        description: 'Upgrade to Family Plan',
+        prefill: {
+          email:
+            currentUserData.email || (user as any)?.email || 'user@example.com',
+          contact:
+            currentUserData.phone || (user as any)?.phone || '9999999999',
+          name:
+            `${currentUserData.first_name || (user as any)?.first_name || ''} ${currentUserData.last_name || (user as any)?.last_name || ''
+              }`.trim() || 'User',
+        },
+        theme: { color: '#DF8A5D' },
+      };
+
+      const payRes: any = await RazorpayCheckout.open(options as any);
+      console.log('payRes------', payRes);
+
+      const confirmRes = await subscriptionApi.upgradeConfirm({
+        razorpay_order_id: payRes.razorpay_order_id,
+        razorpay_payment_id: payRes.razorpay_payment_id,
+        razorpay_signature: payRes.razorpay_signature,
+      });
+      console.log('confirmRes------', confirmRes);
+
+      const ok =
+        (confirmRes as any)?.success === true ||
+        (confirmRes as any)?.status === 'success' ||
+        String((confirmRes as any)?.success) === 'true';
+
+      if (!ok) throw new Error((confirmRes as any)?.message || 'Upgrade failed');
+
+      Toast.show({
+        type: 'success',
+        text1: 'Upgrade Successful',
+        text2: 'Family plan has been activated',
+        position: 'top',
+        topOffset: 60,
+      });
+
+      handleClosePremiumModal();
+      if (refreshProfileData) await refreshProfileData();
+      fetchUserPlanDetails();
+    } catch (e: any) {
+      const msg = e?.description || e?.message || 'Upgrade cancelled';
+      const isCancel = String(msg).toLowerCase().includes('cancel');
+      Toast.show({
+        type: isCancel ? 'info' : 'error',
+        text1: isCancel ? 'Cancelled' : 'Error',
+        text2: isCancel ? 'Upgrade cancelled' : msg,
+        position: 'top',
+        topOffset: 60,
+      });
+    } finally {
+      setCreatingSubscription(false);
+    }
   };
 
   // Handle closing premium modal
@@ -785,8 +1080,353 @@ const MemberPlanManagement = () => {
     setSelectedMemberForSubscription(null);
   };
 
+  const handleCloseAssignModal = () => {
+    setShowAssignModal(false);
+    setSelectedMemberForSubscription(null);
+  };
+
+  type PurchaseSubscriptionResult = {
+    success: boolean;
+    message: string;
+    purchase?: Purchase;
+    code?: string;
+    requestedProductId?: string;
+    receivedProductId?: string;
+    isPendingUpgrade?: boolean;
+    pendingUpgradeProductId?: string;
+  };
+
+  const IOS_INDIVIDUAL_PRODUCT_ID = 'com.astroself.subscription.individual_annual';
+  const IOS_FAMILY_PRODUCT_ID = 'com.astroself.subscription.family_annual';
+  const pendingPurchaseResolveRef = useRef<((value: PurchaseSubscriptionResult) => void) | null>(null);
+  const pendingPurchaseRejectRef = useRef<((reason?: any) => void) | null>(null);
+  const pendingPurchaseSkuRef = useRef<string | null>(null);
+  const pendingPurchaseStartedAtRef = useRef<number>(0);
+
+  const {
+    connected,
+    requestPurchase: requestIapPurchase,
+    finishTransaction: finishIapTransaction,
+  } = useIAP({
+    onPurchaseSuccess: (purchase: Purchase) => {
+      const resolve = pendingPurchaseResolveRef.current;
+      if (!resolve) return;
+
+      const requestedSku = String(pendingPurchaseSkuRef.current || '');
+      const pid = String((purchase as any)?.productId || '');
+      const txDate = Number((purchase as any)?.transactionDate || 0);
+      const startedAtMs = pendingPurchaseStartedAtRef.current || 0;
+
+      if (
+        Number.isFinite(txDate) &&
+        txDate > 0 &&
+        startedAtMs > 0 &&
+        txDate < startedAtMs - 2 * 60 * 1000
+      ) {
+        return;
+      }
+
+      if (!IOS_KNOWN_PRODUCT_IDS.includes(pid as (typeof IOS_KNOWN_PRODUCT_IDS)[number])) {
+        return;
+      }
+
+      const pendingUpgradeProductId = String(
+        (purchase as any)?.renewalInfoIOS?.pendingUpgradeProductId ||
+          (purchase as any)?.renewalInfoIOS?.autoRenewPreference ||
+          '',
+      );
+      const isFamilyRequested = requestedSku === IOS_FAMILY_PRODUCT_ID;
+      const isPendingUpgrade =
+        isFamilyRequested &&
+        pid !== IOS_FAMILY_PRODUCT_ID &&
+        pendingUpgradeProductId === IOS_FAMILY_PRODUCT_ID;
+
+      if (pid !== requestedSku && !isPendingUpgrade) {
+        return;
+      }
+
+      pendingPurchaseResolveRef.current = null;
+      pendingPurchaseRejectRef.current = null;
+      pendingPurchaseSkuRef.current = null;
+
+      resolve({
+        success: true,
+        message: isPendingUpgrade
+          ? 'Upgrade pending in App Store'
+          : 'Subscription purchase completed successfully',
+        purchase,
+        requestedProductId: requestedSku,
+        receivedProductId: pid,
+        isPendingUpgrade,
+        pendingUpgradeProductId: pendingUpgradeProductId || undefined,
+      });
+    },
+    onPurchaseError: (error: PurchaseError) => {
+      const resolve = pendingPurchaseResolveRef.current;
+      const reject = pendingPurchaseRejectRef.current;
+      if (!resolve && !reject) return;
+
+      const code = String((error as any)?.code || '').toLowerCase();
+      const message = String((error as any)?.message || '');
+      const lowerMessage = message.toLowerCase();
+      const isCancelled =
+        code.includes('cancel') ||
+        code === String(ErrorCode.UserCancelled).toLowerCase() ||
+        lowerMessage.includes('cancel');
+      const isAlreadyOwned =
+        code === 'already-owned' ||
+        code.includes('already') ||
+        code.includes('owned') ||
+        lowerMessage.includes('already subscribed') ||
+        lowerMessage.includes('already purchased');
+
+      pendingPurchaseResolveRef.current = null;
+      pendingPurchaseRejectRef.current = null;
+      pendingPurchaseSkuRef.current = null;
+
+      if (resolve && isCancelled) {
+        resolve({ success: false, code, message: 'Purchase cancelled by user' });
+        return;
+      }
+      if (resolve && isAlreadyOwned) {
+        resolve({ success: true, code, message: 'Item already owned' });
+        return;
+      }
+      if (reject) reject(error);
+    },
+  });
+  const IOS_KNOWN_PRODUCT_IDS = useMemo(
+    () => [IOS_INDIVIDUAL_PRODUCT_ID, IOS_FAMILY_PRODUCT_ID] as const,
+    [],
+  );
+
+  const withTimeout = useCallback(async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+    return (await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        setTimeout(() => reject(new Error('timeout')), ms);
+      }),
+    ])) as T;
+  }, []);
+
+  const getPurchaseReceipt = useCallback((purchase: any): string => {
+    return String(
+      purchase?.purchaseToken ||
+      purchase?.transactionReceipt ||
+      purchase?.originalJson ||
+      purchase?.dataAndroid ||
+      '',
+    );
+  }, []);
+
+  const getPurchaseDateValue = useCallback((purchase: any): number => {
+    const raw =
+      purchase?.transactionDate ||
+      purchase?.purchaseTime ||
+      purchase?.originalPurchaseDateIOS ||
+      purchase?.purchaseDate;
+
+    if (typeof raw === 'number') {
+      return raw;
+    }
+
+    if (typeof raw === 'string') {
+      const asNumber = Number(raw);
+      if (!Number.isNaN(asNumber) && asNumber > 0) {
+        return asNumber;
+      }
+      const asDate = new Date(raw).getTime();
+      return Number.isNaN(asDate) ? 0 : asDate;
+    }
+
+    return 0;
+  }, []);
+
+  const getLatestKnownIosPurchase = useCallback((purchases: any[]): Purchase | null => {
+    const filtered = (purchases || []).filter((purchase: any) =>
+      IOS_KNOWN_PRODUCT_IDS.includes(purchase?.productId),
+    );
+
+    if (!filtered.length) {
+      return null;
+    }
+
+    filtered.sort(
+      (a: any, b: any) => getPurchaseDateValue(b) - getPurchaseDateValue(a),
+    );
+
+    return filtered[0] as Purchase;
+  }, [getPurchaseDateValue, IOS_KNOWN_PRODUCT_IDS]);
+
+  const verifyExistingIosSubscription = useCallback(
+    async ({
+      purchases,
+      preferredProductId,
+      userId,
+      memberUserId,
+      fallbackPlanId,
+    }: {
+      purchases: any[];
+      preferredProductId?: string;
+      userId: string;
+      memberUserId: string;
+      fallbackPlanId: string;
+    }): Promise<{ success: boolean; productId?: string; message?: string }> => {
+      const sortedPurchases = [...(purchases || [])].sort(
+        (a: any, b: any) => getPurchaseDateValue(b) - getPurchaseDateValue(a),
+      );
+
+      const matchingPurchase =
+        (preferredProductId
+          ? sortedPurchases.find((purchase: any) => purchase?.productId === preferredProductId)
+          : undefined) || getLatestKnownIosPurchase(sortedPurchases);
+
+      if (!matchingPurchase) {
+        return { success: false, message: 'No existing subscription found on this Apple ID' };
+      }
+
+      const productId = String((matchingPurchase as any)?.productId || '');
+      const receipt = getPurchaseReceipt(matchingPurchase);
+
+      if (!receipt) {
+        return { success: false, message: 'Receipt not found for existing subscription' };
+      }
+
+      const verifyResponse = await paymentService.verifySubscriptionIAP({
+        user_id: userId,
+        member_user_id: memberUserId,
+        plan_id:
+          productId === IOS_FAMILY_PRODUCT_ID
+            ? getPlanIdForPlatform('family')
+            : fallbackPlanId,
+        receipt,
+        transaction_id: String((matchingPurchase as any)?.transactionId || ''),
+        product_id: productId,
+        plan_type:
+          productId === IOS_FAMILY_PRODUCT_ID ? 'family_plan' : 'eternal_path',
+        currency: 'INR',
+      });
+
+      const isSuccess =
+        (verifyResponse as any)?.success === true ||
+        (verifyResponse as any)?.status === true ||
+        (verifyResponse as any)?.status === 'success' ||
+        String((verifyResponse as any)?.success) === 'true' ||
+        String((verifyResponse as any)?.status) === 'true';
+
+      return {
+        success: isSuccess,
+        productId,
+        message: (verifyResponse as any)?.message,
+      };
+    },
+    [getLatestKnownIosPurchase, getPurchaseDateValue, getPurchaseReceipt, paymentService],
+  );
+
+  const finishIosTransactionSafely = useCallback(
+    async (purchase?: Purchase | null) => {
+      if (!purchase) {
+        return;
+      }
+
+      try {
+        await withTimeout(
+          finishIapTransaction({ purchase, isConsumable: false }),
+          5000,
+        );
+      } catch (finishError) {
+        console.log('finishTransaction ignored error:', finishError);
+      }
+
+      try {
+        await withTimeout(clearTransactionIOS(), 5000);
+      } catch (clearError) {
+        console.log('clearTransactionIOS ignored error:', clearError);
+      }
+    },
+    [withTimeout, finishIapTransaction],
+  );
+
+  const openIosSubscriptionManagement = useCallback(
+    async (message?: string) => {
+      try {
+        await deepLinkToSubscriptions();
+      } catch (linkError) {
+        console.log('deepLinkToSubscriptions error:', linkError);
+      }
+
+      if (message) {
+        Toast.show({
+          type: 'info',
+          text1: 'Manage Subscription',
+          text2: message,
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+      }
+    },
+    [],
+  );
+
+  const getIosProductsForPlan = useCallback(async (iapProductId: string) => {
+    console.log('iapProductId------1378', iapProductId);
+    // useIAP().fetchProducts returns void and only updates hook state; use the
+    // module-level API when we need the loaded products array.
+    return await fetchStoreKitProducts({
+      skus: [iapProductId],
+      type: 'subs',
+    });
+  }, []);
+
+  // Helper: iOS IAP subscription purchase
+  const purchaseSubscriptionViaIAP = async (
+    productId: string,
+  ): Promise<PurchaseSubscriptionResult> => {
+    return new Promise((resolve, reject) => {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      pendingPurchaseResolveRef.current = (result) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        resolve(result);
+      };
+      pendingPurchaseRejectRef.current = (err) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        reject(err);
+      };
+      pendingPurchaseSkuRef.current = productId;
+      pendingPurchaseStartedAtRef.current = Date.now();
+
+      timeoutId = setTimeout(() => {
+        const pendingResolve = pendingPurchaseResolveRef.current;
+        pendingPurchaseResolveRef.current = null;
+        pendingPurchaseRejectRef.current = null;
+        pendingPurchaseSkuRef.current = null;
+        if (pendingResolve) {
+          pendingResolve({
+            success: false,
+            code: 'timeout',
+            message: 'Purchase is taking longer than expected',
+            requestedProductId: String(productId),
+          });
+        }
+      }, 45000);
+
+      requestIapPurchase({
+        request: { ios: { sku: productId } },
+        type: 'subs',
+      }).catch((err) => {
+        const pendingReject = pendingPurchaseRejectRef.current;
+        pendingPurchaseResolveRef.current = null;
+        pendingPurchaseRejectRef.current = null;
+        pendingPurchaseSkuRef.current = null;
+        if (timeoutId) clearTimeout(timeoutId);
+        if (pendingReject) pendingReject(err);
+      });
+    });
+  };
+
   // Handle Buy Premium Access
-  const handleBuyPremiumAccess = async () => {
+  const handleBuyPremiumAccess = async (planTypeArg?: PlanType) => {
     if (!selectedMemberForSubscription || !user) {
       Toast.show({
         type: 'error',
@@ -799,68 +1439,344 @@ const MemberPlanManagement = () => {
       return;
     }
 
+    const planType = planTypeArg ?? planTypeFromParams;
+    const planId = getPlanIdForPlatform(planType);
+    const userId = user?._id || (user as any)?.id || '';
+    const memberUserId =
+      selectedMemberForSubscription.id ||
+      selectedMemberForSubscription._id ||
+      '';
+
+    let verifiedThisAttempt = false;
+
     try {
       setCreatingSubscription(true);
 
-      const planId = 'd461266c-574b-4312-994a-ebd2b5cf6dc3'; // Premium plan ID
-      const userId = user?._id || (user as any)?.id || '';
-      const memberUserId =
-        selectedMemberForSubscription.id ||
-        selectedMemberForSubscription._id ||
-        '';
+      // ---------- iOS: StoreKit IAP flow ----------
+      if (Platform.OS === 'ios') {
+        console.log('planType------', planType);
+        const iapProductId = getIapProductId(planType);
 
-      // First create subscription
-      const subscriptionResponse = await paymentService.createSubscription({
+        console.log('productId------1492', iapProductId);
+
+        if (!iapProductId) {
+          throw new Error('Subscription not available on this device');
+        }
+
+        if (!connected) {
+          throw new Error('IAP connection is not ready yet. Please try again.');
+        }
+        try {
+          await clearTransactionIOS();
+        } catch (clearError) {
+          console.log('initial clearTransactionIOS ignored error:', clearError);
+        }
+
+          const owned = await withTimeout(getAvailablePurchasesNative(), 5000).catch(() => []);
+          const hasIndividual = owned.some(
+            (purchase: any) => purchase?.productId === IOS_INDIVIDUAL_PRODUCT_ID,
+          );
+          const hasFamily = owned.some(
+            (purchase: any) => purchase?.productId === IOS_FAMILY_PRODUCT_ID,
+          );
+
+          if (planType === 'individual' && hasIndividual) {
+            const verifyExisting = await verifyExistingIosSubscription({
+              purchases: owned,
+              preferredProductId: IOS_INDIVIDUAL_PRODUCT_ID,
+              userId,
+              memberUserId,
+              fallbackPlanId: planId,
+            });
+
+            if (verifyExisting.success) {
+              verifiedThisAttempt = true;
+              handleClosePremiumModal();
+              if (refreshProfileData) await refreshProfileData();
+              await fetchUserPlanDetails();
+              Toast.show({
+                type: 'success',
+                text1: 'Already Active',
+                text2: 'Your Individual plan is already active',
+                position: 'top',
+                topOffset: 60,
+                visibilityTime: 2500,
+              });
+              return;
+            }
+
+            await openIosSubscriptionManagement(
+              'This Apple ID already has an Individual subscription. Manage it from App Store subscriptions.',
+            );
+            return;
+          }
+
+          if (planType === 'family' && hasFamily) {
+            const verifyExisting = await verifyExistingIosSubscription({
+              purchases: owned,
+              preferredProductId: IOS_FAMILY_PRODUCT_ID,
+              userId,
+              memberUserId,
+              fallbackPlanId: getPlanIdForPlatform('family'),
+            });
+
+            if (verifyExisting.success) {
+              verifiedThisAttempt = true;
+              handleClosePremiumModal();
+              if (refreshProfileData) await refreshProfileData();
+              await fetchUserPlanDetails();
+              Toast.show({
+                type: 'success',
+                text1: 'Already Active',
+                text2: 'Your Family plan is already active',
+                position: 'top',
+                topOffset: 60,
+                visibilityTime: 2500,
+              });
+              return;
+            }
+          }
+
+          if (planType === 'family' && hasIndividual && !hasFamily) {
+            // Don't force-open the App Store subscriptions screen here; requestPurchase will
+            // show Apple's upgrade UI. If Apple still keeps the user on Individual, we'll
+            // guide them to manage subscriptions after the purchase callback.
+            setPendingIosUpgrade({
+              sku: IOS_FAMILY_PRODUCT_ID,
+              planType: 'family',
+              planId,
+              userId,
+              memberUserId,
+            });
+            Toast.show({
+              type: 'info',
+              text1: 'Upgrade to Family',
+              text2: 'Apple will ask you to confirm the upgrade.',
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 2500,
+            });
+          }
+          console.log('iapProductId------1592', iapProductId);
+
+          const products = await getIosProductsForPlan(iapProductId);
+          console.log('iapProductId------1595', iapProductId);
+          console.log('products------', products);
+
+          if (!products || products.length === 0) {
+            throw new Error('Subscription not available. Please try again later.');
+          }
+
+          let purchase: Purchase | null = null;
+          let purchaseCode: string | undefined;
+          let purchaseMessage = '';
+
+          try {
+            console.log('iapProductId------1607', iapProductId);
+            const purchaseResult = await purchaseSubscriptionViaIAP(iapProductId);
+            console.log('purchaseResult------', purchaseResult);
+
+            // Also log the latest known Apple subscription after this attempt.
+            const ownedAfter = await withTimeout(getAvailablePurchasesNative(), 5000).catch(() => []);
+            const latestAfter = getLatestKnownIosPurchase(ownedAfter);
+            console.log('currentAppleSubscription------', latestAfter);
+
+            purchase = purchaseResult.purchase || null;
+            purchaseCode = purchaseResult.code;
+            purchaseMessage = purchaseResult.message || '';
+          } catch (listenerError) {
+            console.log('purchaseSubscriptionViaIAP error------', listenerError);
+            purchase = null;
+          }
+
+          if (!purchase) {
+            const messageLower = purchaseMessage.toLowerCase();
+            const codeLower = String(purchaseCode || '').toLowerCase();
+            const isCancelled =
+              messageLower.includes('cancel') || codeLower.includes('cancel');
+            const isAlreadyOwned =
+              messageLower.includes('owned') || codeLower.includes('own');
+            const isTimeout =
+              messageLower.includes('timeout') || codeLower.includes('timeout');
+
+            if (isCancelled) {
+              Toast.show({
+                type: 'info',
+                text1: 'Payment Cancelled',
+                text2: 'You can try again later',
+                position: 'top',
+                topOffset: 60,
+                visibilityTime: 2500,
+              });
+              return;
+            }
+
+            if (isAlreadyOwned || isTimeout) {
+              const latestOwned = await withTimeout(getAvailablePurchasesNative(), 5000).catch(() => []);
+              const verifyExisting = await verifyExistingIosSubscription({
+                purchases: latestOwned,
+                preferredProductId:
+                  planType === 'family'
+                    ? IOS_FAMILY_PRODUCT_ID
+                    : IOS_INDIVIDUAL_PRODUCT_ID,
+                userId,
+                memberUserId,
+                fallbackPlanId:
+                  planType === 'family'
+                    ? getPlanIdForPlatform('family')
+                    : getPlanIdForPlatform('individual'),
+              });
+
+              if (verifyExisting.success) {
+                verifiedThisAttempt = true;
+                handleClosePremiumModal();
+                if (refreshProfileData) await refreshProfileData();
+                await fetchUserPlanDetails();
+                Toast.show({
+                  type: 'success',
+                  text1: 'Subscription Active',
+                  text2:
+                    planType === 'family'
+                      ? 'Your Family subscription has been activated'
+                      : 'Your Individual subscription has been activated',
+                  position: 'top',
+                  topOffset: 60,
+                  visibilityTime: 3000,
+                });
+                return;
+              }
+
+              if (planType === 'family') {
+                await openIosSubscriptionManagement(
+                  'Family upgrade was not completed by Apple. Please confirm the upgrade in App Store subscriptions and try again.',
+                );
+                return;
+              }
+
+              await openIosSubscriptionManagement(
+                'This subscription already exists on your Apple ID. Please manage it in App Store subscriptions.',
+              );
+              return;
+            }
+
+            throw new Error('Purchase not received. Please try again.');
+          }
+
+          const normalizedPurchase: Purchase =
+            (purchase as any)?.purchase != null
+              ? (purchase as any).purchase
+              : purchase;
+
+          console.log('purchase------', normalizedPurchase);
+
+          const receivedSku = String((normalizedPurchase as any)?.productId || '');
+          const receipt = getPurchaseReceipt(normalizedPurchase);
+
+          if (!receipt) {
+            throw new Error('Receipt not found for this purchase');
+          }
+
+          let purchaseForVerify: Purchase = normalizedPurchase;
+          let productIdForVerify = receivedSku || iapProductId;
+
+          if (planType === 'family' && productIdForVerify !== IOS_FAMILY_PRODUCT_ID) {
+            const latestOwned = await withTimeout(getAvailablePurchasesNative(), 5000).catch(() => []);
+            const matchingFamilyPurchase = [...latestOwned]
+              .filter((item: any) => item?.productId === IOS_FAMILY_PRODUCT_ID)
+              .sort((a: any, b: any) => getPurchaseDateValue(b) - getPurchaseDateValue(a))[0] as Purchase | undefined;
+
+            if (matchingFamilyPurchase) {
+              purchaseForVerify = matchingFamilyPurchase;
+              productIdForVerify = IOS_FAMILY_PRODUCT_ID;
+            } else {
+              await finishIosTransactionSafely(normalizedPurchase);
+              await openIosSubscriptionManagement(
+                'Apple returned your existing Individual subscription instead of the Family upgrade. Please confirm the Family upgrade in App Store subscriptions and try again.',
+              );
+              return;
+            }
+          }
+
+          const receiptForVerify = getPurchaseReceipt(purchaseForVerify);
+          if (!receiptForVerify) {
+            throw new Error('Receipt not found for this purchase');
+          }
+
+          const resolvedPlanType =
+            productIdForVerify === IOS_FAMILY_PRODUCT_ID
+              ? 'family_plan'
+              : 'eternal_path';
+          const resolvedPlanId =
+            productIdForVerify === IOS_FAMILY_PRODUCT_ID
+              ? getPlanIdForPlatform('family')
+              : getPlanIdForPlatform('individual');
+
+          const verifyResponse = await paymentService.verifySubscriptionIAP({
+            user_id: userId,
+            member_user_id: memberUserId,
+            plan_id: resolvedPlanId,
+            receipt: receiptForVerify,
+            transaction_id: String((purchaseForVerify as any)?.transactionId || ''),
+            product_id: productIdForVerify,
+            plan_type: resolvedPlanType,
+            currency: 'INR',
+          });
+
+          console.log('verifyResponse------', verifyResponse);
+
+          const isSuccess =
+            (verifyResponse as any)?.success === true ||
+            (verifyResponse as any)?.status === true ||
+            verifyResponse?.status === 'success' ||
+            String((verifyResponse as any)?.success) === 'true' ||
+            String((verifyResponse as any)?.status) === 'true';
+
+          if (isSuccess) {
+            verifiedThisAttempt = true;
+            await finishIosTransactionSafely(normalizedPurchase);
+            handleClosePremiumModal();
+            if (refreshProfileData) await refreshProfileData();
+            await fetchUserPlanDetails();
+            Toast.show({
+              type: 'success',
+              text1: 'Payment Successful',
+              text2:
+                resolvedPlanType === 'family_plan'
+                  ? 'Your Family subscription has been activated'
+                  : 'Your Individual subscription has been activated',
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 3000,
+            });
+          } else {
+            throw new Error(
+              (verifyResponse as any)?.message || 'Payment verification failed',
+            );
+          }
+        return;
+      }
+
+      // ---------- Android: Razorpay flow (unchanged) ----------
+
+      console.log('creating subscription------',);
+      console.log('planId------', planId);
+      console.log('userId------', userId);
+      console.log('memberUserId------', memberUserId);
+      console.log('planType------', planType);
+      console.log('selectedMemberForSubscription------', selectedMemberForSubscription);
+      const subscriptionResponse = await subscriptionApi.createAutopaySubscription({
         plan_id: planId,
         user_id: userId,
         member_user_id: memberUserId,
-        notes: {
-          action: 'premium_subscription',
-          member_name: selectedMemberForSubscription.full_name || 'Member',
-        },
+        plan_type: planType === 'family' ? 'family_plan' : 'eternal_path',
       });
 
-      console.log('Subscription created:', subscriptionResponse);
+      console.log('subscriptionResponse------', subscriptionResponse);
 
-      // Check if subscription was created
       if (!subscriptionResponse.subscription_id) {
         throw new Error('Subscription ID not received from server');
       }
 
-      // iOS: open short_url / payment_url in browser instead of Razorpay SDK
-      if (Platform.OS === 'ios') {
-        const paymentUrl =
-          subscriptionResponse.short_url || subscriptionResponse.payment_url;
-
-        if (!paymentUrl) {
-          throw new Error('Payment URL not received from server');
-        }
-
-        // Close modal before opening browser
-        handleClosePremiumModal();
-
-        const supported = await Linking.canOpenURL(paymentUrl);
-        if (!supported) {
-          throw new Error('Unable to open payment URL');
-        }
-
-        Toast.show({
-          type: 'info',
-          text1: 'Redirecting to Payment',
-          text2: 'Opening secure payment page in your browser',
-          position: 'top',
-          topOffset: 60,
-          visibilityTime: 2000,
-        });
-
-        await Linking.openURL(paymentUrl);
-
-        // For iOS browser flow, server/webhook will update subscription.
-        // App can refresh profile data when user returns (handled elsewhere via focus).
-        return;
-      }
-
-      // Android: use Razorpay SDK as before
       if (!subscriptionResponse.razorpay_key) {
         throw new Error('Razorpay key not received from server');
       }
@@ -869,7 +1785,7 @@ const MemberPlanManagement = () => {
       const userDataString = await AsyncStorage.getItem('USER_DATA');
       let currentUserData: any = {};
       if (userDataString) {
-        currentUserData = JSON.parse(userDataString);
+        currentUserData = JSON.parse(String(userDataString));
       }
 
       // Close the premium modal before opening Razorpay
@@ -877,7 +1793,7 @@ const MemberPlanManagement = () => {
 
       // Razorpay payment options for subscription
       const options = {
-        key: subscriptionResponse.razorpay_key,
+        key: String(subscriptionResponse.razorpay_key),
         subscription_id: subscriptionResponse.subscription_id,
         name: 'Astrodha',
         description: 'Premium Plan Subscription - Astrodha',
@@ -888,9 +1804,8 @@ const MemberPlanManagement = () => {
           contact:
             currentUserData.phone || (user as any)?.phone || '9999999999',
           name:
-            `${currentUserData.first_name || (user as any)?.first_name || ''} ${
-              currentUserData.last_name || (user as any)?.last_name || ''
-            }`.trim() || 'User',
+            `${currentUserData.first_name || (user as any)?.first_name || ''} ${currentUserData.last_name || (user as any)?.last_name || ''
+              }`.trim() || 'User',
         },
         notes: {
           source: 'react_native',
@@ -960,6 +1875,12 @@ const MemberPlanManagement = () => {
         }
       }
     } catch (subscriptionError: any) {
+      if (verifiedThisAttempt) {
+        // If we already verified successfully, ignore any late iOS errors
+        // (e.g. already-owned / duplicate callbacks).
+        console.log('Ignoring post-verify error:', subscriptionError?.message);
+        return;
+      }
       console.error('Error creating subscription:', subscriptionError);
       Toast.show({
         type: 'error',
@@ -1178,7 +2099,7 @@ const MemberPlanManagement = () => {
                 },
               ]}
               onPress={handlePaymentHistory}
-              // disabled={!isCreateChartEnabled}
+            // disabled={!isCreateChartEnabled}
             >
               <Text
                 style={[
@@ -1208,7 +2129,7 @@ const MemberPlanManagement = () => {
                 },
               ]}
               onPress={handleCreateChart}
-              // disabled={!isCreateChartEnabled}
+            // disabled={!isCreateChartEnabled}
             >
               <Text
                 style={[
@@ -1346,11 +2267,13 @@ const MemberPlanManagement = () => {
                       setSelectedMemberForUpgrade(item);
                       setShowUpgradeModal(true);
                     }}
+                    userCurrentPlan={user?.current_plan || userPlanDetails?.current_plan}
+                    isSubscriptionLoading={isFetchingPlan}
                   />
                 );
               }}
-              keyExtractor={item =>
-                item.id || item._id || Math.random().toString()
+              keyExtractor={(item, index) =>
+                item.id || item._id || `member-${index}`
               }
               scrollEnabled={false}
               refreshing={loading}
@@ -1577,21 +2500,92 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
         </View>
       </Modal>
 
-      {/* Premium Plan Modal */}
+      {/* No available slots modal */}
+      <Modal
+        visible={showNoAvailablePlanModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNoAvailablePlanModal(false)}
+      >
+        <View style={styles.premiumModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowNoAvailablePlanModal(false)}
+          />
+          <View
+            style={[
+              styles.premiumModalContainer,
+              {
+                backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
+                paddingTop: 24,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.premiumModalTitle,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                  marginBottom: 12,
+                },
+              ]}
+            >
+              No Available Plan
+            </Text>
+
+            <Text
+              style={[
+                styles.premiumModalPlanFeatureText,
+                {
+                  color:
+                    theme === 'dark'
+                      ? 'rgba(255,255,255,0.8)'
+                      : 'rgba(0,0,0,0.7)',
+                  textAlign: 'center',
+                  marginBottom: 16,
+                },
+              ]}
+            >
+              You don’t have an available plan to allocate a member. Please
+              remove a member from your current plan or upgrade your plan to
+              assign a new member.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.premiumModalPlanCta, { backgroundColor: colors.Orangeaccentcolor }]}
+              onPress={() => setShowNoAvailablePlanModal(false)}
+            >
+              <Text
+                style={[
+                  styles.premiumModalPlanCtaText,
+                  // { color: '#1A2744' },
+                ]}
+              >
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Premium Plan Modal - Individual & Family Plans */}
       <Modal
         visible={showPremiumModal}
         transparent
         animationType="fade"
         onRequestClose={handleClosePremiumModal}
       >
-        <TouchableOpacity
-          style={styles.premiumModalOverlay}
-          activeOpacity={1}
-          onPress={handleClosePremiumModal}
-        >
+        <View style={styles.premiumModalOverlay}>
           <TouchableOpacity
+            style={StyleSheet.absoluteFill}
             activeOpacity={1}
-            onPress={e => e.stopPropagation()}
+            onPress={handleClosePremiumModal}
+          />
+          <View
             style={[
               styles.premiumModalContainer,
               {
@@ -1620,205 +2614,214 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
               </Text>
             </TouchableOpacity>
 
-            {/* Header with Crown Icon */}
-            <View style={styles.premiumModalHeader}>
-              <Text style={styles.premiumModalCrownIcon}>👑</Text>
-              <Text
-                style={[
-                  styles.premiumModalTitle,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Annual Plan – What You Unlock
-              </Text>
-            </View>
-
-            {/* Price */}
-            <View style={styles.premiumModalPriceContainer}>
-              <Text
-                style={[
-                  styles.premiumModalPrice,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                999
-              </Text>
-              <Text
-                style={[
-                  styles.premiumModalPriceUnit,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                INR/year
-              </Text>
-            </View>
-
-            {/* Description */}
+            {/* Modal Title */}
             <Text
               style={[
-                styles.premiumModalDescription,
+                styles.premiumModalTitle,
                 {
                   color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
                 },
               ]}
             >
-              Experience the full power of{' '}
-              <Text style={styles.premiumModalBoldText}>
-                Natal Insights + Dynamic Planetary Insights + Action Alignment
-              </Text>{' '}
-              in one seamless journey.
+              Choose Your Plan
             </Text>
 
-            {/* Features List */}
-            <View style={styles.premiumModalFeaturesContainer}>
-              {/* Feature 1 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Natal Chart-Based Insights:
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Deep interpretations of core personality, soul desires, &
-                    blended predictions for all 12 houses. Includes 100 BNN
-                    snapshot predictions, planetary strength/weakness, &
-                    hyper-personalisation.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Feature 2 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Dynamic Insights (Active Planet + Transits):
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Guidance that evolves: your most active planet, transit
-                    influences, and refreshed updates every 15 days with new
-                    planetary movements.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Feature 3 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Dynamic Task Module (Mobile App Only):
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Karma-Aligned Action: Turn insights into momentum with
-                    personalised Do's & Don'ts, track progress, and build habits
-                    aligned with your planetary phase.
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Buy Premium Access Button */}
-            <TouchableOpacity
-              style={[
-                styles.premiumModalBuyButton,
-                {
-                  backgroundColor: colors.Orangeaccentcolor,
-                  opacity: creatingSubscription ? 0.6 : 1,
-                },
-              ]}
-              onPress={handleBuyPremiumAccess}
-              disabled={creatingSubscription}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.premiumModalCardsRow}
+              style={styles.premiumModalCardsScroll}
             >
-              {creatingSubscription ? (
-                <ActivityIndicator color={colors.white} />
-              ) : (
-                <>
-                  <Text style={styles.premiumModalBuyButtonText}>
-                    Buy an Annual Plan
+              {/* Individual Annual Card */}
+              <View style={[styles.premiumModalPlanCard, { backgroundColor: '#1A2744' }]}>
+                <View style={styles.premiumModalPlanBanner}>
+                  <Text style={styles.premiumModalPlanBannerText}>MOST POPULAR</Text>
+                </View>
+                <Text style={[styles.premiumModalPlanCardTitle, { color: '#FFFFFF' }]}>Individual Annual</Text>
+                <View style={[styles.premiumModalPriceBox, { backgroundColor: '#0F1A2E' }]}>
+                  <Text style={[styles.premiumModalPlanPrice, { color: '#FFFFFF' }]}>₹999</Text>
+                  <Text style={[styles.premiumModalPlanPriceUnit, { color: 'rgba(255,255,255,0.8)' }]}>/ year</Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.premiumModalPlanCta,
+                    styles.premiumModalCtaGold,
+                    (creatingSubscription || userPlanDetails?.current_plan === 'eternal_path') && {
+                      opacity: 0.5,
+                    },
+                  ]}
+                  onPress={() => handleBuyPremiumAccess('individual')}
+                  disabled={creatingSubscription || userPlanDetails?.current_plan === 'eternal_path'}
+                >
+                  {creatingSubscription ? (
+                    <ActivityIndicator color="#1A2744" size="small" />
+                  ) : (
+                    <Text style={[styles.premiumModalPlanCtaText, { color: '#1A2744' }]}>
+                      Upgrade to Individual Plan
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                {INDIVIDUAL_FEATURES.map((f, i) => (
+                  <View key={i} style={styles.premiumModalFeatureRow}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      style={[styles.premiumModalPlanCheckIcon, { tintColor: '#E8B923' }]}
+                    />
+                    <View style={styles.premiumModalFeatureTextWrapper}>
+                      <Text style={[styles.premiumModalPlanFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
+                      {f.sub?.map((s, j) => (
+                        <Text key={j} style={[styles.premiumModalPlanFeatureSub, { color: 'rgba(255,255,255,0.9)' }]}>
+                          • {s}
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {/* Family Annual Card */}
+              <View style={[styles.premiumModalPlanCard, { backgroundColor: '#2D1B4E' }]}>
+                <View style={styles.premiumModalPlanBanner}>
+                  <Text style={styles.premiumModalPlanBannerText}>BEST VALUE</Text>
+                </View>
+                <Text style={[styles.premiumModalPlanCardTitle, { color: '#FFFFFF' }]}>Family Annual</Text>
+                <Text style={[styles.premiumModalPlanCardSubtitle, { color: 'rgba(255,255,255,0.9)' }]}>
+                  - For families growing together -
+                </Text>
+                <View style={[styles.premiumModalPriceBox, { backgroundColor: '#1E1335' }]}>
+                  <Text style={[styles.premiumModalPlanPrice, { color: '#FFFFFF' }]}>₹2999</Text>
+                  <Text style={[styles.premiumModalPlanPriceUnit, { color: 'rgba(255,255,255,0.8)' }]}>/ year</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.premiumModalPlanCta, styles.premiumModalCtaPurple]}
+                  onPress={async () => {
+                    if (userPlanDetails?.current_plan === 'eternal_path') {
+                      // For eternal_path, family selection should go through upgrade flow (Android)
+                      if (Platform.OS === 'android') {
+                        await handleUpdatePlan(selectedMemberForSubscription);
+                        return;
+                      }
+                      // iOS must not use Razorpay; fallback to iOS subscription purchase
+                      await handleBuyPremiumAccess('family');
+                      return;
+                    }
+                    await handleBuyPremiumAccess('family');
+                  }}
+                  disabled={creatingSubscription}
+                >
+                  {creatingSubscription ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={[styles.premiumModalPlanCtaText, { color: '#FFFFFF' }]}>
+                      Start Family Plan
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                {FAMILY_FEATURES.map((f, i) => (
+                  <View key={i} style={styles.premiumModalFeatureRow}>
+                    <Image
+                      source={require('../../assets/icons/checkIcon.png')}
+                      style={[styles.premiumModalPlanCheckIcon, { tintColor: '#E8B923' }]}
+                    />
+                    <View style={styles.premiumModalFeatureTextWrapper}>
+                      <Text style={[styles.premiumModalPlanFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
+                      {f.sub?.map((s, j) => (
+                        <Text key={j} style={[styles.premiumModalPlanFeatureSub, { color: 'rgba(255,255,255,0.9)' }]}>
+                          • {s}
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+                <View style={styles.premiumModalPlanFooterCapsule}>
+                  <Text style={[styles.premiumModalPlanFooterText, { color: '#2D1B4E' }]}>
+                    Best for families who want structured life guidance together
                   </Text>
-                  {/* <Text style={styles.premiumModalBuyButtonArrow}>→</Text> */}
-                </>
-              )}
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Assign Family Plan Modal - when user has family_plan */}
+      <Modal
+        visible={showAssignModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseAssignModal}
+      >
+        <View style={styles.upgradeModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={handleCloseAssignModal}
+          />
+          <View
+            style={[
+              styles.upgradeModalContainer,
+              {
+                backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.upgradeModalTitle,
+                { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+              ]}
+            >
+              Assign Family Plan
+            </Text>
+            <Text
+              style={[
+                styles.upgradeModalMessage,
+                { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+              ]}
+            >
+              You already have a Family Plan. You can assign this member.
+            </Text>
+            <View style={styles.upgradeModalButtonsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.upgradeModalButton,
+                  styles.upgradeModalCancelButton,
+                  { borderColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+                ]}
+                onPress={handleCloseAssignModal}
+              >
+                <Text
+                  style={[
+                    styles.upgradeModalButtonText,
+                    { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.upgradeModalButton,
+                  styles.upgradeModalBuyButton,
+                  { backgroundColor: colors.Orangeaccentcolor, opacity: isAssigning ? 0.6 : 1 },
+                ]}
+                onPress={handleAssignFamilyPlan}
+                disabled={isAssigning}
+              >
+                {isAssigning ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={[styles.upgradeModalButtonText, { color: '#FFFFFF' }]}>
+                    Assign
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* Upgrade Plan Modal for Dynamic Predictions */}
@@ -2635,9 +3638,10 @@ const styles = StyleSheet.create({
     marginRight: responsiveWidth(2),
   },
   premiumModalTitle: {
-    fontSize: 16,
-    fontFamily: fontFamily.semiBold,
-    // flex: 1,
+    fontSize: 18,
+    fontFamily: fontFamily.bold,
+    textAlign: 'center',
+    marginBottom: 12,
   },
   premiumModalPriceContainer: {
     flexDirection: 'row',
@@ -2710,6 +3714,124 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  premiumModalCardsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    gap: 16,
+  },
+  premiumModalCardsScroll: {
+    // flexGrow: 1,
+    // flex:1
+    maxHeight: "100%",
+  },
+  premiumModalPlanCard: {
+    width: 260,
+    borderRadius: 12,
+    padding: 16,
+    paddingRight: 18,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  premiumModalPlanBanner: {
+    alignSelf: 'center',
+    backgroundColor: '#E8B923',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: 10,
+  },
+  premiumModalPlanBannerText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: '#1A2744',
+    letterSpacing: 0.5,
+  },
+  premiumModalPlanCardTitle: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    marginBottom: 6,
+  },
+  premiumModalPlanCardSubtitle: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    marginBottom: 6,
+  },
+  premiumModalPriceBox: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  premiumModalPlanPrice: {
+    fontSize: 20,
+    fontFamily: fontFamily.bold,
+  },
+  premiumModalPlanPriceUnit: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+  },
+  premiumModalPlanCta: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  premiumModalCtaGold: {
+    backgroundColor: '#E8B923',
+  },
+  premiumModalCtaPurple: {
+    backgroundColor: '#7C3AED',
+  },
+  premiumModalPlanCtaText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+  },
+  premiumModalFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  premiumModalFeatureTextWrapper: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  premiumModalPlanCheckIcon: {
+    width: 16,
+    height: 16,
+    marginRight: 8,
+    marginTop: 2,
+  },
+  premiumModalPlanFeatureText: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    lineHeight: 18,
+    flexShrink: 1,
+  },
+  premiumModalPlanFeatureSub: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    lineHeight: 16,
+    marginTop: 4,
+    marginLeft: 0,
+    flexShrink: 1,
+  },
+  premiumModalPlanFooterCapsule: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    marginTop: 8,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  premiumModalPlanFooterText: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    lineHeight: 16,
+    flexShrink: 1,
   },
   // Upgrade Modal Styles
   upgradeModalOverlay: {
