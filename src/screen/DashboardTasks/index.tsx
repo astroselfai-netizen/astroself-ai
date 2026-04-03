@@ -1129,7 +1129,7 @@ const DashboardTasksScreen = () => {
                     },
                   ]}
                 >
-                  Today's Tasks
+                  Tasks inventory
                 </Text>
               </TouchableOpacity>
 
@@ -1858,7 +1858,7 @@ const styles = StyleSheet.create({
   },
   pointsSection: {
     // marginBottom: responsiveWidth(1),
-    // marginTop: responsiveWidth(3),
+    marginTop: responsiveWidth(3),
   },
   taskCard: {
     // backgroundColor: '#223149',
@@ -1940,7 +1940,7 @@ const styles = StyleSheet.create({
   },
   emptyStateContainer: {
     borderRadius: 12,
-    padding: responsiveWidth(4),
+    padding: responsiveWidth(1),
     marginBottom: responsiveWidth(3),
     borderWidth: 1,
     alignItems: 'center',
@@ -1958,7 +1958,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: responsiveWidth(6),
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: responsiveWidth(2),
+    margin: responsiveWidth(2),
+    // marginTop: responsiveWidth(2),
   },
   addTaskButtonText: {
     fontSize: 16,

@@ -131,21 +131,45 @@ const ChatScreen = () => {
     return isCosmic;
   }, [selectedMember, selectedMemberId]);
 
+  const canAccessDynamicPredictions = React.useMemo(() => {
+    if (selectedMember?.current_plan === 'family_plan') {
+      return true;
+    }
+    return !showInfoContainer && !isSelectedMemberChild;
+  }, [
+    selectedMember?.current_plan,
+    showInfoContainer,
+    isSelectedMemberChild,
+  ]);
+
   // Reset modal state when member changes (but don't clear the Set - we want to remember which members have seen it)
   useEffect(() => {
     setShowBuyMembershipModal(false);
   }, [selectedMemberId]);
 
   // Switch to Current Situation tab if General Analysis is active when showInfoContainer becomes true or if member is child
+  // (family_plan members keep access to Dynamic Predictions)
   useEffect(() => {
-    if (showInfoContainer && activeTab === 'General Analysis') {
+    if (
+      showInfoContainer &&
+      activeTab === 'General Analysis' &&
+      selectedMember?.current_plan !== 'family_plan'
+    ) {
       setActiveTab('Current Situation');
     }
-    // If selected member is a child and General Analysis tab is active, switch to Current Situation
-    if (isSelectedMemberChild && activeTab === 'General Analysis') {
+    if (
+      isSelectedMemberChild &&
+      activeTab === 'General Analysis' &&
+      selectedMember?.current_plan !== 'family_plan'
+    ) {
       setActiveTab('Current Situation');
     }
-  }, [showInfoContainer, activeTab, isSelectedMemberChild]);
+  }, [
+    showInfoContainer,
+    activeTab,
+    isSelectedMemberChild,
+    selectedMember?.current_plan,
+  ]);
 
   // Check if free points modal should be shown after login
   // useEffect(() => {
@@ -1249,7 +1273,7 @@ const ChatScreen = () => {
                   },
                 ]}
               >
-                Birth Chart Prediction
+                Birth Chart Predictions
               </Text>
             </TouchableOpacity>
 
@@ -1268,25 +1292,21 @@ const ChatScreen = () => {
                     theme === 'dark'
                       ? colors.themeBorderDropdown
                       : colors.borderColor,
-                  opacity: showInfoContainer || isSelectedMemberChild ? 0.5 : 1,
+                  opacity: canAccessDynamicPredictions ? 1 : 0.5,
                 },
               ]}
               onPress={() => {
-                console.log('isCosmicFoundationPlan---->1272', isCosmicFoundationPlan);
-                console.log('showInfoContainer---->1273', showInfoContainer);
-                if (!showInfoContainer && !isSelectedMemberChild) {
-                  // Check if member has cosmic_foundation plan
-                  if (isCosmicFoundationPlan) {
-                    // Check if modal was already shown for this member
-                    setModalFeatureName('Dynamic Predictions');
-                    setShowBuyMembershipModal(true);
-                    // Mark this member as having seen t
-                  } else {
-                    setActiveTab('General Analysis');
-                  }
+                if (!canAccessDynamicPredictions) {
+                  return;
+                }
+                if (isCosmicFoundationPlan) {
+                  setModalFeatureName('Dynamic Predictions');
+                  setShowBuyMembershipModal(true);
+                } else {
+                  setActiveTab('General Analysis');
                 }
               }}
-              disabled={showInfoContainer || isSelectedMemberChild}
+              disabled={!canAccessDynamicPredictions}
             >
               <Text
                 style={[
@@ -1303,7 +1323,7 @@ const ChatScreen = () => {
                         ? colors.accent
                         : colors.Orangeaccentcolor,
                   },
-                  (showInfoContainer || isSelectedMemberChild) && {
+                  !canAccessDynamicPredictions && {
                     opacity: 0.5,
                   },
                 ]}

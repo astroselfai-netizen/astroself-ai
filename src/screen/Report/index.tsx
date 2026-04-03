@@ -112,6 +112,7 @@ const ReportScreen = () => {
         try {
           setLoadingPurchasedReports(true);
           const response = await paymentService.getPurchasedReports(selectedMemberId);
+          console.log('response:--->11t5', response);
           if (response.status === 'success' && response.data) {
             setPurchasedReports(response.data);
           } else {
@@ -413,7 +414,7 @@ const ReportScreen = () => {
         key: RAZORPAY_CONFIG.TEST_KEY,
         amount: orderResponse.amount,
         order_id: orderResponse.order_id,
-        name: 'Astroself',
+        name: 'Astrodha',
         prefill: {
           email: currentUserData.email || 'user@example.com',
           contact: currentUserData.phone || '9999999999',
@@ -1161,6 +1162,8 @@ const ReportScreen = () => {
             ) : (
               <View style={styles.purchasedReportsList}>
                 {purchasedReports.map((report, index) => {
+
+                  console.log('report:--->', report);
                   // Find report details from reportsData
                   const reportDetails = reportsData.find(
                     r => r.id === report.report_type,
@@ -1257,7 +1260,7 @@ const ReportScreen = () => {
                             ]}
                           >
                             <Text style={styles.purchasedBadgeText}>
-                              Purchased
+                              Purchased by {report.name}
                             </Text>
                           </View>
                           <Text
@@ -1658,8 +1661,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: responsiveWidth(3),
     paddingVertical: responsiveWidth(1.5),
-    borderRadius: 12,
-    marginBottom: responsiveWidth(2),
+    borderRadius: 5,
+    marginBottom: responsiveWidth(1),
   },
   purchasedBadgeText: {
     color: '#FFFFFF',
@@ -1668,15 +1671,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   verifiedDateContainer: {
-    marginTop: responsiveWidth(3),
-    paddingTop: responsiveWidth(3),
+    marginTop: responsiveWidth(1),
+    paddingTop: responsiveWidth(1),
     borderTopWidth: 0.5,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
   },
   verifiedDateLabel: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
-    marginBottom: responsiveWidth(1),
+    // marginBottom: responsiveWidth(1),
     opacity: 0.7,
   },
   verifiedDateValue: {
@@ -1691,12 +1694,12 @@ const styles = StyleSheet.create({
     // opacity: 0.6,
   },
   reportCardImageStyle: {
-    borderRadius: 16,
+    borderRadius: 10,
     opacity: 0.2,
   },
   reportCard: {
     borderRadius: 16,
-    padding: responsiveWidth(4),
+    padding: responsiveWidth(3),
     borderWidth: 0.2,
     // opacity: 0.6,
     // borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -1710,12 +1713,12 @@ const styles = StyleSheet.create({
     // elevation: 8,
   },
   reportCardHeader: {
-    marginBottom: responsiveWidth(3),
+    // marginBottom: responsiveWidth(3),
   },
   reportTitle: {
     fontSize: 18,
     fontFamily: fontFamily.bold,
-    marginBottom: responsiveWidth(1),
+    // marginBottom: responsiveWidth(1),
     fontWeight: '700',
   },
   reportDescription: {

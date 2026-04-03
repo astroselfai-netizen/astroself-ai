@@ -78,6 +78,10 @@ const EditAllTaskSelectionScreen = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   // const [showValidationErrors, setShowValidationErrors] = useState(false);
 
+  const hasSelectedTasks = React.useMemo(() => {
+    return (tasks || []).some(t => t.selected);
+  }, [tasks]);
+
   // Set selectedMemberId only when userId comes from route params
   useEffect(() => {
     if (route.params?.userId && route.params.userId.trim() !== '') {
@@ -408,6 +412,11 @@ const EditAllTaskSelectionScreen = () => {
   const handleSave = async () => {
     if (!userId) {
       Alert.alert('Error', 'User ID not found');
+      return;
+    }
+
+    // Don't allow save when no tasks are selected
+    if (!hasSelectedTasks) {
       return;
     }
 
@@ -758,7 +767,7 @@ const EditAllTaskSelectionScreen = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSave}
-                disabled={saving || loading}
+                disabled={saving || loading || !hasSelectedTasks}
                 style={[
                   styles.editBtn,
                   {
@@ -766,7 +775,7 @@ const EditAllTaskSelectionScreen = () => {
                       theme === 'dark'
                         ? colors.Orangeaccentcolor
                         : colors.Orangeaccentcolor,
-                    opacity: saving || loading ? 0.5 : 1,
+                    opacity: saving || loading || !hasSelectedTasks ? 0.5 : 1,
                   },
                 ]}
               >

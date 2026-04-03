@@ -1,4 +1,4 @@
-// PrivacyPolicyScreen.tsx
+// PaidPlanScreen.tsx
 
 import React from 'react';
 import {
@@ -41,7 +41,7 @@ type PaidPlanScreenNavigationProp = StackNavigationProp<
 
 const FREE_FEATURES = [
   'Birth chart analysis',
-  '100 AI snapshot predictions',
+  'AI snapshot predictions',
   'Personality insights',
   'Current life phase overview',
   'Strengths & watch areas',
@@ -49,31 +49,18 @@ const FREE_FEATURES = [
   'Transit overview snapshot',
 ];
 
-const INDIVIDUAL_FEATURES = [
-  { title: 'Everything in Free', icon: 'star' },
-  {
-    title: 'Dynamic Life Intelligence',
-    sub: ['Real-time transit predictions', 'Life phase intelligence (Antardasha)', 'Active planet influence tracking'],
-  },
-  {
-    title: 'AI Insight Engine',
-    sub: ['Detailed chart interpretation', 'Nakshatra-based predictions', 'Guidance & analysis'],
-  },
-  {
-    title: 'Dynamic Task Module',
-    sub: ['Personalized growth tasks', 'Habit development & tracking', 'Adaptive self-improvement'],
-  },
+const INDIVIDUAL_FEATURES: Array<{ title: string; sub?: string[] }> = [
+  { title: 'Natal Insights + Dynamic Planetary Insights' },
+  { title: 'Transit Guidance + Personal Predictions delivered every 15 days' },
+  { title: 'Karma Alignment + Mobile Task Module' },
+  { title: 'Build better habits aligned with your planetary phase' },
 ];
 
-const FAMILY_FEATURES = [
-  { title: 'Everything in Individual', icon: 'star' },
-  {
-    title: 'Family Intelligence Layer',
-    sub: ['Up to 5 family profiles', 'Individual insights for each member', 'Growth tasks for each member'],
-  },
-  { title: 'Centralized family dashboard', sub: ['Track all profile progress'] },
-  { title: 'Add/change members anytime', icon: 'user-plus' },
-  { title: 'Up to 60% savings versus individual plans', icon: 'percent' },
+const FAMILY_FEATURES: Array<{ title: string; sub?: string[] }> = [
+  { title: 'Full Access for Up to 5 Family Members' },
+  { title: 'Personalized Guidance for Each Member' },
+  { title: 'Save up to 60%' },
+  { title: 'Manage Profiles as Your Family Evolves' },
 ];
 
 const PaidPlanScreen = () => {
@@ -130,7 +117,7 @@ const PaidPlanScreen = () => {
               },
             ]}
           >
-            Plans
+            Choose a Plan
           </Text>
         </View>
       </View>
@@ -147,7 +134,7 @@ const PaidPlanScreen = () => {
       <View style={[styles.topFeaturesRow, { backgroundColor: theme === 'dark' ? 'rgba(34,49,73,0.9)' : 'rgba(223,138,93,0.15)' }]}>
         <Text style={[styles.topFeatureItem, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>✓ Personalized Insights</Text>
         <Text style={[styles.topFeatureItem, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>✓ Dynamic Life Intelligence</Text>
-        <Text style={[styles.topFeatureItem, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>✓ Habit Building Tasks</Text>
+        <Text style={[styles.topFeatureItem, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>✓ Guidance + Tasks</Text>
       </View>
 
       {/* Main Content - 3 Plan Cards */}
@@ -182,7 +169,7 @@ const PaidPlanScreen = () => {
               style={[styles.planCtaButton, styles.ctaTealGreen]}
               onPress={handleStartFree}
             >
-              <Text style={styles.planCtaButtonText}>Start Free</Text>
+              <Text style={styles.planCtaButtonText}>Continue Free</Text>
             </TouchableOpacity>
             <Text style={[styles.planFeaturesHeader, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>Everything in Free:</Text>
             {FREE_FEATURES.map((f, i) => (
@@ -194,7 +181,7 @@ const PaidPlanScreen = () => {
             <View style={[styles.planFooterCapsule, { backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F5F5F5' }]}>
               <Text style={[styles.planFooterText, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>1 profile included</Text>
             </View>
-            <Text style={[styles.planSubtext, { color: theme === 'dark' ? colors.textSecondary : '#888' }]}>Explore life guidance features by starting free.</Text>
+            <Text style={[styles.planSubtext, { color: theme === 'dark' ? colors.textSecondary : '#888' }]}>Try the basics. Upgrade anytime for full access.</Text>
           </View>
 
           {/* INDIVIDUAL ANNUAL CARD */}
@@ -215,7 +202,7 @@ const PaidPlanScreen = () => {
               style={[styles.planCtaButton, styles.ctaGold]}
               onPress={() => handleSelectPlan('individual')}
             >
-              <Text style={[styles.planCtaButtonText, { color: '#1A2744' }]}>Upgrade to Individual Plan</Text>
+              <Text style={[styles.planCtaButtonText, { color: '#1A2744' }]}>Get Individual Plan →</Text>
             </TouchableOpacity>
             {INDIVIDUAL_FEATURES.map((f, i) => (
               <View key={i} style={styles.planFeatureRow}>
@@ -249,7 +236,7 @@ const PaidPlanScreen = () => {
               style={[styles.planCtaButton, styles.ctaPurple]}
               onPress={() => handleSelectPlan('family')}
             >
-              <Text style={styles.planCtaButtonText}>Start Family Plan</Text>
+              <Text style={styles.planCtaButtonText}>Get Family Plan →</Text>
             </TouchableOpacity>
             {FAMILY_FEATURES.map((f, i) => (
               <View key={i} style={styles.planFeatureRow}>
@@ -262,9 +249,9 @@ const PaidPlanScreen = () => {
                 </View>
               </View>
             ))}
-            <View style={[styles.planFooterCapsule, styles.planFooterCapsulePurple]}>
+            {/* <View style={[styles.planFooterCapsule, styles.planFooterCapsulePurple]}>
               <Text style={[styles.planFooterText, { color: '#2D1B4E' }]}>Best for families who want structured life guidance together</Text>
-            </View>
+            </View> */}
           </View>
         </ScrollView>
       </ScrollView>

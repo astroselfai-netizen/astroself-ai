@@ -59,6 +59,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const [topics, setTopics] = useState<PredictionTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTopicId, setLoadingTopicId] = useState<string | null>(null);
+  const [topicLoadError, setTopicLoadError] = useState<Record<string, string>>(
+    {},
+  );
   const [loadingTime, setLoadingTime] = useState<number>(0);
   const userService = serviceFactory.get<UserService>('UserService');
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
@@ -517,6 +520,11 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     try {
       // Show loading for this specific topic
       setLoadingTopicId(topicId);
+      setTopicLoadError(prev => {
+        const next = { ...prev };
+        delete next[topicId];
+        return next;
+      });
 
       console.log('Fetching AI content for topic:', topic?.title);
       console.log('API call parameters:', {
@@ -759,20 +767,17 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       }
     } catch (error: any) {
       console.error('Error fetching AI content:', error);
-
-      // Set error content with retry option
-      const errorMessage = error.message || 'Unknown error';
-      const errorContent = errorMessage;
-       
-
+      const errorMessage =
+        error?.message ||
+        error?.response?.data?.message ||
+        'Unable to load content. Please try again.';
+      setTopicLoadError(prev => ({
+        ...prev,
+        [topicId]: String(errorMessage),
+      }));
       setTopics(prevTopics =>
         prevTopics.map(t =>
-          t.id === topicId
-            ? {
-                ...t,
-                content: errorContent,
-              }
-            : t,
+          t.id === topicId ? { ...t, content: '' } : t,
         ),
       );
     } finally {
@@ -1189,7 +1194,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               borderColor:
                 theme === 'dark'
                   ? colors.themeBorderDropdown
-                  : colors.borderColor,
+                  : colors.Orangeaccentcolor,
             },
           ]}
         >
@@ -1202,7 +1207,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               borderColor:
                 theme === 'dark'
                   ? colors.themeBorderDropdown
-                  : colors.borderColor,
+                  : colors.Orangeaccentcolor,
             },
           ]}
           onPress={() => {
@@ -1524,7 +1529,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                       borderColor:
                         theme === 'dark'
                           ? colors.themeBorderDropdown
-                          : colors.borderColor,
+                          : colors.Orangeaccentcolor,
                     },
                   ]}
                   imageStyle={styles.topicCardBgImage}
@@ -1547,7 +1552,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                         borderColor:
                           theme === 'dark'
                             ? colors.themeBorderDropdown
-                            : colors.borderColor,
+                            : colors.Orangeaccentcolor,
                       },
                     ]}
                     onPress={() => toggleExpanded(topic.id, topic.title)}
@@ -1590,7 +1595,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                           borderColor:
                             theme === 'dark'
                               ? colors.themeBorderDropdown
-                              : colors.borderColor,
+                              : colors.Orangeaccentcolor,
                         },
                       ]}
                     >
@@ -1640,12 +1645,57 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                             seconds)
                           </Text>
                         </View>
+                      ) : topicLoadError[topic.id] ? (
+                        <View
+                          style={[
+                            styles.topicLoadingContainer,
+                            styles.topicErrorContainer,
+                            {
+                              backgroundColor:
+                                theme === 'dark'
+                                  ? colors.transparent
+                                  : colors.white,
+                              borderColor:
+                                theme === 'dark'
+                                  ? colors.themeBorderDropdown
+                                  : colors.borderColor,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.topicErrorText,
+                              {
+                                color:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {topicLoadError[topic.id]}
+                          </Text>
+                          <TouchableOpacity
+                            style={[
+                              styles.topicReloadButton,
+                              {
+                                backgroundColor: colors.Orangeaccentcolor,
+                              },
+                            ]}
+                            onPress={() =>
+                              toggleExpanded(topic.id, topic.title, true)
+                            }
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.topicReloadButtonText}>
+                              Reload
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       ) : (
-                        // <View style={styles.topicContent}>
                         renderFormattedText(
                           topic.content || 'No content available',
                         )
-                        // </View>
                       )}
                     </View>
                   )}
@@ -2023,6 +2073,29 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     marginTop: 5,
     opacity: 0.7,
+  },
+  topicErrorContainer: {
+    paddingHorizontal: responsiveWidth(3),
+  },
+  topicErrorText: {
+    fontSize: fontSize.mini,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: responsiveHeight(1.5),
+    lineHeight: 20,
+  },
+  topicReloadButton: {
+    paddingVertical: responsiveHeight(1.2),
+    paddingHorizontal: responsiveWidth(6),
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topicReloadButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
   },
   // Horizontal Tabs styles
   tabsContainer: {

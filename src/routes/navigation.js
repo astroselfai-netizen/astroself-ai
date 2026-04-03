@@ -687,7 +687,7 @@ function MyTabs() {
               }
 
               // Only allow navigation if plan is eternal_path or other paid plans
-              if (user && user.current_plan === 'eternal_path') {
+              if (user && user.current_plan === 'eternal_path' || user.current_plan === 'family_plan') {
                 // If not on DashboardTasksScreen, navigate to it
                 if (currentRoute?.name !== 'DashboardTasksScreen') {
                   e.preventDefault();

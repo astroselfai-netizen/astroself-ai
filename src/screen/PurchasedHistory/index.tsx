@@ -948,7 +948,7 @@ const PurchasedHistoryScreen = () => {
                             },
                           ]}
                         >
-                          <TouchableOpacity
+                          {/* <TouchableOpacity
                             style={[
                               styles.actionButton,
                               styles.changeCardButton,
@@ -978,7 +978,7 @@ const PurchasedHistoryScreen = () => {
                             >
                               Change Card
                             </Text>
-                          </TouchableOpacity>
+                          </TouchableOpacity> */}
                           <TouchableOpacity
                             style={[
                               styles.actionButton,

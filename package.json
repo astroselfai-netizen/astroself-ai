@@ -1,6 +1,6 @@
 {
   "name": "Astroself",
-  "version": "0.0.24",
+  "version": "0.0.26",
   "private": true,
   "scripts": {
     "android": "react-native run-android",

@@ -510,6 +510,9 @@ const ProfileScreen = () => {
                 {
                   backgroundColor:
                     theme === 'dark' ? colors.transparent : colors.white,
+                    borderColor:
+                      theme === 'dark' ? colors.themeTextWhite : colors.Orangeaccentcolor,
+                      borderWidth:1,
                 },
               ]}
               imageStyle={[styles.membersBgImage, styles.membersCardMainImage]}

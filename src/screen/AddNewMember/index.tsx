@@ -14,7 +14,7 @@ import {
   Modal,
   FlatList,
   Alert,
-  Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -96,6 +96,8 @@ const AddNewMember = () => {
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showPredictionTypeModal, setShowPredictionTypeModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSubmitErrorModal, setShowSubmitErrorModal] = useState(false);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -172,7 +174,6 @@ const AddNewMember = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [places, setPlaces] = useState<Place[]>([]);
   const [isPlaceDropdownOpen, setIsPlaceDropdownOpen] = useState(false);
-  const [showPersonalDetails, setShowPersonalDetails] = useState(false);
 
   const genderOptions = ['Male', 'Female'];
   const predictionTypeOptions = ['Bullet', 'Paragraph'];
@@ -678,14 +679,8 @@ const AddNewMember = () => {
       } catch (error: any) {
         console.error('Error in onSubmit:', error);
         const errorMessage = error?.message || 'Something went wrong.';
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: errorMessage,
-          position: 'top',
-          topOffset: 60,
-          visibilityTime: 3000,
-        });
+        setSubmitErrorMessage(errorMessage);
+        setShowSubmitErrorModal(true);
       } finally {
         helpers.setSubmitting(false);
       }
@@ -1313,7 +1308,7 @@ const AddNewMember = () => {
               )}
             </View>
 
-            {/* Personal Details Toggle Section */}
+            {/* Personal Details */}
             <View style={styles.inputContainer}>
               <Text
                 style={[
@@ -1323,7 +1318,6 @@ const AddNewMember = () => {
                       theme === 'dark'
                         ? colors.themeTextWhite
                         : colors.DarkNavy,
-                    // marginTop: responsiveWidth(3),
                   },
                 ]}
               >
@@ -1331,90 +1325,60 @@ const AddNewMember = () => {
                 below. You can amend these details at any time. The next
                 fortnightly predictions will include the updated information.
               </Text>
-              <View style={styles.toggleContainer}>
-                <Switch
-                  value={showPersonalDetails}
-                  style={{
-                    marginRight:
-                      Platform.OS === 'ios'
-                        ? responsiveWidth(5)
-                        : responsiveWidth(2),
-                  }}
-                  onValueChange={setShowPersonalDetails}
-                  trackColor={{
-                    false: theme === 'dark' ? colors.borderColor : '#E0E0E0',
-                    true: colors.Orangeaccentcolor,
-                  }}
-                  thumbColor={
-                    showPersonalDetails
-                      ? colors.white
-                      : theme === 'dark'
-                      ? colors.themeTextWhite
-                      : '#F4F3F4'
+              <Text
+                style={[
+                  styles.inputTitleText,
+                  {
+                    marginTop: responsiveWidth(2),
+                    fontWeight: '700',
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Personal Details
+              </Text>
+              <TextInput
+                style={[
+                  styles.textAreaInput,
+                  {
+                    backgroundColor:
+                      theme === 'dark'
+                        ? colors.cardBackground
+                        : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                    marginTop: responsiveWidth(2),
+                  },
+                ]}
+                placeholder="Personalized predictions depend on the level of details shared by you - more precise, accurate, and comprehensive details will help generate relatable predictions."
+                placeholderTextColor={
+                  theme === 'dark' ? colors.themeTextWhite : colors.grayText
+                }
+                value={formik.values.whatDoYouDo}
+                onChangeText={formik.handleChange('whatDoYouDo')}
+                onBlur={formik.handleBlur('whatDoYouDo')}
+                onFocus={() => {
+                  if (isPlaceDropdownOpen) {
+                    setIsPlaceDropdownOpen(false);
                   }
-                  ios_backgroundColor={
-                    theme === 'dark' ? colors.borderColor : '#E0E0E0'
-                  }
-                />
-                <Text
-                  style={[
-                    styles.toggleLabel,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  Personal Details
+                }}
+                multiline={true}
+                numberOfLines={5}
+                textAlignVertical="top"
+              />
+              {formik.touched.whatDoYouDo && formik.errors.whatDoYouDo && (
+                <Text style={styles.errorText}>
+                  {formik.errors.whatDoYouDo}
                 </Text>
-              </View>
-
-              {/* What Do You Do - Only show when toggle is ON */}
-              {showPersonalDetails && (
-                <>
-                  <TextInput
-                    style={[
-                      styles.textAreaInput,
-                      {
-                        backgroundColor:
-                          theme === 'dark'
-                            ? colors.cardBackground
-                            : colors.white,
-                        borderColor:
-                          theme === 'dark'
-                            ? colors.themeBorderDropdown
-                            : colors.borderColor,
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                        marginTop: responsiveWidth(2),
-                      },
-                    ]}
-                    placeholder="Personalized predictions depend on the level of details shared by you - more precise, accurate, and comprehensive details will help generate relatable predictions."
-                    placeholderTextColor={
-                      theme === 'dark' ? colors.themeTextWhite : colors.grayText
-                    }
-                    value={formik.values.whatDoYouDo}
-                    onChangeText={formik.handleChange('whatDoYouDo')}
-                    onBlur={formik.handleBlur('whatDoYouDo')}
-                    onFocus={() => {
-                      if (isPlaceDropdownOpen) {
-                        setIsPlaceDropdownOpen(false);
-                      }
-                    }}
-                    multiline={true}
-                    numberOfLines={5}
-                    textAlignVertical="top"
-                  />
-                  {formik.touched.whatDoYouDo && formik.errors.whatDoYouDo && (
-                    <Text style={styles.errorText}>
-                      {formik.errors.whatDoYouDo}
-                    </Text>
-                  )}
-                </>
               )}
             </View>
 
@@ -1436,21 +1400,26 @@ const AddNewMember = () => {
               onPress={() => setShowConfirmModal(true)}
               disabled={formik.isSubmitting || isProcessingPayment}
             >
-              <Text
-                style={[
-                  styles.saveButtonText,
-                  {
-                    color:
-                      theme === 'dark' ? colors.themeTextWhite : colors.white,
-                  },
-                ]}
-              >
-                {isProcessingPayment
-                  ? 'Processing Payment...'
-                  : formik.isSubmitting
-                  ? 'Saving...'
-                  : 'Continue'}
-              </Text>
+              {isProcessingPayment || formik.isSubmitting ? (
+                <ActivityIndicator
+                  color={theme === 'dark' ? colors.themeTextWhite : colors.white}
+                  size="small"
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.white,
+                    },
+                  ]}
+                >
+                  Continue
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -1951,6 +1920,64 @@ const AddNewMember = () => {
         </View>
       </Modal>
 
+      {/* Submit error — replaces toast */}
+      <Modal
+        visible={showSubmitErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSubmitErrorModal(false)}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View
+            style={[
+              styles.confirmModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.confirmModalTitle,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Error
+            </Text>
+            <Text
+              style={[
+                styles.confirmModalMessage,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              {submitErrorMessage}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                {
+                  width: '100%',
+                  backgroundColor: colors.Orangeaccentcolor,
+                },
+              ]}
+              onPress={() => setShowSubmitErrorModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.confirmButtonText, { color: colors.white }]}>
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Loading Overlay for Navigation */}
       <Modal
         visible={isNavigating}
@@ -1999,7 +2026,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 60,
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 10,
     position: 'relative',
   },
   backBtn: {
@@ -2034,7 +2061,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     paddingHorizontal: 20,
-    marginBottom: responsiveWidth(5),
+    // marginBottom: responsiveWidth(5),
   },
   formContainerTitle: {
     marginBottom: 20,
@@ -2050,26 +2077,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     textAlign: 'center',
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    // justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: responsiveWidth(2),
-  },
-  toggleLabel: {
-    fontSize: 16,
-    fontFamily: fontFamily.regular,
-    fontWeight: '600',
-  },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 10,
   },
   inputTitleText: {
     fontSize: 16,
     fontFamily: fontFamily.regular,
     fontWeight: '600',
     // color: color.themeTextWhite,
-    marginBottom: 10,
+    // marginBottom: 5,
     marginLeft: 10,
   },
   input: {
@@ -2097,7 +2113,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: color.themeTextWhite,
     borderColor: '#rgba(73, 108, 168, 1)',
-    minHeight: 100,
+    minHeight: 290,
     textAlignVertical: 'top',
   },
   inputContent: {
@@ -2138,8 +2154,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(223, 138, 93, 1)',
     borderRadius: 10,
     paddingVertical: responsiveWidth('2.5'),
-    // alignItems: 'center',
-    // marginTop: responsiveWidth('3%'),
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
     marginBottom: responsiveWidth('20%'),
   },
   saveButtonText: {

@@ -28,6 +28,12 @@ export interface AllocatePlanResponse {
   message: string;
 }
 
+export interface DeallocateFamilyPlanResponse {
+  status: boolean;
+  message: string;
+  available_slots?: number;
+}
+
 class PlanService extends Service {
   /**
    * Fetches user plan details
@@ -152,6 +158,44 @@ class PlanService extends Service {
         error.message || 
         'Failed to allocate plan. Please try again.';
       
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * Deallocates a family member from family plan
+   * @param user_id - Logged-in user's ID
+   * @param birth_input_id - Member's birth_input_id
+   */
+  async deallocateFamilyPlan(
+    user_id: string,
+    birth_input_id: string
+  ): Promise<DeallocateFamilyPlanResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await http.post<DeallocateFamilyPlanResponse>(
+        'deallocate-family-plan',
+        { user_id, birth_input_id },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error deallocating family plan:', error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to deallocate family plan';
       throw new Error(errorMessage);
     }
   }
