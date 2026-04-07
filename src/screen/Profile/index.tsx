@@ -478,7 +478,7 @@ const ProfileScreen = () => {
               },
             ]}
           >
-            Profile
+            My Members
           </Text>
           {/* </View> */}
         </ImageBackground>

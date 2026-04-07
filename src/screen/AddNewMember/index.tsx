@@ -96,12 +96,14 @@ const AddNewMember = () => {
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showPredictionTypeModal, setShowPredictionTypeModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showMemberAddedModal, setShowMemberAddedModal] = useState(false);
   const [showSubmitErrorModal, setShowSubmitErrorModal] = useState(false);
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [newMemberUserId, setNewMemberUserId] = useState<string | null>(null);
 
   // Centralized function to close all modals
   const closeAllModals = () => {
@@ -304,7 +306,9 @@ const AddNewMember = () => {
     placeOfBirthDisplay: Yup.string()
       .trim()
       .required('Please select your place of birth'),
-    whatDoYouDo: Yup.string().trim(),
+    whatDoYouDo: Yup.string()
+      .trim()
+      .required('Please enter your personal details'),
   });
 
   // Payment handling function
@@ -586,6 +590,15 @@ const AddNewMember = () => {
       try {
         helpers.setSubmitting(true);
 
+        // DOB validation should surface at DOB confirm time,
+        // but we still block submit if user is under 18.
+        if (selectedDate && !isAbove18Years(selectedDate)) {
+          formik.setFieldTouched('dateOfBirth', true, false);
+          formik.setFieldError('dateOfBirth', 'Should be Above 18 years');
+          helpers.setSubmitting(false);
+          return;
+        }
+
         // Check if we came from MemberPlanManagement
         const fromMemberPlanManagement = route.params?.fromMemberPlanManagement;
 
@@ -604,47 +617,17 @@ const AddNewMember = () => {
         const response = await createBirthData(values);
         
         if (fromMemberPlanManagement) {
-          // Show loading indicator
-          setIsNavigating(true);
-
-          // Show toast 3 seconds before navigation (at 2 seconds)
-          setTimeout(() => {
-            Toast.show({
-              type: 'success',
-              text1: 'Member Added Successfully',
-              text2: 'New member has been added to your account.',
-              position: 'top',
-              topOffset: 60,
-              visibilityTime: 3000,
-            });
-          }, 4500); // 2 seconds (3 seconds before navigation)
-
-          // Navigate to ChatTab first to ensure Predictions tab is active, then to ChatWithPrompts after 5 seconds
-          setTimeout(() => {
-            setIsNavigating(false);
-            const rootNavigation = navigation.getParent();
-            if (rootNavigation) {
-              (rootNavigation as any).navigate('ChatTab', {
-                screen: 'ChatWithPrompts',
-                params: {
-                  userId: response.user_id,
-                  cardTitles: 'Snapshot Prediction',
-                  tab: 'LifeNow',
-                  planet: null,
-                },
-              });
-            } else {
-              // Fallback to direct navigation if parent not available
-              navigation.navigate('ChatWithPrompts' as any, {
-                userId: response.user_id,
-                cardTitles: 'Snapshot Prediction',
-                tab: 'LifeNow',
-                planet: null,
-              });
-            }
-          }, 5000);
-          
-          // 5 seconds delay
+          setIsNavigating(false);
+          setNewMemberUserId(String((response as any)?.user_id ?? ''));
+          Toast.show({
+            type: 'success',
+            text1: 'Member Added Successfully',
+            text2: 'New member has been added to your account.',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3000,
+          });
+          setShowMemberAddedModal(true);
         } else {
           // Navigate directly to ChatWithPrompts with Snapshot Prediction through ChatTab
           // Use the same pattern as the if block above
@@ -687,12 +670,45 @@ const AddNewMember = () => {
     },
   });
 
+  const navigateToMemberChat = (userId: string) => {
+    const rootNavigation = navigation.getParent();
+    if (rootNavigation) {
+      (rootNavigation as any).navigate('ChatTab', {
+        screen: 'ChatWithPrompts',
+        params: {
+          userId,
+          cardTitles: 'Snapshot Prediction',
+          tab: 'LifeNow',
+          planet: null,
+        },
+      });
+    } else {
+      navigation.navigate('ChatWithPrompts' as any, {
+        userId,
+        cardTitles: 'Snapshot Prediction',
+        tab: 'LifeNow',
+        planet: null,
+      });
+    }
+  };
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const isAbove18Years = (dob: Date) => {
+    if (Number.isNaN(dob.getTime())) return false;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age -= 1;
+    }
+    return age >= 18;
   };
 
   const formatTime = (date: Date) => {
@@ -1321,9 +1337,7 @@ const AddNewMember = () => {
                   },
                 ]}
               >
-                For Hyper-Personal Predictions, please fill in the details
-                below. You can amend these details at any time. The next
-                fortnightly predictions will include the updated information.
+                Personalized predictions depend on the level of details shared by you - more precise, accurate, and comprehensive details will help generate relatable predictions
               </Text>
               <Text
                 style={[
@@ -1359,7 +1373,18 @@ const AddNewMember = () => {
                     marginTop: responsiveWidth(2),
                   },
                 ]}
-                placeholder="Personalized predictions depend on the level of details shared by you - more precise, accurate, and comprehensive details will help generate relatable predictions."
+                placeholder={`Example:
+
+(a) What do you do - e.g. studying, working, home maker, retired, consultant etc.
+
+(b) Work details - e.g. employed, running a business, stock trader, IT professional, studying, doctor, etc.
+
+(c) Family details - Father mother, children, siblings, partner etc.
+
+(d) What keeps you busy these days
+
+(e) Anything else that you wish to share.
+                `}
                 placeholderTextColor={
                   theme === 'dark' ? colors.themeTextWhite : colors.grayText
                 }
@@ -1605,7 +1630,13 @@ const AddNewMember = () => {
           onConfirm={date => {
             closeAllModals();
             setSelectedDate(date);
-            formik.setFieldValue('dateOfBirth', formatDate(date));
+            formik.setFieldValue('dateOfBirth', formatDate(date), false);
+            formik.setFieldTouched('dateOfBirth', true, false);
+            if (!isAbove18Years(date)) {
+              formik.setFieldError('dateOfBirth', 'Should be Above 18 years');
+            } else {
+              formik.setFieldError('dateOfBirth', undefined as any);
+            }
           }}
           onCancel={() => {
             closeAllModals();
@@ -1680,7 +1711,13 @@ const AddNewMember = () => {
                   onPress={() => {
                     const finalDate = iosTempDate || selectedDate || new Date();
                     setSelectedDate(finalDate);
-                    formik.setFieldValue('dateOfBirth', formatDate(finalDate));
+                    formik.setFieldValue('dateOfBirth', formatDate(finalDate), false);
+                    formik.setFieldTouched('dateOfBirth', true, false);
+                    if (!isAbove18Years(finalDate)) {
+                      formik.setFieldError('dateOfBirth', 'Should be Above 18 years');
+                    } else {
+                      formik.setFieldError('dateOfBirth', undefined as any);
+                    }
                     closeAllModals();
                     setIosTempDate(null);
                   }}
@@ -1978,6 +2015,77 @@ const AddNewMember = () => {
         </View>
       </Modal>
 
+      {/* Member Added Modal (navigate on Yes) */}
+      <Modal
+        visible={showMemberAddedModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMemberAddedModal(false)}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View
+            style={[
+              styles.confirmModalContainer,
+              {
+                backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.confirmModalTitle,
+                { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+              ]}
+            >
+              Open prediction now?
+            </Text>
+            <Text
+              style={[
+                styles.confirmModalMessage,
+                { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+              ]}
+            >
+              Do you want to view the Snapshot Prediction for this member?
+            </Text>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  styles.confirmButtonYes,
+                  { backgroundColor: colors.Orangeaccentcolor },
+                ]}
+                onPress={() => {
+                  const id = newMemberUserId;
+                  setShowMemberAddedModal(false);
+                  if (id) {
+                    navigateToMemberChat(id);
+                  }
+                }}
+              >
+                <Text style={[styles.confirmButtonText, { color: colors.white }]}>
+                  Yes
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  styles.confirmButtonNo,
+                  {
+                    backgroundColor: theme === 'dark' ? colors.DarkNavyBlue : colors.DarkNavy,
+                    borderColor: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  },
+                ]}
+                onPress={() => setShowMemberAddedModal(false)}
+              >
+                <Text style={[styles.confirmButtonText, { color: colors.white }]}>
+                  No
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Loading Overlay for Navigation */}
       <Modal
         visible={isNavigating}
@@ -2113,7 +2221,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: color.themeTextWhite,
     borderColor: '#rgba(73, 108, 168, 1)',
-    minHeight: 290,
+    minHeight: 390,
     textAlignVertical: 'top',
   },
   inputContent: {
@@ -2461,7 +2569,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   confirmButton: {
-    flex: 1,
+    flexGrow: 1,
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',

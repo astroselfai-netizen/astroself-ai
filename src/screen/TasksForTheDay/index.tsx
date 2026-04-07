@@ -41,7 +41,6 @@ const TasksForTheDayScreen = () => {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
 
   const openKarmicPoints = useMemo(
     () => tasks.filter(t => t.status === 'pending'),
@@ -115,7 +114,6 @@ const TasksForTheDayScreen = () => {
     }, [fetchTasks]),
   );
 
-  // In edit mode, we only "select" tasks. We will mark them Done on submit.
   const [selectedToClose, setSelectedToClose] = useState<Set<number>>(
     new Set(),
   );
@@ -127,11 +125,6 @@ const TasksForTheDayScreen = () => {
       else next.add(taskId);
       return next;
     });
-  };
-
-  const handleUpdateTask = () => {
-    setSelectedToClose(new Set());
-    setIsEditMode(true);
   };
 
   const handleDone = async () => {
@@ -194,7 +187,6 @@ const TasksForTheDayScreen = () => {
         insights: mergedInsights,
       });
 
-      setIsEditMode(false);
       setSelectedToClose(new Set());
       await fetchTasks();
       Alert.alert('Success', 'Tasks updated successfully');
@@ -205,6 +197,13 @@ const TasksForTheDayScreen = () => {
       setSaving(false);
     }
   };
+
+  const hasOpenTasks = openKarmicPoints.length > 0;
+  const hasSelection = selectedToClose.size > 0;
+  const doneEnabled =
+    hasOpenTasks && hasSelection && !saving && !loading;
+  const doneButtonDimmed =
+    !hasOpenTasks || (!hasSelection && !saving) || loading;
 
   return (
     <MainContainer>
@@ -240,7 +239,7 @@ const TasksForTheDayScreen = () => {
             ]}
             numberOfLines={1}
           >
-            Your Tasks for the day
+            Submit Your Progress
           </Text>
         </View>
         <View style={styles.headerRight} />
@@ -250,53 +249,30 @@ const TasksForTheDayScreen = () => {
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Update Task button (above tabs) */}
-        <View style={styles.topActionRow}>
-          {isEditMode ? (
+        {hasOpenTasks ? (
+          <View style={styles.topActionRow}>
             <TouchableOpacity
               style={[
                 styles.topActionButton,
                 {
                   backgroundColor: colors.Orangeaccentcolor,
-                  opacity: saving ? 0.7 : 1,
+                  opacity: doneButtonDimmed ? 0.45 : 1,
                 },
               ]}
               onPress={handleDone}
-              disabled={saving}
+              disabled={!doneEnabled}
               activeOpacity={0.7}
             >
               {saving ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
                 <Text style={[styles.topActionButtonText, { color: colors.white }]}>
-                  Done
+                  Submit Your Progress
                 </Text>
               )}
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.topActionButton,
-                {
-                  backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
-                  borderColor: colors.Orangeaccentcolor,
-                  borderWidth: 1,
-                },
-              ]}
-              onPress={handleUpdateTask}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.topActionButtonText,
-                  { color: colors.Orangeaccentcolor },
-                ]}
-              >
-                Submit Tasks
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        ) : null}
 
         {/* Pending tasks pill (no Closed tab) */}
         {/* <View style={styles.pendingPillRow}>
@@ -335,8 +311,8 @@ const TasksForTheDayScreen = () => {
               openKarmicPoints.map(task => (
                 <TouchableOpacity
                   key={task.id}
-                  activeOpacity={isEditMode ? 0.7 : 1}
-                  onPress={() => isEditMode && toggleTaskSelection(task.id)}
+                  activeOpacity={0.7}
+                  onPress={() => toggleTaskSelection(task.id)}
                 >
                   <View
                     style={[
@@ -351,50 +327,50 @@ const TasksForTheDayScreen = () => {
                       },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.taskText,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      {task.description?.replace(/^[•\s]+/, '').trim() ||
-                        task.description}
-                    </Text>
-                    {isEditMode && (
-                      <View
+                    <View style={styles.taskRow}>
+                      <Text
                         style={[
-                          styles.statusPill,
+                          styles.taskText,
                           {
-                            backgroundColor:
-                              selectedToClose.has(task.id)
-                                ? colors.Orangeaccentcolor
-                                : theme === 'dark'
-                                  ? colors.transparentBg
-                                  : colors.white,
-                            borderColor: colors.Orangeaccentcolor,
+                            flex: 1,
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
                           },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.statusPillText,
-                            {
-                              color:
-                                selectedToClose.has(task.id)
-                                  ? colors.white
-                                  : colors.Orangeaccentcolor,
-                            },
-                          ]}
-                        >
-                          {selectedToClose.has(task.id) ? 'Selected' : 'Open'}
-                        </Text>
+                        {task.description?.replace(/^[•\s]+/, '').trim() ||
+                          task.description}
+                      </Text>
+                      <View style={styles.checkboxContainer}>
+                        {selectedToClose.has(task.id) ? (
+                          <View
+                            style={[
+                              styles.checkboxChecked,
+                              {
+                                backgroundColor: colors.Orangeaccentcolor,
+                              },
+                            ]}
+                          >
+                            <Text style={styles.checkmark}>✓</Text>
+                          </View>
+                        ) : (
+                          <View
+                            style={[
+                              styles.checkboxUnchecked,
+                              {
+                                borderColor: colors.Orangeaccentcolor,
+                                backgroundColor:
+                                  theme === 'dark'
+                                    ? colors.DarkNavy
+                                    : colors.white,
+                              },
+                            ]}
+                          />
+                        )}
                       </View>
-                    )}
+                    </View>
                   </View>
                 </TouchableOpacity>
               ))
@@ -528,21 +504,37 @@ const styles = StyleSheet.create({
     padding: responsiveWidth(4),
     marginBottom: responsiveWidth(3),
   },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   taskText: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
+    paddingRight: responsiveWidth(2),
   },
-  statusPill: {
-    marginTop: responsiveWidth(3),
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: responsiveWidth(1.2),
-    paddingHorizontal: responsiveWidth(3),
+  checkboxContainer: {
+    marginLeft: responsiveWidth(2),
   },
-  statusPillText: {
-    fontSize: 12,
-    fontFamily: fontFamily.medium,
+  checkboxUnchecked: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+  },
+  checkboxChecked: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 0,
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   emptyCard: {
     borderWidth: 1,

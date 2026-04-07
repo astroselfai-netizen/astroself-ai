@@ -12,6 +12,7 @@ import {
   Image,
   ImageBackground,
   Alert,
+  Modal,
 } from 'react-native';
 import {
   fontFamily,
@@ -28,7 +29,10 @@ import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
 import PaymentService from '../../services/payment/payment.service';
 import LottieView from 'lottie-react-native';
-import Toast from 'react-native-toast-message';
+
+type CancelAutopayResultModal =
+  | { kind: 'success' }
+  | { kind: 'error'; message: string };
 
 export type RootStackParamList = {
   Login: undefined;
@@ -44,6 +48,19 @@ export type RootStackParamList = {
 
 type PurchasedHistoryScreenNavigationProp = NavigationProp<RootStackParamList, 'PurchasedHistoryScreen'>;
 
+const AUTO_PAY_PLACEHOLDER = '—';
+
+function formatAutoPayField(value: string | null | undefined): string {
+  if (value == null) {
+    return AUTO_PAY_PLACEHOLDER;
+  }
+  const v = String(value).trim();
+  if (!v || v === 'N/A' || v.toLowerCase() === 'n/a') {
+    return AUTO_PAY_PLACEHOLDER;
+  }
+  return v;
+}
+
 const PurchasedHistoryScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<PurchasedHistoryScreenNavigationProp>();
@@ -56,6 +73,11 @@ const PurchasedHistoryScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
+  const [cancelAutopayModalSub, setCancelAutopayModalSub] = useState<any | null>(
+    null,
+  );
+  const [cancelAutopayResultModal, setCancelAutopayResultModal] =
+    useState<CancelAutopayResultModal | null>(null);
   const fetchedUserIdRef = useRef<string | null>(null);
 
   // Format date and time from API response - "12 Nov 2025 10:30 AM"
@@ -89,7 +111,7 @@ const PurchasedHistoryScreen = () => {
           const monthDisplayNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           const monthDisplay = monthDisplayNames[parseInt(month, 10) - 1];
           
-          return `${day} ${monthDisplay} ${year} ${displayHour}:${displayMinute} ${ampm}`;
+          return `${day} ${monthDisplay} ${year}`;
         }
         return dateStr;
       }
@@ -255,6 +277,8 @@ const PurchasedHistoryScreen = () => {
       // Fetch Auto Pay
       try {
         const autoPayResponse = await paymentService.getAutoPay(userId);
+
+        console.log('autoPayResponse------', autoPayResponse);
         if (autoPayResponse.status === 'success' && autoPayResponse.data) {
           const subscriptions = autoPayResponse.data.subscriptions || [];
           const transformedAutoPay = subscriptions.map((sub: any, index: number) => ({
@@ -264,9 +288,10 @@ const PurchasedHistoryScreen = () => {
             memberName: sub.name || 'N/A',
             memberUserId: sub.member_user_id || 'N/A',
             status: sub.status || 'N/A',
-            startPlan: formatDate(sub.start_plan),
-            endPlan: formatDate(sub.end_plan),
-            validityDate: `${formatDate(sub.start_plan)} - ${formatDate(sub.end_plan)}`,
+            startPlan: sub.start_plan ? formatDate(sub.start_plan) : null,
+            endPlan: sub.end_plan ? formatDate(sub.end_plan) : null,
+            /** Next renewal = charge / renewal date (end of current period) */
+            nextRenewalDate: sub.end_plan ? formatDate(sub.end_plan) : null,
             uniqueCode: sub.unique_code || 'N/A',
             verifiedAt: sub.verified_at,
             activatedAt: sub.activated_at,
@@ -291,60 +316,39 @@ const PurchasedHistoryScreen = () => {
     }
   }, [profileData?._id, formatDate, formatDateTime, formatAmount, formatCardInfo]);
 
-  // Handle Cancel Autopay
-  const handleCancelAutopay = useCallback(async (subscription: any) => {
-    Alert.alert(
-      'Cancel Autopay',
-      `Are you sure you want to cancel the autopay subscription for ${subscription.memberName}?`,
-      [
-        {
-          text: 'No',
-          style: 'cancel',
-        },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setCancellingSubscription(subscription.id);
-              const paymentService = new PaymentService();
-              
-              await paymentService.cancelSubscription(
-                subscription.subscriptionId,
-                subscription.memberUserId,
-                true, // cancel_immediately
-              );
+  const handleCancelAutopay = useCallback((subscription: any) => {
+    setCancelAutopayModalSub(subscription);
+  }, []);
 
-              Toast.show({
-                type: 'success',
-                text1: 'Success',
-                text2: 'Autopay subscription cancelled successfully',
-                position: 'top',
-                topOffset: 60,
-                visibilityTime: 3000,
-              });
+  const confirmCancelAutopay = useCallback(async () => {
+    const subscription = cancelAutopayModalSub;
+    if (!subscription) {
+      return;
+    }
+    setCancelAutopayModalSub(null);
+    try {
+      setCancellingSubscription(subscription.id);
+      const paymentService = new PaymentService();
 
-              // Refresh data
-              fetchedUserIdRef.current = null;
-              await fetchPaymentData();
-            } catch (err: any) {
-              console.error('Error cancelling subscription:', err);
-              Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: err.message || 'Failed to cancel subscription',
-                position: 'top',
-                topOffset: 60,
-                visibilityTime: 3000,
-              });
-            } finally {
-              setCancellingSubscription(null);
-            }
-          },
-        },
-      ],
-    );
-  }, [fetchPaymentData]);
+      await paymentService.cancelSubscription(
+        subscription.subscriptionId,
+        subscription.memberUserId,
+        true,
+      );
+
+      fetchedUserIdRef.current = null;
+      await fetchPaymentData();
+      setCancelAutopayResultModal({ kind: 'success' });
+    } catch (err: any) {
+      console.error('Error cancelling subscription:', err);
+      setCancelAutopayResultModal({
+        kind: 'error',
+        message: err?.message || 'Failed to cancel subscription',
+      });
+    } finally {
+      setCancellingSubscription(null);
+    }
+  }, [cancelAutopayModalSub, fetchPaymentData]);
 
   // Fetch data when profileData becomes available or changes
   React.useEffect(() => {
@@ -606,16 +610,29 @@ const PurchasedHistoryScreen = () => {
                         },
                       ]}
                     >
-                      <Text style={[styles.tableHeaderText, { flex: 1.2 }]}>
+                      <Text
+                        style={[
+                          styles.tableHeaderText,
+                          styles.phColDate,
+                          styles.phHeaderDate,
+                        ]}
+                      >
                         DATE & TIME
                       </Text>
-                      <Text style={[styles.tableHeaderText, { flex: 2 }]}>
+                      <Text
+                        style={[
+                          styles.tableHeaderText,
+                          styles.phColDesc,
+                          styles.phHeaderDesc,
+                        ]}
+                      >
                         DESCRIPTION
                       </Text>
                       <Text
                         style={[
                           styles.tableHeaderText,
-                          { flex: 1, textAlign: 'right' },
+                          styles.phColAmount,
+                          styles.phHeaderAmount,
                         ]}
                       >
                         AMOUNT
@@ -643,8 +660,9 @@ const PurchasedHistoryScreen = () => {
                         <Text
                           style={[
                             styles.tableCellText,
+                            styles.phColDate,
+                            styles.phCellDate,
                             {
-                              flex: 1,
                               color:
                                 theme === 'dark'
                                   ? colors.themeTextWhite
@@ -657,8 +675,9 @@ const PurchasedHistoryScreen = () => {
                         <Text
                           style={[
                             styles.tableCellText,
+                            styles.phColDesc,
+                            styles.phCellDesc,
                             {
-                              flex: 2,
                               color:
                                 theme === 'dark'
                                   ? colors.themeTextWhite
@@ -671,10 +690,10 @@ const PurchasedHistoryScreen = () => {
                         <Text
                           style={[
                             styles.tableCellAmount,
+                            styles.phColAmount,
+                            styles.phCellAmount,
                             {
-                              flex: 1,
-                              textAlign: 'right',
-                              color: '#4CAF50', // Green color for amount
+                              color: '#4CAF50',
                             },
                           ]}
                         >
@@ -841,187 +860,169 @@ const PurchasedHistoryScreen = () => {
                         },
                       ]}
                     >
-                      <Text style={[styles.tableHeaderText, { flex: 1 }]}>
+                      <Text
+                        style={[
+                          styles.tableHeaderText,
+                          styles.apColName,
+                          styles.apHeaderName,
+                        ]}
+                      >
                         NAME
                       </Text>
-                      <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>
-                        VALIDITY DATE
+                      <Text
+                        style={[
+                          styles.tableHeaderText,
+                          styles.apColRenewal,
+                          styles.apHeaderRenewal,
+                        ]}
+                      >
+                        NEXT RENEWAL
                       </Text>
-                      <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>
-                        LINKED CARD
-                      </Text>
-                      <Text style={[styles.tableHeaderText, { flex: 1.2 }]}>
-                        ACTION
+                      <Text
+                        style={[
+                          styles.tableHeaderText,
+                          styles.apColManage,
+                          styles.apHeaderManage,
+                        ]}
+                      >
+                        MANAGE
                       </Text>
                     </View>
 
                     {/* Table Rows */}
-                    {autoPayData.map((subscription, index) => (
-                      <View
-                        key={subscription.id || index}
-                        style={[
-                          styles.tableRow,
-                          {
-                            backgroundColor:
-                              theme === 'dark'
-                                ? colors.DarkNavy
-                                : colors.white,
-                            borderBottomColor:
-                              theme === 'dark'
-                                ? colors.themeBorderDropdown
-                                : colors.borderColor,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.tableCellText,
-                            {
-                              flex: 1,
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {subscription.memberName}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.tableCellText,
-                            {
-                              flex: 1.5,
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {subscription.validityDate}
-                        </Text>
-                        <View
-                          style={{
-                            flex: 1.5,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                          }}
-                        >
-                          {subscription.card && subscription.card !== 'N/A' ? (
-                            <>
-                              <Text
-                                style={[
-                                  styles.tableCellText,
-                                  {
-                                    color:
-                                      theme === 'dark'
-                                        ? colors.themeTextWhite
-                                        : colors.DarkNavy,
-                                  },
-                                ]}
-                              >
-                                💳 {subscription.card}
-                              </Text>
-                            </>
-                          ) : (
-                            <Text
-                              style={[
-                                styles.tableCellText,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.textSecondary || '#999'
-                                      : colors.textSecondary || '#666',
-                                },
-                              ]}
-                            >
-                              N/A
-                            </Text>
-                          )}
-                        </View>
-                        <View
-                          style={[
-                            styles.actionButtonsContainer,
-                            {
-                              flex: 1.5,
-                            },
-                          ]}
-                        >
-                          {/* <TouchableOpacity
-                            style={[
-                              styles.actionButton,
-                              styles.changeCardButton,
-                              {
-                                backgroundColor:
-                                  theme === 'dark'
-                                    ? colors.transparentBg
-                                    : '#F5F5F5',
-                                borderColor:
-                                  theme === 'dark'
-                                    ? colors.themeBorderDropdown
-                                    : colors.borderColor,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.actionButtonText,
-                                {
-                                  color:
-                                    theme === 'dark'
-                                      ? colors.themeTextWhite
-                                      : colors.DarkNavy,
-                                },
-                              ]}
-                              numberOfLines={2}
-                            >
-                              Change Card
-                            </Text>
-                          </TouchableOpacity> */}
-                          <TouchableOpacity
-                            style={[
-                              styles.actionButton,
-                              // styles.cancelButton,
-                              {
-                                backgroundColor:
-                                  theme === 'dark'
-                                    ? colors.Orangeaccentcolor
-                                    : colors.Orangeaccentcolor,
-                                borderColor:
-                                  theme === 'dark'
-                                    ? colors.themeBorderDropdown
-                                    : colors.borderColor,
-                              },
+                    {autoPayData.map((subscription, index) => {
+                      const nameDisplay = formatAutoPayField(subscription.memberName);
+                      const renewalDisplay = formatAutoPayField(
+                        subscription.nextRenewalDate,
+                      );
+                      const nameIsPlaceholder =
+                        nameDisplay === AUTO_PAY_PLACEHOLDER;
+                      const renewalIsPlaceholder =
+                        renewalDisplay === AUTO_PAY_PLACEHOLDER;
 
-                              cancellingSubscription === subscription.id && {
-                                opacity: 0.6,
+                      return (
+                        <View
+                          key={subscription.id || index}
+                          style={[
+                            styles.tableRow,
+                            styles.autoPayTableRow,
+                            {
+                              backgroundColor:
+                                theme === 'dark'
+                                  ? colors.DarkNavy
+                                  : colors.white,
+                              borderBottomColor:
+                                theme === 'dark'
+                                  ? colors.themeBorderDropdown
+                                  : colors.borderColor,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.tableCellText,
+                              styles.apColName,
+                              styles.apCellName,
+                              nameIsPlaceholder && styles.apCellMuted,
+                              {
+                                color: nameIsPlaceholder
+                                  ? theme === 'dark'
+                                    ? colors.textSecondary || '#999'
+                                    : colors.textSecondary || '#666'
+                                  : theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
                               },
                             ]}
-                            onPress={() => handleCancelAutopay(subscription)}
-                            disabled={
-                              cancellingSubscription === subscription.id
-                            }
                           >
-                            {cancellingSubscription === subscription.id ? (
-                              <LottieView
-                                source={require('../../assets/lottie/loader-Animation-1.json')}
-                                autoPlay
-                                loop
-                                style={styles.buttonLoader}
-                              />
-                            ) : (
-                              <Text
-                                style={styles.cancelButtonText}
-                                numberOfLines={2}
-                              >
-                                Cancel Autopay
-                              </Text>
-                            )}
-                          </TouchableOpacity>
+                            {nameDisplay}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.tableCellText,
+                              styles.apColRenewal,
+                              styles.apCellRenewal,
+                              renewalIsPlaceholder && styles.apCellMuted,
+                              {
+                                color: renewalIsPlaceholder
+                                  ? theme === 'dark'
+                                    ? colors.textSecondary || '#999'
+                                    : colors.textSecondary || '#666'
+                                  : theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {renewalDisplay}
+                          </Text>
+                          <View style={styles.autoPayActionWrap}>
+                            <TouchableOpacity
+                              style={[
+                                styles.autoPayCancelButton,
+                                {
+                                  backgroundColor:
+                                    String(subscription?.status || '')
+                                      .trim()
+                                      .toLowerCase() === 'active'
+                                      ? colors.Orangeaccentcolor
+                                      : theme === 'dark'
+                                        ? colors.surface
+                                        : colors.borderColor,
+                                  borderColor:
+                                    theme === 'dark'
+                                      ? colors.themeBorderDropdown
+                                      : colors.borderColor,
+                                },
+                                cancellingSubscription === subscription.id && {
+                                  opacity: 0.6,
+                                },
+                                String(subscription?.status || '')
+                                  .trim()
+                                  .toLowerCase() !== 'active' && {
+                                  opacity: 0.55,
+                                },
+                              ]}
+                              onPress={() => handleCancelAutopay(subscription)}
+                              disabled={
+                                cancellingSubscription === subscription.id ||
+                                String(subscription?.status || '')
+                                  .trim()
+                                  .toLowerCase() !== 'active'
+                              }
+                            >
+                              {cancellingSubscription === subscription.id ? (
+                                <LottieView
+                                  source={require('../../assets/lottie/loader-Animation-1.json')}
+                                  autoPlay
+                                  loop
+                                  style={styles.buttonLoader}
+                                />
+                              ) : (
+                                <Text
+                                  style={[
+                                    styles.cancelButtonText,
+                                    {
+                                      color:
+                                        String(subscription?.status || '')
+                                          .trim()
+                                          .toLowerCase() === 'active'
+                                          ? colors.white
+                                          : theme === 'dark'
+                                            ? colors.themeTextWhite
+                                            : colors.DarkNavy,
+                                    },
+                                  ]}
+                                  numberOfLines={2}
+                                >
+                                  Cancel Autopay
+                                </Text>
+                              )}
+                            </TouchableOpacity>
+                          </View>
                         </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </>
                 )}
               </View>
@@ -1029,6 +1030,184 @@ const PurchasedHistoryScreen = () => {
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={cancelAutopayModalSub != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelAutopayModalSub(null)}
+      >
+        <View style={styles.cancelAutopayModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setCancelAutopayModalSub(null)}
+          />
+          <View
+            style={[
+              styles.cancelAutopayModalCard,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.cancelAutopayModalTitle,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Cancel Autopay
+            </Text>
+            <Text
+              style={[
+                styles.cancelAutopayModalMessage,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Are you sure you want to cancel the autopay subscription for{' '}
+              {cancelAutopayModalSub &&
+              formatAutoPayField(cancelAutopayModalSub.memberName) !==
+                AUTO_PAY_PLACEHOLDER
+                ? formatAutoPayField(cancelAutopayModalSub.memberName)
+                : 'this subscription'}
+              ?
+            </Text>
+            <View style={styles.cancelAutopayModalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.cancelAutopayModalBtn,
+                  styles.cancelAutopayModalBtnSecondary,
+                  {
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+                onPress={() => setCancelAutopayModalSub(null)}
+              >
+                <Text
+                  style={[
+                    styles.cancelAutopayModalBtnText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  No
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.cancelAutopayModalBtn,
+                  styles.cancelAutopayModalBtnPrimary,
+                  { backgroundColor: colors.Orangeaccentcolor },
+                ]}
+                onPress={confirmCancelAutopay}
+              >
+                <Text
+                  style={[
+                    styles.cancelAutopayModalBtnText,
+                    { color: '#FFFFFF' },
+                  ]}
+                >
+                  Yes, Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={cancelAutopayResultModal != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelAutopayResultModal(null)}
+      >
+        <View style={styles.cancelAutopayModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setCancelAutopayResultModal(null)}
+          />
+          <View
+            style={[
+              styles.cancelAutopayModalCard,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.cancelAutopayModalTitle,
+                {
+                  color:
+                    cancelAutopayResultModal?.kind === 'error'
+                      ? colors.Orangeaccentcolor
+                      : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                },
+              ]}
+            >
+              {cancelAutopayResultModal?.kind === 'error' ? 'Error' : 'Success'}
+            </Text>
+            <Text
+              style={[
+                styles.cancelAutopayModalMessage,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              {cancelAutopayResultModal?.kind === 'success'
+                ? 'Autopay subscription cancelled successfully.'
+                : cancelAutopayResultModal?.kind === 'error'
+                  ? cancelAutopayResultModal.message
+                  : ''}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.cancelAutopayModalBtn,
+                styles.cancelAutopayModalBtnPrimary,
+                styles.cancelAutopayModalBtnFullWidth,
+                { backgroundColor: colors.Orangeaccentcolor },
+              ]}
+              onPress={() => setCancelAutopayResultModal(null)}
+            >
+              <Text
+                style={[
+                  styles.cancelAutopayModalBtnText,
+                  { color: '#FFFFFF' },
+                ]}
+              >
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </MainContainer>
   );
 };
@@ -1328,6 +1507,96 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '600',
   },
+  /** Purchase History table — same flex + padding on header and rows */
+  phColDate: {
+    flex: 1.2,
+    minWidth: 0,
+    paddingRight: responsiveWidth(2),
+  },
+  phColDesc: {
+    flex: 2,
+    minWidth: 0,
+    paddingRight: responsiveWidth(2),
+  },
+  phColAmount: {
+    flex: 1,
+    minWidth: 0,
+  },
+  phHeaderDate: {
+    textAlign: 'left',
+  },
+  phHeaderDesc: {
+    textAlign: 'left',
+  },
+  phHeaderAmount: {
+    textAlign: 'right',
+    width: '100%',
+  },
+  phCellDate: {
+    textAlign: 'left',
+  },
+  phCellDesc: {
+    textAlign: 'left',
+  },
+  phCellAmount: {
+    textAlign: 'right',
+    width: '100%',
+  },
+  /** Auto Payment table (3 columns: name, next renewal, manage) */
+  autoPayTableRow: {
+    alignItems: 'flex-start',
+  },
+  apColName: {
+    flex: 1.15,
+    minWidth: 0,
+    paddingRight: responsiveWidth(2),
+  },
+  apColRenewal: {
+    flex: 1.25,
+    minWidth: 0,
+    paddingRight: responsiveWidth(2),
+  },
+  apColManage: {
+    flex: 1,
+    minWidth: 0,
+  },
+  apHeaderName: {
+    textAlign: 'left',
+  },
+  apHeaderRenewal: {
+    textAlign: 'left',
+  },
+  apHeaderManage: {
+    textAlign: 'right',
+    width: '100%',
+  },
+  apCellName: {
+    textAlign: 'left',
+  },
+  apCellRenewal: {
+    textAlign: 'left',
+  },
+  apCellMuted: {
+    fontStyle: 'italic',
+  },
+  autoPayActionWrap: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+  },
+  autoPayCancelButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: responsiveWidth(1.5),
+    paddingHorizontal: responsiveWidth(2),
+    borderRadius: 6,
+    borderWidth: 1,
+    minWidth: responsiveWidth(28),
+    alignSelf: 'flex-end',
+    maxWidth: '100%',
+  },
   // Filter Styles
   filterContainer: {
     marginHorizontal: responsiveWidth(3),
@@ -1467,6 +1736,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.regular,
     textAlign: 'center',
+  },
+  cancelAutopayModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: responsiveWidth(5),
+  },
+  cancelAutopayModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: responsiveWidth(5),
+  },
+  cancelAutopayModalTitle: {
+    fontSize: 18,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    marginBottom: responsiveWidth(3),
+    textAlign: 'center',
+  },
+  cancelAutopayModalMessage: {
+    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: responsiveWidth(5),
+  },
+  cancelAutopayModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: responsiveWidth(3),
+  },
+  cancelAutopayModalBtn: {
+    // flex: 1,
+    flexGrow: 1,
+    paddingVertical: responsiveWidth(2.5),
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelAutopayModalBtnSecondary: {
+    borderWidth: 1,
+  },
+  cancelAutopayModalBtnPrimary: {},
+  cancelAutopayModalBtnFullWidth: {
+    width: '100%',
+  },
+  cancelAutopayModalBtnText: {
+    fontSize: 15,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
   },
 });
 

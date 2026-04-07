@@ -124,45 +124,29 @@ const AboutUsScreen = () => {
         >
           {/* Why we built this app Section */}
           <View style={styles.whyWeBuiltSection}>
-            <View style={styles.whyWeBuiltContent}>
-              {/* Chart Graphic - Left Side */}
-              <View style={styles.chartContainer}>
-                <Image
-                  source={require('../../assets/icons/About-us-img.png')}
-                  style={styles.chartImage}
-                />
-              </View>
-
-              {/* Text Content - Right Side */}
+            <View style={styles.whyWeBuiltBannerImageContainer}>
+            <Image
+              source={require('../../assets/icons/About-us-img.png')}
+              style={styles.whyWeBuiltBanner}
+              // imageStyle={styles.whyWeBuiltBannerImage}
+              resizeMode="cover"
+            >
+              {/* <View style={styles.whyWeBuiltBannerOverlay}>
+                <View style={styles.whyWeBuiltBannerSpacer} />
+                <View style={styles.whyWeBuiltTextContainer}>
+                  <Text style={styles.whyWeBuiltTitleOnImage}>
+                    Why we built this app
+                  </Text>
+                  <Text style={styles.whyWeBuiltSubtitleOnImage}>
+                    Most of us move through life with questions no one teaches us
+                    to ask
+                  </Text>
+                </View>
+              </View> */}
+            </Image>
             </View>
-            <View style={styles.whyWeBuiltTextContainer}>
-              {/* <Text
-                style={[
-                  styles.whyWeBuiltTitle,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Why we built this app
-              </Text>
-              <Text
-                style={[
-                  styles.whyWeBuiltSubtitle,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.textSecondary || '#999'
-                        : colors.textSecondary || '#666',
-                  },
-                ]}
-              >
-                Most of us move through life with questions no one teaches us to
-                ask
-              </Text> */}
+
+            <View style={styles.whyWeBuiltQuestionsBlock}>
               <View style={styles.questionsList}>
                 <Text
                   style={[
@@ -695,42 +679,74 @@ const styles = StyleSheet.create({
     marginBottom: responsiveWidth(4),
     width: '100%',
   },
-  whyWeBuiltContent: {
+  whyWeBuiltBannerImageContainer: {
+      width: "auto",
+    height: responsiveWidth(35),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  whyWeBuiltBanner: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 12,
+    // overflow: "",
+    // minHeight: responsiveWidth(46),
+    resizeMode: "contain",
+  },
+  whyWeBuiltBannerImage: {
+    borderRadius: 12,
+  },
+  whyWeBuiltBannerOverlay: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: responsiveWidth(4),
+    alignItems: 'center',
+    minHeight: responsiveWidth(46),
     width: '100%',
+    paddingVertical: responsiveWidth(3),
+    paddingLeft: responsiveWidth(2),
+    paddingRight: responsiveWidth(3),
   },
-  chartContainer: {
-    width: 408,
-    height: 180,
-    // flexShrink: 0,
-  },
-  chartImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
+  whyWeBuiltBannerSpacer: {
+    flex: 0.4,
+    minWidth: 0,
   },
   whyWeBuiltTextContainer: {
-    flex: 1,
-    paddingTop: responsiveWidth(1),
-    alignItems: 'center',
+    flex: 0.6,
+    minWidth: 0,
+    justifyContent: 'center',
   },
-  whyWeBuiltTitle: {
-    fontSize: 20,
+  whyWeBuiltTitleOnImage: {
+    fontSize: 18,
     fontFamily: fontFamily.semiBold,
-    marginBottom: responsiveWidth(2.5),
-    lineHeight: 28,
+    marginBottom: responsiveWidth(1.5),
+    lineHeight: 24,
+    textAlign: 'left',
+    width: '100%',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  whyWeBuiltSubtitle: {
-    fontSize: 15,
+  whyWeBuiltSubtitleOnImage: {
+    fontSize: 14,
     fontFamily: fontFamily.regular,
-    lineHeight: 22,
-    marginBottom: responsiveWidth(4),
-    opacity: 0.8,
+    lineHeight: 21,
+    textAlign: 'left',
+    width: '100%',
+    color: 'rgba(255, 255, 255, 0.92)',
+    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  whyWeBuiltQuestionsBlock: {
+    width: '100%',
+    marginTop: responsiveWidth(4),
+    alignItems: 'center',
   },
   questionsList: {
     gap: responsiveWidth(2),
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
   },
   questionItem: {
     fontSize: 14,
@@ -738,6 +754,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center',
     fontWeight: '500',
+    alignSelf: 'stretch',
   },
   // White Card Styles
   whiteCard: {

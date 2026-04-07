@@ -111,8 +111,14 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
 
 
   // Function to convert full zodiac sign names to short names
-  const getZodiacShortName = (signName: string): string => { // eslint-disable-line @typescript-eslint/no-unused-vars
-    const zodiacMap: { [key: string]: string } = {
+  const getZodiacShortName = (
+    signName: string,
+    length: 2 | 3 = 3,
+  ): string => {
+    const key = (signName || '').trim();
+    if (!key) return '';
+
+    const zodiacMap2: Record<string, string> = {
       Aries: 'AR',
       Taurus: 'TA',
       Gemini: 'GE',
@@ -127,7 +133,25 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
       Pisces: 'PI',
     };
 
-    return zodiacMap[signName] || signName;
+    const zodiacMap3: Record<string, string> = {
+      Aries: 'Ari',
+      Taurus: 'Tau',
+      Gemini: 'Gem',
+      Cancer: 'Can',
+      Leo: 'Leo',
+      Virgo: 'Vir',
+      Libra: 'Lib',
+      Scorpio: 'Sco',
+      Sagittarius: 'Sag',
+      Capricorn: 'Cap',
+      Aquarius: 'Aqu',
+      Pisces: 'Pis',
+    };
+
+    if (length === 3) {
+      return zodiacMap3[key] || key;
+    }
+    return zodiacMap2[key] || key;
   };
 
   // Dynamic dasha data from chartDetails.planets_positions

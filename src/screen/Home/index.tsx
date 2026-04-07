@@ -2033,9 +2033,9 @@ const HomeScreen = () => {
               >
                 <Image
                   source={require('../../assets/icons/Log-out.png')}
-                  style={[styles.logoutIcon, { tintColor: colors.accent }]}
+                  style={[styles.logoutIcon, { tintColor: colors.white }]}
                 />
-                <Text style={[styles.logoutText, { color: colors.accent }]}>
+                <Text style={[styles.logoutText, { color: colors.white }]}>
                   Logout
                 </Text>
               </TouchableOpacity>
@@ -3100,6 +3100,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 12,
+    backgroundColor: color.Orangeaccentcolor,
     borderColor: color.Orangeaccentcolor,
     justifyContent: 'center',
     // marginHorizontal: responsiveWidth(5),
@@ -3115,6 +3116,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 14,
+    color: color.white,
     fontFamily: fontFamily.regular,
   },
   deleteAccountModalOverlay: {

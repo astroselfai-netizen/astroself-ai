@@ -300,6 +300,29 @@ export default class UserService extends Service {
     }
   }
 
+  async resetPasswordOtp(
+    email: string,
+    newPassword: string,
+  ): Promise<{ status: boolean; message?: string }> {
+    try {
+      const axiosResponse = await http.post('/auth/reset-password-otp', {
+        email,
+        new_password: newPassword,
+      });
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to reset password',
+      );
+    } catch (error: any) {
+      console.error('Reset password OTP error in service:', error);
+      throw error;
+    }
+  }
+
   async getProfileData(
     userId: string,
     skip: number = 0,
@@ -1144,6 +1167,36 @@ export default class UserService extends Service {
         error?.response?.data?.message ||
         error?.message ||
         'Failed to delete account. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async deleteMember(adminId: string, birthId: string): Promise<{
+    status: boolean;
+    message?: string;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.delete(
+        `/members?admin_id=${adminId}&birth_id=${birthId}`,
+        {
+          headers: {
+            accept: 'application/json, text/plain, */*',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      return axiosResponse?.data;
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to delete member. Please try again.';
       throw new Error(errorMessage);
     }
   }

@@ -28,6 +28,8 @@ import PermissionRequestModal from './src/components/PermissionRequestModal';
 import permissionChecker from './src/utils/permissionChecker';
 import CrashlyticsService from './src/services/crashlyticsService';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { usePlayStoreUpdate } from './src/hooks/usePlayStoreUpdate';
+import StoreUpdateModal from './src/components/StoreUpdateModal';
 
 // import iOSDebugInfo from './src/components/iOSDebugInfo';
 // Enable optimized screens
@@ -46,6 +48,16 @@ function App() {
   // Initialize push notifications
   const { fcmToken, isNotificationEnabled, isLoading } = useNotifications();
   const [showPermissionModal, setShowPermissionModal] = React.useState(false);
+
+  const {
+    visible: showStoreUpdate,
+    forceUpdate: storeForceUpdate,
+    latestVersion: storeLatestVersion,
+    currentVersion: storeCurrentVersion,
+    message: storeUpdateMessage,
+    storeUrl: storeUpdateUrl,
+    dismissOptional: dismissStoreUpdate,
+  } = usePlayStoreUpdate();
 
   const keyState = useSelector((state: RootState) => state.app.keyState);
 
@@ -121,6 +133,16 @@ function App() {
           <PermissionRequestModal
             visible={showPermissionModal}
             onClose={() => setShowPermissionModal(false)}
+          />
+
+          <StoreUpdateModal
+            visible={showStoreUpdate}
+            forceUpdate={storeForceUpdate}
+            latestVersion={storeLatestVersion}
+            currentVersion={storeCurrentVersion}
+            message={storeUpdateMessage}
+            storeUrl={storeUpdateUrl}
+            onDismissOptional={dismissStoreUpdate}
           />
           
           {/* iOS Debug Info */}

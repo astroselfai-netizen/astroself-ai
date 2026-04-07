@@ -15,7 +15,6 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
-  Alert,
   Switch,
   Dimensions,
 } from 'react-native';
@@ -103,6 +102,7 @@ const MemberItem = React.memo(
     userCurrentPlan: _userCurrentPlan,
     isSubscriptionLoading,
     onRequestDeallocate,
+    onRequestDelete,
     hasAnyEternalPath,
   }: {
     item: any;
@@ -118,6 +118,7 @@ const MemberItem = React.memo(
     userCurrentPlan?: string;
     isSubscriptionLoading?: boolean;
     onRequestDeallocate?: (member: any) => void;
+    onRequestDelete?: (member: any) => void;
     hasAnyEternalPath?: boolean;
   }) => {
     // console.log('itemitemitemitem', item);
@@ -332,6 +333,30 @@ const MemberItem = React.memo(
                           ]}
                         />
                       </TouchableOpacity>
+
+                      {/* delete icon */}
+                      <TouchableOpacity
+                        onPress={() => onRequestDelete?.(item)}
+                        style={styles.iconButton}
+                      >
+                        <Image
+                          source={require('../../assets/icons/trash.png')}
+                          style={[
+                            styles.actionIcon,
+                            {
+                              tintColor:
+                                theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                            {
+                              width: responsiveWidth(6),
+                              height: responsiveWidth(6),
+                            },
+                          ]}
+                        />
+                      </TouchableOpacity>
+
                       {/* Subscription icon */}
                       {/* <TouchableOpacity
                         onPress={onSubscriptionClick || (() => {})}
@@ -361,10 +386,10 @@ const MemberItem = React.memo(
             </View>
             <View style={styles.rightSectionContainer}>
               {/* Family Plan Badge with toggle OR Renewal Date Badge */}
-              {item.current_plan === 'family_plan' ? (
+              {item.current_plan === 'family_plan' && (
                 <View style={styles.familyPlanBadge}>
                   <View style={styles.familyPlanTopRow}>
-                    <Text style={styles.familyPlanLabel}>Covered To Family Plan</Text>
+                    <Text style={styles.familyPlanLabel}>Covered in Family Plan</Text>
                     <Switch
                       value
                       disabled={userCurrentPlan !== 'family_plan' || isSubscriptionLoading}
@@ -385,14 +410,7 @@ const MemberItem = React.memo(
                     </Text>
                   ) : null} */}
                 </View>
-              ) : item.end_plan_time ? (
-                <View style={styles.renewalDateBadge}>
-                  {/* <Text style={styles.renewalDateText}>RENEWAL DUE ON:</Text>
-                  <Text style={styles.renewalDateText}>
-                    {formatRenewalDate(item.end_plan_time)}
-                  </Text> */}
-                </View>
-              ) : null}
+              ) }
             </View>
           </View>
 
@@ -729,6 +747,8 @@ const MemberPlanManagement = () => {
     useState(true);
   const [updating, setUpdating] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [showIndividualSubscribeConfirm, setShowIndividualSubscribeConfirm] =
+    useState(false);
   const [showFamilyUpgradeModal, setShowFamilyUpgradeModal] = useState(false);
   const [familyUpgradePreview, setFamilyUpgradePreview] = useState<{
     loading: boolean;
@@ -756,6 +776,13 @@ const MemberPlanManagement = () => {
   const [showDeallocateModal, setShowDeallocateModal] = useState(false);
   const [memberToDeallocate, setMemberToDeallocate] = useState<any>(null);
   const [isDeallocating, setIsDeallocating] = useState(false);
+  const [showDeleteMemberModal, setShowDeleteMemberModal] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<any>(null);
+  const [isDeletingMember, setIsDeletingMember] = useState(false);
+  const [deleteMemberResult, setDeleteMemberResult] = useState<{
+    kind: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [showNoAvailablePlanModal, setShowNoAvailablePlanModal] =
     useState(false);
   const [_pendingIosUpgrade, setPendingIosUpgrade] = useState<{
@@ -1136,6 +1163,59 @@ const MemberPlanManagement = () => {
     setMemberToDeallocate(null);
   };
 
+  const handleOpenDeleteMemberModal = (member: any) => {
+    console.log('member------', member);
+    setMemberToDelete(member);
+    setShowDeleteMemberModal(true);
+  };
+
+  const handleCloseDeleteMemberModal = () => {
+    if (isDeletingMember) return;
+    setShowDeleteMemberModal(false);
+    setMemberToDelete(null);
+  };
+
+  const handleConfirmDeleteMember = async () => {
+    const adminId = memberToDelete?.user_id || user?._id || (user as any)?.id;
+    const birthId = memberToDelete?.id || memberToDelete?._id;
+     
+
+    if (!adminId || !birthId) {
+      setDeleteMemberResult({
+        kind: 'error',
+        message: 'Unable to delete member. Missing member details.',
+      });
+      setShowDeleteMemberModal(false);
+      return;
+    }
+
+    try {
+      setIsDeletingMember(true);
+      const res = await userService.deleteMember(String(adminId), String(birthId));
+      if (res?.status === false) {
+        setDeleteMemberResult({
+          kind: 'error',
+          message: res?.message || 'Failed to delete member.',
+        });
+      } else {
+        setDeleteMemberResult({
+          kind: 'success',
+          message: res?.message || 'Member deleted successfully.',
+        });
+        await refreshProfileData();
+      }
+    } catch (e: any) {
+      setDeleteMemberResult({
+        kind: 'error',
+        message: e?.message || 'Failed to delete member.',
+      });
+    } finally {
+      setIsDeletingMember(false);
+      setShowDeleteMemberModal(false);
+      setMemberToDelete(null);
+    }
+  };
+
   const handleConfirmDeallocate = async () => {
     if (!memberToDeallocate || !user) return;
     const userId = user._id || (user as any).id;
@@ -1252,7 +1332,7 @@ const MemberPlanManagement = () => {
         amount: Number(amountPaise),
         currency,
         
-        name: 'Astroself',
+        name: 'Astrodha',
         description: 'Upgrade to Family Plan',
         method: {
           card: true,
@@ -1335,6 +1415,7 @@ const MemberPlanManagement = () => {
   // Handle closing premium modal
   const handleClosePremiumModal = () => {
     setShowPremiumModal(false);
+    setShowIndividualSubscribeConfirm(false);
     setSelectedMemberForSubscription(null);
   };
 
@@ -2421,7 +2502,7 @@ const MemberPlanManagement = () => {
                   },
                 ]}
               >
-                Create Chart
+                Create A New Chart
               </Text>
             </TouchableOpacity>
           </View>
@@ -2548,6 +2629,7 @@ const MemberPlanManagement = () => {
                     userCurrentPlan={user?.current_plan || userPlanDetails?.current_plan}
                     isSubscriptionLoading={isFetchingPlan}
                     onRequestDeallocate={handleOpenDeallocateModal}
+                    onRequestDelete={handleOpenDeleteMemberModal}
                     hasAnyEternalPath={hasAnyEternalPath}
                   />
                 );
@@ -2701,8 +2783,17 @@ const MemberPlanManagement = () => {
                   ]}
                   value={personalDetails}
                   onChangeText={setPersonalDetails}
-                  placeholder="Example :
-I am a 42-year-old married male, living in Mumbai with my family. I run a successful export business that has been steadily growing for the past 12 years. Financially, I am stable, but I am looking to expand into international markets and diversify into new sectors. My relationship with my wife and children is supportive, though I often struggle to balance family time with professional commitments. At this stage, my main priorities are scaling my business, ensuring long-term wealth security, and maintaining good health amidst a busy lifestyle."
+                  placeholder={`Example:
+
+(a) What do you do - e.g. studying, working, home maker, retired, consultant etc.
+
+(b) Work details - e.g. employed, running a business, stock trader, IT professional, studying, doctor, etc.
+
+(c) Family details - Father mother, children, siblings, partner etc.
+
+(d) What keeps you busy these days
+
+(e) Anything else that you wish to share.`}
                   placeholderTextColor={colors.grayText}
                   multiline
                   textAlignVertical="top"
@@ -2890,7 +2981,7 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
               </Text>
             </TouchableOpacity>
 
-            <Text
+            {/* <Text
               style={[
                 styles.premiumModalTitle,
                 {
@@ -2900,7 +2991,7 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
               ]}
             >
               Annual Plan - What You Unlock
-            </Text>
+            </Text> */}
 
             {familyUpgradePreview.loading ? (
               <View style={{ paddingVertical: 24 }}>
@@ -3024,7 +3115,7 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
                             },
                           },
                         },
-                        name: 'Astroself',
+                        name: 'Astrodha',
                         description: 'Upgrade to Family Plan',
                         prefill: {
                           email:
@@ -3171,19 +3262,7 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
                       opacity: 0.5,
                     },
                   ]}
-                  onPress={() => {
-                    Alert.alert(
-                      'info',
-                      'Your subscription is valid for the next 12 months and will be auto-renewed unless cancelled.',
-                      [
-                        { text: 'No', style: 'cancel' },
-                        {
-                          text: 'Yes',
-                          onPress: () => handleBuyPremiumAccess('individual'),
-                        },
-                      ],
-                    );
-                  }}
+                  onPress={() => setShowIndividualSubscribeConfirm(true)}
                   disabled={creatingSubscription || userPlanDetails?.current_plan === 'eternal_path'}
                 >
                   {creatingSubscription ? (
@@ -3262,6 +3341,105 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
                 ))}
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Individual plan: 12-month / auto-renew info + Yes/No (replaces Alert) */}
+      <Modal
+        visible={showIndividualSubscribeConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowIndividualSubscribeConfirm(false)}
+      >
+        <View style={styles.upgradeModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowIndividualSubscribeConfirm(false)}
+          />
+          <View
+            style={[
+              styles.upgradeModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.upgradeModalTitle,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Info
+            </Text>
+            <Text
+              style={[
+                styles.upgradeModalMessage,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              Your subscription is valid for the next 12 months and will be
+              auto-renewed unless cancelled.
+            </Text>
+            <View style={styles.upgradeModalButtonsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.upgradeModalButton,
+                  styles.upgradeModalCancelButton,
+                  {
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+                onPress={() => setShowIndividualSubscribeConfirm(false)}
+              >
+                <Text
+                  style={[
+                    styles.upgradeModalButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  No
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.upgradeModalButton,
+                  styles.upgradeModalBuyButton,
+                  { backgroundColor: colors.Orangeaccentcolor },
+                ]}
+                onPress={() => {
+                  setShowIndividualSubscribeConfirm(false);
+                  handleBuyPremiumAccess('individual');
+                }}
+              >
+                <Text
+                  style={[styles.upgradeModalButtonText, { color: '#FFFFFF' }]}
+                >
+                  Yes
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -3421,6 +3599,167 @@ I am a 42-year-old married male, living in Mumbai with my family. I run a succes
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Confirm Delete Member Modal */}
+      <Modal
+        visible={showDeleteMemberModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseDeleteMemberModal}
+      >
+        <View style={styles.upgradeModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={handleCloseDeleteMemberModal}
+          />
+          <View
+            style={[
+              styles.deallocateModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.deallocateModalTitle,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Delete Member
+            </Text>
+            <Text
+              style={[
+                styles.deallocateModalMessage,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              Once deleted you will not receive any regular updates for this
+              member
+            </Text>
+            <View style={styles.deallocateModalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.deallocateBtn,
+                  styles.deallocateYesBtn,
+                  { opacity: isDeletingMember ? 0.6 : 1 },
+                ]}
+                onPress={handleConfirmDeleteMember}
+                disabled={isDeletingMember}
+              >
+                {isDeletingMember ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.deallocateYesText}>Yes</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.deallocateBtn,
+                  styles.deallocateNoBtn,
+                  {
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+                onPress={handleCloseDeleteMemberModal}
+                disabled={isDeletingMember}
+              >
+                <Text
+                  style={[
+                    styles.deallocateNoText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  No
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Member Result Modal */}
+      <Modal
+        visible={deleteMemberResult != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteMemberResult(null)}
+      >
+        <TouchableOpacity
+          style={styles.upgradeModalOverlay}
+          activeOpacity={1}
+          onPress={() => setDeleteMemberResult(null)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={e => e.stopPropagation()}
+            style={[
+              styles.upgradeModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.upgradeModalTitle,
+                {
+                  color:
+                    deleteMemberResult?.kind === 'error'
+                      ? colors.Orangeaccentcolor
+                      : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                },
+              ]}
+            >
+              {deleteMemberResult?.kind === 'error' ? 'Error' : 'Success'}
+            </Text>
+            <Text
+              style={[
+                styles.upgradeModalMessage,
+                {
+                  color:
+                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                },
+              ]}
+            >
+              {deleteMemberResult?.message || ''}
+            </Text>
+            <View style={styles.upgradeModalButtonsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.upgradeModalButton,
+                  styles.upgradeModalBuyButton,
+                  { backgroundColor: colors.Orangeaccentcolor },
+                ]}
+                onPress={() => setDeleteMemberResult(null)}
+              >
+                <Text style={[styles.upgradeModalButtonText, { color: '#FFFFFF' }]}>
+                  OK
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* Upgrade Plan Modal for Dynamic Predictions */}
@@ -3630,7 +3969,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: responsiveWidth(2),
+    gap: responsiveWidth(1),
     marginTop: responsiveWidth(2),
   },
   actionButton: {
@@ -3642,9 +3981,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: fontFamily.regular,
     fontWeight: '600',
+    textAlign: 'center',
   },
   saveButton: {
     flex: 1,
@@ -3691,8 +4031,9 @@ const styles = StyleSheet.create({
   createChartButton: {
     // flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
-    width: '30%',
+    borderRadius: 5,
+    // width: '30%',
+    paddingHorizontal: responsiveWidth(2),
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
@@ -3705,8 +4046,9 @@ const styles = StyleSheet.create({
     // flex: 1,
     paddingVertical: 10,
     // paddingHorizontal: 24,
-    borderRadius: 10,
-    width: '40%',
+    borderRadius: 5,
+    // width: '40%',
+    paddingHorizontal: responsiveWidth(2),
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
@@ -3854,16 +4196,17 @@ const styles = StyleSheet.create({
   },
   predictionLinksContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: "space-around",
     alignItems: 'center',
     // gap: responsiveWidth(4),
     marginVertical: responsiveWidth(1),
     marginBottom: responsiveWidth(1),
-    marginHorizontal: responsiveWidth(5),
+    // marginHorizontal: responsiveWidth(2),
   },
   predictionLink: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: fontFamily.regular,
+    alignSelf: 'center',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -4126,7 +4469,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   personalDetailsInput: {
-    minHeight: 290,
+    minHeight: 360,
     borderRadius: 12,
     padding: responsiveWidth(3),
     borderWidth: 1,
@@ -4271,10 +4614,10 @@ const styles = StyleSheet.create({
   },
   premiumModalCloseButton: {
     position: 'absolute',
-    top: responsiveWidth(3),
-    right: responsiveWidth(3),
-    width: responsiveWidth(8),
-    height: responsiveWidth(8),
+    top: responsiveWidth(2),
+    right: responsiveWidth(2),
+    width: responsiveWidth(7),
+    height: responsiveWidth(7),
     borderRadius: responsiveWidth(4),
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
     justifyContent: 'center',
@@ -4282,7 +4625,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   premiumModalCloseText: {
-    fontSize: 20,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   premiumModalHeader: {
@@ -4296,7 +4639,7 @@ const styles = StyleSheet.create({
     marginRight: responsiveWidth(2),
   },
   premiumModalTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontFamily: fontFamily.bold,
     textAlign: 'center',
     marginBottom: 12,

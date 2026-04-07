@@ -10,6 +10,7 @@ import {
   ScrollView,
   StatusBar,
   Image,
+  Linking,
 } from 'react-native';
 import {
   fontFamily,
@@ -35,6 +36,9 @@ type HelpCenterScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
   'HelpCenterScreen'
 >;
+
+const SUPPORT_EMAIL = 'support@astrodha.ai';
+const WEBSITE_URL = 'https://www.astrodha.ai';
 
 const HelpCenterScreen = () => {
   const { theme, colors } = useTheme();
@@ -198,19 +202,26 @@ const HelpCenterScreen = () => {
             >
               Email Support
             </Text>
-            <Text
-              style={[
-                styles.sectionText,
-
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  marginTop: responsiveWidth('2%'),
-                },
-              ]}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.linkWrap}
+              onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+              accessibilityRole="link"
+              accessibilityLabel={`Email ${SUPPORT_EMAIL}`}
             >
-              support@astrodha.ai
-            </Text>
+              <Text
+                style={[
+                  styles.sectionText,
+                  styles.linkText,
+                  {
+                    color: colors.Orangeaccentcolor,
+                    marginTop: responsiveWidth('2%'),
+                  },
+                ]}
+              >
+                {SUPPORT_EMAIL}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
         <View
@@ -241,19 +252,26 @@ const HelpCenterScreen = () => {
             >
               Visit Website
             </Text>
-            <Text
-              style={[
-                styles.sectionText,
-
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  marginTop: responsiveWidth('2%'),
-                },
-              ]}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.linkWrap}
+              onPress={() => Linking.openURL(WEBSITE_URL)}
+              accessibilityRole="link"
+              accessibilityLabel={`Open website ${WEBSITE_URL}`}
             >
-              www.astrodha.ai
-            </Text>
+              <Text
+                style={[
+                  styles.sectionText,
+                  styles.linkText,
+                  {
+                    color: colors.Orangeaccentcolor,
+                    marginTop: responsiveWidth('2%'),
+                  },
+                ]}
+              >
+                www.astrodha.ai
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -382,6 +400,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     lineHeight: 20,
     textAlign: 'left',
+  },
+  linkWrap: {
+    alignSelf: 'flex-start',
+  },
+  linkText: {
+    textDecorationLine: 'underline',
   },
   responseTimeCard: {
     // backgroundColor: '#1E3A8A', // Dark blue background

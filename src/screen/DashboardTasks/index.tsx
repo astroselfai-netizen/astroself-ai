@@ -1004,6 +1004,47 @@ const DashboardTasksScreen = () => {
                 </View> */}
               </TouchableOpacity>
 
+                {/* Card 3: Tasks You Should Perform Daily */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={[
+                    styles.topCard,
+                    {
+                      backgroundColor:
+                        theme === 'dark' ? colors.DarkNavy : colors.white,
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeBorderDropdown
+                          : colors.borderColor,
+                    },
+                  ]}
+                  onPress={() =>
+                    navigation.navigate('EditAllTaskSelectionScreen', {
+                      userId: selectedMemberId || undefined,
+                    })
+                  }
+                >
+                  <View style={styles.topCardIconContainer}>
+                    <Image
+                      source={require('../../assets/icons/home/PerformDailyTask.png')}
+                      style={styles.topCardIcon}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.topCardTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Your Tasks For The Day
+                  </Text>
+                </TouchableOpacity>
+
               {/* Card 2: Tasks Progress Score */}
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -1037,7 +1078,7 @@ const DashboardTasksScreen = () => {
                     },
                   ]}
                 >
-                  Tasks Progress Score
+                  Monitor Your Progress
                 </Text>
                 {/* <View
                   style={[
@@ -1051,46 +1092,7 @@ const DashboardTasksScreen = () => {
                 </View> */}
               </TouchableOpacity>
 
-              {/* Card 3: Tasks You Should Perform Daily */}
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={[
-                  styles.topCard,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.DarkNavy : colors.white,
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeBorderDropdown
-                        : colors.borderColor,
-                  },
-                ]}
-                onPress={() =>
-                  navigation.navigate('EditAllTaskSelectionScreen', {
-                    userId: selectedMemberId || undefined,
-                  })
-                }
-              >
-                <View style={styles.topCardIconContainer}>
-                  <Image
-                      source={require('../../assets/icons/home/PerformDailyTask.png')}
-                    style={styles.topCardIcon}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.topCardTitle,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  Tasks You Should Perform Daily
-                </Text>
-              </TouchableOpacity>
+              
 
               {/* Card 4: Your Tasks for the day (Open/Closed + Update Task screen) */}
               <TouchableOpacity
@@ -1129,7 +1131,7 @@ const DashboardTasksScreen = () => {
                     },
                   ]}
                 >
-                  Tasks inventory
+                  Update Your Tasks
                 </Text>
               </TouchableOpacity>
 

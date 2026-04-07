@@ -148,6 +148,7 @@ const ReportScreen = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successModalTitle, setSuccessModalTitle] = useState('');
   const [successModalMessage, setSuccessModalMessage] = useState('');
+  const [showMemberRequiredModal, setShowMemberRequiredModal] = useState(false);
 
   // Toggle expanded state for reports
   const toggleReportExpanded = (reportId: string) => {
@@ -275,12 +276,7 @@ const ReportScreen = () => {
     try {
       // Check if member is selected
       if (!selectedMemberId) {
-        Toast.show({
-          type: 'error',
-          text1: 'Member Selection Required',
-          text2: 'Please select a member before purchasing the report.',
-          visibilityTime: 5000,
-        });
+        setShowMemberRequiredModal(true);
         return;
       }
 
@@ -1260,7 +1256,7 @@ const ReportScreen = () => {
                             ]}
                           >
                             <Text style={styles.purchasedBadgeText}>
-                              Purchased by {report.name}
+                              Purchased for {report.name}
                             </Text>
                           </View>
                           <Text
@@ -1393,6 +1389,65 @@ const ReportScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <Modal
+        visible={showMemberRequiredModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMemberRequiredModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.successModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMemberRequiredModal(false)}
+        >
+          <View
+            style={[
+              styles.successModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <View style={styles.successModalContent}>
+              <Text
+                style={[
+                  styles.successModalTitle,
+                  { color: colors.Orangeaccentcolor },
+                ]}
+              >
+                Member Selection Required
+              </Text>
+              <Text
+                style={[
+                  styles.successModalMessage,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Please select a member before purchasing the report.
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.successModalButton,
+                  {
+                    backgroundColor: colors.Orangeaccentcolor,
+                  },
+                ]}
+                onPress={() => setShowMemberRequiredModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.successModalButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </MainContainer>
   );
 };
@@ -1451,7 +1506,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#EEE5CA',
     overflow: 'hidden',
-    marginBottom: responsiveHeight(2),
+    marginBottom: responsiveHeight(1),
     marginHorizontal: responsiveWidth(3),
   },
   tabsBgImage: {

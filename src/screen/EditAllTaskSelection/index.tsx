@@ -76,6 +76,11 @@ const EditAllTaskSelectionScreen = () => {
   const [isCreateTaskModalVisible, setIsCreateTaskModalVisible] = useState(false);
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [taskCreateFeedbackModal, setTaskCreateFeedbackModal] = useState<{
+    visible: boolean;
+    variant: 'success' | 'error';
+    message: string;
+  }>({ visible: false, variant: 'success', message: '' });
   // const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   const hasSelectedTasks = React.useMemo(() => {
@@ -396,14 +401,19 @@ const EditAllTaskSelectionScreen = () => {
       setIsCreateTaskModalVisible(false);
       setNewTaskDescription('');
 
-      Alert.alert('Success', 'Task created successfully');
+      setTaskCreateFeedbackModal({
+        visible: true,
+        variant: 'success',
+        message: 'Task created successfully',
+      });
     } catch (error: any) {
       console.error('Error creating task:', error);
-      Alert.alert(
-        'Error',
-        error?.message || 'Failed to create task. Please try again.',
-        [{ text: 'OK' }],
-      );
+      setTaskCreateFeedbackModal({
+        visible: true,
+        variant: 'error',
+        message:
+          error?.message || 'Failed to create task. Please try again.',
+      });
     } finally {
       setSaving(false);
     }
@@ -560,7 +570,7 @@ const EditAllTaskSelectionScreen = () => {
               },
             ]}
           >
-            Yodha Master
+            Select Your Tasks
           </Text>
         </View>
       </View>
@@ -1015,7 +1025,7 @@ const EditAllTaskSelectionScreen = () => {
                 },
               ]}
             >
-              Create New Task
+              Add A New Task That You Wish To Monitor
             </Text>
 
             <TextInput
@@ -1088,6 +1098,80 @@ const EditAllTaskSelectionScreen = () => {
                 <Text style={styles.modalCreateButtonText}>Create</Text>
               </TouchableOpacity>
             </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Create task: success / error (replaces Alert) */}
+      <Modal
+        visible={taskCreateFeedbackModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          setTaskCreateFeedbackModal(s => ({ ...s, visible: false }))
+        }
+      >
+        <TouchableOpacity
+          style={styles.successModalOverlay}
+          activeOpacity={1}
+          onPress={() =>
+            setTaskCreateFeedbackModal(s => ({ ...s, visible: false }))
+          }
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={e => e.stopPropagation()}
+            style={[
+              styles.successModalContainer,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.successModalTitle,
+                {
+                  color:
+                    taskCreateFeedbackModal.variant === 'error'
+                      ? '#c62828'
+                      : theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                },
+              ]}
+            >
+              {taskCreateFeedbackModal.variant === 'success'
+                ? 'Success'
+                : 'Error'}
+            </Text>
+            <Text
+              style={[
+                styles.successModalMessage,
+                {
+                  color:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.DarkNavy,
+                },
+              ]}
+            >
+              {taskCreateFeedbackModal.message}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.successModalButton,
+                {
+                  backgroundColor: colors.Orangeaccentcolor,
+                },
+              ]}
+              onPress={() =>
+                setTaskCreateFeedbackModal(s => ({ ...s, visible: false }))
+              }
+            >
+              <Text style={styles.successModalButtonText}>OK</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

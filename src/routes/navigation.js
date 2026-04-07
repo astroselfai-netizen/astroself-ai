@@ -856,7 +856,7 @@ function MyTabs() {
             </TouchableOpacity>
 
             {/* Header with Crown Icon */}
-            <View style={styles.premiumModalHeader}>
+            {/* <View style={styles.premiumModalHeader}>
               <Text style={styles.premiumModalCrownIcon}>👑</Text>
               <Text
                 style={[
@@ -871,7 +871,7 @@ function MyTabs() {
               >
                 Annual Plan – What You Unlock
               </Text>
-            </View>
+            </View> */}
 
             {/* Price */}
             <View style={styles.premiumModalPriceContainer}>

@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, ImageBackground, ScrollView, TouchableOpacity } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ImageBackground,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+} from 'react-native';
 import {
   responsiveWidth,
   font,
@@ -75,7 +83,6 @@ const DashaScreen = ({
   const [currentDashaData, setCurrentDashaData] = useState<DashaTableItem[]>(
     [],
   );
-  const [isFocus, setIsFocus] = useState(false);
   const hasSetInitialValue = useRef(true);
 
   console.log('all_dasha===>', dashaDetails);
@@ -264,153 +271,185 @@ const DashaScreen = ({
     dashaTypes.find(type => type.key === selectedDashaType)?.label ||
     'Maha dasha';
 
+  const getDashaSummaryForType = useCallback(
+    (typeKey: string): { planet: string; start: string; end: string } | null => {
+      if (!dashaDetails) return null;
+
+      // New API structure
+      if ('MahaDasha' in (dashaDetails as any)) {
+        const dashaTypeMapping: { [key: string]: string } = {
+          major: 'MahaDasha',
+          minor: 'AntarDasha',
+          sub_minor: 'PratyantarDasha',
+          sub_sub_minor: 'SookshmaDasha',
+          sub_sub_sub_minor: 'PranDasha',
+        };
+        const selectedDashaKey = dashaTypeMapping[typeKey];
+        const dashaData = selectedDashaKey ? (dashaDetails as any)[selectedDashaKey] : null;
+        if (!dashaData) return null;
+        return {
+          planet: dashaData.planet || '--',
+          start: dashaData.start || '--',
+          end: dashaData.end || '--',
+        };
+      }
+
+      // Old structure: dashaDetails[typeKey].dasha_period[]
+      const oldDashaDetails = dashaDetails as any;
+      const dashaTypeData = oldDashaDetails[typeKey];
+      if (!dashaTypeData || !Array.isArray(dashaTypeData.dasha_period)) return null;
+      const periods: DashaPeriod[] = dashaTypeData.dasha_period;
+      if (periods.length === 0) return null;
+
+      const active = periods.find(p => isCurrentPeriod(p.start, p.end));
+      const p = active || periods[0];
+      return {
+        planet: p.planet || '--',
+        start: p.start || '--',
+        end: p.end || '--',
+      };
+    },
+    [dashaDetails, isCurrentPeriod],
+  );
+
+  const dashaSelectorData = dashaTypes.map((type, index) => {
+    const summary = getDashaSummaryForType(type.key);
+    const planetName = summary?.planet || '--';
+    const planetId = planetNameToId[planetName] ?? 0;
+    return {
+      id: `${type.key}-${index}`,
+      key: type.key,
+      type: type.label,
+      planet: planetName,
+      startDate: summary?.start || '--',
+      endDate: summary?.end || '--',
+      icon: getPlanetIconFromAPI(planetId, planetName),
+    };
+  });
+
   console.log('currentDashaData===>', currentDashaData);
   console.log('selectedDashaLabel===>', selectedDashaLabel);
 
   return (
     <View>
-      {/* Enhanced Dropdown for Dasha Type Selection */}
-      <View style={[styles.dropdownContainer]}>
-        <Dropdown
+      {/* Current Dasha Overview (same UI as Nakshatra) */}
+      <ImageBackground
+        source={
+          theme === 'dark'
+            ? require('../../assets/image/DarkBackground.png')
+            : require('../../assets/image/LightBackground.png')
+        }
+        blurRadius={12}
+        style={[
+          styles.membersCard,
+          {
+            backgroundColor:
+              theme === 'dark' ? colors.transparent : colors.white,
+            borderColor: colors.borderColor,
+          },
+        ]}
+        imageStyle={styles.membersBgImage}
+      >
+        <View style={styles.membersOverlay} />
+        <View
           style={[
-            styles.dropdown,
-            isFocus && styles.dropdownFocused,
+            styles.dashaContainer,
             {
               backgroundColor:
-                theme === 'dark' ? colors.DarkNavy : colors.white,
-              borderColor:
-                theme === 'dark'
-                  ? colors.themeBorderDropdown
-                  : colors.borderColor,
+                theme === 'dark' ? colors.transparent : colors.white,
+              borderColor: colors.borderColor,
             },
           ]}
-          placeholderStyle={[
-            styles.placeholderStyle,
-            {
-              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-            },
-          ]}
-          selectedTextStyle={[
-            styles.selectedTextStyle,
-            {
-              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-            },
-          ]}
-          inputSearchStyle={[
-            styles.inputSearchStyle,
-            {
-              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              backgroundColor:
-                theme === 'dark' ? colors.DarkNavy : colors.white,
-            },
-          ]}
-          iconStyle={[
-            styles.iconStyle,
-            {
-              tintColor:
-                theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-            },
-          ]}
-          data={dashaTypes}
-          search={false}
-          maxHeight={300}
-          labelField="label"
-          valueField="key"
-          placeholder="Select Dasha Type"
-          value={selectedDashaType}
-          onFocus={() => setIsFocus(true)}
-          onBlur={() => setIsFocus(false)}
-          onChange={item => {
-            setSelectedDashaType(item.key);
-            setIsFocus(false);
-          }}
-          renderRightIcon={() => (
-            <Image
-              source={require('../../assets/icons/Dropdown.png')}
-              style={[
-                styles.dropdownIcon,
-                {
-                  tintColor:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-                { transform: [{ rotate: isFocus ? '180deg' : '0deg' }] },
-              ]}
-            />
-          )}
-          containerStyle={[
-            styles.dropdownContainerStyle,
-            {
-              backgroundColor:
-                theme === 'dark' ? colors.DarkNavy : colors.white,
-              borderColor:
-                theme === 'dark'
-                  ? colors.themeBorderDropdown
-                  : colors.borderColor,
-            },
-          ]}
-          itemTextStyle={[
-            styles.dropdownItemText,
-            {
-              color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-            },
-          ]}
-          itemContainerStyle={[
-            // styles.dropdownItemContainer,
-            {
-              backgroundColor: theme === 'dark' ? colors.surface : colors.white,
-              borderBottomColor:
-                theme === 'dark'
-                  ? colors.themeBorderDropdown
-                  : colors.borderColor,
-              marginHorizontal: responsiveWidth(1.5),
-              marginTop: responsiveWidth(1.5),
-              marginBottom: responsiveWidth(1.5),
-              marginVertical: responsiveWidth(0.5),
-              borderRadius: responsiveWidth(2),
-            },
-          ]}
-          activeColor={
-            theme === 'dark'
-              ? colors.Orangeaccentcolor
-              : colors.Orangeaccentcolor
-          }
-          renderItem={(item, selected) => (
-            <View
-              style={[
-                styles.dropdownItemContainer,
-                {
-                  backgroundColor: selected
-                    ? theme === 'dark'
-                      ? colors.Orangeaccentcolor
-                      : colors.Orangeaccentcolor
-                    : theme === 'dark'
-                    ? colors.surface
-                    : colors.white,
-                  borderBottomColor:
-                    theme === 'dark'
-                      ? colors.themeBorderDropdown
-                      : colors.borderColor,
-                },
-              ]}
+        >
+          <Text
+            style={[
+              styles.dashaTitle,
+              {
+                color:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              },
+            ]}
+          >
+            Current Dasha Overview
+          </Text>
+          <View style={styles.dashaCardsRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              pagingEnabled={false}
+              contentContainerStyle={styles.scrollContent}
             >
-              <Text
-                style={[
-                  styles.dropdownItemText,
-                  {
-                    color: selected
-                      ? colors.white
-                      : theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.DarkNavy,
-                  },
-                ]}
-              >
-                {item.label}
-              </Text>
-            </View>
-          )}
-        />
-      </View>
+              {dashaSelectorData.map(dasha => {
+                const selected = selectedDashaType === dasha.key;
+                return (
+                  <TouchableOpacity
+                    key={dasha.id}
+                    activeOpacity={0.85}
+                    onPress={() => setSelectedDashaType(dasha.key)}
+                    style={[
+                      styles.dashaCard,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavyBlue : colors.white,
+                        borderWidth: selected ? 2 : 1,
+                        borderColor: selected
+                          ? colors.Orangeaccentcolor
+                          : theme === 'dark'
+                            ? colors.themeBorderDropdown
+                            : colors.borderColor,
+                      },
+                    ]}
+                  >
+                    <Image source={dasha.icon} style={styles.dashaIcon} />
+                    <Text
+                      style={[
+                        styles.dashaType,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {dasha.type}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dashaPlanet,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {dasha.planet}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dashaDates,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {dasha.startDate}
+                      {'\n'}
+                      {dasha.endDate}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </ImageBackground>
 
       {/* Dasha Table */}
 
@@ -429,14 +468,7 @@ const DashaScreen = ({
               theme === 'dark' ? colors.borderColor : colors.borderColor,
           },
         ]}
-        imageStyle={[
-          styles.newMembersBgImage,
-          {
-            backgroundColor: theme === 'dark' ? colors.surface : colors.white,
-            borderColor:
-              theme === 'dark' ? colors.borderColor : colors.borderColor,
-          },
-        ]}
+        imageStyle={styles.newMembersBgImage}
       >
         <View style={styles.newMmembersOverlay} />
         <View
@@ -515,26 +547,30 @@ const DashaScreen = ({
                   >
                     Planet
                   </Text>
-                  <Text
-                    style={[
-                      styles.dashaHeaderFrom,
-                      {
-                        color: theme === 'dark' ? '#23304D' : colors.white,
-                      },
-                    ]}
-                  >
-                    From
-                  </Text>
-                  <Text
-                    style={[
-                      styles.dashaHeaderTo,
-                      {
-                        color: theme === 'dark' ? '#23304D' : colors.white,
-                      },
-                    ]}
-                  >
-                    To
-                  </Text>
+                  <View style={styles.dashaHeaderDateCell}>
+                    <Text
+                      style={[
+                        styles.dashaHeaderFrom,
+                        {
+                          color: theme === 'dark' ? '#23304D' : colors.white,
+                        },
+                      ]}
+                    >
+                      From
+                    </Text>
+                  </View>
+                  <View style={styles.dashaHeaderDateCell}>
+                    <Text
+                      style={[
+                        styles.dashaHeaderTo,
+                        {
+                          color: theme === 'dark' ? '#23304D' : colors.white,
+                        },
+                      ]}
+                    >
+                      To
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.tableBody}>
                   {currentDashaData.length > 0 ? (
@@ -582,30 +618,38 @@ const DashaScreen = ({
                               {item.planet}
                             </Text>
                           </View>
-                          <Text
-                            style={[
-                              styles.dashaCellFrom,
-                              {
-                                color:
-                                  theme === 'dark' ? '#23304D' : colors.DarkNavy,
-                              },
-                              item.isActive && styles.activeText,
-                            ]}
-                          >
-                            {formatDateForDisplay(item.from)}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.dashaCellTo,
-                              {
-                                color:
-                                  theme === 'dark' ? '#23304D' : colors.DarkNavy,
-                              },
-                              item.isActive && styles.activeText,
-                            ]}
-                          >
-                            {formatDateForDisplay(item.to)}
-                          </Text>
+                          <View style={styles.dashaRowDateCell}>
+                            <Text
+                              style={[
+                                styles.dashaCellFrom,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? '#23304D'
+                                      : colors.DarkNavy,
+                                },
+                                item.isActive && styles.activeText,
+                              ]}
+                            >
+                              {formatDateForDisplay(item.from)}
+                            </Text>
+                          </View>
+                          <View style={styles.dashaRowDateCell}>
+                            <Text
+                              style={[
+                                styles.dashaCellTo,
+                                {
+                                  color:
+                                    theme === 'dark'
+                                      ? '#23304D'
+                                      : colors.DarkNavy,
+                                },
+                                item.isActive && styles.activeText,
+                              ]}
+                            >
+                              {formatDateForDisplay(item.to)}
+                            </Text>
+                          </View>
                         </RowComponent>
                       );
                     })
@@ -654,6 +698,86 @@ const styles = StyleSheet.create({
     marginHorizontal: responsiveWidth('2.5%'),
     // marginTop: responsiveWidth('1'),
     marginBottom: responsiveWidth('2'),
+  },
+  // ---- Dasha selector (same pattern as Nakshatra) ----
+  dashaContainer: {
+    padding:
+      Platform.OS === 'android'
+        ? responsiveWidth('2%')
+        : responsiveWidth('2'),
+  },
+  membersCard: {
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: responsiveWidth('2%'),
+    marginHorizontal: responsiveWidth('3'),
+    marginBottom: 24,
+    borderWidth: 0.2,
+    borderColor: '#EEE5CA',
+    overflow: 'hidden',
+  },
+  membersBgImage: {
+    borderRadius: 16,
+    opacity: 0.7,
+  },
+  membersOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  dashaTitle: {
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+    fontSize: 18,
+    letterSpacing: -0.14,
+    textAlignVertical: 'center',
+  },
+  dashaCardsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  scrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth('2'),
+    paddingVertical: responsiveWidth('2'),
+  },
+  dashaCard: {
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: responsiveWidth('1'),
+    paddingVertical: responsiveWidth('3'),
+    marginRight: 16,
+    width: responsiveWidth('37%'),
+  },
+  dashaIcon: {
+    width: responsiveWidth('10'),
+    height: responsiveWidth('10'),
+    marginBottom: 8,
+    resizeMode: 'contain',
+    borderRadius: 100,
+  },
+  dashaType: {
+    fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+  },
+  dashaPlanet: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+  },
+  dashaDates: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 23,
   },
   dropdown: {
     backgroundColor: '#1B294B',
@@ -744,37 +868,53 @@ const styles = StyleSheet.create({
   },
   dashaTableHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#D6C295',
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     minWidth: responsiveWidth('100'),
   },
   dashaHeaderPlanet: {
-    flex: 0.4, // Reduced planet column width
+    flexGrow: 0,
+    flexShrink: 1,
+    marginRight: 6,
+    minWidth: responsiveWidth(25),
     color: 'rgba(34, 49, 73, 1)',
-
     fontSize: 14,
     fontWeight: 'bold',
-
     fontFamily: fontFamily.regular,
     textAlign: 'left',
+  },
+  /** Equal fixed width so From/To align; text uses 100% width for real centering */
+  dashaHeaderDateCell: {
+    minWidth: responsiveWidth(30),
+    flexGrow: 0,
+    flexShrink: 0,
+    justifyContent: 'center',
+    alignItems: 'stretch',
   },
   dashaHeaderFrom: {
-    flex: 0.4, // More compact from column
+    width: '100%',
     color: '#223149',
     fontSize: 14,
     fontWeight: 'bold',
     fontFamily: fontFamily.regular,
-    textAlign: 'left',
+    textAlign: 'center',
+    ...Platform.select({
+      android: { includeFontPadding: false as const },
+    }),
   },
   dashaHeaderTo: {
-    flex: 0.4, // More compact to column
+    width: '100%',
     color: '#223149',
-
     fontSize: 14,
+
     fontWeight: 'bold',
     fontFamily: fontFamily.regular,
-    textAlign: 'left',
+    textAlign: 'center',
+    ...Platform.select({
+      android: { includeFontPadding: false as const },
+    }),
   },
   tableBody: {
     // Table body container
@@ -800,7 +940,10 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   dashaCellPlanet: {
-    flex: 0.4, // Reduced planet column width
+    flexGrow: 0,
+    flexShrink: 1,
+    marginRight: 6,
+    minWidth: responsiveWidth(25),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -818,22 +961,40 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '500',
     textAlign: 'left',
+    flexShrink: 1,
+  },
+  dashaRowDateCell: {
+    minWidth: responsiveWidth(30),
+    flexGrow: 0,
+    flexShrink: 0,
+    justifyContent: 'center',
+    alignItems: 'stretch',
   },
   dashaCellFrom: {
-    flex: 0.4, // More compact from column
+    width: '100%',
     color: '#223149',
-    ...font.labelSmall,
-    textAlign: 'left',
+    fontSize: font.labelSmall.fontSize,
+    fontFamily: font.labelSmall.fontFamily,
+    fontWeight: 500,
+    textAlign: 'center',
+    ...Platform.select({
+      android: { includeFontPadding: false as const },
+    }),
   },
   dashaCellTo: {
-    flex: 0.4, // More compact to column
+    width: '100%',
     color: '#223149',
-    ...font.labelSmall,
-    textAlign: 'left',
+    fontSize: font.labelSmall.fontSize,
+    fontFamily: font.labelSmall.fontFamily,
+    fontWeight: 500,
+    textAlign: 'center',
+    ...Platform.select({
+      android: { includeFontPadding: false as const },
+    }),
   },
   activeText: {
     color: '#F6EFD9',
-    fontWeight: '700',
+    fontWeight: 700,
   },
 
   newMembersCard: {
@@ -881,12 +1042,16 @@ const styles = StyleSheet.create({
   },
   currentTimeLabel: {
     color: '#F6EFD9',
-    ...font.labelLarge,
+    fontSize: font.labelLarge.fontSize,
+    fontFamily: font.labelLarge.fontFamily,
+    fontWeight: '500',
     marginRight: 10,
   },
   currentTimeText: {
     color: '#F6EFD9',
-    ...font.labelLarge,
+    fontSize: font.labelLarge.fontSize,
+    fontFamily: font.labelLarge.fontFamily,
+    fontWeight: '500',
     lineHeight: 24,
     letterSpacing: -0.14,
   },

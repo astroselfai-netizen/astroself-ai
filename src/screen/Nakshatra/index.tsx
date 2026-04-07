@@ -812,7 +812,7 @@ const NakshatraScreen = () => {
                   { color: colors.Orangeaccentcolor },
                 ]}
               >
-                Report
+                Reports
               </Text>
             </TouchableOpacity>
           </View>
@@ -889,7 +889,7 @@ const NakshatraScreen = () => {
                     : [styles.tabButtonText, { color: colors.textPrimary }]
                 }
               >
-                Dasha
+                Dashas
               </Text>
             </TouchableOpacity>
           </View>
@@ -907,152 +907,7 @@ const NakshatraScreen = () => {
           }
           style={styles.tabContentContainer}
         >
-          {selectedTab === 'Dasha' && (
-            <ImageBackground
-              source={
-                theme === 'dark'
-                  ? require('../../assets/image/DarkBackground.png')
-                  : require('../../assets/image/LightBackground.png')
-              }
-              blurRadius={12}
-              style={[
-                styles.membersCard,
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.transparent : colors.white,
-                  borderColor: colors.borderColor,
-                },
-              ]}
-              imageStyle={styles.membersBgImage}
-            >
-              <View style={styles.membersOverlay} />
-              <View
-                style={[
-                  styles.dashaContainer,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparent : colors.white,
-                    borderColor: colors.borderColor,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.dashaTitle,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  Current Dasha Overview
-                </Text>
-                <View style={styles.dashaCardsRow}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    pagingEnabled={false}
-                    contentContainerStyle={styles.scrollContent}
-                    onScroll={handleDashaScroll}
-                    ref={dashaScrollRef}
-                  >
-                    {dashaData.map(dasha => (
-                      <View
-                        key={dasha.id}
-                        style={[
-                          styles.dashaCard,
-                          {
-                            backgroundColor:
-                              theme === 'dark'
-                                ? colors.DarkNavyBlue
-                                : colors.white,
-                            boxShadow:
-                              theme === 'dark' ? '' : '0px 0px 5px #DF8A5D',
-
-                            shadowColor: theme === 'dark' ? '#000' : '',
-                            shadowOffset: {
-                              width: theme === 'dark' ? 0 : 0,
-                              height: theme === 'dark' ? 2 : 0,
-                            },
-                            shadowOpacity: theme === 'dark' ? 0.4 : 0,
-                            shadowRadius: theme === 'dark' ? 3 : 0,
-                            elevation: theme === 'dark' ? 3 : 0,
-                          },
-                        ]}
-                      >
-                        <Image source={dasha.icon} style={styles.dashaIcon} />
-                        <Text
-                          style={[
-                            styles.dashaType,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {dasha.type}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.dashaPlanet,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {dasha.planet}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.dashaDates,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {dasha.startDate}
-                          {'\n'}
-                          {dasha.endDate}
-                        </Text>
-                      </View>
-                    ))}
-                  </ScrollView>
-                </View>
-                {/* Pagination Dots */}
-                {/* {dashaData.length > 0 && (
-              <View style={styles.paginationDots}>
-                {Array.from({ length: numDashaGroups }).map((_, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => {
-                      const newGroup = index * 3;
-                      dashaScrollRef.current?.scrollTo({
-                        x: newGroup * (120 + 16) * 3, // Scroll to the start of the new group
-                        animated: true,
-                      });
-                    }}
-                    style={[
-                      styles.paginationDot,
-                      index === currentDashaGroup &&
-                        styles.paginationDotActive, // Only one dot active
-                    ]}
-                  />
-                ))}
-              </View>
-            )} */}
-              </View>
-            </ImageBackground>
-          )}
+         
           {selectedTab === 'Charts' && (
             // <View>
             <ChartsScreen

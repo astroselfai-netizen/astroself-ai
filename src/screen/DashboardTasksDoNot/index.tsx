@@ -342,7 +342,7 @@ const DashboardTasksDoNotScreen = () => {
               },
             ]}
           >
-            Yodha Points
+            Actions You Think Twice
           </Text>
         </View>
       </View>

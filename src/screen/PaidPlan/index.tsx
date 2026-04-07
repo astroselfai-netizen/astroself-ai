@@ -79,7 +79,7 @@ const PaidPlanScreen = () => {
   };
 
   const handleSelectPlan = (planType: 'individual' | 'family') => {
-    navigation.navigate('MemberPlanManagement', { planType });
+    navigation.navigate('ProfileScreen', { planType });
   };
 
   return (
