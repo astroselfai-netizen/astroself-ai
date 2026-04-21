@@ -226,7 +226,7 @@ function MyTabs() {
     setShowPremiumModal(false);
     // Don't navigate if user still has cosmic_foundation plan
     // Only navigate if plan is eternal_path
-    if (pendingNavigation && user && user.current_plan === 'eternal_path') {
+    if (pendingNavigation && user && user.current_plan === 'eternal_path' || user.current_plan === 'family_plan') {
       setTimeout(() => {
         pendingNavigation();
         setPendingNavigation(null);
@@ -1205,7 +1205,7 @@ function MyTabs() {
                 },
               ]}
             >
-              To Access Dynamic Predictions, Please Upgrade Your Plan.
+              To Access yodha, Please Upgrade Your Plan.
             </Text>
 
             {/* Buttons */}
@@ -1237,7 +1237,7 @@ function MyTabs() {
                   Cancel
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={[
                   styles.upgradeModalButton,
                   styles.upgradeModalBuyButton,
@@ -1255,7 +1255,7 @@ function MyTabs() {
                 >
                   Buy
                 </Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           </TouchableOpacity>
         </TouchableOpacity>

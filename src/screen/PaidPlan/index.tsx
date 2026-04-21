@@ -1,7 +1,8 @@
 // PaidPlanScreen.tsx
 
-import React from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,6 +11,7 @@ import {
   ScrollView,
   StatusBar,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import {
   fontFamily,
@@ -21,6 +23,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
+import RenderHTML from 'react-native-render-html';
+import http from '../../utils/http';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -39,34 +43,39 @@ type PaidPlanScreenNavigationProp = StackNavigationProp<
   'Login'
 >;
 
-const FREE_FEATURES = [
-  'Birth chart analysis',
-  'AI snapshot predictions',
-  'Personality insights',
-  'Current life phase overview',
-  'Strengths & watch areas',
-  'Key planetary connections',
-  'Transit overview snapshot',
-];
+type PlanFeatureApi = {
+  icon: any;
+  title: string;
+  richContent: string;
+};
 
-const INDIVIDUAL_FEATURES: Array<{ title: string; sub?: string[] }> = [
-  { title: 'Natal Insights + Dynamic Planetary Insights' },
-  { title: 'Transit Guidance + Personal Predictions delivered every 15 days' },
-  { title: 'Karma Alignment + Mobile Task Module' },
-  { title: 'Build better habits aligned with your planetary phase' },
-];
+type PlanApiItem = {
+  id: number;
+  title: string;
+  badge: string;
+  price: string;
+  priceMode: string; // yearly/monthly etc
+  features: PlanFeatureApi[];
+  featuresTitle: string;
+  footerText: string;
+  footerNote: string;
+};
 
-const FAMILY_FEATURES: Array<{ title: string; sub?: string[] }> = [
-  { title: 'Full Access for Up to 5 Family Members' },
-  { title: 'Personalized Guidance for Each Member' },
-  { title: 'Save up to 60%' },
-  { title: 'Manage Profiles as Your Family Evolves' },
-];
+type PlansApiResponse = {
+  status: boolean;
+  count?: number;
+  data?: any[];
+};
 
 const PaidPlanScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<PaidPlanScreenNavigationProp>();
   const { refreshProfileData } = useProfileData();
+  useWindowDimensions();
+
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [plansError, setPlansError] = useState<string | null>(null);
+  const [plans, setPlans] = useState<PlanApiItem[]>([]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -74,12 +83,84 @@ const PaidPlanScreen = () => {
     }, [refreshProfileData]),
   );
 
+  const fetchPlans = useCallback(async () => {
+    setPlansLoading(true);
+    setPlansError(null);
+    try {
+      const res = await http.get<PlansApiResponse>('/plans');
+      const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+      const onlyCards: PlanApiItem[] = raw.filter(
+        (x: any) => typeof x?.id === 'number' && typeof x?.title === 'string',
+      );
+      setPlans(onlyCards);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message || e?.message || 'Unable to load plans.';
+      setPlansError(String(msg));
+      setPlans([]);
+    } finally {
+      setPlansLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPlans();
+    }, [fetchPlans]),
+  );
+
+  const freePlan = useMemo(
+    () => plans.find(p => p.title?.toLowerCase().includes('free')) || null,
+    [plans],
+  );
+  const individualPlan = useMemo(
+    () =>
+      plans.find(p => p.title?.toLowerCase().includes('individual')) || null,
+    [plans],
+  );
+  const familyPlan = useMemo(
+    () => plans.find(p => p.title?.toLowerCase().includes('family')) || null,
+    [plans],
+  );
+
+  const htmlBaseStyle = useMemo(
+    () => ({
+      color: theme === 'dark' ? colors.white : colors.DarkNavy,
+      fontSize: 13,
+      fontFamily: fontFamily.regular,
+      lineHeight: 18,
+      flexShrink: 1,
+    }),
+    [colors.DarkNavy, colors.white, theme],
+  );
+
+  const htmlTagsStyles = useMemo(
+    () => ({
+      p: { marginTop: 0, marginBottom: 0 },
+      ul: { marginTop: 6, marginBottom: 0, paddingLeft: 16, width: '100%' },
+      ol: { marginTop: 6, marginBottom: 0, paddingLeft: 16, width: '100%' },
+      li: { marginBottom: 4, width: '100%' },
+      a: { color: colors.primary ?? colors.yellow },
+      em: { fontStyle: 'italic' },
+      span: { color: htmlBaseStyle.color },
+    }),
+    [colors.primary, colors.yellow, htmlBaseStyle.color],
+  );
+
+  const planCardContentWidth = useMemo(() => {
+    // Keep HTML rendering constrained to the card width to avoid overflow/overlap
+    const CARD_WIDTH = 280;
+    const CARD_PADDING = 16 * 2;
+    const ICON_AND_GAP = 18 + 8; // icon width + marginRight
+    return CARD_WIDTH - CARD_PADDING - ICON_AND_GAP;
+  }, []);
+
   const handleStartFree = () => {
     navigation.navigate('ProfileScreen');
   };
 
   const handleSelectPlan = (planType: 'individual' | 'family') => {
-    navigation.navigate('ProfileScreen', { planType });
+    navigation.navigate('MemberPlanManagement', { planType });
   };
 
   return (
@@ -144,12 +225,7 @@ const PaidPlanScreen = () => {
         keyboardShouldPersistTaps="handled"
         scrollIndicatorInsets={{ right: 1 }}
       >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.planCardsRow}
-          style={styles.planCardsScroll}
-        >
+        <View style={styles.planCardsColumn}>
           {/* FREE PLAN CARD */}
           <View
             style={[
@@ -161,7 +237,15 @@ const PaidPlanScreen = () => {
               },
             ]}
           >
-            <Text style={[styles.planCardTitle, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>Free</Text>
+            <Text
+              style={[
+                styles.planCardTitle,
+                styles.planCardTitleCentered,
+                { color: theme === 'dark' ? colors.white : colors.DarkNavy },
+              ]}
+            >
+              {freePlan?.title ?? 'Free'}
+            </Text>
             <View style={[styles.priceBox, { borderColor: theme === 'dark' ? colors.themeBorderDropdown : '#DDD' }]}>
               <Text style={[styles.priceText, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>Free</Text>
             </View>
@@ -171,17 +255,78 @@ const PaidPlanScreen = () => {
             >
               <Text style={styles.planCtaButtonText}>Continue Free</Text>
             </TouchableOpacity>
-            <Text style={[styles.planFeaturesHeader, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>Everything in Free:</Text>
-            {FREE_FEATURES.map((f, i) => (
-              <View key={i} style={styles.planFeatureRow}>
-                <Image source={require('../../assets/icons/checkIcon.png')} style={styles.planCheckIcon} />
-                <Text style={[styles.planFeatureText, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>{f}</Text>
+            <Text
+              style={[
+                styles.planFeaturesHeader,
+                { color: theme === 'dark' ? colors.white : colors.DarkNavy },
+              ]}
+            >
+              {freePlan?.featuresTitle ?? 'Included in Free:'}
+            </Text>
+            {plansLoading && plans.length === 0 ? (
+              <View style={styles.inlineLoaderRow}>
+                <ActivityIndicator
+                  size="small"
+                  color={theme === 'dark' ? colors.white : colors.DarkNavy}
+                />
+                <Text
+                  style={[
+                    styles.inlineLoaderText,
+                    { color: theme === 'dark' ? colors.white : colors.DarkNavy },
+                  ]}
+                >
+                  Loading…
+                </Text>
               </View>
-            ))}
+            ) : plansError && plans.length === 0 ? (
+              <TouchableOpacity onPress={fetchPlans} activeOpacity={0.8}>
+                <Text
+                  style={[
+                    styles.inlineErrorText,
+                    { color: theme === 'dark' ? colors.white : colors.DarkNavy },
+                  ]}
+                >
+                  {plansError} Tap to retry.
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              (freePlan?.features ?? []).map((f, i) => (
+                <View key={i} style={styles.planFeatureRow}>
+                  <Image
+                    source={require('../../assets/icons/checkIcon.png')}
+                    style={styles.planCheckIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.planFeatureText,
+                      {
+                        color: theme === 'dark' ? colors.white : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {f.title}
+                  </Text>
+                </View>
+              ))
+            )}
             <View style={[styles.planFooterCapsule, { backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F5F5F5' }]}>
-              <Text style={[styles.planFooterText, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>1 profile included</Text>
+              <Text
+                style={[
+                  styles.planFooterText,
+                  { color: theme === 'dark' ? colors.white : colors.DarkNavy },
+                ]}
+              >
+                {freePlan?.footerText ?? '1 profile included'}
+              </Text>
             </View>
-            <Text style={[styles.planSubtext, { color: theme === 'dark' ? colors.textSecondary : '#888' }]}>Try the basics. Upgrade anytime for full access.</Text>
+            <Text
+              style={[
+                styles.planSubtext,
+                { color: theme === 'dark' ? colors.textSecondary : '#888' },
+              ]}
+            >
+              {freePlan?.footerNote ?? 'Try the basics. Upgrade anytime for full access.'}
+            </Text>
           </View>
 
           {/* INDIVIDUAL ANNUAL CARD */}
@@ -192,10 +337,18 @@ const PaidPlanScreen = () => {
               { backgroundColor: '#1A2744' },
             ]}
           >
-            <View style={styles.planBanner}><Text style={styles.planBannerText}>MOST POPULAR</Text></View>
-            <Text style={[styles.planCardTitle, { color: '#FFFFFF' }]}>Individual Annual</Text>
+            <View style={styles.planBanner}>
+              <Text style={styles.planBannerText}>
+                {individualPlan?.badge || 'MOST POPULAR'}
+              </Text>
+            </View>
+            <Text style={[styles.planCardTitle, styles.planCardTitleCentered, { color: '#FFFFFF' }]}>
+              {individualPlan?.title ?? 'Individual Annual'}
+            </Text>
             <View style={[styles.priceBox, styles.priceBoxDark, { backgroundColor: '#0F1A2E' }]}>
-              <Text style={[styles.priceText, { color: '#FFFFFF' }]}>₹999</Text>
+              <Text style={[styles.priceText, { color: '#FFFFFF' }]}>
+                ₹{individualPlan?.price ?? '999'}
+              </Text>
               <Text style={[styles.priceUnit, { color: 'rgba(255,255,255,0.8)' }]}>/ year</Text>
             </View>
             <TouchableOpacity
@@ -204,14 +357,28 @@ const PaidPlanScreen = () => {
             >
               <Text style={[styles.planCtaButtonText, { color: '#1A2744' }]}>Get Individual Plan →</Text>
             </TouchableOpacity>
-            {INDIVIDUAL_FEATURES.map((f, i) => (
+            <Text style={[styles.planFeaturesHeader, { color: '#FFFFFF' }]}>
+              {individualPlan?.featuresTitle ?? 'Everything in Free, plus:'}
+            </Text>
+            {(individualPlan?.features ?? []).map((f, i) => (
               <View key={i} style={styles.planFeatureRow}>
                 <Image source={require('../../assets/icons/checkIcon.png')} style={[styles.planCheckIcon, { tintColor: '#E8B923' }]} />
-                <View>
+                <View style={styles.planFeatureContent}>
                   <Text style={[styles.planFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
-                  {f.sub && f.sub.map((s, j) => (
-                    <Text key={j} style={[styles.planFeatureSub, { color: 'rgba(255,255,255,0.9)' }]}>{'• '}{s}</Text>
-                  ))}
+                  {f.richContent ? (
+                    <View style={styles.htmlWrap}>
+                      <RenderHTML
+                        contentWidth={Math.max(0, planCardContentWidth)}
+                        source={{ html: f.richContent }}
+                        baseStyle={{
+                          ...htmlBaseStyle,
+                          color: 'rgba(255,255,255,0.9)',
+                        }}
+                        tagsStyles={htmlTagsStyles as any}
+                        defaultTextProps={{ selectable: false }}
+                      />
+                    </View>
+                  ) : null}
                 </View>
               </View>
             ))}
@@ -225,11 +392,39 @@ const PaidPlanScreen = () => {
               { backgroundColor: '#2D1B4E' },
             ]}
           >
-            <View style={styles.planBanner}><Text style={styles.planBannerText}>BEST VALUE</Text></View>
-            <Text style={[styles.planCardTitle, { color: '#FFFFFF' }]}>Family Annual</Text>
-            <Text style={[styles.planCardSubtitle, { color: 'rgba(255,255,255,0.9)' }]}>- For families growing together -</Text>
+            <View style={styles.planBanner}>
+              <Text style={styles.planBannerText}>
+                {familyPlan?.badge || 'BEST VALUE'}
+              </Text>
+            </View>
+            <Text style={[styles.planCardTitle, styles.planCardTitleCentered, { color: '#FFFFFF' }]}>
+              {familyPlan?.title ?? 'Family Annual'}
+            </Text>
+            {familyPlan?.badge ? (
+              <Text
+                style={[
+                  styles.planCardSubtitle,
+                  styles.planCardTitleCentered,
+                  { color: 'rgba(255,255,255,0.9)' },
+                ]}
+              >
+                - {familyPlan.badge} -
+              </Text>
+            ) : (
+              <Text
+                style={[
+                  styles.planCardSubtitle,
+                  styles.planCardTitleCentered,
+                  { color: 'rgba(255,255,255,0.9)' },
+                ]}
+              >
+                - For families growing together -
+              </Text>
+            )}
             <View style={[styles.priceBox, styles.priceBoxDark, { backgroundColor: '#1E1335' }]}>
-              <Text style={[styles.priceText, { color: '#FFFFFF' }]}>₹2499</Text>
+              <Text style={[styles.priceText, { color: '#FFFFFF' }]}>
+                ₹{familyPlan?.price ?? '2499'}
+              </Text>
               <Text style={[styles.priceUnit, { color: 'rgba(255,255,255,0.8)' }]}>/ year</Text>
             </View>
             <TouchableOpacity
@@ -238,14 +433,28 @@ const PaidPlanScreen = () => {
             >
               <Text style={styles.planCtaButtonText}>Get Family Plan →</Text>
             </TouchableOpacity>
-            {FAMILY_FEATURES.map((f, i) => (
+            <Text style={[styles.planFeaturesHeader, { color: '#FFFFFF' }]}>
+              {familyPlan?.featuresTitle ?? 'Everything in Individual, plus:'}
+            </Text>
+            {(familyPlan?.features ?? []).map((f, i) => (
               <View key={i} style={styles.planFeatureRow}>
                 <Image source={require('../../assets/icons/checkIcon.png')} style={[styles.planCheckIcon, { tintColor: '#E8B923' }]} />
-                <View>
+                <View style={styles.planFeatureContent}>
                   <Text style={[styles.planFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
-                  {f.sub && f.sub.map((s, j) => (
-                    <Text key={j} style={[styles.planFeatureSub, { color: 'rgba(255,255,255,0.9)' }]}>{'• '}{s}</Text>
-                  ))}
+                  {f.richContent ? (
+                    <View style={styles.htmlWrap}>
+                      <RenderHTML
+                        contentWidth={Math.max(0, planCardContentWidth)}
+                        source={{ html: f.richContent }}
+                        baseStyle={{
+                          ...htmlBaseStyle,
+                          color: 'rgba(255,255,255,0.9)',
+                        }}
+                        tagsStyles={htmlTagsStyles as any}
+                        defaultTextProps={{ selectable: false }}
+                      />
+                    </View>
+                  ) : null}
                 </View>
               </View>
             ))}
@@ -253,7 +462,7 @@ const PaidPlanScreen = () => {
               <Text style={[styles.planFooterText, { color: '#2D1B4E' }]}>Best for families who want structured life guidance together</Text>
             </View> */}
           </View>
-        </ScrollView>
+        </View>
       </ScrollView>
     </MainContainer>
   );
@@ -342,20 +551,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.regular,
   },
-  planCardsRow: {
-    flexDirection: 'row',
+  planCardsColumn: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 16,
   },
-  planCardsScroll: {
-    marginBottom: 12,
-  },
   planCard: {
-    width: 280,
+    width: '100%',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   planCardFree: {},
   planCardIndividual: {},
@@ -379,6 +585,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     marginBottom: 8,
   },
+  planCardTitleCentered: {
+    textAlign: 'center',
+  },
   planCardSubtitle: {
     fontSize: 12,
     fontFamily: fontFamily.regular,
@@ -390,7 +599,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 12,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
+    alignItems: 'center',
   },
   priceBoxDark: {
     borderWidth: 0,
@@ -433,17 +643,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 8,
+    width: '100%',
   },
   planCheckIcon: {
     width: 18,
     height: 18,
     marginRight: 8,
     marginTop: 2,
+    flexShrink: 0,
   },
   planFeatureText: {
     fontSize: 13,
     fontFamily: fontFamily.regular,
     flex: 1,
+    flexShrink: 1,
+    lineHeight: 18,
+  },
+  planFeatureContent: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
+  },
+  htmlWrap: {
+    width: '100%',
+    flexShrink: 1,
   },
   planFeatureSub: {
     fontSize: 12,
@@ -468,6 +692,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fontFamily.regular,
     marginTop: 8,
+  },
+  inlineLoaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  inlineLoaderText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+  },
+  inlineErrorText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    lineHeight: 18,
+    marginTop: 6,
   },
   contentCard: {
     borderRadius: 12,

@@ -65,6 +65,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const [loadingTime, setLoadingTime] = useState<number>(0);
   const userService = serviceFactory.get<UserService>('UserService');
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
+  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
+  const [activeTopicTitle, setActiveTopicTitle] = useState<string | null>(null);
   const [_hasAutoExpanded, setHasAutoExpanded] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCardTitle, setSelectedCardTitle] = useState(cardTitles);
@@ -133,19 +135,19 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   // topic state
   const [selectedTopicValue, setSelectedTopicValue] = useState(
     cardTitles === 'Antardasha'
-      ? 'summary'
+      ? 'General Analysis'
       : _tab === 'SnapCast'
       ? 'Your Personality'
-      : _tab === 'LifeNow' 
-      ? 'Your Tendencies' 
-      : 'summary'
+      : _tab === 'LifeNow'
+      ? 'Planet'
+          : 'General Analysis'
   );
 
 
    const topicOptions = [
-     { title: 'Your Tendencies', value: 'Your Tendencies' },
-     { title: 'Summary', value: 'Summary' },
-     { title: 'Predictions', value: 'Planet' },
+    //  { title: 'Your Tendencies', value: 'Your Tendencies' },
+    //  { title: 'Summary', value: 'Summary' },
+     { title: 'Analysis', value: 'Planet' },
     //  { title: 'Predictions bases on Lords', value: 'Lords in Houses' },
     //  { title: 'Predictions based on Planets', value: 'Planets in Signs' },
     //  { title: 'Predictions based on Nakshtra', value: 'Nakshatra Themes' },
@@ -153,10 +155,10 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
   // Special topic options for Antardasha
   const antardashaTopicOptions = [
-    { title: 'Summary', value: 'summary' },
-    { title: 'General Analysis', value: 'General Analysis' },
+    // { title: 'Summary', value: 'summary' },
+    { title: 'Insights', value: 'General Analysis' },
     // { title: 'Active Planet Connections', value: 'Active Planet Connections' },
-    {title: 'Predictions', value: 'Planet' },
+    // {title: 'Predictions', value: 'Planet' },
     // { title: 'Nakshatra', value: 'Nakshatra' },
     // { title: 'Moon Lagna', value: 'Moon Lagna' },
     
@@ -165,9 +167,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
   // Labels for Antardasha topic options
   const antardashaTopicLabels = [
-    { title: 'Summary', value: 'summary' },
-    { title: 'General Analysis', value: 'General Analysis' },
-    { title: 'Predictions', value: 'Planet' },
+    // { title: 'Summary', value: 'summary' },
+    { title: 'Insights', value: 'General Analysis' },
+    // { title: 'Predictions', value: 'Planet' },
   ];
 
   // No longer fetching cards from API - they come from navigation params
@@ -276,6 +278,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       if (selectedCardTitle) {
         if ( selectedCardTitle.startsWith('Current Phase of Life -')) {
           mainHeading = 'Antardasha';
+        }
+        else if (selectedCardTitle.startsWith('Major Life Cycle -')) {
+          mainHeading = 'Mahadasha';
         }
         // If selectedCardTitle starts with 'Active Planet -', set mainHeading to 'Antardasha'
         else if (selectedCardTitle.startsWith('Birth Chart Insights') ) {
@@ -438,14 +443,29 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           apiTopic = 'General Analysis';
           setSelectedTopicValue('General Analysis');
         }
+
+        if (mainHeading)
         response = await userService.getAntardashaData(
           userId,
           mainHeading,
           apiTopic, // In this case, apiTopic contains the planet parameter
         );
-      } else
+      }else if (mainHeading === 'Mahadasha') {
+        if (apiTopic === 'Your Tendencies') {
+          apiTopic = 'General Analysis';
+          setSelectedTopicValue('General Analysis');
+        }
+
+        if (mainHeading)
+          response = await userService.getAntardashaData(
+            userId,
+            mainHeading,
+            apiTopic, // In this case, apiTopic contains the planet parameter
+          );
+      }
       
-      if (mainHeading === 'Current predictions' || mainHeading === 'Additional Predictions' || mainHeading === 'Next 30 to 45 Days' || mainHeading === 'Next 6 to 30 Months') {
+      
+      else if (mainHeading === 'Current predictions' || mainHeading === 'Additional Predictions' || mainHeading === 'Next 30 to 45 Days' || mainHeading === 'Next 6 to 30 Months') {
         const categorizeResponse = await userService.getDashaCategorizeData(
           userId,
           mainHeading,
@@ -544,10 +564,10 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           selectedCardTitle || 'Antardasha',
           topicTitle || 'General Analysis',
         );
-      } else if (selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle === 'Current predictions' || selectedCardTitle === 'Additional Predictions' || selectedCardTitle === 'Life on the Horizon' || selectedCardTitle === 'Life at the Moment' || selectedCardTitle?.startsWith('Current Phase of Life -') ) {
+      } else if (selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle === 'Current predictions' || selectedCardTitle === 'Additional Predictions' || selectedCardTitle === 'Life on the Horizon' || selectedCardTitle === 'Life at the Moment' || selectedCardTitle?.startsWith('Current Phase of Life -') || selectedCardTitle?.startsWith('Major Life Cycle -') ) {
         // For Current predictions and Additional Predictions, call the dasha AI response API
         // If selectedCardTitle starts with 'Active Planet -', use 'Antardasha' instead
-        const cardTitleForApi = selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle?.startsWith('Current Phase of Life -') ? 'Antardasha' : (selectedCardTitle || 'Additional Predictions');
+        const cardTitleForApi = selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle?.startsWith('Current Phase of Life -') || selectedCardTitle?.startsWith('Major Life Cycle -') ? 'Mahadasha' : (selectedCardTitle || 'Additional Predictions');
         aiResponse = await userService.getDashaAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
           cardTitleForApi,
@@ -785,24 +805,6 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     }
   }, [expandedTopic, topics, userId, selectedCardTitle, userService, current_plan]);
 
-  // Helper function to format birth date as "Month Day, Year" (e.g., "May 20, 1995")
-  const formatBirthDate = (birthData: any): string => {
-    if (!birthData || !birthData.day || !birthData.month || !birthData.year) {
-      return 'N/A';
-    }
-    
-    const { day, month, year } = birthData;
-    // Create a Date object (month is 0-indexed in Date constructor)
-    const date = new Date(year, month - 1, day);
-    
-    // Format as "Month Day, Year" (e.g., "May 20, 1995")
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
   // Get user data from membersData based on userId
   useEffect(() => {
     if (!userId || !membersData || !Array.isArray(membersData)) {
@@ -858,6 +860,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       const firstTopic = topics[0];
       if (firstTopic) {
         setExpandedTopic(firstTopic.id);
+        setActiveTopicId(firstTopic.id);
+        setActiveTopicTitle(firstTopic.title);
         setHasAutoExpanded(true);
         // Automatically trigger AI content generation for the first topic
         setTimeout(() => {
@@ -972,7 +976,51 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const renderFormattedText = (content: string) => {
     if (!content) return <Text style={[styles.topicText, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>No content available</Text>;
 
-    const lines = content.split('\n');
+    const decodeHtmlEntities = (str: string) => {
+      return str
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+    };
+
+    const normalizeHtmlToText = (htmlOrText: string) => {
+      // Convert basic HTML blocks into newline-separated text so UI can render "one by one" points.
+      const html = String(htmlOrText);
+      const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(html);
+      if (!looksLikeHtml) return html;
+
+      let out = html;
+
+      // Lists -> bullet lines (so existing bullet renderer works)
+      out = out
+        .replace(/<\/?(ul|ol)[^>]*>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '- ')
+        .replace(/<\/li>/gi, '\n');
+
+      // Paragraphs + breaks -> newlines
+      out = out
+        .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+        .replace(/<\/?p[^>]*>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n');
+
+      // Strip any remaining tags
+      out = out.replace(/<[^>]+>/g, '');
+
+      // Decode common entities + tidy whitespace/newlines
+      out = decodeHtmlEntities(out);
+      out = out
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      return out;
+    };
+
+    const normalizedContent = normalizeHtmlToText(content);
+    const lines = normalizedContent.split('\n');
     const elements: React.ReactNode[] = [];
     let currentBulletItem: { bullet: string; lines: string[] } | null = null;
 
@@ -1392,10 +1440,10 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           return null;
         }
 
-        console.log('selectedCardTitle---->1355', selectedCardTitle);
+        // console.log('selectedCardTitle---->1355', selectedCardTitle);
 
         // Check if selectedCardTitle is 'Antardasha' or starts with 'Active Planet -'
-        const isAntardasha = selectedCardTitle === 'Antardasha' || selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle?.startsWith('Current Phase of Life -');
+        const isAntardasha = selectedCardTitle === 'Antardasha' || selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle?.startsWith('Current Phase of Life -') || selectedCardTitle?.startsWith('Major Life Cycle -');
 
         const tabOptions =
           isAntardasha
@@ -1467,6 +1515,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                         setSelectedTopicValue(option.value);
                         // Reset expanded topic when changing topic selection
                         setExpandedTopic(null);
+                        setActiveTopicId(null);
+                        setActiveTopicTitle(null);
                       }}
                       activeOpacity={0.7}
                     >
@@ -1492,218 +1542,246 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           </View>
         );
       })()}
-      <ScrollView
-        contentContainerStyle={styles.scrollViewContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.contentWrapper}>
-          <View style={styles.topicsContainer}>
-            {[...topics]
-              .sort((a, b) => {
-                // If 'Life at the Moment' is selected, sort unread items to the top
-                if (selectedCardTitle === 'Life at the Moment') {
-                  const aIsUnread = updatedList[a.title] === true;
-                  const bIsUnread = updatedList[b.title] === true;
+      {activeTopicId ? (
+        <View style={styles.detailScreen}>
+          <ScrollView
+            contentContainerStyle={styles.detailScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+           
 
-                  // Unread items (green) should be at the top
-                  if (aIsUnread && !bIsUnread) return -1;
-                  if (!aIsUnread && bIsUnread) return 1;
-                }
-                // Maintain original order for other cases
-                return 0;
-              })
-              .map(topic => (
-                <ImageBackground
-                  key={topic.id}
-                  source={
+            <View
+              style={[
+                styles.detailContentCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : colors.white,
+                  borderColor:
                     theme === 'dark'
-                      ? require('../../assets/image/DarkBackground.png')
-                      : require('../../assets/image/LightBackground.png')
-                  }
-                  blurRadius={12}
-                  style={[
-                    styles.topicCard,
-                    {
-                      backgroundColor:
-                        theme === 'dark' ? colors.cardBackground : colors.white,
-                      borderColor:
-                        theme === 'dark'
-                          ? colors.themeBorderDropdown
-                          : colors.Orangeaccentcolor,
-                    },
-                  ]}
-                  imageStyle={styles.topicCardBgImage}
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.detailHeader,
+                  {
+                    // backgroundColor:
+                    //   theme === 'dark' ? colors.transparent : colors.surface,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    setActiveTopicId(null);
+                    setActiveTopicTitle(null);
+                  }}
+                  style={styles.detailBackBtn}
+                  activeOpacity={0.7}
                 >
-                  <View style={styles.topicCardOverlay} />
-                  <TouchableOpacity
+                  <Image
+                    source={icons.Icback}
                     style={[
-                      styles.topicHeader,
+                      styles.backIcon,
                       {
-                        backgroundColor:
-                          // Check if this is 'Life at the Moment' and item is unread
-                          selectedCardTitle === 'Life at the Moment' &&
-                          updatedList[topic.title] === true
-                            ? theme === 'dark'
-                              ? 'rgb(139, 196, 40)' // green tint for dark theme
-                              : 'rgb(139, 196, 40)' // green tint for dark theme
-                            : theme === 'dark'
-                            ? colors.transparent
-                            : colors.white,
-                        borderColor:
+                        tintColor:
                           theme === 'dark'
-                            ? colors.themeBorderDropdown
-                            : colors.Orangeaccentcolor,
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
                       },
                     ]}
-                    onPress={() => toggleExpanded(topic.id, topic.title)}
-                    activeOpacity={0.7}
+                  />
+                </TouchableOpacity>
+                <View style={styles.detailHeaderCenter}>
+                  <Text
+                    style={[
+                      styles.detailHeaderTitle,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                    // numberOfLines={2}
                   >
+                    {activeTopicTitle || 'Details'}
+                  </Text>
+                </View>
+                <View style={styles.detailHeaderRight} />
+              </View>
+              {loadingTopicId === activeTopicId ? (
+                <View style={styles.detailBanner}>
+                  <ActivityIndicator size="small" color={colors.Orangeaccentcolor} />
+                  <View style={styles.detailBannerTextWrap}>
                     <Text
                       style={[
-                        styles.topicTitle,
+                        styles.detailBannerText,
                         {
                           color:
-                            // Check if this is 'Life at the Moment' and item is unread
-                            selectedCardTitle === 'Life at the Moment' &&
-                            updatedList[topic.title] === true
-                              ? colors.DarkNavy // Orange color for unread items
-                              : theme === 'dark'
+                            theme === 'dark'
                               ? colors.themeTextWhite
                               : colors.DarkNavy,
-                          fontWeight:
-                            selectedCardTitle === 'Life at the Moment' &&
-                            updatedList[topic.title] === true
-                              ? '600'
-                              : '700',
                         },
                       ]}
                     >
-                      {topic.title}
+                      Generating AI insights...
                     </Text>
-                    {renderArrowIcon(expandedTopic === topic.id, topic)}
-                  </TouchableOpacity>
-
-                  {expandedTopic === topic.id && (
-                    <View
+                    <Text
                       style={[
-                        styles.topicContent,
+                        styles.detailBannerSubText,
                         {
-                          backgroundColor:
+                          color:
                             theme === 'dark'
-                              ? colors.transparent
-                              : colors.white,
-                          borderColor:
-                            theme === 'dark'
-                              ? colors.themeBorderDropdown
-                              : colors.Orangeaccentcolor,
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
                         },
                       ]}
                     >
-                      {loadingTopicId === topic.id ? (
-                        <View
-                          style={[
-                            styles.topicLoadingContainer,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.transparent
-                                  : colors.white,
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.themeBorderDropdown
-                                  : colors.borderColor,
-                            },
-                          ]}
-                        >
-                          <ActivityIndicator size="small" color="#F2994A" />
-                          <Text
-                            style={[
-                              styles.topicLoadingText,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            Generating AI insights...
-                          </Text>
-                          <Text
-                            style={[
-                              styles.topicLoadingText,
-                              styles.topicLoadingSubText,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            Loading time: {loadingTime}s (may take 30-60
-                            seconds)
-                          </Text>
-                        </View>
-                      ) : topicLoadError[topic.id] ? (
-                        <View
-                          style={[
-                            styles.topicLoadingContainer,
-                            styles.topicErrorContainer,
-                            {
-                              backgroundColor:
-                                theme === 'dark'
-                                  ? colors.transparent
-                                  : colors.white,
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.themeBorderDropdown
-                                  : colors.borderColor,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.topicErrorText,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {topicLoadError[topic.id]}
-                          </Text>
-                          <TouchableOpacity
-                            style={[
-                              styles.topicReloadButton,
-                              {
-                                backgroundColor: colors.Orangeaccentcolor,
-                              },
-                            ]}
-                            onPress={() =>
-                              toggleExpanded(topic.id, topic.title, true)
-                            }
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.topicReloadButtonText}>
-                              Reload
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        renderFormattedText(
-                          topic.content || 'No content available',
-                        )
-                      )}
-                    </View>
-                  )}
-                </ImageBackground>
-              ))}
-          </View>
+                      Loading time: {loadingTime}s (may take 30-60 seconds)
+                    </Text>
+                  </View>
+                </View>
+              ) : topicLoadError[activeTopicId] ? (
+                <View style={styles.detailBannerErrorWrap}>
+                  <View style={styles.detailBanner}>
+                    <Image
+                      source={icons.Icclose}
+                      style={[
+                        styles.detailBannerIcon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.detailBannerText,
+                        {
+                          color:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    >
+                      {topicLoadError[activeTopicId]}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.topicReloadButton,
+                      { backgroundColor: colors.Orangeaccentcolor, alignSelf: 'flex-start' },
+                    ]}
+                    onPress={() => {
+                      const t = topics.find(x => x.id === activeTopicId);
+                      if (t) toggleExpanded(t.id, t.title, true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.topicReloadButtonText}>Reload</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                renderFormattedText(
+                  topics.find(x => x.id === activeTopicId)?.content ||
+                    'No content available',
+                )
+              )}
+            </View>
+          </ScrollView>
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollViewContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.contentWrapper}>
+            <View
+              style={[
+                styles.topicsPanel,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : colors.white,
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : colors.borderColor,
+                },
+              ]}
+            >
+              <View style={styles.topicsGrid}>
+                {[...topics]
+                  .sort((a, b) => {
+                    if (selectedCardTitle === 'Life at the Moment') {
+                      const aIsUnread = updatedList[a.title] === true;
+                      const bIsUnread = updatedList[b.title] === true;
+                      if (aIsUnread && !bIsUnread) return -1;
+                      if (!aIsUnread && bIsUnread) return 1;
+                    }
+                    return 0;
+                  })
+                  .map(topic => {
+                    const isUnreadLifeNow =
+                      selectedCardTitle === 'Life at the Moment' &&
+                      updatedList[topic.title] === true;
+                    return (
+                      <TouchableOpacity
+                        key={topic.id}
+                        style={[
+                          styles.topicTile,
+                          {
+                            backgroundColor: isUnreadLifeNow
+                              ? 'rgb(239, 244, 226)'
+                              : theme === 'dark'
+                                ? colors.DarkNavy
+                                : colors.surface,
+                            borderColor:
+                              theme === 'dark'
+                                ? colors.themeBorderDropdown
+                                : colors.borderColor,
+                          },
+                        ]}
+                        onPress={() => {
+                          setActiveTopicId(topic.id);
+                          setActiveTopicTitle(topic.title);
+                          toggleExpanded(topic.id, topic.title, false);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <Text
+                          style={[
+                            styles.topicTileTitle,
+                            {
+                              color: isUnreadLifeNow
+                                ? colors.DarkNavy
+                                : theme === 'dark'
+                                  ? colors.themeTextWhite
+                                  : colors.DarkNavy,
+                            },
+                          ]}
+                          // numberOfLines={3}
+                        >
+                          {topic.title}
+                        </Text>
+                       
+                      </TouchableOpacity>
+                    );
+                  })}
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      )}
       {/* Note Modal */}
       <Modal
         visible={showNoteModal}
@@ -2125,6 +2203,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabsScrollContent: {
+    flexGrow: 1,
     // paddingHorizontal: responsiveWidth(1),
     // borderWidth: 1,
     // backgroundColor: 'transparent',
@@ -2134,6 +2213,7 @@ const styles = StyleSheet.create({
   tabItem: {
     backgroundColor: 'rgba(34, 49, 73, 0.6)',
     // borderRadius: 20,
+    flexGrow: 1,
     // borderWidth: 1,
     // borderColor: 'rgba(73, 108, 168, 0.3)',
     paddingHorizontal: responsiveWidth(4),
@@ -2400,6 +2480,151 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '500',
     textAlign: 'center',
+  },
+
+  // Topic list (new screen-style tiles)
+  topicsPanel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: responsiveWidth(4),
+    marginTop: responsiveHeight(1.5),
+  },
+  topicsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: responsiveWidth(3),
+  },
+  topicTile: {
+    width: '48%',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: responsiveHeight(1.6),
+    paddingHorizontal: responsiveWidth(3),
+    minHeight: responsiveHeight(10),
+    justifyContent: 'space-between',
+    alignItems:"center"
+  },
+  topicTileTitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    fontFamily: fontFamily.regular,
+    fontWeight: '700',
+    lineHeight: 24,
+  },
+  topicTileArrowWrap: {
+    alignSelf: 'flex-end',
+    width: responsiveWidth(6.5),
+    height: responsiveWidth(6.5),
+    borderRadius: responsiveWidth(6.5) / 2,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: responsiveHeight(1),
+  },
+  topicTileArrow: {
+    width: responsiveWidth(4.2),
+    height: responsiveWidth(4.2),
+    resizeMode: 'contain',
+  },
+
+  // Detail "screen" inside this component
+  detailScreen: {
+    flex: 1,
+  },
+  detailHeader: {
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    // flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // flex: 1,
+    // flexWrap: 'wrap',
+    paddingBottom: responsiveHeight(1),
+  },
+  detailBackBtn: {
+    // paddingRight: -responsiveWidth(2),
+    // position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    zIndex: 1000,
+    // paddingLeft: -responsiveWidth(10),
+    // flexDirection: 'row',
+    // alignItems: 'center',
+  },
+  detailHeaderCenter: {
+    flex: 1,
+    // position: 'absolute',
+    // left: responsiveWidth(16),
+    // right: responsiveWidth(16),
+    // top:
+    //   Platform.OS === 'android'
+    //     ? responsiveHeight('0%')
+    //     : responsiveWidth('15%'),
+    // paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+    // alignItems: 'center',
+    // justifyContent: 'center',
+  },
+  detailHeaderRight: {
+    // width: responsiveWidth(12),
+  },
+  detailHeaderTitle: {
+    fontSize: 18,
+    fontFamily: fontFamily.regular,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  detailScrollContent: {
+    paddingHorizontal: responsiveWidth(4),
+    paddingBottom: Platform.OS === 'android' ? 85 : 85,
+    // paddingTop: responsiveHeight(1.5),
+  },
+  detailContentCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    // marginBottom: responsiveHeight(5),
+    
+    paddingHorizontal: responsiveWidth(4),
+    paddingVertical: responsiveHeight(2),
+  },
+  detailBannerErrorWrap: {
+    width: '100%',
+    gap: responsiveHeight(1.2),
+  },
+  detailBanner: {
+    width: '100%',
+    borderRadius: 14,
+    paddingVertical: responsiveHeight(1.6),
+    paddingHorizontal: responsiveWidth(4),
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+  },
+  detailBannerIcon: {
+    width: responsiveWidth(5),
+    height: responsiveWidth(5),
+    resizeMode: 'contain',
+    marginRight: responsiveWidth(2.5),
+  },
+  detailBannerTextWrap: {
+    flex: 1,
+    marginLeft: responsiveWidth(3),
+  },
+  detailBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  detailBannerSubText: {
+    marginTop: 4,
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    opacity: 0.75,
   },
 });
 

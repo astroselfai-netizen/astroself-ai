@@ -103,7 +103,6 @@ const AddNewMember = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [newMemberUserId, setNewMemberUserId] = useState<string | null>(null);
 
   // Centralized function to close all modals
   const closeAllModals = () => {
@@ -613,12 +612,13 @@ const AddNewMember = () => {
         //   }
         // }
 
+        console.log('fromMemberPlanManagement-->123', route.params);
+
         // Step 2: Proceed with creating birth data (for both flows)
-        const response = await createBirthData(values);
+        await createBirthData(values);
         
         if (fromMemberPlanManagement) {
           setIsNavigating(false);
-          setNewMemberUserId(String((response as any)?.user_id ?? ''));
           Toast.show({
             type: 'success',
             text1: 'Member Added Successfully',
@@ -629,34 +629,19 @@ const AddNewMember = () => {
           });
           setShowMemberAddedModal(true);
         } else {
-          // Navigate directly to ChatWithPrompts with Snapshot Prediction through ChatTab
-          // Use the same pattern as the if block above
           const rootNavigation = navigation.getParent();
           if (rootNavigation) {
-            // Navigate to HomeScreen first, then to ChatTab
             navigation.navigate('HomeScreen' as any);
-            // Use a delay to ensure HomeScreen is mounted, then navigate to ChatTab
             setTimeout(() => {
-              (rootNavigation as any).navigate('ChatTab', {
-                screen: 'ChatWithPrompts',
-                params: {
-                  userId: response.user_id,
-                  cardTitles: 'Snapshot Prediction',
-                  tab: 'LifeNow',
-                  planet: null,
-                },
+              (rootNavigation as any).navigate('ProfileTab', {
+                screen: 'ProfileScreen',
               });
             }, 500);
           } else {
 
             navigation.navigate('HomeScreen' as any);
             // Fallback to direct navigation if parent not available
-            navigation.navigate('ChatWithPrompts' as any, {
-              userId: response.user_id,
-              cardTitles: 'Snapshot Prediction',
-              tab: 'LifeNow',
-              planet: null,
-            });
+            navigation.navigate('ProfileScreen' as any);
           }
         }
       } catch (error: any) {
@@ -669,28 +654,6 @@ const AddNewMember = () => {
       }
     },
   });
-
-  const navigateToMemberChat = (userId: string) => {
-    const rootNavigation = navigation.getParent();
-    if (rootNavigation) {
-      (rootNavigation as any).navigate('ChatTab', {
-        screen: 'ChatWithPrompts',
-        params: {
-          userId,
-          cardTitles: 'Snapshot Prediction',
-          tab: 'LifeNow',
-          planet: null,
-        },
-      });
-    } else {
-      navigation.navigate('ChatWithPrompts' as any, {
-        userId,
-        cardTitles: 'Snapshot Prediction',
-        tab: 'LifeNow',
-        planet: null,
-      });
-    }
-  };
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -2037,7 +2000,7 @@ const AddNewMember = () => {
                 { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
               ]}
             >
-              Open prediction now?
+              Member added
             </Text>
             <Text
               style={[
@@ -2045,7 +2008,7 @@ const AddNewMember = () => {
                 { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
               ]}
             >
-              Do you want to view the Snapshot Prediction for this member?
+              New member has been added successfully.
             </Text>
             <View style={styles.confirmModalButtons}>
               <TouchableOpacity
@@ -2055,10 +2018,14 @@ const AddNewMember = () => {
                   { backgroundColor: colors.Orangeaccentcolor },
                 ]}
                 onPress={() => {
-                  const id = newMemberUserId;
                   setShowMemberAddedModal(false);
-                  if (id) {
-                    navigateToMemberChat(id);
+                  const rootNavigation = navigation.getParent();
+                  if (rootNavigation) {
+                    (rootNavigation as any).navigate('ProfileTab', {
+                      screen: 'ProfileScreen',
+                    });
+                  } else {
+                    navigation.navigate('ProfileScreen' as any);
                   }
                 }}
               >

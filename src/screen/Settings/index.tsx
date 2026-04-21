@@ -91,10 +91,10 @@ const settingsList = [
         icon: require('../../assets/icons/Faqs.png'),
         label: 'Faqs',
       },
-      {
-        icon: require('../../assets/icons/document.png'),
-        label: 'Privacy & Policy',
-      },
+      // {
+      //   icon: require('../../assets/icons/document.png'),
+      //   label: 'Privacy & Policy',
+      // },
 
       {
         icon: require('../../assets/icons/Terms-of-Services.png'),

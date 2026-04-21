@@ -1,7 +1,8 @@
 // ReportScreen.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,6 +15,7 @@ import {
   Modal,
   TextInput,
   FlatList,
+  useWindowDimensions,
 } from 'react-native';
 import {
   fontFamily,
@@ -26,7 +28,7 @@ import {
   useRoute,
   RouteProp,
 } from '@react-navigation/native';
-// import { StackNavigationProp } from '@react-navigation/stack';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
@@ -47,6 +49,46 @@ import {
   ErrorCode,
 } from 'react-native-iap';
 import type { Purchase } from 'react-native-iap';
+import RenderHTML from 'react-native-render-html';
+import http, { baseURL } from '../../utils/http';
+
+type ReportFeatureApi = {
+  text: string;
+  hasChildren: boolean;
+  children: string[];
+};
+
+type ReportApiItem = {
+  id: number;
+  report_type: string;
+  title: string;
+  subtitle: string;
+  price: number;
+  data: string;
+  features: ReportFeatureApi[];
+  image?: string;
+};
+
+type ReportsApiResponse = {
+  status: boolean;
+  count?: number;
+  data?: ReportApiItem[];
+};
+
+type ReportFeatureUi = {
+  html: string;
+  childrenHtml?: string;
+};
+
+type ReportUiItem = {
+  id: string; // report_type
+  title: string;
+  description: string; // subtitle
+  featuresTitel: string; // data
+  price: string;
+  features: ReportFeatureUi[];
+  imageUrl?: string;
+};
 
 // iOS In-App Purchase product IDs (must match App Store Connect)
 const IAP_REPORT_PRODUCT_IDS: Record<string, string> = {
@@ -75,13 +117,18 @@ export type RootStackParamList = {
   ReportScreen: { userId: string };
 };
 
-type ReportScreenNavigationProp = RouteProp<RootStackParamList, 'ReportScreen'>;
+type ReportScreenRouteProp = RouteProp<RootStackParamList, 'ReportScreen'>;
+type ReportScreenNavProp = StackNavigationProp<
+  RootStackParamList,
+  'ReportScreen'
+>;
 
 const ReportScreen = () => {
   const { theme, colors } = useTheme();
-  const route = useRoute<ReportScreenNavigationProp>();
+  const route = useRoute<ReportScreenRouteProp>();
   const { userId } = route.params || {};
-  const navigation = useNavigation<ReportScreenNavigationProp>();
+  const navigation = useNavigation<ReportScreenNavProp>();
+  const { width } = useWindowDimensions();
   const { refreshProfileData, membersData } = useProfileData();
   const paymentService = serviceFactory.get<PaymentService>('PaymentService');
   const [activeTab, setActiveTab] = useState<'available' | 'purchased'>(
@@ -92,6 +139,100 @@ const ReportScreen = () => {
   );
   const [purchasedReports, setPurchasedReports] = useState<any[]>([]);
   const [loadingPurchasedReports, setLoadingPurchasedReports] = useState(false);
+
+  // Available reports (dynamic)
+  const [reportsData, setReportsData] = useState<ReportUiItem[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+
+  const apiHost = useMemo(() => {
+    // baseURL includes "/api"
+    return baseURL.endsWith('/api') ? baseURL.slice(0, -4) : baseURL;
+  }, []);
+
+  const toEmHtml = useCallback((text: string) => {
+    // Convert simple *emphasis* to <em>emphasis</em> (API children strings are markdown-ish)
+    return String(text).replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  }, []);
+
+  const fetchReports = useCallback(async () => {
+    setLoadingReports(true);
+    setReportsError(null);
+    try {
+      const res = await http.get<ReportsApiResponse>('/reports');
+      const items = Array.isArray(res.data?.data) ? res.data.data : [];
+
+      const mapped: ReportUiItem[] = items.map((r) => {
+        const imageUrl =
+          typeof r.image === 'string' && r.image.trim().length > 0
+            ? `${apiHost}/${r.image}`.replace(/([^:]\/)\/+/g, '$1')
+            : undefined;
+
+        const features: ReportFeatureUi[] = Array.isArray(r.features)
+          ? r.features.map((f) => {
+              const base = { html: f?.text ?? '' } as ReportFeatureUi;
+              if (f?.hasChildren && Array.isArray(f.children) && f.children.length) {
+                const childrenLis = f.children
+                  .map((c) => `<li>${toEmHtml(c)}</li>`)
+                  .join('');
+                base.childrenHtml = `<ul>${childrenLis}</ul>`;
+              }
+              return base;
+            })
+          : [];
+
+        return {
+          id: r.report_type,
+          title: r.title,
+          description: r.subtitle,
+          featuresTitel: r.data,
+          price: String(r.price ?? ''),
+          features,
+          imageUrl,
+        };
+      });
+
+      setReportsData(mapped);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.message ||
+        'Unable to load reports.';
+      setReportsError(String(msg));
+      setReportsData([]);
+    } finally {
+      setLoadingReports(false);
+    }
+  }, [apiHost, toEmHtml]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchReports();
+    }, [fetchReports]),
+  );
+
+  const htmlBaseStyle = useMemo(
+    () => ({
+      color: theme === 'dark' ? colors.white : colors.DarkNavy,
+      fontSize: 14,
+      fontFamily: fontFamily.regular,
+      lineHeight: 20,
+    }),
+    [colors.DarkNavy, colors.white, theme],
+  );
+
+  const htmlTagsStyles = useMemo(
+    () => ({
+      p: { marginTop: 0, marginBottom: 0 },
+      ul: { marginTop: 6, marginBottom: 0, paddingLeft: 16 },
+      ol: { marginTop: 6, marginBottom: 0, paddingLeft: 16 },
+      li: { marginBottom: 4 },
+      em: { fontStyle: 'italic' },
+      a: { color: colors.primary ?? colors.yellow },
+      span: { color: htmlBaseStyle.color },
+    }),
+    [colors.primary, colors.yellow, htmlBaseStyle.color],
+  );
 
   // Profile member dropdown state
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -169,75 +310,7 @@ const ReportScreen = () => {
       member.full_name?.toLowerCase().includes(searchQuery.toLowerCase()),
     ) || [];
 
-  // Reports data array
-  const reportsData = [
-    {
-      id: 'nakshatra',
-      title: 'Nakshatra Report',
-      description: 'The Deeper Blueprint Behind Your Birth Star',
-      featuresTitel: 'Our Nakshatra Report Covers',
-      price: '699',
-      features: [
-        'Mythological stories and symbolic origins of each Nakshatra',
-        'Detailed interpretation of the *Ascendant Nakshatra* and the *placement of its lord*',
-        'Analysis of all *planets placed in different Nakshatras* across the chart',
-        '*In-depth reading of *planets through Nakshatra Padas* (1st to 4th quarter)',
-        'Placement of *house lords in various Nakshatras* and their influence',
-        'Why Nakshatra Reading is Important - Many people are born under the same zodiac sign, yet their nature, reactions, and life patterns differ greatly. This is because each sign is divided into smaller energy zones called Nakshatras. Nakshatras reveal the finer traits, instincts, and emotional tendencies that make every individual unique. Studying them helps decode the subtle differences in personality, behavior, and destiny that cannot be understood through signs alone.',
-      ],
-    },
-    {
-      id: 'adl',
-      title: 'Antardasha Report',
-      description: 'Planetary Placements Indicate for You Right Now',
-      featuresTitel: 'Our Antardasha Report Covers',
-      price: '999',
-      features: [
-        '*Matters in Focus* – The key areas of life you may need to handle during this Antardasha period.',
-        '*Your Strengths* – Core qualities and supportive traits that help you navigate this phase',
-        '*Daily Guidance* – Simple, mindful actions you can perform each day to stay balanced and productive.',
-        '*Personal Advice* – Practical insights and recommendations to get the best outcomes in career, relationships, finances, and well-being.',
-        '*Energies Around You* – The type of emotional, environmental, and social influences you may be surrounded with.',
-        '*Antardasha Lord’s Placement* – Analysis of the Antardasha planet’s *position in your chart by house, sign, Nakshatra, and Nakshatra Pada*, revealing how it shapes results.',
-        '*Planetary Connections (Yogas)* – How the Antardasha lord interacts, aspects, or forms yogas with other planets influencing your experiences.',
-        '*Transit Interaction* – Study of how *Jupiter, Saturn, Rahu, and Ketu* are currently moving over or aspecting the Antardasha lord, intensifying or moderating its effects throughout this period.',
-      ],
-    },
-    {
-      id: 'lord',
-      title: 'Lords of Destiny',
-      description: 'The Structural Framework of Your Chart',
-      price: '699',
-      featuresTitel: 'Our Lords Report Covers',
-      isComingSoon: false,
-      features: [
-        'Built purely on Ascendant (Lagna) analysis, not Moon Lagna — giving you a clear, structure-based reading of your true life design.',
-        'Understand how each house lord directs key areas like career, love, wealth, health, and inner purpose.',
-        'Decode the placement of every lord (e.g. 1st lord in 10th house) and how it channels energy across different life domains.',
-        'Explore lord conjunctions, exchanges, and circuits, where planetary lords interact or swap realms to shape defining events',
-        'Identify repeat patterns in D9 (Navamsa) and D10 (Dashamsa) charts — pinpointing positions that carry higher probability and lasting influence.',
-        'Analyze the strength of each lord by house and sign, revealing their natural inclinations and areas of influence.',
-        'Recognize when a lord is retrograde or placed 6th, 8th, or 12th from its own house, signaling phases of re-evaluation, refinement, or renewal.',
-      ],
-    },
-    {
-      id: 'planet',
-      title: 'Planets in Motion',
-      description: 'The Living Pulse of Your Birth Chart',
-      price: '699',
-      featuresTitel: 'Our Planet Report Covers',
-      isComingSoon: false,
-      features: [
-        'Based purely on Ascendant (Lagna) analysis, not Moon Lagna — offering a precise reading rooted in your true chart structure.',
-        'Understand how every planet channels its influence through the house it occupies, shaping your thoughts, career path, emotions, and relationships.',
-        'Decode planetary placements, conjunctions, and exchanges, revealing how different forces blend to create your life’s pattern.',
-        'Identify repeat patterns across D9 (Navamsa) and D10 (Dashamsa) charts — such as the same sign, same house, or similar planetary connections, marking themes with higher probability or recurring influence.',
-        'See how planets are impacted by Saturn, Rahu, Ketu, and Mars through conjunction or aspect, unveiling the deeper layers of pressure, opportunity, and transformation.',
-        'For every house, the report highlights four key elements — Strength, Advice, Tasks to help you manage better, and Things to avoid or think twice before doing — offering clarity with practical direction.',
-        'For users who share their personal details and goals, our AI engine generates hyper-personalised predictions, integrating those inputs with your planetary framework for even deeper accuracy and insight.',
-      ],
-    },
-  ];
+  // reportsData is now dynamic from /reports
 
   // Helper: iOS IAP purchase - returns Purchase on success
   const purchaseReportViaIAP = (productId: string): Promise<Purchase> => {
@@ -344,7 +417,7 @@ const ReportScreen = () => {
             user_id: selectedMemberId,
             report_type: reportId,
             receipt: receipt || purchase.transactionId,
-            transaction_id: purchase.transactionId,
+            transaction_id: purchase.transactionId ?? receipt ?? '',
             product_id: productId,
             currency: 'USD',
           });
@@ -436,7 +509,6 @@ const ReportScreen = () => {
       const isSuccess =
         verifyResponse.success === true ||
         verifyResponse?.status === 'success' ||
-        verifyResponse?.status === true ||
         String(verifyResponse.success) === 'true' ||
         (verifyResponse.message &&
           verifyResponse.message
@@ -915,7 +987,61 @@ const ReportScreen = () => {
       >
         {activeTab === 'available' && (
           <View style={styles.reportsContainer}>
-            {reportsData.map(report => (
+            {loadingReports ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator
+                  size="small"
+                  color={theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy}
+                />
+                <Text
+                  style={[
+                    styles.loadingText,
+                    {
+                      color:
+                        theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                      marginTop: 10,
+                    },
+                  ]}
+                >
+                  Loading reports...
+                </Text>
+              </View>
+            ) : reportsError ? (
+              <View style={styles.emptyStateContainer}>
+                <Text
+                  style={[
+                    styles.emptyStateText,
+                    {
+                      color:
+                        theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                      // marginBottom: 10,
+                    },
+                  ]}
+                >
+                  {reportsError}
+                </Text>
+                <TouchableOpacity onPress={fetchReports} activeOpacity={0.8}>
+                  <Text style={[styles.showMoreText, { color: colors.yellow }]}>
+                    Tap to retry
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : reportsData.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <Text
+                  style={[
+                    styles.emptyStateText,
+                    {
+                      color:
+                        theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  No reports found
+                </Text>
+              </View>
+            ) : (
+              reportsData.map(report => (
               <ImageBackground
                 blurRadius={12}
                 key={report.id}
@@ -1016,19 +1142,24 @@ const ReportScreen = () => {
                           resizeMode="contain"
                           style={styles.checkIcon}
                         />
-                        <Text
-                          style={[
-                            styles.featureText,
-                            {
-                              color:
-                                theme === 'dark'
-                                  ? colors.white
-                                  : colors.DarkNavy,
-                            },
-                          ]}
-                        >
-                          {feature}
-                        </Text>
+                        <View style={styles.featureTextWrap}>
+                          <RenderHTML
+                            contentWidth={Math.max(0, width - responsiveWidth('8') - 40)}
+                            source={{ html: feature.html ?? '' }}
+                            baseStyle={htmlBaseStyle}
+                            tagsStyles={htmlTagsStyles as any}
+                            defaultTextProps={{ selectable: false }}
+                          />
+                          {feature.childrenHtml ? (
+                            <RenderHTML
+                              contentWidth={Math.max(0, width - responsiveWidth('8') - 40)}
+                              source={{ html: feature.childrenHtml }}
+                              baseStyle={htmlBaseStyle}
+                              tagsStyles={htmlTagsStyles as any}
+                              defaultTextProps={{ selectable: false }}
+                            />
+                          ) : null}
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -1089,31 +1220,27 @@ const ReportScreen = () => {
                   <TouchableOpacity
                     style={[
                       styles.buyNowButton,
-                      report.isComingSoon && styles.disabledButton,
                       {
-                        backgroundColor: report.isComingSoon
-                          ? colors.grayText
-                          : colors.Orangeaccentcolor,
+                        backgroundColor: colors.Orangeaccentcolor,
                       },
                     ]}
                     disabled={
-                      report.isComingSoon || processingReportId === report.id
+                      processingReportId === report.id
                     }
                     onPress={() =>
-                      !report.isComingSoon && handleReportPayment(report.id)
+                      handleReportPayment(report.id)
                     }
                   >
                     <Text style={styles.buyNowButtonText}>
                       {processingReportId === report.id
                         ? 'Processing...'
-                        : report.isComingSoon
-                        ? 'Coming Soon'
                         : 'Buy Now'}
                     </Text>
                   </TouchableOpacity>
                 </View>
               </ImageBackground>
-            ))}
+              ))
+            )}
           </View>
         )}
 
@@ -1822,13 +1949,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     // opacity: 0.9,
   },
+  featureTextWrap: {
+    flex: 1,
+    paddingRight: responsiveWidth(2),
+  },
   showMoreContainer: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     // marginBottom: responsiveWidth(3),
   },
   showMoreText: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
+textAlign:"center",
     // opacity: 0.8,
   },
   priceContainer: {

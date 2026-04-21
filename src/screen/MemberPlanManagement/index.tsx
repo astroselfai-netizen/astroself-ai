@@ -171,6 +171,14 @@ const MemberItem = React.memo(
     // Combined date and time format
     const combinedBirthDateTime = `${birthDate} ${birthTime}`;
 
+    const isPrimaryMember =
+      item?.primary_member === true ||
+      item?.primary_member === 'true' ||
+      item?.primary_member === 'True' ||
+      item?.primary_mamber === true ||
+      item?.primary_mamber === 'true' ||
+      item?.primary_mamber === 'True';
+
     const [includeInFamily, setIncludeInFamily] = useState(false);
     React.useEffect(() => {
       setIncludeInFamily(false);
@@ -334,28 +342,30 @@ const MemberItem = React.memo(
                         />
                       </TouchableOpacity>
 
-                      {/* delete icon */}
-                      <TouchableOpacity
-                        onPress={() => onRequestDelete?.(item)}
-                        style={styles.iconButton}
-                      >
-                        <Image
-                          source={require('../../assets/icons/trash.png')}
-                          style={[
-                            styles.actionIcon,
-                            {
-                              tintColor:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                            {
-                              width: responsiveWidth(6),
-                              height: responsiveWidth(6),
-                            },
-                          ]}
-                        />
-                      </TouchableOpacity>
+                      {/* delete icon — hidden for primary account holder */}
+                      {!isPrimaryMember && (
+                        <TouchableOpacity
+                          onPress={() => onRequestDelete?.(item)}
+                          style={styles.iconButton}
+                        >
+                          <Image
+                            source={require('../../assets/icons/trash.png')}
+                            style={[
+                              styles.actionIcon,
+                              {
+                                tintColor:
+                                  theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                              {
+                                width: responsiveWidth(6),
+                                height: responsiveWidth(6),
+                              },
+                            ]}
+                          />
+                        </TouchableOpacity>
+                      )}
 
                       {/* Subscription icon */}
                       {/* <TouchableOpacity
@@ -567,10 +577,29 @@ const MemberItem = React.memo(
             <TouchableOpacity
               onPress={() => {
                 // Navigate to Static Predictions
-                navigation.navigate('ChatTab', {
+              
+
+
+                if (isPrimaryMember) {
+                  navigation.navigate('ChatTab', {
+                    screen: 'ChatScreen',
+                    params: { userId: item.id || item._id, tab: 'Static Predictions' },
+                  });
+                  return;
+                }
+
+                if (item.current_plan === 'eternal_path' || item.current_plan === 'family_plan') {
+                  // Navigate to Dynamic Predictions
+                  navigation.navigate('ChatTab', {
                   screen: 'ChatScreen',
                   params: { userId: item.id || item._id, tab: 'Static Predictions' },
                 });
+                } else {
+                  // Show upgrade modal
+                  if (onUpgradeClick) {
+                    onUpgradeClick();
+                  }
+                }
               }}
             >
               <Text
@@ -587,6 +616,14 @@ const MemberItem = React.memo(
             {/* Dynamic Predictions - show for all, but check plan on click */}
             <TouchableOpacity
               onPress={() => {
+
+                if (isPrimaryMember) {
+                  navigation.navigate('ChatTab', {
+                    screen: 'ChatScreen',
+                    params: { userId: item.id || item._id, tab: 'Dynamic Predictions' },
+                  });
+                  return;
+                }
                 // Check if user has paid plan
                 if (item.current_plan === 'eternal_path' || item.current_plan === 'family_plan') {
                   // Navigate to Dynamic Predictions
@@ -761,6 +798,7 @@ const MemberPlanManagement = () => {
   }>({ loading: false });
   const [selectedMemberForSubscription, setSelectedMemberForSubscription] =
     useState<any>(null);
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [creatingSubscription, setCreatingSubscription] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [_selectedMemberForUpgrade, setSelectedMemberForUpgrade] = useState<any>(null);
@@ -2252,6 +2290,11 @@ const MemberPlanManagement = () => {
     } finally {
       setCreatingSubscription(false);
     }
+  };
+
+  const handleMemberSelectForPremium = (member: any) => {
+    setSelectedMemberForSubscription(member);
+    setShowMemberDropdown(false);
   };
 
   // Handle update member

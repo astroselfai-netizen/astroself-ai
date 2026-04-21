@@ -1,7 +1,8 @@
 // PrivacyPolicyScreen.tsx
 
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,6 +11,7 @@ import {
   ScrollView,
   StatusBar,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import {
   fontFamily,
@@ -20,6 +22,21 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
+import RenderHTML from 'react-native-render-html';
+import http from '../../utils/http';
+
+type TermsSection = {
+  heading: string;
+  content: string;
+};
+
+type TermsApiResponse = {
+  status: boolean;
+  data?: {
+    title?: string;
+    terms?: TermsSection[];
+  };
+};
 
 export type RootStackParamList = {
   Login: undefined;
@@ -38,6 +55,64 @@ type TermsAndConditionsNavigationProp = StackNavigationProp<
 const TermsAndConditions = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<TermsAndConditionsNavigationProp>();
+  const { width } = useWindowDimensions();
+
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [title, setTitle] = useState<string>('Terms and Conditions');
+  const [terms, setTerms] = useState<TermsSection[]>([]);
+
+  const fetchTerms = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await http.get<TermsApiResponse>('/terms');
+      const apiTitle = res.data?.data?.title;
+      const apiTerms = res.data?.data?.terms ?? [];
+
+      setTitle(
+        typeof apiTitle === 'string' && apiTitle.trim().length > 0
+          ? apiTitle.trim()
+          : 'Terms and Conditions',
+      );
+      setTerms(Array.isArray(apiTerms) ? apiTerms : []);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.message ||
+        'Unable to load Terms & Conditions.';
+      setErrorMessage(String(msg));
+      setTerms([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTerms();
+  }, [fetchTerms]);
+
+  const htmlBaseStyle = useMemo(
+    () => ({
+      color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+      fontSize: 14,
+      fontFamily: fontFamily.regular,
+      lineHeight: 20,
+    }),
+    [colors.DarkNavy, colors.themeTextWhite, theme],
+  );
+
+  const htmlTagsStyles = useMemo(
+    () => ({
+      p: { marginTop: 0, marginBottom: 10 },
+      ul: { marginTop: 0, marginBottom: 10, paddingLeft: 18 },
+      ol: { marginTop: 0, marginBottom: 10, paddingLeft: 18 },
+      li: { marginBottom: 6 },
+      a: { color: colors.primary ?? colors.yellow },
+      span: { color: htmlBaseStyle.color },
+    }),
+    [colors.primary, colors.yellow, htmlBaseStyle.color],
+  );
 
   return (
     // <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -75,7 +150,7 @@ const TermsAndConditions = () => {
               },
             ]}
           >
-            Terms and Conditions
+            {title}
           </Text>
         </View>
       </View>
@@ -97,215 +172,73 @@ const TermsAndConditions = () => {
             },
           ]}
         >
-          {/* Acceptance of Terms Section */}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  marginTop: responsiveWidth('2%'),
-                },
-              ]}
-            >
-              Acceptance of Terms
-            </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              By accessing or using the Astrodha AI app, you agree to be bound
-              by these Terms and Conditions. If you do not agree, you may not
-              use the app.
-            </Text>
-          </View>
-
-          {/* Disclaimer of Liability Section */}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Disclaimer of Liability
-            </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Astrodha AI provides insights based on astrological calculations
-              and interpretations to assist users in their journey of
-              self-awareness and personal growth. While the app aims to provide
-              meaningful guidance, it does not guarantee the accuracy,
-              completeness, or reliability of the information provided. Users
-              are encouraged to combine these insights with their judgment. The
-              developers and operators of Astrodha AI are not liable for any
-              damages arising from the use or misuse of the app.
-            </Text>
-          </View>
-
-          {/* Intellectual Property Section */}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Intellectual Property
-            </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              You agree not to use the app for any unlawful or unauthorized
-              purposes. You also agree not to tamper with the app's
-              functionality or compromise its security.
-            </Text>
-          </View>
-
-          {/* Modification of Terms Section */}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Modification of Terms
-            </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Astrodha AI reserves the right to modify these Terms and
-              Conditions at any time. Users will be notified of significant
-              changes, and continued use of the app constitutes acceptance of
-              the updated terms.
-            </Text>
-          </View>
-
-          {/* Governing Law Section */}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Governing Law
-            </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              These Terms and Conditions are governed by and shall be
-              interpreted in accordance with the laws of India. By using this
-              app, you agree to comply with all applicable laws and regulations
-              of India.
-            </Text>
-          </View>
-
-          {/* Limitation of Remedies Section */}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Limitation of Remedies
-            </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              In the event of any dispute or claim arising from the use of
-              Astrodha AI, the maximum remedy available to the user will be
-              limited to the amount paid for the subscription in the previous
-              month.
-            </Text>
-          </View>
-
-          {/* Focus on Self-Awareness Section */}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Focus on Self-Awareness
-            </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Astrodha AI is designed as a tool for fostering self-awareness
-              and personal growth. The app encourages users to explore their
-              strengths, challenges, and potential through astrological
-              insights, promoting introspection and a deeper connection with
-              themselves and the universe. Users are reminded that the app's
-              purpose is to assist in their journey of self-discovery and is not
-              a substitute for professional advice in financial, medical, legal,
-              or other critical matters.
-            </Text>
-          </View>
+          {loading ? (
+            <View style={styles.stateWrap}>
+              <ActivityIndicator
+                size="small"
+                color={theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy}
+              />
+              <Text
+                style={[
+                  styles.stateText,
+                  {
+                    color:
+                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Loading…
+              </Text>
+            </View>
+          ) : errorMessage ? (
+            <View style={styles.stateWrap}>
+              <Text
+                style={[
+                  styles.stateText,
+                  styles.stateTextError,
+                  {
+                    color:
+                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  },
+                ]}
+              >
+                {errorMessage}
+              </Text>
+              <TouchableOpacity onPress={fetchTerms} activeOpacity={0.8}>
+                <Text style={[styles.retryText, { color: colors.yellow }]}>
+                  Tap to retry
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {terms.map((section, idx) => (
+                <View key={`${section.heading}-${idx}`} style={styles.section}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      idx === 0 ? styles.sectionTitleFirst : null,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    {section.heading}
+                  </Text>
+                  <RenderHTML
+                    contentWidth={Math.max(0, width - responsiveWidth('8') - 40)}
+                    source={{ html: section.content ?? '' }}
+                    baseStyle={htmlBaseStyle}
+                    tagsStyles={htmlTagsStyles as any}
+                    defaultTextProps={{ selectable: false }}
+                  />
+                </View>
+              ))}
+            </>
+          )}
         </View>
       </ScrollView>
     </MainContainer>
@@ -384,11 +317,35 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 24,
   },
+  sectionTitleFirst: {
+    marginTop: responsiveWidth('2%'),
+  },
   sectionText: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
     lineHeight: 20,
     textAlign: 'left',
+  },
+  stateWrap: {
+    width: '100%',
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stateText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  stateTextError: {
+    marginBottom: 10,
+  },
+  retryText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
   },
 });
 

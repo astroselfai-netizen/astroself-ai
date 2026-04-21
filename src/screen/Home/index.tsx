@@ -780,13 +780,13 @@ const HomeScreen = () => {
       icon: require('../../assets/icons/Faqs.png'),
       subtitle: undefined,
     },
-    {
-      id: 12,
-      title: 'Privacy Policy',
-      value: 'privacyPolicy',
-      icon: require('../../assets/icons/document.png'),
-      subtitle: undefined,
-    },
+    // {
+    //   id: 12,
+    //   title: 'Privacy Policy',
+    //   value: 'privacyPolicy',
+    //   icon: require('../../assets/icons/document.png'),
+    //   subtitle: undefined,
+    // },
     {
       id: 13,
       title: 'Terms of Services',

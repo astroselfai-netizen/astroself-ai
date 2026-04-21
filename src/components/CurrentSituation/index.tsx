@@ -15,8 +15,6 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import HouseService, { CardDataItem } from '../../services/house/house.service';
 import { useTheme } from '../../context/ThemeContext';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../state/store';
 import { getCardIcon } from '../../utils/cardIconMapper';
 
 interface CurrentSituationProps {
@@ -25,6 +23,8 @@ interface CurrentSituationProps {
   isChild?: boolean;
   current_plan?: string;
   first_user?: boolean;
+  isPrimaryMember?: boolean;
+  isProcessingPending?: boolean;
   onShowBuyMembershipModal?: (featureName?: string) => void;
 }
 
@@ -37,8 +37,15 @@ interface CardData {
   subCards?: Array<{ id: number; title: string }>;
 }
 
-const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, isChild = false, current_plan, first_user = false, onShowBuyMembershipModal }) => {
-  const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
+const CurrentSituation: React.FC<CurrentSituationProps> = ({
+  selectedMemberId,
+  isChild = false,
+  current_plan,
+  first_user = false,
+  isPrimaryMember = false,
+  isProcessingPending = false,
+  onShowBuyMembershipModal,
+}) => {
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
   const [cards, setCards] = useState<CardData[]>([]);
@@ -105,15 +112,28 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
   const handleCardPress = (card: CardData) => {
     // Prevent navigation to disabled cards
     const cardValueLower = card.value.toLowerCase();
-    if (showInfoContainer && !cardValueLower.includes('snapshot')) {
+    if (isProcessingPending && !cardValueLower.includes('snapshot')) {
       return;
     }
     
     console.log('cardTitle-->24', card.title);
-    console.log('selectedMemberId-->25', selectedMemberId);
+    console.log('selectedMemberId-->25', current_plan);
     
     // If card is "Natal Chart Insights" and current_plan is "cosmic_foundation", show Buy Memberships Modal (first_user gets full access)
     const isNatalChartInsights = card.title === 'Birth Chart Insights';
+    const isPaidPlanForPrimaryBirthChart =
+      current_plan === 'family_plan' || current_plan === 'eternal_path';
+
+    // Primary member: block Birth Chart Insights for free/low plans, but allow for paid plans
+    if (
+      isNatalChartInsights &&
+      isPrimaryMember &&
+      !isPaidPlanForPrimaryBirthChart &&
+      onShowBuyMembershipModal
+    ) {
+      onShowBuyMembershipModal('Birth Chart Insights');
+      return;
+    }
     if (isNatalChartInsights && current_plan === 'cosmic_foundation' && !first_user && onShowBuyMembershipModal) {
       onShowBuyMembershipModal('Birth Chart Insights');
       return;
@@ -168,17 +188,20 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({ selectedMemberId, i
             </View>
           ) : (
             cards.map(card => {
+
+              
               // Cards to disable when showInfoContainer is true: Your Personality, Life at the Moment, Active Planet (Antardasha)
               // Also disable Life at the Moment and Active Planet if member is a child
               const cardValueLower = card.value.toLowerCase();
               const isPersonality = cardValueLower.includes('personality') && cardValueLower.includes('your');
-              const isLifeAtMoment = cardValueLower.includes('life at the moment');
+              const isLifeAtMoment = cardValueLower.includes('Birth Chart Insights');
               const isAntardasha = cardValueLower.includes('antardasha') || cardValueLower.includes('active planet');
               // Don't disable Natal Chart Insights for cosmic_foundation - we'll show modal instead
               
-              const isDisabledByInfoContainer = showInfoContainer && (isPersonality || isLifeAtMoment || isAntardasha);
+              const isDisabledByInfoContainer = isProcessingPending && (isPersonality || isLifeAtMoment || isAntardasha);
               const isDisabledByChild = isChild && (isLifeAtMoment || isAntardasha);
-              const isDisabled = isDisabledByInfoContainer || isDisabledByChild;
+              const isLockedByPlan = current_plan === 'cosmic_foundation' && !isPrimaryMember;
+              const isDisabled = isDisabledByInfoContainer || isDisabledByChild || isLockedByPlan;
             
             return (
             <TouchableOpacity

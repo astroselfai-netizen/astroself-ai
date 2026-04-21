@@ -66,9 +66,6 @@ const ChatScreen = () => {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [creatingSubscription, setCreatingSubscription] = useState(false);
   const [showPaymentSuccessLoader, setShowPaymentSuccessLoader] = useState(false);
-  const showInfoContainer = useSelector(
-    (state: RootState) => state.app.showInfoContainer,
-  );
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
   const { profileData, membersData, loading, error, refreshProfileData } =
@@ -87,6 +84,12 @@ const ChatScreen = () => {
       (m: any) => (m.id || m._id) === selectedMemberId,
     );
   }, [selectedMemberId, membersData]);
+
+  const isProcessingPending =
+    selectedMember?.processing_data === false ||
+    selectedMember?.processing_data === 'false' ||
+    selectedMember?.processing_data === 0 ||
+    selectedMember?.processing_data === '0';
 
   // Check if selected member is a child (age between 15-18 years)
   const isSelectedMemberChild = React.useMemo(() => {
@@ -135,10 +138,10 @@ const ChatScreen = () => {
     if (selectedMember?.current_plan === 'family_plan') {
       return true;
     }
-    return !showInfoContainer && !isSelectedMemberChild;
+    return !isProcessingPending && !isSelectedMemberChild;
   }, [
     selectedMember?.current_plan,
-    showInfoContainer,
+    isProcessingPending,
     isSelectedMemberChild,
   ]);
 
@@ -147,11 +150,11 @@ const ChatScreen = () => {
     setShowBuyMembershipModal(false);
   }, [selectedMemberId]);
 
-  // Switch to Current Situation tab if General Analysis is active when showInfoContainer becomes true or if member is child
+  // Switch to Current Situation tab if processing is pending or if member is child
   // (family_plan members keep access to Dynamic Predictions)
   useEffect(() => {
     if (
-      showInfoContainer &&
+      isProcessingPending &&
       activeTab === 'General Analysis' &&
       selectedMember?.current_plan !== 'family_plan'
     ) {
@@ -165,7 +168,7 @@ const ChatScreen = () => {
       setActiveTab('Current Situation');
     }
   }, [
-    showInfoContainer,
+    isProcessingPending,
     activeTab,
     isSelectedMemberChild,
     selectedMember?.current_plan,
@@ -874,7 +877,7 @@ const ChatScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {showInfoContainer && (
+        {isProcessingPending && (
           <View
             style={[
               styles.infoContainer,
@@ -1343,6 +1346,7 @@ const ChatScreen = () => {
               selectedMemberId={selectedMemberId || ''}
               current_plan={selectedMember?.current_plan}
               first_user={!!selectedMember?.first_user}
+              isPrimaryMember={selectedMember?.primary_mamber === 'True'}
               isChild={isSelectedMemberChild}
               onShowBuyMembershipModal={featureName => {
                 setModalFeatureName(featureName || 'Dynamic Predictions');
@@ -1413,7 +1417,7 @@ const ChatScreen = () => {
 
             {/* Action Buttons */}
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={[styles.modalButton, styles.buyButton]}
                 onPress={() => {
                   // Mark member as having seen the modal
@@ -1429,7 +1433,7 @@ const ChatScreen = () => {
                 }}
               >
                 <Text style={styles.buyButtonText}>Buy</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => {
