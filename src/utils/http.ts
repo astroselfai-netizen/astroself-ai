@@ -40,6 +40,14 @@ const http = axios.create({
   },
 });
 
+let onNetworkError: ((error: unknown) => void) | null = null;
+
+export function setHttpNetworkErrorHandler(
+  handler: ((error: unknown) => void) | null,
+) {
+  onNetworkError = handler;
+}
+
 // Request interceptor for adding auth token
 // http.interceptors.request.use(
 //   async (config) => {
@@ -73,5 +81,22 @@ const http = axios.create({
 //     return Promise.reject(error);
 //   }
 // );
+
+http.interceptors.response.use(
+  response => response,
+  error => {
+    const isLikelyNetworkError =
+      !error?.response &&
+      (error?.code === 'ERR_NETWORK' ||
+        error?.message === 'Network Error' ||
+        error?.code === 'ECONNABORTED');
+
+    if (isLikelyNetworkError) {
+      onNetworkError?.(error);
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export default http;

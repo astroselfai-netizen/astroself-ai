@@ -30,6 +30,9 @@ import CrashlyticsService from './src/services/crashlyticsService';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { usePlayStoreUpdate } from './src/hooks/usePlayStoreUpdate';
 import StoreUpdateModal from './src/components/StoreUpdateModal';
+import OfflineNoticeModal from './src/components/OfflineNoticeModal';
+import { useNetworkStatus } from './src/hooks/useNetworkStatus';
+import { setHttpNetworkErrorHandler } from './src/utils/http';
 
 // import iOSDebugInfo from './src/components/iOSDebugInfo';
 // Enable optimized screens
@@ -42,6 +45,10 @@ LogBox.ignoreAllLogs();
 function App() {
   // Initialize app with user data from AsyncStorage
   useAppInitialization();
+
+  const { isOffline } = useNetworkStatus();
+  const [hasNetworkError, setHasNetworkError] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
   
   
@@ -83,6 +90,17 @@ function App() {
     initializeCrashlytics();
   }, []);
 
+  React.useEffect(() => {
+    setHttpNetworkErrorHandler(() => setHasNetworkError(true));
+    return () => setHttpNetworkErrorHandler(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isOffline) {
+      setHasNetworkError(false);
+    }
+  }, [isOffline]);
+
   console.log('keyState---->', keyState);
   console.log('FCM Token---->',Platform.OS,"---->", fcmToken);
   console.log('Notification Enabled---->', isNotificationEnabled);
@@ -120,7 +138,7 @@ function App() {
         <SafeAreaProvider>
           <StatusBar />
           {/* <View key={keyState}> */}
-          <MainNavigator />
+          <MainNavigator key={`${keyState}-${reloadKey}`} />
           {/* </View> */}
           <Toast  />
           
@@ -143,6 +161,14 @@ function App() {
             message={storeUpdateMessage}
             storeUrl={storeUpdateUrl}
             onDismissOptional={dismissStoreUpdate}
+          />
+
+          <OfflineNoticeModal
+            visible={isOffline || hasNetworkError}
+            onReload={() => {
+              setHasNetworkError(false);
+              setReloadKey(k => k + 1);
+            }}
           />
           
           {/* iOS Debug Info */}

@@ -1,6 +1,6 @@
 {
   "name": "Astroself",
-  "version": "0.0.28",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@invertase/react-native-apple-authentication": "^2.5.1",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-native-community/datetimepicker": "^8.4.4",
     "@react-native-community/push-notification-ios": "^1.11.0",
     "@react-native-firebase/app": "^23.3.1",
