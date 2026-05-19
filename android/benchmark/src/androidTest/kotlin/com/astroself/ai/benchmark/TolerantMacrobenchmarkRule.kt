@@ -1,4 +1,4 @@
-package com.astroself.ai.benchmark
+package com.astrodha.ai.benchmark
 
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import org.junit.rules.TestRule

@@ -111,11 +111,11 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 // }
 
 android {
-    namespace "com.astroself.ai"
+    namespace "com.astrodha.ai"
     compileSdkVersion rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        applicationId "com.astroself.ai"
+        applicationId "com.astrodha.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

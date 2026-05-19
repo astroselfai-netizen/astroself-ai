@@ -1,151 +1,26 @@
 {
   "project_info": {
-    "project_number": "1061722426474",
-    "project_id": "astroself-b6835",
-    "storage_bucket": "astroself-b6835.firebasestorage.app"
+    "project_number": "279160023240",
+    "project_id": "astrodha-b8493",
+    "storage_bucket": "astrodha-b8493.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1061722426474:android:2fd65a19b917d558b54e13",
+        "mobilesdk_app_id": "1:279160023240:android:1114037d35d2bedcaf5dfd",
         "android_client_info": {
-          "package_name": "com.astroself"
+          "package_name": "com.astrodha.ai"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "1061722426474-40iil307cok5q8vg95gk5nt7rg3b45tn.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself",
-            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
-          }
-        },
-        {
-          "client_id": "1061722426474-8f97jjgupoer3g35f2ebugv901iucft3.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself",
-            "certificate_hash": "19e0c47a7f05c8cb0f3dda8f1fbb5d536b495dd3"
-          }
-        },
-        {
-          "client_id": "1061722426474-ct9j88udomg2lmquju30kuvofquiarli.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself",
-            "certificate_hash": "dabcd0ca9129df16db8e3acb36bd33af2dc78bee"
-          }
-        },
-        {
-          "client_id": "1061722426474-gaadk8russlblm231ql0n9r6cbqvhh3f.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself",
-            "certificate_hash": "fc0181177b65cfa86fb3928b4f55f3cb440979e9"
-          }
-        },
-        {
-          "client_id": "1061722426474-3aivdpu11tr8i1h52a54ovkrv8ls021p.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCnjQB8ll3mWB91RYxmbkXo2riwnY6MnFM"
+          "current_key": "AIzaSyC6nC2zssrWpU5lKKL53Fkaws5m-_LvahQ"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "1061722426474-3aivdpu11tr8i1h52a54ovkrv8ls021p.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "1061722426474-7sccdst232hu8vu9hl20il5htje29ndj.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.astroself.ai"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1061722426474:android:764ba4358c407fd9b54e13",
-        "android_client_info": {
-          "package_name": "com.astroself.ai"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "1061722426474-1bo41g5vpq34c3qaa9v1t18qofjkurq1.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself.ai",
-            "certificate_hash": "19e0c47a7f05c8cb0f3dda8f1fbb5d536b495dd3"
-          }
-        },
-        {
-          "client_id": "1061722426474-goebfa1iahjr7deqmm8rehpvueoj2h3h.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself.ai",
-            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
-          }
-        },
-        {
-          "client_id": "1061722426474-hi20naqi2t806v2a2jibilsk8tho94i8.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself.ai",
-            "certificate_hash": "b0c365f442c5090278d78d709e5522fecef3e0e6"
-          }
-        },
-        {
-          "client_id": "1061722426474-m7vce3rm6mij8bp2dvar8324hg07s7qt.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself.ai",
-            "certificate_hash": "fc0181177b65cfa86fb3928b4f55f3cb440979e9"
-          }
-        },
-        {
-          "client_id": "1061722426474-qurtjtd0q6q46mhqddtb7nu0jtkim0n8.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.astroself.ai",
-            "certificate_hash": "dabcd0ca9129df16db8e3acb36bd33af2dc78bee"
-          }
-        },
-        {
-          "client_id": "1061722426474-3aivdpu11tr8i1h52a54ovkrv8ls021p.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCnjQB8ll3mWB91RYxmbkXo2riwnY6MnFM"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "1061722426474-3aivdpu11tr8i1h52a54ovkrv8ls021p.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "1061722426474-7sccdst232hu8vu9hl20il5htje29ndj.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.astroself.ai"
-              }
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }

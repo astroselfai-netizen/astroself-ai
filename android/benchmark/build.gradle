@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace 'com.astroself.ai.benchmark'
+    namespace 'com.astrodha.ai.benchmark'
     compileSdkVersion rootProject.ext.compileSdkVersion
 
     defaultConfig {
@@ -70,12 +70,12 @@ afterEvaluate {
             println ""
             println "Method 2: ADB Command"
             println "  adb shell am instrument -w \\"
-            println "    -e class com.astroself.ai.benchmark.StartupBenchmark#coldStartup \\"
-            println "    com.astroself.ai.benchmark.test/androidx.test.runner.AndroidJUnitRunner"
+            println "    -e class com.astrodha.ai.benchmark.StartupBenchmark#coldStartup \\"
+            println "    com.astrodha.ai.benchmark.test/androidx.test.runner.AndroidJUnitRunner"
             println ""
             println "Method 3: Use connectedDebugAndroidTest"
             println "  ./gradlew :benchmark:connectedDebugAndroidTest \\"
-            println "    -Pandroid.testInstrumentationRunnerArguments.class=com.astroself.ai.benchmark.StartupBenchmark"
+            println "    -Pandroid.testInstrumentationRunnerArguments.class=com.astrodha.ai.benchmark.StartupBenchmark"
             println "=========================================="
         }
     }

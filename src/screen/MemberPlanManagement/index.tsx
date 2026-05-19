@@ -574,47 +574,9 @@ const MemberItem = React.memo(
 
           {/* Prediction Links */}
           <View style={styles.predictionLinksContainer}>
-            <TouchableOpacity
-              onPress={() => {
-                // Navigate to Static Predictions
-              
-
-
-                if (isPrimaryMember) {
-                  navigation.navigate('ChatTab', {
-                    screen: 'ChatScreen',
-                    params: { userId: item.id || item._id, tab: 'Static Predictions' },
-                  });
-                  return;
-                }
-
-                if (item.current_plan === 'eternal_path' || item.current_plan === 'family_plan') {
-                  // Navigate to Dynamic Predictions
-                  navigation.navigate('ChatTab', {
-                  screen: 'ChatScreen',
-                  params: { userId: item.id || item._id, tab: 'Static Predictions' },
-                });
-                } else {
-                  // Show upgrade modal
-                  if (onUpgradeClick) {
-                    onUpgradeClick();
-                  }
-                }
-              }}
-            >
-              <Text
-                style={[
-                  styles.predictionLink,
-                  {
-                    color: colors.Orangeaccentcolor,
-                  },
-                ]}
-              >
-                Birth Chart Predictions
-              </Text>
-            </TouchableOpacity>
+           
             {/* Dynamic Predictions - show for all, but check plan on click */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={() => {
 
                 if (isPrimaryMember) {
@@ -649,7 +611,53 @@ const MemberItem = React.memo(
               >
                 Dynamic Predictions
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
+
+          <TouchableOpacity
+            onPress={() => {
+              // Navigate to Static Predictions
+              if (isPrimaryMember) {
+                navigation.navigate('ChatTab', {
+                  screen: 'ChatScreen',
+                  params: { userId: item.id || item._id, tab: 'Static Predictions' },
+                });
+                return;
+              }
+
+              if (item.current_plan === 'eternal_path' || item.current_plan === 'family_plan') {
+                // Navigate to Dynamic Predictions
+                navigation.navigate('ChatTab', {
+                  screen: 'ChatScreen',
+                  params: { userId: item.id || item._id, tab: 'Static Predictions' },
+                });
+              } else {
+                // Show upgrade modal
+                if (onUpgradeClick) {
+                  onUpgradeClick();
+                }
+              }
+            }}
+            style={[
+              styles.actionButton,
+              {
+                borderColor:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.predictionLink,
+                {
+                  color: colors.Orangeaccentcolor,
+                },
+              ]}
+            >
+              Insights
+            </Text>
+          </TouchableOpacity>
+
+
           </View>
 
           {/* Divider */}
@@ -695,8 +703,6 @@ const MemberItem = React.memo(
                 Buy Reports
               </Text>
             </TouchableOpacity>
-
-
 
            
             {(() => {
@@ -4251,7 +4257,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     alignSelf: 'center',
     fontWeight: '600',
-    textDecorationLine: 'underline',
+    // textDecorationLine: 'underline',
   },
   includeFamilyRow: {
     flexDirection: 'row',

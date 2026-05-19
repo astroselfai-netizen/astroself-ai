@@ -38,7 +38,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>razorpay</string>
-				<string>com.astroself.ai</string>
+				<string>com.astrodha.ai</string>
 			</array>
 		</dict>
 	</array>

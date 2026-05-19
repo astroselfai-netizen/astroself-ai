@@ -3,7 +3,7 @@
  * - android/app/build.gradle versionName
  * - iOS MARKETING_VERSION (Xcode)
  */
-export const NATIVE_APP_VERSION = '1.26';
+export const NATIVE_APP_VERSION = '1.0';
 
 /** Android applicationId — Play Store listing */
-export const ANDROID_PLAY_STORE_PACKAGE = 'com.astroself.ai';
+export const ANDROID_PLAY_STORE_PACKAGE = 'com.astrodha.ai';

@@ -1,4 +1,4 @@
-package com.astroself.ai.benchmark
+package com.astrodha.ai.benchmark
 
 import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
@@ -32,7 +32,7 @@ class ScrollBenchmark {
     @Test
     @Ignore("Scroll benchmarks are unstable for React Native apps")
     fun scrollPerformance() = benchmarkRule.measureRepeated(
-        packageName = "com.astroself.ai",
+        packageName = "com.astrodha.ai",
         metrics = listOf(FrameTimingMetric()),
         iterations = 5
     ) {
@@ -40,7 +40,7 @@ class ScrollBenchmark {
         startActivityAndWait()
 
         // Wait for app to fully load - device is available in macrobenchmark scope
-        device.wait(Until.hasObject(By.pkg("com.astroself.ai")), 5_000)
+        device.wait(Until.hasObject(By.pkg("com.astrodha.ai")), 5_000)
 
         // Find scrollable views and scroll them
         val scrollable = device.findObject(By.scrollable(true))
@@ -66,7 +66,7 @@ class ScrollBenchmark {
     @Test
     @Ignore("Scroll benchmarks are unstable for React Native apps")
     fun listScrollPerformance() = benchmarkRule.measureRepeated(
-        packageName = "com.astroself.ai",
+        packageName = "com.astrodha.ai",
         metrics = listOf(FrameTimingMetric()),
         iterations = 5
     ) {
@@ -74,7 +74,7 @@ class ScrollBenchmark {
         startActivityAndWait()
 
         // Wait for app to load - device is available in macrobenchmark scope
-        device.wait(Until.hasObject(By.pkg("com.astroself.ai")), 5_000)
+        device.wait(Until.hasObject(By.pkg("com.astrodha.ai")), 5_000)
 
         // Try to find list views (common in React Native apps)
         // Try scrolling on the main scrollable view

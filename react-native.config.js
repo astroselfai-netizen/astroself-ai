@@ -4,7 +4,7 @@ module.exports = {
     android: {
       sourceDir: './android',
       appName: 'app',
-      packageName: 'com.astroself.ai',
+      packageName: 'com.astrodha.ai',
       
     },
   },

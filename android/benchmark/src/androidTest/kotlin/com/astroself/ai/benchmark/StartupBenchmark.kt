@@ -1,4 +1,4 @@
-package com.astroself.ai.benchmark
+package com.astrodha.ai.benchmark
 
 import android.content.Intent
 import androidx.benchmark.macro.StartupMode
@@ -30,8 +30,8 @@ class StartupBenchmark {
     // Explicit launch intent for React Native apps (prevents crash)
     private val launchIntent = Intent().apply {
         setClassName(
-            "com.astroself.ai",
-            "com.astroself.ai.MainActivity"
+            "com.astrodha.ai",
+            "com.astrodha.ai.MainActivity"
         )
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
@@ -47,7 +47,7 @@ class StartupBenchmark {
 
     @Test
     fun coldStartup() = benchmarkRule.measureRepeated(
-        packageName = "com.astroself.ai",
+        packageName = "com.astrodha.ai",
         metrics = listOf(StartupTimingMetric()),
         iterations = 1, // Single iteration for maximum stability
         startupMode = StartupMode.COLD,
@@ -68,7 +68,7 @@ class StartupBenchmark {
         
         // Phase 2: Wait for app to be visible and UI to start rendering
         try {
-            device.wait(Until.hasObject(By.pkg("com.astroself.ai")), 20_000)
+            device.wait(Until.hasObject(By.pkg("com.astrodha.ai")), 20_000)
         } catch (e: Exception) {
             // If wait fails, continue anyway - app might still be initializing
         }
@@ -87,7 +87,7 @@ class StartupBenchmark {
         // Phase 5: Verify app is still running and responsive
         // Keep the measurement block active to prevent framework from killing too early
         try {
-            device.wait(Until.hasObject(By.pkg("com.astroself.ai")), 5_000)
+            device.wait(Until.hasObject(By.pkg("com.astrodha.ai")), 5_000)
         } catch (e: Exception) {
             // App might have crashed, but we've given it enough time
         }
@@ -98,7 +98,7 @@ class StartupBenchmark {
 
     @Test
     fun warmStartup() = benchmarkRule.measureRepeated(
-        packageName = "com.astroself.ai",
+        packageName = "com.astrodha.ai",
         metrics = listOf(StartupTimingMetric()),
         iterations = 1, // Single iteration for maximum stability
         startupMode = StartupMode.WARM,
@@ -114,7 +114,7 @@ class StartupBenchmark {
         Thread.sleep(10000) // 10 seconds for RN initialization (warm is faster than cold)
         
         // Wait for app package to be visible in UI
-        device.wait(Until.hasObject(By.pkg("com.astroself.ai")), 30_000)
+        device.wait(Until.hasObject(By.pkg("com.astrodha.ai")), 30_000)
         
         // Wait for UI to be fully drawn and idle
         device.waitForIdle(15_000) // 15 seconds - ensures UI is fully rendered
