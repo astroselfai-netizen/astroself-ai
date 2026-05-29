@@ -19,16 +19,10 @@ import {
   Platform,
   Modal,
   TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useSelector } from 'react-redux';
-import { useProfileData } from '../hooks/useProfileData';
-import RazorpayCheckout from 'react-native-razorpay';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import serviceFactory from '../services/serviceFactory';
-import Toast from 'react-native-toast-message';
 import Login from '../screen/login';
 import SplashScreen from '../screen/splashscreen';
 import ContinueWithOtp from '../screen/ContinueWithOtp';
@@ -186,249 +180,24 @@ function MainNavigator() {
 function MyTabs() {
   const { colors, theme } = useTheme();
   const user = useSelector((state) => state.app.user);
-  const { membersData } = useProfileData();
-  const reduxMembers = useSelector((state) => state.app.members);
-  // Use Redux members if available and is array, otherwise use membersData from useProfileData
-  const allMembersData = React.useMemo(() => {
-    const redux = Array.isArray(reduxMembers) && reduxMembers.length > 0 ? reduxMembers : null;
-    const profile = Array.isArray(membersData) && membersData.length > 0 ? membersData : null;
-    const result = redux || profile || [];
-    console.log('Members data computed:', {
-      reduxCount: redux?.length || 0,
-      profileCount: profile?.length || 0,
-      resultCount: result.length,
-      reduxMembers,
-      membersData,
-      result,
+  const navigation = useNavigation();
+  const tabNavigationRef = React.useRef(null);
+  const [showYodhaUpgradeModal, setShowYodhaUpgradeModal] = React.useState(false);
+
+  const handleGoToProfileFromYodhaModal = () => {
+    setShowYodhaUpgradeModal(false);
+    const tabNav = tabNavigationRef.current;
+    if (tabNav?.navigate) {
+      tabNav.navigate('ProfileTab', {
+        screen: 'ProfileScreen',
+      });
+      return;
+    }
+    navigation.navigate('ProfileTab', {
+      screen: 'ProfileScreen',
     });
-    return result;
-  }, [reduxMembers, membersData]);
-  const paymentService = serviceFactory.get('PaymentService');
-  const [showUpgradeModal, setShowUpgradeModal] = React.useState(false);
-  const [showPremiumModal, setShowPremiumModal] = React.useState(false);
-  const [pendingNavigation, setPendingNavigation] = React.useState(null);
-  const [showMemberDropdown, setShowMemberDropdown] = React.useState(false);
-  const [selectedMemberForSubscription, setSelectedMemberForSubscription] = React.useState(null);
-  const [creatingSubscription, setCreatingSubscription] = React.useState(false);
-  
-  const handleCloseUpgradeModal = () => {
-    setShowUpgradeModal(false);
-    setPendingNavigation(null);
   };
 
-  const handleUpgradeModalBuy = () => {
-    // Close upgrade modal and show premium modal
-    setShowUpgradeModal(false);
-    setShowPremiumModal(true);
-  };
-
-  const handleClosePremiumModal = () => {
-    setShowPremiumModal(false);
-    // Don't navigate if user still has cosmic_foundation plan
-    // Only navigate if plan is eternal_path
-    if (pendingNavigation && user && user.current_plan === 'eternal_path' || user.current_plan === 'family_plan') {
-      setTimeout(() => {
-        pendingNavigation();
-        setPendingNavigation(null);
-      }, 300);
-    } else {
-      setPendingNavigation(null);
-    }
-  };
-
-  const handleBuyPremiumAccess = () => {
-    // Show member dropdown first
-    if (!showMemberDropdown) {
-      setShowMemberDropdown(true);
-      return;
-    }
-
-    // If member is selected, proceed with payment
-    if (!selectedMemberForSubscription) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Please select a member',
-        position: 'top',
-        topOffset: 60,
-        visibilityTime: 3000,
-      });
-      return;
-    }
-
-    // Proceed with payment
-    handlePaymentForMember(selectedMemberForSubscription);
-  };
-
-  const handlePaymentForMember = async (member) => {
-    if (!member || !user) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Member or user information not found',
-        position: 'top',
-        topOffset: 60,
-        visibilityTime: 3000,
-      });
-      return;
-    }
-
-    if (!paymentService) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Payment service not available',
-        position: 'top',
-        topOffset: 60,
-        visibilityTime: 3000,
-      });
-      return;
-    }
-
-    try {
-      setCreatingSubscription(true);
-
-      const planId = 'd461266c-574b-4312-994a-ebd2b5cf6dc3'; // Premium plan ID
-      const userId = user?._id || user?.id || '';
-      const memberUserId = member.id || member._id || '';
-
-      // First create subscription
-      const subscriptionResponse = await paymentService.createSubscription({
-        plan_id: planId,
-        user_id: userId,
-        member_user_id: memberUserId,
-        notes: {
-          action: 'premium_subscription',
-          member_name: member.full_name || 'Member',
-        },
-      });
-
-      console.log('Subscription created:', subscriptionResponse);
-
-      if (!subscriptionResponse.subscription_id) {
-        throw new Error('Subscription ID not received from server');
-      }
-
-      if (!subscriptionResponse.razorpay_key) {
-        throw new Error('Razorpay key not received from server');
-      }
-
-      // Get user data for prefill
-      const userDataString = await AsyncStorage.getItem('USER_DATA');
-      let currentUserData = {};
-      if (userDataString) {
-        currentUserData = JSON.parse(userDataString);
-      }
-
-      // Close the premium modal before opening Razorpay
-      setShowPremiumModal(false);
-      setShowMemberDropdown(false);
-      setPendingNavigation(null);
-
-      // Razorpay payment options for subscription
-      const options = {
-        key: subscriptionResponse.razorpay_key,
-        subscription_id: subscriptionResponse.subscription_id,
-        name: 'Astrodha',
-        description: 'Premium Plan Subscription - Astrodha',
-        currency: 'INR',
-        prefill: {
-          email: currentUserData.email || user?.email || 'user@example.com',
-          contact: currentUserData.phone || user?.phone || '9999999999',
-          name: `${currentUserData.first_name || user?.first_name || ''} ${
-            currentUserData.last_name || user?.last_name || ''
-          }`.trim() || 'User',
-        },
-        notes: {
-          source: 'react_native',
-          user_id: userId,
-          member_user_id: memberUserId,
-          plan_id: planId,
-        },
-      };
-
-      try {
-        // Open Razorpay checkout modal
-        console.log('Razorpay options:', options);
-        const paymentData = await RazorpayCheckout.open(options);
-
-        console.log('Payment response:', paymentData);
-
-        // Payment successful
-        if (paymentData) {
-          Toast.show({
-            type: 'success',
-            text1: 'Payment Successful',
-            text2: 'Your premium subscription has been activated',
-            position: 'top',
-            topOffset: 60,
-            visibilityTime: 3000,
-          });
-        }
-      } catch (razorpayError) {
-        console.error('Razorpay error:', razorpayError);
-
-        // Check if it's a cancellation
-        const isCancelled =
-          razorpayError?.code === 'BAD_REQUEST_ERROR' ||
-          razorpayError?.code === 'NETWORK_ERROR' ||
-          razorpayError?.description?.toLowerCase().includes('cancelled') ||
-          razorpayError?.reason?.toLowerCase().includes('cancelled') ||
-          razorpayError?.step === 'payment_cancelled';
-
-        if (isCancelled) {
-          // User cancelled, don't show error
-          console.log('Payment cancelled by user');
-          Toast.show({
-            type: 'info',
-            text1: 'Payment Cancelled',
-            text2: 'You can try again later',
-            position: 'top',
-            topOffset: 60,
-            visibilityTime: 2000,
-          });
-        } else {
-          // Show error for other cases
-          Toast.show({
-            type: 'error',
-            text1: 'Payment Error',
-            text2:
-              razorpayError?.description ||
-              razorpayError?.message ||
-              'Payment failed. Please try again.',
-            position: 'top',
-            topOffset: 60,
-            visibilityTime: 3000,
-          });
-        }
-      }
-    } catch (subscriptionError) {
-      console.error('Error creating subscription:', subscriptionError);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: subscriptionError.message || 'Failed to create subscription',
-        position: 'top',
-        topOffset: 60,
-        visibilityTime: 3000,
-      });
-    } finally {
-      setCreatingSubscription(false);
-      setSelectedMemberForSubscription(null);
-      setShowMemberDropdown(false);
-    }
-  };
-
-  const handleMemberSelect = (member) => {
-    console.log('Member selected:', member);
-    setSelectedMemberForSubscription(member);
-    setShowMemberDropdown(false);
-    // Automatically proceed to payment after member selection
-    setTimeout(() => {
-      handlePaymentForMember(member);
-    }, 300);
-  };
-  
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
@@ -554,9 +323,11 @@ function MyTabs() {
               </View>
             ),
           }}
-          listeners={({ navigation, route }) => ({
+          listeners={({ navigation: tabNav, route }) => {
+            tabNavigationRef.current = tabNav;
+            return {
             tabPress: e => {
-              const state = navigation.getState();
+              const state = tabNav.getState();
               const tabRoute = state.routes.find(r => r.key === route.key);
               const nestedState = tabRoute?.state;
               const currentRoute = nestedState?.routes[nestedState?.index];
@@ -564,12 +335,13 @@ function MyTabs() {
               // If not on ProfileScreen, navigate to it
               if (currentRoute?.name !== 'ProfileScreen') {
                 e.preventDefault();
-                navigation.navigate('ProfileTab', {
+                tabNav.navigate('ProfileTab', {
                   screen: 'ProfileScreen',
                 });
               }
             },
-          })}
+          };
+          }}
         />
 
         <Tab.Screen
@@ -662,27 +434,19 @@ function MyTabs() {
               </View>
             ),
           }}
-          listeners={({ navigation, route }) => ({
+          listeners={({ navigation: tabNav, route }) => {
+            tabNavigationRef.current = tabNav;
+            return {
             tabPress: e => {
-              const state = navigation.getState();
+              const state = tabNav.getState();
               const tabRoute = state.routes.find(r => r.key === route.key);
               const nestedState = tabRoute?.state;
               const currentRoute = nestedState?.routes[nestedState?.index];
 
-              console.log('user411', user);
-
-              // Check if user has cosmic_foundation plan - don't allow navigation
+              // Free plan: show upgrade modal instead of navigating directly
               if (user && user.current_plan === 'cosmic_foundation') {
-                // Prevent navigation completely - show upgrade modal first
                 e.preventDefault();
-                // Store navigation function only if plan becomes eternal_path later
-                setPendingNavigation(() => () => {
-                  navigation.navigate('TasksTab', {
-                    screen: 'DashboardTasksScreen',
-                  });
-                });
-                setShowUpgradeModal(true);
-                // Don't navigate - stay on current tab
+                setShowYodhaUpgradeModal(true);
                 return;
               }
 
@@ -691,7 +455,7 @@ function MyTabs() {
                 // If not on DashboardTasksScreen, navigate to it
                 if (currentRoute?.name !== 'DashboardTasksScreen') {
                   e.preventDefault();
-                  navigation.navigate('TasksTab', {
+                  tabNav.navigate('TasksTab', {
                     screen: 'DashboardTasksScreen',
                   });
                 }
@@ -699,13 +463,14 @@ function MyTabs() {
                 // For other plans or no plan, allow normal navigation
                 if (currentRoute?.name !== 'DashboardTasksScreen') {
                   e.preventDefault();
-                  navigation.navigate('TasksTab', {
+                  tabNav.navigate('TasksTab', {
                     screen: 'DashboardTasksScreen',
                   });
                 }
               }
             },
-          })}
+          };
+          }}
         />
 
         <Tab.Screen
@@ -812,377 +577,28 @@ function MyTabs() {
         /> */}
       </Tab.Navigator>
 
-      {/* Premium Plan Modal */}
       <Modal
-        visible={showPremiumModal}
+        visible={showYodhaUpgradeModal}
         transparent
         animationType="fade"
-        onRequestClose={handleClosePremiumModal}
+        onRequestClose={() => setShowYodhaUpgradeModal(false)}
       >
-        <TouchableOpacity
-          style={styles.premiumModalOverlay}
-          activeOpacity={1}
-          onPress={handleClosePremiumModal}
-        >
+        <View style={styles.upgradeModalOverlay}>
           <TouchableOpacity
+            style={StyleSheet.absoluteFill}
             activeOpacity={1}
-            onPress={e => e.stopPropagation()}
-            style={[
-              styles.premiumModalContainer,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.DarkNavy : colors.white,
-              },
-            ]}
-          >
-            {/* Close Button */}
-            <TouchableOpacity
-              style={styles.premiumModalCloseButton}
-              onPress={handleClosePremiumModal}
-            >
-              <Text
-                style={[
-                  styles.premiumModalCloseText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                ✕
-              </Text>
-            </TouchableOpacity>
-
-            {/* Header with Crown Icon */}
-            {/* <View style={styles.premiumModalHeader}>
-              <Text style={styles.premiumModalCrownIcon}>👑</Text>
-              <Text
-                style={[
-                  styles.premiumModalTitle,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Annual Plan – What You Unlock
-              </Text>
-            </View> */}
-
-            {/* Price */}
-            <View style={styles.premiumModalPriceContainer}>
-              <Text
-                style={[
-                  styles.premiumModalPrice,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                999
-              </Text>
-              <Text
-                style={[
-                  styles.premiumModalPriceUnit,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                INR/year
-              </Text>
-            </View>
-
-            {/* Description */}
-            <Text
-              style={[
-                styles.premiumModalDescription,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Experience the full power of{' '}
-              <Text style={styles.premiumModalBoldText}>
-                Natal Insights + Dynamic Planetary Insights + Action Alignment
-              </Text>{' '}
-              in one seamless journey.
-            </Text>
-
-            {/* Features List */}
-            <ScrollView style={styles.premiumModalFeaturesContainer}>
-              {/* Feature 1 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Natal Chart-Based Insights:
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Deep interpretations of core personality, soul desires, &
-                    blended predictions for all 12 houses. Includes 100 BNN
-                    snapshot predictions, planetary strength/weakness, &
-                    hyper-personalisation.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Feature 2 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Dynamic Insights (Active Planet + Transits):
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Guidance that evolves: your most active planet, transit
-                    influences, and refreshed updates every 15 days with new
-                    planetary movements.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Feature 3 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Dynamic Task Module (Mobile App Only):
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Karma-Aligned Action: Turn insights into momentum with
-                    personalised Do's & Don'ts, track progress, and build habits
-                    aligned with your planetary phase.
-                  </Text>
-                </View>
-              </View>
-            </ScrollView>
-
-            {/* Member Dropdown */}
-            {showMemberDropdown &&
-              allMembersData &&
-              Array.isArray(allMembersData) &&
-              allMembersData.length > 0 && (
-                <View style={styles.memberDropdownContainer}>
-                  <Text
-                    style={[
-                      styles.memberDropdownLabel,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Select Member ({allMembersData.length}):
-                  </Text>
-                  <ScrollView
-                    style={[
-                      styles.memberDropdownList,
-                      {
-                        borderColor:
-                          theme === 'dark'
-                            ? colors.themeBorderDropdown
-                            : colors.borderColor,
-                      },
-                    ]}
-                    nestedScrollEnabled={true}
-                  >
-                    {allMembersData.map((member, index) => {
-                      console.log(
-                        'Rendering member in dropdown:',
-                        index,
-                        member?.full_name || member?.first_name,
-                        member,
-                      );
-                      const memberId = member.id || member._id;
-                      const isSelected =
-                        selectedMemberForSubscription &&
-                        (selectedMemberForSubscription.id === memberId ||
-                          selectedMemberForSubscription._id === memberId);
-                      return (
-                        <TouchableOpacity
-                          key={memberId || index}
-                          style={[
-                            styles.memberDropdownItem,
-                            {
-                              backgroundColor: isSelected
-                                ? colors.Orangeaccentcolor + '20'
-                                : 'transparent',
-                              borderColor:
-                                theme === 'dark'
-                                  ? colors.themeBorderDropdown
-                                  : colors.borderColor,
-                            },
-                          ]}
-                          onPress={() => {
-                            console.log('Selecting member:', member);
-                            handleMemberSelect(member);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.memberDropdownItemText,
-                              {
-                                color:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                            ]}
-                          >
-                            {member.full_name ||
-                              `${member.first_name || ''} ${
-                                member.last_name || ''
-                              }`.trim() ||
-                              'Member'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                  {selectedMemberForSubscription && (
-                    <Text
-                      style={[
-                        styles.selectedMemberText,
-                        {
-                          color: colors.Orangeaccentcolor,
-                        },
-                      ]}
-                    >
-                      Selected:{' '}
-                      {selectedMemberForSubscription.full_name ||
-                        `${selectedMemberForSubscription.first_name || ''} ${
-                          selectedMemberForSubscription.last_name || ''
-                        }`.trim() ||
-                        'Member'}
-                    </Text>
-                  )}
-                </View>
-              )}
-
-            {/* Buy Premium Access Button */}
-            {!showMemberDropdown && (
-              <TouchableOpacity
-                style={[
-                  styles.premiumModalBuyButton,
-                  {
-                    backgroundColor: colors.Orangeaccentcolor,
-                    opacity: creatingSubscription ? 0.6 : 1,
-                  },
-                ]}
-                onPress={handleBuyPremiumAccess}
-                disabled={creatingSubscription}
-              >
-                {creatingSubscription ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.premiumModalBuyButtonText}>
-                    Buy an Annual Plan
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Upgrade Plan Modal - First Modal */}
-      <Modal
-        visible={showUpgradeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseUpgradeModal}
-      >
-        <TouchableOpacity
-          style={styles.upgradeModalOverlay}
-          activeOpacity={1}
-          onPress={handleCloseUpgradeModal}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={e => e.stopPropagation()}
+            onPress={() => setShowYodhaUpgradeModal(false)}
+          />
+          <View
             style={[
               styles.upgradeModalContainer,
               {
-                backgroundColor:
-                  theme === 'dark' ? colors.DarkNavy : colors.white,
+                backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
+                zIndex: 2,
+                elevation: 5,
               },
             ]}
           >
-            {/* Title */}
             <Text
               style={[
                 styles.upgradeModalTitle,
@@ -1192,10 +608,8 @@ function MyTabs() {
                 },
               ]}
             >
-              Upgrade Plan
+              Unlock Yodha
             </Text>
-
-            {/* Message */}
             <Text
               style={[
                 styles.upgradeModalMessage,
@@ -1205,10 +619,9 @@ function MyTabs() {
                 },
               ]}
             >
-              To Access yodha, Please Upgrade Your Plan.
+              Yodha guidance is available with a premium plan. Go to My Members
+              to upgrade and access this feature.
             </Text>
-
-            {/* Buttons */}
             <View style={styles.upgradeModalButtonsContainer}>
               <TouchableOpacity
                 style={[
@@ -1216,12 +629,10 @@ function MyTabs() {
                   styles.upgradeModalCancelButton,
                   {
                     borderColor:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
+                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                   },
                 ]}
-                onPress={handleCloseUpgradeModal}
+                onPress={() => setShowYodhaUpgradeModal(false)}
               >
                 <Text
                   style={[
@@ -1237,28 +648,21 @@ function MyTabs() {
                   Cancel
                 </Text>
               </TouchableOpacity>
-              {/* <TouchableOpacity
+              <TouchableOpacity
                 style={[
                   styles.upgradeModalButton,
                   styles.upgradeModalBuyButton,
-                  {
-                    backgroundColor: colors.Orangeaccentcolor,
-                  },
+                  { backgroundColor: colors.Orangeaccentcolor },
                 ]}
-                onPress={handleUpgradeModalBuy}
+                onPress={handleGoToProfileFromYodhaModal}
               >
-                <Text
-                  style={[
-                    styles.upgradeModalButtonText,
-                    { color: colors.white },
-                  ]}
-                >
-                  Buy
+                <Text style={[styles.upgradeModalButtonText, { color: '#FFFFFF' }]}>
+                  My Members
                 </Text>
-              </TouchableOpacity> */}
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       {/* White indicator bar at the bottom center */}
@@ -1266,6 +670,7 @@ function MyTabs() {
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   shadow: {

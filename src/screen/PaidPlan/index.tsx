@@ -11,7 +11,6 @@ import {
   ScrollView,
   StatusBar,
   Image,
-  useWindowDimensions,
 } from 'react-native';
 import {
   fontFamily,
@@ -23,8 +22,56 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
-import RenderHTML from 'react-native-render-html';
 import http from '../../utils/http';
+
+const FREE_FEATURES = [
+  'Major Life Cycle',
+  'Current Chapter of Life',
+  'Life Guidance',
+  'Recent Experience',
+  'Your Patterns',
+  'Your Manifestations',
+  'Your Personality',
+  'About Your Partner',
+];
+
+const INDIVIDUAL_MONTHLY_UPDATES = [
+  'Mahadasha updates',
+  'Antardasha changes',
+  'Transit-based predictions',
+  "Monthly dos & don'ts",
+  'Timely guidance based on planetary movement',
+];
+
+const INDIVIDUAL_HOUSE_BONUS = [
+  'Strengths',
+  'Advice',
+  'Daily Tasks',
+  'Think Twice (Things to be cautious about)',
+  'What Combinations Are Active',
+];
+
+const INDIVIDUAL_ALSO_INCLUDES = [
+  'Dynamic monthly insights',
+  'Evolving predictions',
+  'Guidance updated with every change',
+];
+
+const FAMILY_FEATURES = [
+  'Separate monthly updates for each member',
+  "Personalized dos & don'ts for each member",
+  'Separate active combinations for each member',
+  'Individual dynamic guidance for every member',
+  'Full 12-house bonus analysis for every member',
+];
+
+const FAMILY_UPDATE_TRIGGERS = [
+  { icon: '🔗', label: 'Mahadasha\nChange' },
+  { icon: '🔗', label: 'Antardasha\nChange' },
+  { icon: '✦', label: 'Transit\nChange' },
+];
+
+type CheckVariant = 'blue' | 'green' | 'orange';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -43,22 +90,47 @@ type PaidPlanScreenNavigationProp = StackNavigationProp<
   'Login'
 >;
 
-type PlanFeatureApi = {
-  icon: any;
-  title: string;
-  richContent: string;
-};
-
 type PlanApiItem = {
   id: number;
   title: string;
-  badge: string;
   price: string;
-  priceMode: string; // yearly/monthly etc
-  features: PlanFeatureApi[];
-  featuresTitle: string;
-  footerText: string;
-  footerNote: string;
+  priceMode?: string;
+};
+
+const getPriceUnit = (priceMode?: string) => {
+  const mode = (priceMode ?? 'month').toLowerCase();
+  return mode.includes('year') ? '/ year' : '/ month';
+};
+
+const PriceDisplay = ({
+  price,
+  priceMode,
+  loading,
+  color,
+  size = 'large',
+}: {
+  price: string;
+  priceMode?: string;
+  loading: boolean;
+  color: string;
+  size?: 'large' | 'medium';
+}) => {
+  if (loading) {
+    return <ActivityIndicator size="small" color={color} style={{ marginVertical: 8 }} />;
+  }
+  return (
+    <View style={styles.priceRow}>
+      <Text
+        style={[
+          size === 'large' ? styles.priceAmountLarge : styles.priceAmountMedium,
+          { color },
+        ]}
+      >
+        ₹ {price}
+      </Text>
+      <Text style={[styles.priceUnitText, { color }]}>{getPriceUnit(priceMode)}</Text>
+    </View>
+  );
 };
 
 type PlansApiResponse = {
@@ -71,7 +143,35 @@ const PaidPlanScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<PaidPlanScreenNavigationProp>();
   const { refreshProfileData } = useProfileData();
-  useWindowDimensions();
+
+  const renderCircleCheck = (variant: CheckVariant) => {
+    const bg =
+      variant === 'blue' ? '#3B6FD4' : variant === 'green' ? '#22C55E' : '#F2994A';
+    return (
+      <View style={[styles.circleCheck, { backgroundColor: bg }]}>
+        <Text style={styles.circleCheckMark}>✓</Text>
+      </View>
+    );
+  };
+
+  const renderFeatureList = (items: string[], variant: CheckVariant) =>
+    items.map((item, i) => (
+      <View key={`${item}-${i}`} style={styles.featureRow}>
+        {renderCircleCheck(variant)}
+        <Text
+          style={[
+            styles.featureText,
+            variant !== 'blue'
+              ? styles.featureTextLight
+              : {
+                  color: theme === 'dark' ? colors.white : '#1F2937',
+                },
+          ]}
+        >
+          {item}
+        </Text>
+      </View>
+    ));
 
   const [plansLoading, setPlansLoading] = useState(false);
   const [plansError, setPlansError] = useState<string | null>(null);
@@ -123,44 +223,19 @@ const PaidPlanScreen = () => {
     [plans],
   );
 
-  const htmlBaseStyle = useMemo(
-    () => ({
-      color: theme === 'dark' ? colors.white : colors.DarkNavy,
-      fontSize: 13,
-      fontFamily: fontFamily.regular,
-      lineHeight: 18,
-      flexShrink: 1,
-    }),
-    [colors.DarkNavy, colors.white, theme],
-  );
-
-  const htmlTagsStyles = useMemo(
-    () => ({
-      p: { marginTop: 0, marginBottom: 0 },
-      ul: { marginTop: 6, marginBottom: 0, paddingLeft: 16, width: '100%' },
-      ol: { marginTop: 6, marginBottom: 0, paddingLeft: 16, width: '100%' },
-      li: { marginBottom: 4, width: '100%' },
-      a: { color: colors.primary ?? colors.yellow },
-      em: { fontStyle: 'italic' },
-      span: { color: htmlBaseStyle.color },
-    }),
-    [colors.primary, colors.yellow, htmlBaseStyle.color],
-  );
-
-  const planCardContentWidth = useMemo(() => {
-    // Keep HTML rendering constrained to the card width to avoid overflow/overlap
-    const CARD_WIDTH = 280;
-    const CARD_PADDING = 16 * 2;
-    const ICON_AND_GAP = 18 + 8; // icon width + marginRight
-    return CARD_WIDTH - CARD_PADDING - ICON_AND_GAP;
-  }, []);
+  const individualPrice = individualPlan?.price ?? '299';
+  const familyPrice = familyPlan?.price ?? '999';
 
   const handleStartFree = () => {
     navigation.navigate('ProfileScreen');
   };
 
   const handleSelectPlan = (planType: 'individual' | 'family') => {
-    navigation.navigate('MemberPlanManagement', { planType });
+    const tabNav = navigation.getParent?.() ?? navigation;
+    tabNav.navigate('ProfileTab', {
+      screen: 'ProfileScreen',
+      params: { planType },
+    });
   };
 
   return (
@@ -225,15 +300,25 @@ const PaidPlanScreen = () => {
         keyboardShouldPersistTaps="handled"
         scrollIndicatorInsets={{ right: 1 }}
       >
+        {plansError ? (
+          <TouchableOpacity
+            onPress={fetchPlans}
+            activeOpacity={0.8}
+            style={styles.plansErrorBanner}
+          >
+            <Text style={styles.plansErrorText}>{plansError} Tap to retry.</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <View style={styles.planCardsColumn}>
-          {/* FREE PLAN CARD */}
+          {/* FREE PLAN */}
           <View
             style={[
               styles.planCard,
               styles.planCardFree,
               {
-                backgroundColor: theme === 'dark' ? colors.cardBackground : '#FFFFFF',
-                borderColor: theme === 'dark' ? colors.themeBorderDropdown : '#E0E0E0',
+                backgroundColor: theme === 'dark' ? colors.cardBackground : '#F3F4F8',
+                borderColor: theme === 'dark' ? colors.themeBorderDropdown : '#E5E7EB',
               },
             ]}
           >
@@ -241,226 +326,158 @@ const PaidPlanScreen = () => {
               style={[
                 styles.planCardTitle,
                 styles.planCardTitleCentered,
-                { color: theme === 'dark' ? colors.white : colors.DarkNavy },
+                { color: theme === 'dark' ? colors.white : '#111827' },
               ]}
             >
-              {freePlan?.title ?? 'Free'}
+              FREE
             </Text>
-            <View style={[styles.priceBox, { borderColor: theme === 'dark' ? colors.themeBorderDropdown : '#DDD' }]}>
-              <Text style={[styles.priceText, { color: theme === 'dark' ? colors.white : colors.DarkNavy }]}>Free</Text>
+            <PriceDisplay
+              price={freePlan?.price ?? '0'}
+              priceMode={freePlan?.priceMode}
+              loading={plansLoading && !freePlan?.price}
+              color="#2563EB"
+            />
+            <View style={styles.alwaysFreePill}>
+              <Text style={styles.alwaysFreePillText}>Always Free</Text>
             </View>
+            <Text
+              style={[
+                styles.planDescription,
+                { color: theme === 'dark' ? colors.textSecondary : '#6B7280' },
+              ]}
+            >
+              Get your core astrology insights at no cost.
+            </Text>
+
+            <Text style={styles.sectionHeaderPurple}>YOU GET (ALL FREE)</Text>
+            {renderFeatureList(FREE_FEATURES, 'blue')}
+
+            <View style={styles.freeHighlightBox}>
+              <Text style={styles.freeHighlightIcon}>🎁</Text>
+              <View style={styles.freeHighlightTextWrap}>
+                <Text style={styles.freeHighlightTitle}>100% FREE FOR ALL USERS</Text>
+                <Text style={styles.freeHighlightSub}>
+                  No payment required.{'\n'}No credit card needed.
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
-              style={[styles.planCtaButton, styles.ctaTealGreen]}
+              style={styles.ctaCurrentPlan}
               onPress={handleStartFree}
+              activeOpacity={0.85}
             >
-              <Text style={styles.planCtaButtonText}>Continue Free</Text>
+              <Text style={styles.ctaCurrentPlanText}>Current Plan</Text>
             </TouchableOpacity>
-            <Text
-              style={[
-                styles.planFeaturesHeader,
-                { color: theme === 'dark' ? colors.white : colors.DarkNavy },
-              ]}
-            >
-              {freePlan?.featuresTitle ?? 'Included in Free:'}
-            </Text>
-            {plansLoading && plans.length === 0 ? (
-              <View style={styles.inlineLoaderRow}>
-                <ActivityIndicator
-                  size="small"
-                  color={theme === 'dark' ? colors.white : colors.DarkNavy}
-                />
-                <Text
-                  style={[
-                    styles.inlineLoaderText,
-                    { color: theme === 'dark' ? colors.white : colors.DarkNavy },
-                  ]}
-                >
-                  Loading…
+          </View>
+
+          {/* INDIVIDUAL PLAN */}
+          <View style={styles.individualCardOuter}>
+            <View style={styles.mostPopularBadge}>
+              <Text style={styles.mostPopularBadgeText}>★ MOST POPULAR</Text>
+            </View>
+            <View style={[styles.planCard, styles.planCardIndividual]}>
+              <Text style={[styles.planCardTitle, styles.planCardTitleCentered, styles.textWhite]}>
+                INDIVIDUAL PLAN
+              </Text>
+              <PriceDisplay
+                price={individualPrice}
+                priceMode={individualPlan?.priceMode}
+                loading={plansLoading && !individualPlan?.price}
+                color="#FFFFFF"
+              />
+
+              <View style={styles.autoUpdateBox}>
+                <Text style={styles.autoUpdateIcon}>↻</Text>
+                <Text style={styles.autoUpdateText}>
+                  Updates automatically as Mahadasha, Antardasha & Transits change.
                 </Text>
               </View>
-            ) : plansError && plans.length === 0 ? (
-              <TouchableOpacity onPress={fetchPlans} activeOpacity={0.8}>
-                <Text
-                  style={[
-                    styles.inlineErrorText,
-                    { color: theme === 'dark' ? colors.white : colors.DarkNavy },
-                  ]}
-                >
-                  {plansError} Tap to retry.
+
+              <Text style={styles.sectionHeaderGreen}>MONTHLY DYNAMIC UPDATES</Text>
+              {renderFeatureList(INDIVIDUAL_MONTHLY_UPDATES, 'green')}
+
+              <Text style={styles.sectionHeaderOrange}>★ BONUS: FULL HOUSE ANALYSIS</Text>
+              <Text style={styles.sectionSubtextWhite}>For all 12 houses, receive:</Text>
+              {renderFeatureList(INDIVIDUAL_HOUSE_BONUS, 'orange')}
+
+              <Text style={styles.sectionHeaderLight}>ALSO INCLUDES</Text>
+              {renderFeatureList(INDIVIDUAL_ALSO_INCLUDES, 'green')}
+
+              <View style={styles.individualHighlightBox}>
+                <Text style={styles.individualHighlightIcon}>📅</Text>
+                <Text style={styles.individualHighlightText}>
+                  Always updated. Always relevant.{'\n'}No manual refresh needed.
                 </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.ctaOrange}
+                onPress={() => handleSelectPlan('individual')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.ctaOrangeText}>Start Individual →</Text>
               </TouchableOpacity>
-            ) : (
-              (freePlan?.features ?? []).map((f, i) => (
-                <View key={i} style={styles.planFeatureRow}>
-                  <Image
-                    source={require('../../assets/icons/checkIcon.png')}
-                    style={styles.planCheckIcon}
-                  />
-                  <Text
-                    style={[
-                      styles.planFeatureText,
-                      {
-                        color: theme === 'dark' ? colors.white : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    {f.title}
-                  </Text>
-                </View>
-              ))
-            )}
-            <View style={[styles.planFooterCapsule, { backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#F5F5F5' }]}>
-              <Text
-                style={[
-                  styles.planFooterText,
-                  { color: theme === 'dark' ? colors.white : colors.DarkNavy },
-                ]}
-              >
-                {freePlan?.footerText ?? '1 profile included'}
-              </Text>
             </View>
-            <Text
-              style={[
-                styles.planSubtext,
-                { color: theme === 'dark' ? colors.textSecondary : '#888' },
-              ]}
-            >
-              {freePlan?.footerNote ?? 'Try the basics. Upgrade anytime for full access.'}
-            </Text>
           </View>
 
-          {/* INDIVIDUAL ANNUAL CARD */}
-          <View
-            style={[
-              styles.planCard,
-              styles.planCardIndividual,
-              { backgroundColor: '#1A2744' },
-            ]}
-          >
-            <View style={styles.planBanner}>
-              <Text style={styles.planBannerText}>
-                {individualPlan?.badge || 'MOST POPULAR'}
+          {/* FAMILY PLAN */}
+          <View style={[styles.planCard, styles.planCardFamily]}>
+            <Text style={[styles.planCardTitle, styles.planCardTitleCentered, styles.textWhite]}>
+              FAMILY PLAN
+            </Text>
+            <PriceDisplay
+              price={familyPrice}
+              priceMode={familyPlan?.priceMode}
+              loading={plansLoading && !familyPlan?.price}
+              color="#FFFFFF"
+            />
+
+            <View style={styles.familySubtitleBox}>
+              <Text style={styles.familySubtitleText}>
+                Everything in Individual Plan for up to 5 members
               </Text>
             </View>
-            <Text style={[styles.planCardTitle, styles.planCardTitleCentered, { color: '#FFFFFF' }]}>
-              {individualPlan?.title ?? 'Individual Annual'}
-            </Text>
-            <View style={[styles.priceBox, styles.priceBoxDark, { backgroundColor: '#0F1A2E' }]}>
-              <Text style={[styles.priceText, { color: '#FFFFFF' }]}>
-                ₹{individualPlan?.price ?? '999'}
-              </Text>
-              <Text style={[styles.priceUnit, { color: 'rgba(255,255,255,0.8)' }]}>/ year</Text>
+
+            <View style={styles.familyIconWrap}>
+              <Image
+                source={require('../../assets/icons/subscription.png')}
+                style={styles.familyIcon}
+                resizeMode="contain"
+              />
             </View>
-            <TouchableOpacity
-              style={[styles.planCtaButton, styles.ctaGold]}
-              onPress={() => handleSelectPlan('individual')}
-            >
-              <Text style={[styles.planCtaButtonText, { color: '#1A2744' }]}>Get Individual Plan →</Text>
-            </TouchableOpacity>
-            <Text style={[styles.planFeaturesHeader, { color: '#FFFFFF' }]}>
-              {individualPlan?.featuresTitle ?? 'Everything in Free, plus:'}
-            </Text>
-            {(individualPlan?.features ?? []).map((f, i) => (
-              <View key={i} style={styles.planFeatureRow}>
-                <Image source={require('../../assets/icons/checkIcon.png')} style={[styles.planCheckIcon, { tintColor: '#E8B923' }]} />
-                <View style={styles.planFeatureContent}>
-                  <Text style={[styles.planFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
-                  {f.richContent ? (
-                    <View style={styles.htmlWrap}>
-                      <RenderHTML
-                        contentWidth={Math.max(0, planCardContentWidth)}
-                        source={{ html: f.richContent }}
-                        baseStyle={{
-                          ...htmlBaseStyle,
-                          color: 'rgba(255,255,255,0.9)',
-                        }}
-                        tagsStyles={htmlTagsStyles as any}
-                        defaultTextProps={{ selectable: false }}
-                      />
-                    </View>
-                  ) : null}
-                </View>
+
+            {renderFeatureList(FAMILY_FEATURES, 'green')}
+
+            <View style={styles.familyMembersBox}>
+              <Text style={styles.familyMembersIcon}>👥</Text>
+              <View style={styles.familyMembersTextWrap}>
+                <Text style={styles.familyMembersTitle}>UP TO 5 MEMBERS</Text>
+                <Text style={styles.familyMembersSub}>
+                  Manage up to 5 profiles in one plan.
+                </Text>
               </View>
-            ))}
-          </View>
+            </View>
 
-          {/* FAMILY ANNUAL CARD */}
-          <View
-            style={[
-              styles.planCard,
-              styles.planCardFamily,
-              { backgroundColor: '#2D1B4E' },
-            ]}
-          >
-            <View style={styles.planBanner}>
-              <Text style={styles.planBannerText}>
-                {familyPlan?.badge || 'BEST VALUE'}
-              </Text>
-            </View>
-            <Text style={[styles.planCardTitle, styles.planCardTitleCentered, { color: '#FFFFFF' }]}>
-              {familyPlan?.title ?? 'Family Annual'}
+            <Text style={[styles.sectionHeaderLight, styles.updateTriggeredHeader]}>
+              Update Triggered By
             </Text>
-            {familyPlan?.badge ? (
-              <Text
-                style={[
-                  styles.planCardSubtitle,
-                  styles.planCardTitleCentered,
-                  { color: 'rgba(255,255,255,0.9)' },
-                ]}
-              >
-                - {familyPlan.badge} -
-              </Text>
-            ) : (
-              <Text
-                style={[
-                  styles.planCardSubtitle,
-                  styles.planCardTitleCentered,
-                  { color: 'rgba(255,255,255,0.9)' },
-                ]}
-              >
-                - For families growing together -
-              </Text>
-            )}
-            <View style={[styles.priceBox, styles.priceBoxDark, { backgroundColor: '#1E1335' }]}>
-              <Text style={[styles.priceText, { color: '#FFFFFF' }]}>
-                ₹{familyPlan?.price ?? '2499'}
-              </Text>
-              <Text style={[styles.priceUnit, { color: 'rgba(255,255,255,0.8)' }]}>/ year</Text>
+            <View style={styles.updateTriggersRow}>
+              {FAMILY_UPDATE_TRIGGERS.map((item, i) => (
+                <View key={i} style={styles.updateTriggerCol}>
+                  <Text style={styles.updateTriggerIcon}>{item.icon}</Text>
+                  <Text style={styles.updateTriggerLabel}>{item.label}</Text>
+                </View>
+              ))}
             </View>
+
             <TouchableOpacity
-              style={[styles.planCtaButton, styles.ctaPurple]}
+              style={styles.ctaPurple}
               onPress={() => handleSelectPlan('family')}
+              activeOpacity={0.85}
             >
-              <Text style={styles.planCtaButtonText}>Get Family Plan →</Text>
+              <Text style={styles.ctaPurpleText}>Upgrade to Family →</Text>
             </TouchableOpacity>
-            <Text style={[styles.planFeaturesHeader, { color: '#FFFFFF' }]}>
-              {familyPlan?.featuresTitle ?? 'Everything in Individual, plus:'}
-            </Text>
-            {(familyPlan?.features ?? []).map((f, i) => (
-              <View key={i} style={styles.planFeatureRow}>
-                <Image source={require('../../assets/icons/checkIcon.png')} style={[styles.planCheckIcon, { tintColor: '#E8B923' }]} />
-                <View style={styles.planFeatureContent}>
-                  <Text style={[styles.planFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
-                  {f.richContent ? (
-                    <View style={styles.htmlWrap}>
-                      <RenderHTML
-                        contentWidth={Math.max(0, planCardContentWidth)}
-                        source={{ html: f.richContent }}
-                        baseStyle={{
-                          ...htmlBaseStyle,
-                          color: 'rgba(255,255,255,0.9)',
-                        }}
-                        tagsStyles={htmlTagsStyles as any}
-                        defaultTextProps={{ selectable: false }}
-                      />
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-            ))}
-            {/* <View style={[styles.planFooterCapsule, styles.planFooterCapsulePurple]}>
-              <Text style={[styles.planFooterText, { color: '#2D1B4E' }]}>Best for families who want structured life guidance together</Text>
-            </View> */}
           </View>
         </View>
       </ScrollView>
@@ -551,163 +568,373 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.regular,
   },
+  plansErrorBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+  },
+  plansErrorText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    color: '#B91C1C',
+    textAlign: 'center',
+  },
   planCardsColumn: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 16,
+    gap: 20,
   },
   planCard: {
     width: '100%',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     borderWidth: 1,
     overflow: 'hidden',
   },
   planCardFree: {},
-  planCardIndividual: {},
-  planCardFamily: {},
-  planBanner: {
-    alignSelf: 'center',
-    backgroundColor: '#E8B923',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginBottom: 12,
+  planCardIndividual: {
+    backgroundColor: '#0F1A2E',
+    borderColor: '#F2994A',
+    borderWidth: 2,
+    marginTop: 14,
   },
-  planBannerText: {
+  planCardFamily: {
+    backgroundColor: '#0F1A2E',
+    borderColor: '#7C3AED',
+    borderWidth: 1.5,
+  },
+  individualCardOuter: {
+    position: 'relative',
+    marginTop: 8,
+  },
+  mostPopularBadge: {
+    position: 'absolute',
+    top: 0,
+    alignSelf: 'center',
+    zIndex: 2,
+    backgroundColor: '#F2994A',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowColor: '#F2994A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.45,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  mostPopularBadgeText: {
     fontSize: 11,
     fontFamily: fontFamily.bold,
-    color: '#1A2744',
-    letterSpacing: 0.5,
+    color: '#0F1A2E',
+    letterSpacing: 0.4,
   },
   planCardTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: fontFamily.bold,
-    marginBottom: 8,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   planCardTitleCentered: {
     textAlign: 'center',
   },
-  planCardSubtitle: {
-    fontSize: 12,
+  textWhite: {
+    color: '#FFFFFF',
+  },
+  planDescription: {
+    fontSize: 13,
     fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
     marginBottom: 8,
+    gap: 4,
   },
-  priceBox: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
-    alignSelf: 'center',
-    alignItems: 'center',
-  },
-  priceBoxDark: {
-    borderWidth: 0,
-  },
-  priceText: {
-    fontSize: 24,
+  priceAmountLarge: {
+    fontSize: 32,
     fontFamily: fontFamily.bold,
   },
-  priceUnit: {
-    fontSize: 14,
+  priceAmountMedium: {
+    fontSize: 28,
+    fontFamily: fontFamily.bold,
+  },
+  priceUnitText: {
+    fontSize: 15,
     fontFamily: fontFamily.regular,
+    opacity: 0.9,
   },
-  planCtaButton: {
-    paddingVertical: 12,
+  alwaysFreePill: {
+    alignSelf: 'center',
+    borderWidth: 1.5,
+    borderColor: '#2563EB',
+    borderRadius: 20,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 5,
+    marginBottom: 10,
+  },
+  alwaysFreePillText: {
+    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+    color: '#2563EB',
+  },
+  sectionHeaderPurple: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#7C3AED',
+    letterSpacing: 0.3,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  sectionHeaderGreen: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#22C55E',
+    letterSpacing: 0.3,
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  sectionHeaderOrange: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#F2994A',
+    letterSpacing: 0.3,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  sectionHeaderLight: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: 'rgba(255,255,255,0.95)',
+    letterSpacing: 0.3,
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  sectionSubtextWhite: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 8,
+  },
+  circleCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    marginRight: 10,
+    marginTop: 1,
+    flexShrink: 0,
   },
-  ctaTealGreen: {
-    backgroundColor: '#2DD4BF',
+  circleCheckMark: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    lineHeight: 13,
   },
-  ctaGold: {
-    backgroundColor: '#E8B923',
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 9,
+    width: '100%',
   },
-  ctaPurple: {
-    backgroundColor: '#7C3AED',
+  featureText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    color: '#1F2937',
+    lineHeight: 19,
   },
-  planCtaButtonText: {
-    fontSize: 14,
+  featureTextLight: {
+    color: 'rgba(255,255,255,0.92)',
+  },
+  freeHighlightBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(59, 111, 212, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 111, 212, 0.25)',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 14,
+    gap: 10,
+  },
+  freeHighlightIcon: {
+    fontSize: 22,
+  },
+  freeHighlightTextWrap: {
+    flex: 1,
+  },
+  freeHighlightTitle: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#2563EB',
+    marginBottom: 4,
+  },
+  freeHighlightSub: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: '#4B5563',
+    lineHeight: 16,
+  },
+  ctaCurrentPlan: {
+    backgroundColor: '#A5B4FC',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  ctaCurrentPlanText: {
+    fontSize: 15,
     fontFamily: fontFamily.bold,
     color: '#FFFFFF',
   },
-  planFeaturesHeader: {
-    fontSize: 13,
-    fontFamily: fontFamily.semiBold,
-    marginBottom: 8,
-  },
-  planFeatureRow: {
+  autoUpdateBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
-    width: '100%',
+    backgroundColor: 'rgba(124, 58, 237, 0.2)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 4,
+    gap: 10,
   },
-  planCheckIcon: {
-    width: 18,
-    height: 18,
-    marginRight: 8,
-    marginTop: 2,
-    flexShrink: 0,
+  autoUpdateIcon: {
+    fontSize: 18,
+    color: '#A78BFA',
   },
-  planFeatureText: {
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
+  autoUpdateText: {
     flex: 1,
-    flexShrink: 1,
-    lineHeight: 18,
-  },
-  planFeatureContent: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-    maxWidth: '100%',
-  },
-  htmlWrap: {
-    width: '100%',
-    flexShrink: 1,
-  },
-  planFeatureSub: {
     fontSize: 12,
     fontFamily: fontFamily.regular,
-    marginTop: 2,
-    marginLeft: 8,
+    color: 'rgba(255,255,255,0.9)',
+    lineHeight: 17,
   },
-  planFooterCapsule: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  planFooterCapsulePurple: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  planFooterText: {
-    fontSize: 12,
-    fontFamily: fontFamily.regular,
-  },
-  planSubtext: {
-    fontSize: 11,
-    fontFamily: fontFamily.regular,
-    marginTop: 8,
-  },
-  inlineLoaderRow: {
+  individualHighlightBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F2994A',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 14,
+    gap: 10,
+    backgroundColor: 'rgba(242, 153, 74, 0.08)',
+  },
+  individualHighlightIcon: {
+    fontSize: 20,
+  },
+  individualHighlightText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+    color: '#F2994A',
+    lineHeight: 17,
+  },
+  ctaOrange: {
+    backgroundColor: '#F2994A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  ctaOrangeText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: '#0F1A2E',
+  },
+  familySubtitleBox: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  familySubtitleText: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  familyIconWrap: {
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  familyIcon: {
+    width: 56,
+    height: 56,
+    tintColor: '#A78BFA',
+  },
+  familyMembersBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 8,
+    gap: 10,
+  },
+  familyMembersIcon: {
+    fontSize: 22,
+  },
+  familyMembersTextWrap: {
+    flex: 1,
+  },
+  familyMembersTitle: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#A78BFA',
+    marginBottom: 4,
+  },
+  familyMembersSub: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.8)',
+    lineHeight: 16,
+  },
+  updateTriggeredHeader: {
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  updateTriggersRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
     gap: 8,
-    paddingVertical: 8,
   },
-  inlineLoaderText: {
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
+  updateTriggerCol: {
+    flex: 1,
+    alignItems: 'center',
   },
-  inlineErrorText: {
-    fontSize: 13,
+  updateTriggerIcon: {
+    fontSize: 20,
+    color: '#A78BFA',
+    marginBottom: 6,
+  },
+  updateTriggerLabel: {
+    fontSize: 10,
     fontFamily: fontFamily.regular,
-    lineHeight: 18,
-    marginTop: 6,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  ctaPurple: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  ctaPurpleText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: '#FFFFFF',
   },
   contentCard: {
     borderRadius: 12,
@@ -793,12 +1020,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     marginRight: 8,
   },
-  planDescription: {
-    fontSize: 14,
-    fontFamily: fontFamily.regular,
-    lineHeight: 20,
-    marginBottom: responsiveWidth(3),
-  },
   // Features List Styles
   featuresList: {
     // marginBottom: responsiveWidth(2),
@@ -822,13 +1043,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     width: responsiveWidth(3),
     textAlign: 'left',
-  },
-  featureText: {
-    fontSize: 14,
-    fontFamily: fontFamily.regular,
-    flex: 1,
-    fontWeight: '500',
-    lineHeight: 18,
   },
   featureTextContainer: {
     flex: 1,

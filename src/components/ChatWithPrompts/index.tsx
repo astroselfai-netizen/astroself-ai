@@ -31,6 +31,8 @@ import { Api, CurrentDashaTimeResponse } from '../../types/api';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
 
+export const AT_A_GLANCE_TOPIC_TITLE = 'At a Glance';
+
 interface ChatWithPromptsProps {
   userId: string;
   cardTitles?: string;
@@ -38,6 +40,8 @@ interface ChatWithPromptsProps {
   subCards?: Array<{ id: number; title: string }>;
   planet?: string;
   current_plan?: string;
+  /** When true, auto-open the topic whose title is "At a Glance". */
+  onOpen?: boolean;
 }
 
 interface PredictionTopic {
@@ -47,6 +51,10 @@ interface PredictionTopic {
   isExpanded: boolean;
 }
 
+const TOPIC_TILE_LIGHT_BG = ['#FFF9F1', '#F8F4EC', '#F5F0E6', '#FFF9F1', '#F8F4EC', '#F5F0E6'];
+const TOPIC_TILE_DARK_BG = ['#334A65', '#3A4F68', '#2F455C', '#334A65', '#3A4F68', '#2F455C'];
+const TOPIC_TILE_ACCENTS = ['#F27420', '#3B66F5', '#4CAF50'];
+
 const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   userId,
   cardTitles,
@@ -54,7 +62,18 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   subCards,
   planet: _planet,
   current_plan,
+  onOpen = false,
 }) => {
+
+  console.log('cardTitles---->59', {
+    userId,
+    cardTitles,
+    tab: _tab,
+    subCards,
+    planet: _planet,
+    current_plan,
+    onOpen,
+  });
   const showInfoContainer = useSelector((state: RootState) => state.app.showInfoContainer);
   const [topics, setTopics] = useState<PredictionTopic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,40 +99,40 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
   const [currentSituationCards] = useState<Array<{ title: string; subtitle: string; value: string }>>([]);
   const [dashaTimeData, setDashaTimeData] = useState<CurrentDashaTimeResponse | null>(null);
   const [loadingDashaTime, setLoadingDashaTime] = useState(false);
-  
+
   // Check if current member is a child (age between 15-18 years)
   const isCurrentMemberChild = React.useMemo(() => {
     if (!userId || !membersData || !Array.isArray(membersData)) {
       return false;
     }
-    
+
     const currentMember = membersData.find(
       (m: any) => (m.id || m._id) === userId || (m.id || m._id)?.toString() === userId?.toString()
     );
-    
+
     if (!currentMember || !currentMember.birth_data) {
       return false;
     }
-    
+
     const { year, month, day } = currentMember.birth_data;
     if (!year || !month || !day) {
       return false;
     }
-    
+
     // Calculate age
     const birthDate = new Date(year, month - 1, day);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
+
     // Check if age is between 15 and 18 (inclusive)
     return age >= 15 && age <= 18;
   }, [userId, membersData]);
-  
+
   // Timer effect for loading time
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -130,51 +149,61 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     };
   }, [loadingTopicId]);
 
-  console.log('cardTitles---->128', _tab);
+  console.log('cardTitles---->128', cardTitles);
 
-  // topic state
-  const [selectedTopicValue, setSelectedTopicValue] = useState(
-    cardTitles === 'Antardasha'
-      ? 'General Analysis'
-      : _tab === 'SnapCast'
-      ? 'Your Personality'
-      : _tab === 'LifeNow'
-      ? 'Planet'
-          : 'General Analysis'
-  );
+  const getDefaultTopicValue = () => {
+    if (cardTitles?.includes('Manifestations')) {
+      return '30 to 45 Days';
+    }
+    return cardTitles || 'General Analysis';
+  };
+
+  const getManifestationMainHeading = (topicValue: string) =>
+    topicValue === '30 to 45 Days'
+      ? 'Next 30 to 45 Days'
+      : 'Next 6 to 30 Months';
+
+  // topic state (Manifestations defaults to short term)
+  const [selectedTopicValue, setSelectedTopicValue] = useState(getDefaultTopicValue);
 
 
-   const topicOptions = [
+  const topicOptions = [
+    { title: 'Long Term', value: '30 to 45 Days' },
+    { title: 'short term', value: '6 to 30 Months' },
     //  { title: 'Your Tendencies', value: 'Your Tendencies' },
     //  { title: 'Summary', value: 'Summary' },
-     { title: 'Analysis', value: 'Planet' },
+    //  { title: 'Analysis', value: 'Planet' },
     //  { title: 'Predictions bases on Lords', value: 'Lords in Houses' },
     //  { title: 'Predictions based on Planets', value: 'Planets in Signs' },
     //  { title: 'Predictions based on Nakshtra', value: 'Nakshatra Themes' },
-   ];
+  ];
 
   // Special topic options for Antardasha
   const antardashaTopicOptions = [
+    { title: 'Near Term', value: '30 to 45 Days' },
+    { title: 'Short Term', value: '6 to 30 Months' },
     // { title: 'Summary', value: 'summary' },
-    { title: 'Insights', value: 'General Analysis' },
+    // { title: 'Insights', value: 'General Analysis' },
     // { title: 'Active Planet Connections', value: 'Active Planet Connections' },
     // {title: 'Predictions', value: 'Planet' },
     // { title: 'Nakshatra', value: 'Nakshatra' },
     // { title: 'Moon Lagna', value: 'Moon Lagna' },
-    
+
 
   ];
 
   // Labels for Antardasha topic options
   const antardashaTopicLabels = [
+    { title: 'Near Term', value: '30 to 45 Days' },
+    { title: 'Short Term', value: '6 to 30 Months' },
     // { title: 'Summary', value: 'summary' },
-    { title: 'Insights', value: 'General Analysis' },
+    // { title: 'Insights', value: 'General Analysis' },
     // { title: 'Predictions', value: 'Planet' },
   ];
 
   // No longer fetching cards from API - they come from navigation params
 
-
+  console.log('subCards---->177', _tab);
   // Get current card options based on the current cardTitles
   const getCurrentCardOptions = () => {
     // If subCards prop is provided, use it directly (for "Natal Chart Insights")
@@ -185,7 +214,9 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         value: subCard.title,
       }));
     }
-    
+
+
+
     if (_tab === 'LifeView') {
       return generalAnalysisCards;
     } else if (_tab === 'LifeNow') {
@@ -208,7 +239,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     setExpandedTopic(null);
     setHasAutoExpanded(false);
     setUpdatedList({});
-    setTopics(prevTopics => 
+    setTopics(prevTopics =>
       prevTopics.map(topic => ({
         ...topic,
         content: `Welcome! I'm here to guide you through your cosmic journey. What would you like to explore about your birth chart today? This is detailed content for ${topic.title}.`,
@@ -219,20 +250,43 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
   // Update selectedCardTitle when cardTitles prop changes
   useEffect(() => {
-    // If subCards prop is provided, automatically select first sub_card
+    setSelectedCardTitle(cardTitles);
+  }, [cardTitles]);
 
-    console.log('cardTitles---->214', subCards, cardTitles);
-    if (subCards && subCards.length > 0) {
-      setSelectedCardTitle(subCards[0].title);
-    } else {
-      setSelectedCardTitle(cardTitles || '');
+  useEffect(() => {
+    const isManifestations =
+      selectedCardTitle?.includes('Manifestations') ||
+      cardTitles?.includes('Manifestations');
+
+    if (!isManifestations) {
+      return;
     }
-  }, [cardTitles, subCards]);
+
+    if (
+      selectedTopicValue !== '30 to 45 Days' &&
+      selectedTopicValue !== '6 to 30 Months'
+    ) {
+      setSelectedTopicValue('6 to 30 Months');
+    }
+  }, [selectedCardTitle, cardTitles, selectedTopicValue]);
 
   // Fetch current dasha time when Antardasha is selected
   useEffect(() => {
+
+    console.log('cardTitles---->276', cardTitles, selectedCardTitle);
     const fetchDashaTime = async () => {
-      if ((cardTitles === 'Antardasha' || selectedCardTitle === 'Antardasha') && userId) {
+      if ((cardTitles === 'Major Life Cycle' ||
+         selectedCardTitle === 'Major Life Cycle' || 
+        cardTitles?.startsWith('Life Guidance – Long Term') || 
+        selectedCardTitle?.startsWith('Life Guidance – Long Term') 
+        || cardTitles?.startsWith('Current Chapter of Life') || 
+        selectedCardTitle?.startsWith('Current Chapter of Life') 
+        || cardTitles?.startsWith('Recent Experience') || 
+        selectedCardTitle?.startsWith('Recent Experience') ||
+        cardTitles === 'Life Guidance' ||
+        selectedCardTitle === 'Life Guidance' 
+        
+        ) && userId) {
         try {
           setLoadingDashaTime(true);
           const response = await userService.getCurrentDashaTime(userId);
@@ -259,7 +313,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     setShowDropdown(false);
     // Reset expanded topic when changing card title
     setExpandedTopic(null);
-    setHasAutoExpanded( false);
+    setHasAutoExpanded(false);
   };
 
   console.log('cardTitle-->3', cardTitles);
@@ -269,160 +323,85 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     try {
       setLoading(true);
 
-      console.log('cardTitle866', selectedCardTitle);
-      console.log('userId---->', selectedTopicValue);
+      console.log('cardTitle866', selectedCardTitle === "Life Guidance");
+      console.log('userId---->ee', selectedTopicValue, "hhhhhh", selectedCardTitle);
 
       // Determine mainHeading based on selectedCardTitle
       let mainHeading = 'General Analysis'; // default
-
       if (selectedCardTitle) {
-        if ( selectedCardTitle.startsWith('Current Phase of Life -')) {
-          mainHeading = 'Antardasha';
-        }
-        else if (selectedCardTitle.startsWith('Major Life Cycle -')) {
-          mainHeading = 'Mahadasha';
-        }
-        // If selectedCardTitle starts with 'Active Planet -', set mainHeading to 'Antardasha'
-        else if (selectedCardTitle.startsWith('Birth Chart Insights') ) {
-          mainHeading = 'Personality, Attitude, Vitality';
-        } else {
-          switch (selectedCardTitle) {
-            case 'Birth Chart Insights':
-              mainHeading = 'Personality, Attitude, Vitality';
-              break;
-          case 'General Analysis':
-            mainHeading = 'General Analysis';
-            break;
-          case 'Your Personality':
-            mainHeading = 'Your Personality';
-            break;
+        switch (selectedCardTitle) {
 
-          case 'Snapshot Prediction':
-            mainHeading = 'Snapshot Prediction';
+          case 'Major Life Cycle':
+            mainHeading = 'Mahadasha';
             break;
-          case 'Your Personality':
-            mainHeading = 'Your Personality';
+          case 'Life Guidance – Long Term':
+            mainHeading = 'Mahadasha';
             break;
-          case 'Life on the Horizon':
-            mainHeading = 'Life on the Horizon';
-            break;
-          case 'Life at the Moment':
-            mainHeading = 'Life at the Moment';
-            break;
-          case 'Antardasha':
+          case 'Current Chapter of Life':
             mainHeading = 'Antardasha';
             break;
-          case 'Snapshot Prediction':
+          case 'Life Guidance':
+            mainHeading = 'Antardasha';
+            break;
+          case 'Recent Experience':
+            mainHeading = 'Antardasha';
+            break;
+          case 'Your Patterns':
             mainHeading = 'Snapshot Prediction';
             break;
-          case 'Current predictions':
-            mainHeading = 'Current predictions';
+
+          case 'Your Personality':
+            mainHeading = 'Your Personality';
             break;
-          case 'Additional Predictions':
-            mainHeading = 'Additional Predictions';
-            break;
-          case 'Personality':
-            mainHeading = 'Personality, Attitude, Vitality';
-            break;
-          case 'Family & Values':
-            mainHeading = 'Family, Wealth, Comfort, Values';
-            break;
-          case 'Communication':
-            mainHeading = 'Style of speaking, Siblings, Courage, Skills';
-            break;
-          case 'Home':
-            mainHeading = 'Home, happiness, Emotional foundation';
-            break;
-          case 'Birth Chart Insights':
-              mainHeading = 'Your Personality';
-            break;
-          case 'Love & Romance':
-            mainHeading =
-              'Love affairs, Romance, Children, Celebration, hobbies';
-            break;
-          case 'Health & Service':
-            mainHeading = 'Health, Daily routines, service to others, Conflict';
-            break;
-          case 'Marriage & Partnerships':
-            mainHeading =
-              'Marriage, Relationships, partnerships business travel';
-            break;
-          case 'Sexuality & Transformation':
-            mainHeading =
-              'Sexuality, Intimacy, Inheritance, Occult, Transformation, Unearned income';
-            break;
-          case 'Higher Education':
-            mainHeading = 'Higher education, Philosophy, Long distance Travel';
-            break;
-          case 'Career & Reputation':
-            mainHeading = 'Career, Reputation, Status in Society, Recognition';
-            break;
-          case 'Income & Innovation':
-            mainHeading = 'Income, Network, Innovation, New ideas';
-            break;
-          case 'Subconscious & Spirituality':
-            mainHeading =
-              'Subconcious Mind, Spirituality, Hidden enemies, Losses and investment';
+
+          case 'Combination':
+            mainHeading = 'Predictions';
             break;
           default:
-            mainHeading = selectedCardTitle;
-          }
+            mainHeading = selectedCardTitle || 'General Analysis';
         }
-      }
 
+      }
       console.log('selectedTopicValue---->', selectedTopicValue);
 
       // Map selectedTopicValue to correct topic parameter for house/categorize API
       let apiTopic = 'Blended Predictions';
       switch (selectedTopicValue) {
-        case 'Your Tendencies':
-          apiTopic = 'Your Tendencies';
+
+        case 'Major Life Cycle':
+          apiTopic = 'General Analysis';
           break;
-      
+        case 'Life Guidance – Long Term':
+          apiTopic = 'life guidance';
+          break;
+        case 'Current Chapter of Life':
+          apiTopic = 'General Analysis';
+          break;
+        case 'Life Guidance':
+          apiTopic = 'life guidance';
+          break;
+
+        case 'Recent Experience':
+          apiTopic = 'recent';
+          break;
+
+        case 'Your Patterns':
+          apiTopic = 'Snapshot Prediction';
+          break;
+
+        case 'Combination':
+          apiTopic = 'Predictions';
+          break;
 
         case 'Your Personality':
           apiTopic = 'Blended Predictions';
-            break;
+          break;
+        case 'About Your Partner':
+          apiTopic = 'Partner';
+          break;
 
-            case 'Summary':
-          apiTopic = 'General';
-              break;
-
-        case 'summary':
-          apiTopic = 'summary';
-          break;
-        case 'Lords in Houses':
-          apiTopic = 'Lord';
-          break;
-        case 'Planets in Signs':
-          apiTopic = 'Planet';
-          break;
-        case 'Nakshatra Themes':
-          apiTopic = 'Nakshatra';
-          break;
-        case 'General Analysis':
-          apiTopic = 'General Analysis';
-          break;
-        case 'Planet':
-          apiTopic = 'Planet';
-          break;
-        case 'Nakshatra':
-          apiTopic = 'Nakshatra';
-          break;
-        case 'Moon Lagna':
-          apiTopic = 'Moon Lagna';
-          break;
-        case 'Life on the Horizon':
-          apiTopic = 'Life on the Horizon';
-          break;
-        case 'Life at the Moment':
-          apiTopic = 'Life at the Moment';
-          break;
-        case 'Active Planet Connections':
-          apiTopic = 'Active Planet Connections';
-          break;
         default:
-          apiTopic = 'Blended Predictions';
+          apiTopic = 'Planet';
       }
 
       console.log(
@@ -432,70 +411,55 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         apiTopic,
       );
 
-      let response;
+      let responseData: string[] = [];
 
-      
-    console.log('mainHeading---->402', mainHeading);
       // Handle different API calls based on mainHeading
-      if (mainHeading === 'Antardasha' ) {
-
-        if (apiTopic === 'Your Tendencies') {
-          apiTopic = 'General Analysis';
-          setSelectedTopicValue('General Analysis');
-        }
-
-        if (mainHeading)
-        response = await userService.getAntardashaData(
-          userId,
-          mainHeading,
-          apiTopic, // In this case, apiTopic contains the planet parameter
-        );
-      }else if (mainHeading === 'Mahadasha') {
-        if (apiTopic === 'Your Tendencies') {
-          apiTopic = 'General Analysis';
-          setSelectedTopicValue('General Analysis');
-        }
-
-        if (mainHeading)
-          response = await userService.getAntardashaData(
-            userId,
-            mainHeading,
-            apiTopic, // In this case, apiTopic contains the planet parameter
-          );
-      }
-      
-      
-      else if (mainHeading === 'Current predictions' || mainHeading === 'Additional Predictions' || mainHeading === 'Next 30 to 45 Days' || mainHeading === 'Next 6 to 30 Months') {
-        const categorizeResponse = await userService.getDashaCategorizeData(
-          userId,
-          mainHeading,
-        );
-        // Store updated_list for 'Life at the Moment' only
-        if (mainHeading === 'Next 30 to 45 Days' || mainHeading === 'Next 6 to 30 Months' && categorizeResponse.updated_list) {
-          setUpdatedList(categorizeResponse.updated_list || {});
-        } else {
-          setUpdatedList({});
-        }
-        response = categorizeResponse.data;
-      } else {
-        // Call house/categorize API for all other cases
-
-        console.log('apiTopic---->228', mainHeading);
-        console.log('apiTopic---->229', apiTopic);
-
-
-
-        response = await userService.getBlendedPredictions(
+      if (mainHeading === 'Antardasha') {
+        responseData = await userService.getAntardashaData(
           userId,
           mainHeading,
           apiTopic,
         );
+        setUpdatedList({});
+      } else if (mainHeading === 'Mahadasha') {
+        responseData = await userService.getAntardashaData(
+          userId,
+          mainHeading,
+          apiTopic,
+        );
+        setUpdatedList({});
+      } else if (mainHeading === 'Manifestations') {
+        const manifestationHeading =
+          selectedTopicValue === '30 to 45 Days'
+            ? 'Next 30 to 45 Days'
+            : 'Next 6 to 30 Months';
+
+        const categorizeResponse = await userService.getDashaCategorizeData(
+          userId,
+          manifestationHeading,
+        );
+        responseData = categorizeResponse.data;
+        setUpdatedList(categorizeResponse.updated_list || {});
+      } else {
+        console.log('apiTopic---->228', mainHeading, apiTopic);
+        console.log('apiTopic---->229', apiTopic);
+
+        if (mainHeading === 'Your Personality') {
+          apiTopic = 'Blended Predictions';
+        }
+
+        responseData = await userService.getBlendedPredictions(
+          userId,
+          mainHeading,
+          apiTopic,
+        );
+        setUpdatedList({});
       }
 
-      console.log('Categories response:', response);
+      console.log('Categories response:', responseData);
 
       // Transform response into topics with expanded state
-      const transformedTopics: PredictionTopic[] = response.map(
+      const transformedTopics: PredictionTopic[] = responseData.map(
         (title: string, index: number) => ({
           id: `topic_${index}`,
           title,
@@ -558,28 +522,69 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
       // Call appropriate AI response API based on selectedCardTitle
       let aiResponse;
-      if (selectedCardTitle === 'Antardasha' || selectedCardTitle === 'Next 30 to 45 Days' || selectedCardTitle === 'Next 6 to 30 Months' ) {
+      if (selectedCardTitle === 'Major Life Cycle' || selectedCardTitle === 'Life Guidance – Long Term' || selectedCardTitle === 'Current Chapter of Life' || selectedCardTitle === 'Life Guidance' || selectedCardTitle === 'Recent Experience') {
+
+        let mainHeading = 'Antardasha';
+
+        switch (selectedCardTitle) {
+          case 'Major Life Cycle':
+            mainHeading = 'Mahadasha';
+            break;
+          case 'Life Guidance – Long Term':
+            mainHeading = 'Mahadasha';
+            break;
+          case 'Current Chapter of Life':
+            mainHeading = 'Antardasha';
+            break;
+          case 'Life Guidance':
+            mainHeading = 'Antardasha';
+            break;
+          case 'Recent Experience':
+            mainHeading = 'Antardasha';
+            break;
+        }
+
         aiResponse = await userService.getAntardashaAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
-          selectedCardTitle || 'Antardasha',
+          mainHeading || 'Antardasha',
           topicTitle || 'General Analysis',
         );
-      } else if (selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle === 'Current predictions' || selectedCardTitle === 'Additional Predictions' || selectedCardTitle === 'Life on the Horizon' || selectedCardTitle === 'Life at the Moment' || selectedCardTitle?.startsWith('Current Phase of Life -') || selectedCardTitle?.startsWith('Major Life Cycle -') ) {
-        // For Current predictions and Additional Predictions, call the dasha AI response API
-        // If selectedCardTitle starts with 'Active Planet -', use 'Antardasha' instead
-        const cardTitleForApi = selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle?.startsWith('Current Phase of Life -') || selectedCardTitle?.startsWith('Major Life Cycle -') ? 'Mahadasha' : (selectedCardTitle || 'Additional Predictions');
+      } else if (
+        selectedCardTitle === 'Manifestations' ||
+        selectedCardTitle?.includes('Manifestations')
+      ) {
+        const manifestationMainHeading = getManifestationMainHeading(
+          selectedTopicValue,
+        );
         aiResponse = await userService.getDashaAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
-          cardTitleForApi,
+          manifestationMainHeading,
           topicTitle || 'General Analysis',
         );
       } else {
 
         // userId = profileData;
-      //  const plan = profileData?.current_plan;
+        //  const plan = profileData?.current_plan;
+
+        let mainHeading = selectedCardTitle;
+
+        switch (selectedCardTitle) {
+          case 'Your Patterns':
+            mainHeading = 'Snapshot Prediction';
+            break;
+          case 'Combination':
+            mainHeading = 'Predictions';
+            break;
+          case 'About Your Partner':
+            mainHeading = 'Your Personality';
+            break;
+          case 'Manifestations':
+
+        }
+
         aiResponse = await userService.getGenerateHeadingAiResponse(
           userId || '68bab4b85f4bc17df0359d83',
-          selectedCardTitle || 'General Analysis',
+          mainHeading || 'General Analysis',
           topicTitle || 'about_house',
           current_plan || 'cosmic_foundation',
         );
@@ -626,7 +631,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           if ((item as any).heading && (item as any).insights) {
             // This is a direct Antardasha response - process it directly
             console.log('Processing direct Antardasha response item:', item);
-            
+
             const heading = (item as any).heading || topic?.title || 'Topic';
             let insights = '';
 
@@ -648,7 +653,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               aiContent += '\n\n';
             }
             aiContent += `${insights}`;
-            
+
             // Skip the array processing since we handled this item directly
             continue;
           }
@@ -803,7 +808,15 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     } finally {
       setLoadingTopicId(null);
     }
-  }, [expandedTopic, topics, userId, selectedCardTitle, userService, current_plan]);
+  }, [
+    expandedTopic,
+    topics,
+    userId,
+    selectedCardTitle,
+    selectedTopicValue,
+    userService,
+    current_plan,
+  ]);
 
   // Get user data from membersData based on userId
   useEffect(() => {
@@ -847,40 +860,84 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
     }
   }, [userId, selectedCardTitle, selectedTopicValue, fetchBlendedPredictions]);
 
-  // Auto-expand and generate AI content when Snapshot Prediction is selected
+  // Auto-open topic when navigated with onOpen (e.g. post-login → "At a Glance")
   useEffect(() => {
     if (
-     
-      topics.length === 1 &&
-
-      !loading &&
-      !_hasAutoExpanded &&
-      expandedTopic === null
+      !onOpen ||
+      loading ||
+      topics.length === 0 ||
+      _hasAutoExpanded ||
+      expandedTopic !== null
     ) {
-      const firstTopic = topics[0];
-      if (firstTopic) {
-        setExpandedTopic(firstTopic.id);
-        setActiveTopicId(firstTopic.id);
-        setActiveTopicTitle(firstTopic.title);
-        setHasAutoExpanded(true);
-        // Automatically trigger AI content generation for the first topic
-        setTimeout(() => {
-          toggleExpanded(firstTopic.id, firstTopic.title, true);
-        }, 100);
-      }
+      return;
     }
-  }, [topics, loading, _hasAutoExpanded, selectedCardTitle, expandedTopic, toggleExpanded]);
+
+    const atAGlanceTopic = topics.find(
+      topic =>
+        topic.title.trim().toLowerCase() ===
+        AT_A_GLANCE_TOPIC_TITLE.toLowerCase(),
+    );
+
+    if (!atAGlanceTopic) {
+      return;
+    }
+
+    setHasAutoExpanded(true);
+    setActiveTopicId(atAGlanceTopic.id);
+    setActiveTopicTitle(atAGlanceTopic.title);
+    setTimeout(() => {
+      toggleExpanded(atAGlanceTopic.id, atAGlanceTopic.title, true);
+    }, 100);
+  }, [
+    onOpen,
+    topics,
+    loading,
+    _hasAutoExpanded,
+    expandedTopic,
+    toggleExpanded,
+  ]);
+
+  // Auto-expand when only a single topic is returned
+  useEffect(() => {
+    if (
+      onOpen ||
+      topics.length !== 1 ||
+      loading ||
+      _hasAutoExpanded ||
+      expandedTopic !== null
+    ) {
+      return;
+    }
+
+    const firstTopic = topics[0];
+    if (firstTopic) {
+      setExpandedTopic(firstTopic.id);
+      setActiveTopicId(firstTopic.id);
+      setActiveTopicTitle(firstTopic.title);
+      setHasAutoExpanded(true);
+      setTimeout(() => {
+        toggleExpanded(firstTopic.id, firstTopic.title, true);
+      }, 100);
+    }
+  }, [
+    onOpen,
+    topics,
+    loading,
+    _hasAutoExpanded,
+    expandedTopic,
+    toggleExpanded,
+  ]);
 
   const renderArrowIcon = (isExpanded: boolean, topic: PredictionTopic) => (
-    <Image 
-      source={require('../../assets/icons/Dropdown.png')} 
+    <Image
+      source={require('../../assets/icons/Dropdown.png')}
       style={[
         styles.arrowIcon,
         {
           tintColor: selectedCardTitle === 'Life at the Moment' && updatedList[topic.title] === true ? colors.DarkNavy : theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
         },
         { transform: [{ rotate: isExpanded ? '180deg' : '0deg' }] }
-      ]} 
+      ]}
     />
   );
 
@@ -941,7 +998,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
       // Extract text content (match[2] is the text between asterisks)
       // Trim to remove any leading/trailing spaces
       const boldText = (match[2] || '').trim();
-      
+
       if (boldText) {
         result.push(
           <Text
@@ -1062,7 +1119,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
 
     lines.forEach((line, index) => {
       const trimmed = line.trim();
-      
+
       // Skip empty lines
       if (!trimmed) {
         flushBulletItem();
@@ -1144,8 +1201,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         style={[
           styles.header,
           {
-            backgroundColor:
-              theme === 'dark' ? colors.transparent : colors.surface,
+            // backgroundColor:
+            //   theme === 'dark' ? colors.transparent : colors.surface,
             borderColor:
               theme === 'dark'
                 ? colors.themeBorderDropdown
@@ -1208,6 +1265,18 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           </View>
         </View>
       </View>
+      <View style={[styles.contentContainer, {
+        backgroundColor:
+          theme === 'dark' ? colors.cardBackground : '#FFFFFF',
+        borderColor:
+          theme === 'dark'
+            ? colors.themeBorderDropdown
+            : '#E8E4DC',
+      },]}>
+        <Text style={[styles.contentTitle, {
+          color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+        }]}>{cardTitles}</Text>
+      </View>
       {/* cardTitles dropdown section */}
       {/* user name and birth details section */}
       {/* {userData && (
@@ -1232,7 +1301,7 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         </View>
       )} */}
       {/* Only show dropdown when subCards prop is provided (for "Natal Chart Insights") */}
-      {subCards && subCards.length > 0 && (
+      {/* {subCards && subCards.length > 0 && (
         <View
           style={[
             styles.dropdownContainer,
@@ -1314,7 +1383,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                   isCurrentMemberChild &&
                   _tab === 'LifeNow' &&
                   (card.value === 'Life at the Moment' ||
-                    card.value === 'Antardasha');
+                    card.value === 'Antardasha' ||
+                    card.value === 'Major Life Cycle');
 
                 const isDisabled =
                   isDisabledByInfoContainer || isDisabledByChild;
@@ -1383,67 +1453,102 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
           </View>
         )}
       </View>
-      )}
+      )} */}
       {/* Antardasha time period */}
-      {(cardTitles === 'Antardasha' || selectedCardTitle === 'Antardasha') && (
-        <View style={styles.antardashaTimeContainer}>
-          {loadingDashaTime ? (
-            <View style={styles.antardashaTimeContent}>
-              <ActivityIndicator size="small" color={colors.Orangeaccentcolor} />
-            </View>
-          ) : dashaTimeData?.Antardasha ? (
-            <View style={styles.antardashaTimeContent}>
-              {Object.entries(dashaTimeData.Antardasha).map(([planet, dateRanges], index) => {
-                const dateRangesArray = dateRanges as string[];
-                if (dateRangesArray && Array.isArray(dateRangesArray) && dateRangesArray.length > 0) {
-                  const dateRange = dateRangesArray[0]; // Get first date range
-                  return (
-                    <Text
-                      key={index}
-                      style={[
-                        styles.antardashaTimeText,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      {dateRange} - {planet}
-                    </Text>
-                  );
-                }
-                return null;
-              })}
-            </View>
-          ) : null}
-        </View>
-      )}
-      {/* Horizontal Tabs Section */}
+
       {(() => {
+        const showAntardashaTime =
+          cardTitles?.startsWith('Current Chapter of Life') ||
+          selectedCardTitle?.startsWith('Current Chapter of Life') ||
+          cardTitles?.startsWith('Recent Experience') ||
+          selectedCardTitle?.startsWith('Recent Experience') ||
+          cardTitles === 'Life Guidance' ||
+          selectedCardTitle === 'Life Guidance';
+     
+
+        const showMahadashaTime =
+          
+
+        cardTitles === 'Major Life Cycle' ||
+          selectedCardTitle === 'Major Life Cycle' ||
+          cardTitles?.startsWith('Life Guidance – Long Term') ||
+          selectedCardTitle?.startsWith('Life Guidance – Long Term');
+
+        const dashaTimeEntries = showMahadashaTime
+          ? dashaTimeData?.Mahadasha
+          : showAntardashaTime
+            ? dashaTimeData?.Antardasha
+            : null;
+
+        if (!showMahadashaTime && !showAntardashaTime) {
+          return null;
+        }
+
+        return (
+          <View style={styles.antardashaTimeContainer}>
+            {loadingDashaTime ? (
+              <View style={styles.antardashaTimeContent}>
+                <ActivityIndicator size="small" color={colors.Orangeaccentcolor} />
+              </View>
+            ) : dashaTimeEntries ? (
+              <View style={[styles.antardashaTimeContent,{
+                backgroundColor:
+                  theme === 'dark' ? colors.cardBackground : colors.white,
+                borderColor:
+                  theme === 'dark'
+                    ? colors.themeBorderDropdown
+                    : colors.borderColor,
+              }]}>
+                {Object.entries(dashaTimeEntries).map(([planet, dateRanges], index) => {
+                  const dateRangesArray = dateRanges as string[];
+                  if (dateRangesArray && Array.isArray(dateRangesArray) && dateRangesArray.length > 0) {
+                    const dateRange = dateRangesArray[0];
+                    return (
+                      <Text
+                        key={index}
+                        style={[
+                          styles.antardashaTimeText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        {dateRange} - {planet}
+                      </Text>
+                    );
+                  }
+                  return null;
+                })}
+              </View>
+            ) : null}
+          </View>
+        );
+      })()}
+      {/* Horizontal Tabs Section */}
+
+      {/* {console.log('selectedCardTitle---->1309', selectedCardTitle)} */}
+      {(() => {
+
+
         // Check if cardTitles contains values that don't need tabs
         const shouldHideTabs =
-          selectedCardTitle?.includes('General Analysis') ||
-          selectedCardTitle?.includes('Snapshot Prediction') ||
-          selectedCardTitle?.includes('Current predictions') ||
-          _tab?.includes('SnapCast') ||
-          selectedCardTitle?.includes('Additional Predictions') ||
-          // selectedCardTitle?.includes('Life on the Horizon') ||
-          selectedCardTitle?.includes('Life at the Moment') ||
-          selectedCardTitle?.includes('Next 30 to 45 Days') ||
-          selectedCardTitle?.includes('Next 6 to 30 Months') ||
-          selectedCardTitle?.includes('Your Personality');
+          selectedCardTitle?.includes('Manifestations')
+
+        // console.log('shouldHideTabs---->1316', shouldHideTabs);
+
 
         // Don't render tabs if they should be hidden
-        if (shouldHideTabs) {
+        if (!shouldHideTabs) {
           return null;
         }
 
         // console.log('selectedCardTitle---->1355', selectedCardTitle);
 
         // Check if selectedCardTitle is 'Antardasha' or starts with 'Active Planet -'
-        const isAntardasha = selectedCardTitle === 'Antardasha' || selectedCardTitle?.startsWith('Active Planet -') || selectedCardTitle?.startsWith('Current Phase of Life -') || selectedCardTitle?.startsWith('Major Life Cycle -');
+        const isAntardasha = selectedCardTitle === 'Manifestations'
 
         const tabOptions =
           isAntardasha
@@ -1548,18 +1653,18 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
             contentContainerStyle={styles.detailScrollContent}
             showsVerticalScrollIndicator={false}
           >
-           
+
 
             <View
               style={[
                 styles.detailContentCard,
                 {
                   backgroundColor:
-                    theme === 'dark' ? colors.cardBackground : colors.white,
+                    theme === 'dark' ? colors.cardBackground : '#FFFFFF',
                   borderColor:
                     theme === 'dark'
                       ? colors.themeBorderDropdown
-                      : colors.borderColor,
+                      : '#E8E4DC',
                 },
               ]}
             >
@@ -1567,12 +1672,10 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 style={[
                   styles.detailHeader,
                   {
-                    // backgroundColor:
-                    //   theme === 'dark' ? colors.transparent : colors.surface,
-                    borderColor:
+                    borderBottomColor:
                       theme === 'dark'
                         ? colors.themeBorderDropdown
-                        : colors.borderColor,
+                        : '#E8E4DC',
                   },
                 ]}
               >
@@ -1584,18 +1687,28 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                   style={styles.detailBackBtn}
                   activeOpacity={0.7}
                 >
-                  <Image
-                    source={icons.Icback}
+                  <View
                     style={[
-                      styles.backIcon,
+                      styles.detailBackBtnCircle,
                       {
-                        tintColor:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavy : '#FFF9F1',
                       },
                     ]}
-                  />
+                  >
+                    <Image
+                      source={icons.Icback}
+                      style={[
+                        styles.backIcon,
+                        {
+                          tintColor:
+                            theme === 'dark'
+                              ? colors.themeTextWhite
+                              : colors.DarkNavy,
+                        },
+                      ]}
+                    />
+                  </View>
                 </TouchableOpacity>
                 <View style={styles.detailHeaderCenter}>
                   <Text
@@ -1608,95 +1721,118 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                             : colors.DarkNavy,
                       },
                     ]}
-                    // numberOfLines={2}
+                    numberOfLines={2}
                   >
                     {activeTopicTitle || 'Details'}
                   </Text>
                 </View>
                 <View style={styles.detailHeaderRight} />
               </View>
-              {loadingTopicId === activeTopicId ? (
-                <View style={styles.detailBanner}>
-                  <ActivityIndicator size="small" color={colors.Orangeaccentcolor} />
-                  <View style={styles.detailBannerTextWrap}>
-                    <Text
-                      style={[
-                        styles.detailBannerText,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Generating AI insights...
-                    </Text>
-                    <Text
-                      style={[
-                        styles.detailBannerSubText,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Loading time: {loadingTime}s (may take 30-60 seconds)
-                    </Text>
-                  </View>
-                </View>
-              ) : topicLoadError[activeTopicId] ? (
-                <View style={styles.detailBannerErrorWrap}>
-                  <View style={styles.detailBanner}>
-                    <Image
-                      source={icons.Icclose}
-                      style={[
-                        styles.detailBannerIcon,
-                        {
-                          tintColor:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.detailBannerText,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      {topicLoadError[activeTopicId]}
-                    </Text>
-                  </View>
 
-                  <TouchableOpacity
+              <View
+                style={[
+                  styles.detailBody,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? 'rgba(42, 63, 88, 0.45)' : '#FFF9F3',
+                  },
+                ]}
+              >
+                {loadingTopicId === activeTopicId ? (
+                  <View
                     style={[
-                      styles.topicReloadButton,
-                      { backgroundColor: colors.Orangeaccentcolor, alignSelf: 'flex-start' },
+                      styles.detailBanner,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavy : '#FFFFFF',
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeBorderDropdown
+                            : '#E8E4DC',
+                      },
                     ]}
-                    onPress={() => {
-                      const t = topics.find(x => x.id === activeTopicId);
-                      if (t) toggleExpanded(t.id, t.title, true);
-                    }}
-                    activeOpacity={0.8}
                   >
-                    <Text style={styles.topicReloadButtonText}>Reload</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                renderFormattedText(
-                  topics.find(x => x.id === activeTopicId)?.content ||
+                    <ActivityIndicator size="small" color={colors.Orangeaccentcolor} />
+                    <View style={styles.detailBannerTextWrap}>
+                      <Text
+                        style={[
+                          styles.detailBannerText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Generating AI insights...
+                      </Text>
+                      <Text
+                        style={[
+                          styles.detailBannerSubText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        Loading time: {loadingTime}s (may take 30-60 seconds)
+                      </Text>
+                    </View>
+                  </View>
+                ) : topicLoadError[activeTopicId] ? (
+                  <View style={styles.detailBannerErrorWrap}>
+                    <View style={styles.detailBanner}>
+                      <Image
+                        source={icons.Icclose}
+                        style={[
+                          styles.detailBannerIcon,
+                          {
+                            tintColor:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.detailBannerText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.DarkNavy,
+                          },
+                        ]}
+                      >
+                        {topicLoadError[activeTopicId]}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.topicReloadButton,
+                        { backgroundColor: colors.Orangeaccentcolor, alignSelf: 'flex-start' },
+                      ]}
+                      onPress={() => {
+                        const t = topics.find(x => x.id === activeTopicId);
+                        if (t) toggleExpanded(t.id, t.title, true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.topicReloadButtonText}>Reload</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  renderFormattedText(
+                    topics.find(x => x.id === activeTopicId)?.content ||
                     'No content available',
-                )
-              )}
+                  )
+                )}
+              </View>
             </View>
           </ScrollView>
         </View>
@@ -1711,11 +1847,11 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                 styles.topicsPanel,
                 {
                   backgroundColor:
-                    theme === 'dark' ? colors.cardBackground : colors.white,
+                    theme === 'dark' ? colors.cardBackground : '#FFFFFF',
                   borderColor:
                     theme === 'dark'
                       ? colors.themeBorderDropdown
-                      : colors.borderColor,
+                      : '#E8E4DC',
                 },
               ]}
             >
@@ -1730,33 +1866,39 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                     }
                     return 0;
                   })
-                  .map(topic => {
+                  .map((topic, index, sortedTopics) => {
                     const isUnreadLifeNow =
                       selectedCardTitle === 'Life at the Moment' &&
                       updatedList[topic.title] === true;
+                    const isLastSingleInRow =
+                      sortedTopics.length % 2 === 1 &&
+                      index === sortedTopics.length - 1;
+                    const tileBg =
+                      isUnreadLifeNow
+                        ? '#EEF4E2'
+                        : theme === 'dark'
+                          ? TOPIC_TILE_DARK_BG[index % TOPIC_TILE_DARK_BG.length]
+                          : TOPIC_TILE_LIGHT_BG[index % TOPIC_TILE_LIGHT_BG.length];
+                    const tileAccent =
+                      isUnreadLifeNow
+                        ? colors.Orangeaccentcolor
+                        : TOPIC_TILE_ACCENTS[index % TOPIC_TILE_ACCENTS.length];
+
                     return (
                       <TouchableOpacity
                         key={topic.id}
                         style={[
                           styles.topicTile,
-                          {
-                            backgroundColor: isUnreadLifeNow
-                              ? 'rgb(239, 244, 226)'
-                              : theme === 'dark'
-                                ? colors.DarkNavy
-                                : colors.surface,
-                            borderColor:
-                              theme === 'dark'
-                                ? colors.themeBorderDropdown
-                                : colors.borderColor,
-                          },
+                          isLastSingleInRow && styles.topicTileFull,
+                          theme === 'dark' && styles.topicTileDark,
+                          { backgroundColor: tileBg },
                         ]}
                         onPress={() => {
                           setActiveTopicId(topic.id);
                           setActiveTopicTitle(topic.title);
                           toggleExpanded(topic.id, topic.title, false);
                         }}
-                        activeOpacity={0.85}
+                        activeOpacity={0.88}
                       >
                         <Text
                           style={[
@@ -1769,11 +1911,28 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
                                   : colors.DarkNavy,
                             },
                           ]}
-                          // numberOfLines={3}
+                          numberOfLines={4}
                         >
                           {topic.title}
                         </Text>
-                       
+                        <View
+                          style={[
+                            styles.topicTileChevronCircle,
+                            {
+                              backgroundColor:
+                                theme === 'dark' ? colors.DarkNavy : colors.white,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.topicTileChevron,
+                              { color: tileAccent },
+                            ]}
+                          >
+                            ›
+                          </Text>
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -1817,8 +1976,8 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
               </Text>
               <TouchableOpacity
                 onPress={() => setShowNoteModal(false)}
-                // style={styles.closeButton}
-                // activeOpacity={0.7}
+              // style={styles.closeButton}
+              // activeOpacity={0.7}
               >
                 <Image
                   source={icons.Icclose}
@@ -2040,6 +2199,24 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: fontFamily.regular,
   },
+  contentContainer: {
+    paddingHorizontal: responsiveWidth(4),
+    justifyContent: 'center',
+    alignItems: 'center',
+    // backgroundColor: 'red',
+    borderWidth: 1,
+    // backgroundColor: 'rgba(238, 229, 202, 1)',
+    marginHorizontal: responsiveWidth(4),
+    paddingVertical: responsiveWidth(2),
+    borderRadius: 12,
+    // paddingBottom: Platform.OS === 'android' ? 85 : 85,
+  },
+  contentTitle: {
+    // color: '#F6EFD9',
+    fontSize: 20,
+    fontWeight: '600',
+    fontFamily: fontFamily.regular,
+  },
   topicsContainer: {
     // flexGrow: 1,
     gap: responsiveHeight(1.5),
@@ -2104,9 +2281,7 @@ const styles = StyleSheet.create({
   },
   topicText: {
     color: '#F6EFD9',
-    // fontSize: fontSize.mini,
     fontSize: 14,
-    // fontWeight: '500',
     fontFamily: fontFamily.regular,
     lineHeight: 26,
     opacity: 0.9,
@@ -2121,7 +2296,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     lineHeight: 26,
     opacity: 0.9,
-    // marginRight: responsiveWidth(1),
     minWidth: responsiveWidth(2),
   },
   bulletContentContainer: {
@@ -2302,7 +2476,7 @@ const styles = StyleSheet.create({
   },
   dropdownScrollView: {
     flex: 1,
-    paddingVertical:responsiveWidth(3)
+    paddingVertical: responsiveWidth(3)
 
   },
   dropdownItem: {
@@ -2310,7 +2484,7 @@ const styles = StyleSheet.create({
     paddingVertical: responsiveHeight(1),
     borderBottomWidth: 1,
     marginHorizontal: responsiveWidth(4),
-    
+
   },
   dropdownItemSelected: {
     backgroundColor: 'rgba(242, 153, 74, 0.1)',
@@ -2373,7 +2547,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     tintColor: color.themeTextWhite,
   },
- 
+
   closeButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -2472,7 +2646,11 @@ const styles = StyleSheet.create({
   antardashaTimeContent: {
     paddingVertical: responsiveHeight(1.5),
     paddingHorizontal: responsiveWidth(4),
+    borderRadius: 10,
+    marginHorizontal: responsiveWidth(4),
+    marginTop: responsiveHeight(1),
     alignItems: 'center',
+    borderWidth: 1,
     justifyContent: 'center',
   },
   antardashaTimeText: {
@@ -2482,50 +2660,82 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Topic list (new screen-style tiles)
+  // Topic list (mockup-style cream grid tiles)
   topicsPanel: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: responsiveWidth(4),
+    borderColor: '#E8E4DC',
+    padding: responsiveWidth(4.5),
+    paddingBottom: responsiveWidth(4),
     marginTop: responsiveHeight(1.5),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
   },
   topicsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: responsiveWidth(3),
+    rowGap: responsiveHeight(1.4),
+    columnGap: responsiveWidth(3),
   },
   topicTile: {
-    width: '48%',
-    borderRadius: 12,
+    width: '47.5%',
+    borderRadius: 14,
+    borderWidth: 0,
+    paddingTop: responsiveHeight(2.2),
+    paddingBottom: responsiveHeight(3.2),
+    paddingHorizontal: responsiveWidth(3.5),
+    minHeight: responsiveHeight(12),
+    position: 'relative',
+    justifyContent: 'flex-start',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#8B7355',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+      },
+      android: { elevation: 1 },
+    }),
+  },
+  topicTileFull: {
+    width: '100%',
+  },
+  topicTileDark: {
     borderWidth: 1,
-    paddingVertical: responsiveHeight(1.6),
-    paddingHorizontal: responsiveWidth(3),
-    minHeight: responsiveHeight(10),
-    justifyContent: 'space-between',
-    alignItems:"center"
+    borderColor: 'rgba(238, 229, 202, 0.15)',
   },
   topicTileTitle: {
-    fontSize: 16,
-    textAlign: 'center',
+    fontSize: 15,
+    textAlign: 'left',
     fontFamily: fontFamily.regular,
     fontWeight: '700',
-    lineHeight: 24,
+    lineHeight: 22,
+    letterSpacing: 0.1,
+    paddingRight: responsiveWidth(7),
+    paddingBottom: responsiveWidth(2),
   },
-  topicTileArrowWrap: {
-    alignSelf: 'flex-end',
-    width: responsiveWidth(6.5),
-    height: responsiveWidth(6.5),
-    borderRadius: responsiveWidth(6.5) / 2,
-    borderWidth: 1,
+  topicTileChevronCircle: {
+    position: 'absolute',
+    right: responsiveWidth(2.5),
+    bottom: responsiveWidth(2.5),
+    width: responsiveWidth(7),
+    height: responsiveWidth(7),
+    borderRadius: responsiveWidth(3.5),
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: responsiveHeight(1),
   },
-  topicTileArrow: {
-    width: responsiveWidth(4.2),
-    height: responsiveWidth(4.2),
-    resizeMode: 'contain',
+  topicTileChevron: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: -2,
   },
 
   // Detail "screen" inside this component
@@ -2535,58 +2745,60 @@ const styles = StyleSheet.create({
   detailHeader: {
     borderBottomWidth: 1,
     flexDirection: 'row',
-    // flexGrow: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    // flex: 1,
-    // flexWrap: 'wrap',
-    paddingBottom: responsiveHeight(1),
+    paddingBottom: responsiveHeight(1.4),
+    marginBottom: responsiveHeight(1.2),
   },
   detailBackBtn: {
-    // paddingRight: -responsiveWidth(2),
-    // position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
+    width: responsiveWidth(12),
     alignItems: 'flex-start',
     justifyContent: 'center',
-    zIndex: 1000,
-    // paddingLeft: -responsiveWidth(10),
-    // flexDirection: 'row',
-    // alignItems: 'center',
+  },
+  detailBackBtnCircle: {
+    width: responsiveWidth(9),
+    height: responsiveWidth(9),
+    borderRadius: responsiveWidth(4.5),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   detailHeaderCenter: {
     flex: 1,
-    // position: 'absolute',
-    // left: responsiveWidth(16),
-    // right: responsiveWidth(16),
-    // top:
-    //   Platform.OS === 'android'
-    //     ? responsiveHeight('0%')
-    //     : responsiveWidth('15%'),
-    // paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
-    // alignItems: 'center',
-    // justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth(2),
   },
   detailHeaderRight: {
-    // width: responsiveWidth(12),
+    width: responsiveWidth(12),
   },
   detailHeaderTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: fontFamily.regular,
     fontWeight: '700',
     textAlign: 'center',
+    lineHeight: 24,
   },
   detailScrollContent: {
     paddingHorizontal: responsiveWidth(4),
     paddingBottom: Platform.OS === 'android' ? 85 : 85,
-    // paddingTop: responsiveHeight(1.5),
+    paddingTop: responsiveHeight(0.5),
   },
   detailContentCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    // marginBottom: responsiveHeight(5),
-    
+    paddingHorizontal: responsiveWidth(4),
+    paddingTop: responsiveHeight(2),
+    paddingBottom: responsiveHeight(2.2),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+      },
+      android: { elevation: 4 },
+    }),
+  },
+  detailBody: {
+    borderRadius: 14,
     paddingHorizontal: responsiveWidth(4),
     paddingVertical: responsiveHeight(2),
   },
@@ -2596,12 +2808,12 @@ const styles = StyleSheet.create({
   },
   detailBanner: {
     width: '100%',
-    borderRadius: 14,
-    paddingVertical: responsiveHeight(1.6),
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: responsiveHeight(1.8),
     paddingHorizontal: responsiveWidth(4),
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
   },
   detailBannerIcon: {
     width: responsiveWidth(5),

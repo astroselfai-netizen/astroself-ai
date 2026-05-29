@@ -53,20 +53,72 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setMembersUpdated } from '../../state/slices/appSlice';
 import { RootState } from '../../state/store';
 import { icons } from '../../assets';
+import http from '../../utils/http';
+import FamilyUpgradeModal from '../../components/FamilyUpgradeModal';
+import {
+  getMemberUserId,
+  resolveBillingMemberForFamilyUpgrade,
+} from '../../utils/resolveBillingMemberForUpgrade';
 
-const INDIVIDUAL_FEATURES: Array<{ title: string; sub?: string[] }> = [
-  { title: 'Natal Insights + Dynamic Planetary Insights' },
-  { title: 'Transit Guidance + Personal Predictions delivered every 15 days' },
-  { title: 'Karma Alignment + Mobile Task Module' },
-  { title: 'Build better habits aligned with your planetary phase' },
+const PREMIUM_FREE_FEATURES = [
+  'Major Life Cycle',
+  'Current Chapter of Life',
+  'Life Guidance',
+  'Recent Experience',
+  'Your Patterns',
+  'Your Manifestations',
+  'Your Personality',
+  'About Your Partner',
 ];
 
-const FAMILY_FEATURES: Array<{ title: string; sub?: string[] }> = [
-  { title: 'Full Access for Up to 5 Family Members' },
-  { title: 'Personalized Guidance for Each Member' },
-  { title: 'Save up to 60%' },
-  { title: 'Manage Profiles as Your Family Evolves' },
+const PREMIUM_INDIVIDUAL_MONTHLY_UPDATES = [
+  'Mahadasha updates',
+  'Antardasha changes',
+  'Transit-based predictions',
+  "Monthly dos & don'ts",
+  'Timely guidance based on planetary movement',
 ];
+
+const PREMIUM_INDIVIDUAL_HOUSE_BONUS = [
+  'Strengths',
+  'Advice',
+  'Daily Tasks',
+  'Think Twice (Things to be cautious about)',
+  'What Combinations Are Active',
+];
+
+const PREMIUM_INDIVIDUAL_ALSO_INCLUDES = [
+  'Dynamic monthly insights',
+  'Evolving predictions',
+  'Guidance updated with every change',
+];
+
+const PREMIUM_FAMILY_FEATURES = [
+  'Separate monthly updates for each member',
+  "Personalized dos & don'ts for each member",
+  'Separate active combinations for each member',
+  'Individual dynamic guidance for every member',
+  'Full 12-house bonus analysis for every member',
+];
+
+const PREMIUM_FAMILY_UPDATE_TRIGGERS = [
+  { icon: '🔗', label: 'Mahadasha\nChange' },
+  { icon: '🔗', label: 'Antardasha\nChange' },
+  { icon: '✦', label: 'Transit\nChange' },
+];
+
+type PremiumCheckVariant = 'blue' | 'green' | 'orange';
+
+type SubscriptionPlanApiItem = {
+  title?: string;
+  price?: string;
+  priceMode?: string;
+};
+
+const getPremiumPriceUnit = (priceMode?: string) => {
+  const mode = (priceMode ?? 'month').toLowerCase();
+  return mode.includes('year') ? '/ year' : '/ month';
+};
 
 export type RootStackParamList = {
   Login: undefined;
@@ -76,9 +128,17 @@ export type RootStackParamList = {
   ContinueWithOtp: undefined;
   ChatScreen: undefined;
   NakshatraScreen: { userId: string };
-  MemberPlanManagement: { planType?: PlanType };
+  MemberPlanManagement: {
+    planType?: PlanType;
+    memberId?: string;
+  };
   AddNewMember: { fromMemberPlanManagement?: boolean } | undefined;
   PurchasedHistoryScreen: undefined;
+};
+
+export type MemberPlanManagementEmbedProps = {
+  embeddedPlanType?: PlanType;
+  embeddedMemberId?: string;
 };
 
 type MemberPlanManagementNavigationProp = StackNavigationProp<
@@ -168,9 +228,6 @@ const MemberItem = React.memo(
     const birthTime = formatBirthTime(item.birth_data);
     const location = item.birthplace || 'Location not specified';
 
-    // Combined date and time format
-    const combinedBirthDateTime = `${birthDate} ${birthTime}`;
-
     const isPrimaryMember =
       item?.primary_member === true ||
       item?.primary_member === 'true' ||
@@ -233,272 +290,263 @@ const MemberItem = React.memo(
       }
     };
 
+    const isDark = theme === 'dark';
+    const accent = colors.Orangeaccentcolor || '#F27420';
+    // Solid opaque fills in dark mode — rgba over ImageBackground causes dark-corner vignette
+    const cardBg = isDark ? '#2A3F58' : '#FFFFFF';
+    const subCardBg = isDark ? '#334A65' : '#FFF9F3';
+    const textPrimary = isDark ? colors.themeTextWhite : '#1A2B48';
+    const textMuted = isDark ? '#B8B0A0' : '#8B95A8';
+    const borderSubtle = isDark ? 'rgba(238, 229, 202, 0.2)' : '#EFE6DC';
+    const iconBoxBg = isDark ? 'rgba(242, 116, 32, 0.18)' : '#FFF0E6';
+    const familyBg = isDark ? '#1E3D32' : '#EAF8EF';
+    const familyBorder = isDark ? '#3D6B55' : '#C8EBD4';
+    const familyText = isDark ? '#7DD4A0' : '#2D8A52';
+    const chevronCircleBg = isDark ? '#3F5570' : '#FFFFFF';
+    const avatarInitial = (memberName.trim().charAt(0) || '?').toUpperCase();
+    const createdAtDisplay = item.created_at
+      ? formatRenewalDate(item.created_at).split(' ')[0]
+      : null;
+
+    const navigateToInsights = () => {
+      if (isPrimaryMember) {
+        navigation.navigate('ChatTab', {
+          screen: 'ChatScreen',
+          params: { userId: item.id || item._id, tab: 'Static Predictions' },
+        });
+        return;
+      }
+      if (
+        item.current_plan === 'eternal_path' ||
+        item.current_plan === 'family_plan'
+      ) {
+        navigation.navigate('ChatTab', {
+          screen: 'ChatScreen',
+          params: { userId: item.id || item._id, tab: 'Static Predictions' },
+        });
+      } else if (onUpgradeClick) {
+        onUpgradeClick();
+      }
+    };
+
+    const planCtaLabel =
+      item.current_plan === 'family_plan'
+        ? null
+        : hasAnyEternalPath && item.current_plan !== 'eternal_path'
+          ? null
+          : isSubscriptionLoading
+            ? 'Loading...'
+            : item.current_plan === 'eternal_path'
+              ? 'Upgrade to Family Plan'
+              : item.current_plan === 'renew'
+                ? 'Renew Plan'
+                : 'Buy Plan';
+
     return (
       <View
         style={[
           styles.newMembersCard,
+          styles.memberCardV2,
+          isDark && styles.memberCardV2Dark,
           {
-            backgroundColor:
-              theme === 'dark' ? colors.transparentBg : colors.white,
-            borderColor:
-              theme === 'dark' ? colors.themeTextWhite : colors.borderColor,
+            backgroundColor: cardBg,
+            borderColor: borderSubtle,
           },
         ]}
       >
-        <View
-          style={[
-            styles.memberCardContent,
-            {
-              backgroundColor:
-                theme === 'dark' ? colors.transparentBg : colors.white,
-            },
-          ]}
-        >
-          {/* Header - Name and Icons */}
-          <View style={styles.cardTopRow}>
-            <View style={styles.nameAndDateContainer}>
-              {item.created_at && (
-                <Text
-                  style={[
-                    styles.createdAtText,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.textSecondary || '#999'
-                          : colors.textSecondary || '#666',
-                    },
-                  ]}
+        <View style={styles.memberCardContent}>
+          {/* Header: Created At + actions */}
+          <View style={styles.memberCardHeaderRow}>
+            {createdAtDisplay ? (
+              <View style={styles.memberCreatedAtBlock}>
+                <View
+                  style={[styles.memberIconBox, { backgroundColor: iconBoxBg }]}
                 >
-                  Created At: {formatRenewalDate(item.created_at).split(' ')[0]}
-                </Text>
-              )}
-              <View style={styles.memberNameContainer}>
-                <Text
-                  style={[
-                    styles.memberNameHeader,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  {memberName}
-                </Text>
-                {/* Created At - Top Left */}
-
-                <View style={styles.actionIcons}>
-                  {/* Action Icons - Hide when in assign plan mode */}
-                  {!isAssignPlanMode && (
-                    <>
-                      {/* Edit icon */}
-                      <TouchableOpacity
-                        onPress={onEdit}
-                        style={styles.iconButton}
-                      >
-                        <Image
-                          source={require('../../assets/icons/edit-painel.png')}
-                          style={[
-                            styles.actionIcon,
-                            {
-                              tintColor:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                            {
-                              width: responsiveWidth(5),
-                              height: responsiveWidth(5),
-                            },
-                          ]}
-                        />
-                      </TouchableOpacity>
-                      {/* Chart icon */}
-                      <TouchableOpacity
-                        onPress={() =>
-                          navigation.navigate('NakshatraScreen', {
-                            screen: 'NakshatraScreen',
-                            params: { userId: item.id || item._id },
-                          })
-                        }
-                        style={styles.iconButton}
-                      >
-                        <Image
-                          source={require('../../assets/icons/ZodiacWheel.png')}
-                          style={[
-                            styles.actionIcon,
-                            {
-                              tintColor:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                            {
-                              width: responsiveWidth(5),
-                              height: responsiveWidth(5),
-                            },
-                          ]}
-                        />
-                      </TouchableOpacity>
-
-                      {/* delete icon — hidden for primary account holder */}
-                      {!isPrimaryMember && (
-                        <TouchableOpacity
-                          onPress={() => onRequestDelete?.(item)}
-                          style={styles.iconButton}
-                        >
-                          <Image
-                            source={require('../../assets/icons/trash.png')}
-                            style={[
-                              styles.actionIcon,
-                              {
-                                tintColor:
-                                  theme === 'dark'
-                                    ? colors.themeTextWhite
-                                    : colors.DarkNavy,
-                              },
-                              {
-                                width: responsiveWidth(6),
-                                height: responsiveWidth(6),
-                              },
-                            ]}
-                          />
-                        </TouchableOpacity>
-                      )}
-
-                      {/* Subscription icon */}
-                      {/* <TouchableOpacity
-                        onPress={onSubscriptionClick || (() => {})}
-                        style={styles.iconButton}
-                      >
-                        <Image
-                          source={require('../../assets/icons/Ic-ball.png')}
-                          style={[
-                            styles.actionIcon,
-                            {
-                              tintColor:
-                                theme === 'dark'
-                                  ? colors.themeTextWhite
-                                  : colors.DarkNavy,
-                            },
-                            {
-                              width: responsiveWidth(5),
-                              height: responsiveWidth(5),
-                            },
-                          ]}
-                        />
-                      </TouchableOpacity> */}
-                    </>
-                  )}
+                  <Text style={[styles.memberIconEmoji, { color: accent }]}>
+                    📅
+                  </Text>
+                </View>
+                <View>
+                  <Text style={[styles.memberMetaLabel, { color: textMuted }]}>
+                    Created At
+                  </Text>
+                  <Text style={[styles.memberMetaValue, { color: textPrimary }]}>
+                    {createdAtDisplay}
+                  </Text>
                 </View>
               </View>
-            </View>
-            <View style={styles.rightSectionContainer}>
-              {/* Family Plan Badge with toggle OR Renewal Date Badge */}
-              {item.current_plan === 'family_plan' && (
-                <View style={styles.familyPlanBadge}>
-                  <View style={styles.familyPlanTopRow}>
-                    <Text style={styles.familyPlanLabel}>Covered in Family Plan</Text>
-                    <Switch
-                      value
-                      disabled={userCurrentPlan !== 'family_plan' || isSubscriptionLoading}
-                      onValueChange={(nextVal: boolean) => {
-                        if (!nextVal && onRequestDeallocate) {
-                          onRequestDeallocate(item);
-                        }
-                      }}
-                      trackColor={{ false: '#BDBDBD', true: '#0E3B2E' }}
-                      thumbColor={'#FFFFFF'}
-                      ios_backgroundColor="#BDBDBD"
-                      style={styles.familyPlanSwitch}
-                    />
-                  </View>
-                  {/* {item.end_plan_time ? (
-                    <Text style={styles.familyPlanRenewalText}>
-                      Renewal Due On: {formatRenewalDate(item.end_plan_time)}
-                    </Text>
-                  ) : null} */}
+            ) : (
+              <View />
+            )}
+
+            <View style={styles.memberHeaderActions}>
+              {isAssignPlanMode && (
+                <TouchableOpacity
+                  onPress={onSelect}
+                  disabled={isAssigned || !canSelect}
+                  style={[
+                    styles.checkbox,
+                    styles.memberAssignCheckbox,
+                    {
+                      borderColor: isAssigned
+                        ? colors.grayText || '#999'
+                        : colors.Orangeaccentcolor,
+                      backgroundColor: isSelected
+                        ? colors.Orangeaccentcolor
+                        : isAssigned
+                          ? colors.grayText || '#999'
+                          : isDark
+                            ? colors.themeTextWhite
+                            : colors.white,
+                      opacity: isAssigned || !canSelect ? 0.5 : 1,
+                    },
+                  ]}
+                >
+                  {(isSelected || isAssigned) && (
+                    <View style={styles.checkboxInner}>
+                      <Text style={styles.checkboxCheckmark}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {!isAssignPlanMode && (
+                <View style={styles.memberHeaderIconGroup}>
+                  <TouchableOpacity
+                    onPress={onEdit}
+                    style={styles.memberHeaderActionCol}
+                    activeOpacity={0.85}
+                  >
+                    <View
+                      style={[styles.memberRoundIconBtn, { backgroundColor: iconBoxBg }]}
+                    >
+                      <Image
+                        source={require('../../assets/icons/edit-painel.png')}
+                        style={[styles.memberHeaderIconImg, { tintColor: accent }]}
+                      />
+                    </View>
+                  
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate('NakshatraScreen', {
+                        screen: 'NakshatraScreen',
+                        params: { userId: item.id || item._id },
+                      })
+                    }
+                    style={styles.memberHeaderActionCol}
+                    activeOpacity={0.85}
+                  >
+                    <View
+                      style={[styles.memberRoundIconBtn, { backgroundColor: iconBoxBg }]}
+                    >
+                      <Image
+                        source={require('../../assets/icons/ZodiacWheel.png')}
+                        style={[styles.memberHeaderIconImg, { tintColor: accent }]}
+                      />
+                    </View>
+                   
+                  </TouchableOpacity>
+                  {!isPrimaryMember && (
+                    <TouchableOpacity
+                      onPress={() => onRequestDelete?.(item)}
+                      style={[styles.memberRoundIconBtn, { backgroundColor: iconBoxBg }]}
+                      activeOpacity={0.85}
+                    >
+                      <Image
+                        source={require('../../assets/icons/trash.png')}
+                        style={[styles.memberHeaderIconImg, { tintColor: accent }]}
+                      />
+                    </TouchableOpacity>
+                  )}
                 </View>
-              ) }
+              )}
             </View>
           </View>
 
-          {/* Checkbox - Only show in assign plan mode */}
-          {isAssignPlanMode && (
-            <TouchableOpacity
-              onPress={onSelect}
-              disabled={isAssigned || !canSelect}
+          {/* Family plan badge */}
+          {item.current_plan === 'family_plan' && (
+            <View
               style={[
-                styles.checkbox,
+                styles.familyPlanBadge,
                 {
-                  borderColor: isAssigned
-                    ? colors.grayText || '#999'
-                    : colors.Orangeaccentcolor,
-                  backgroundColor: isSelected
-                    ? colors.Orangeaccentcolor
-                    : isAssigned
-                      ? colors.grayText || '#999'
-                      : theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.white,
-                  opacity: isAssigned || !canSelect ? 0.5 : 1,
-                  marginLeft: responsiveWidth('2'),
+                  backgroundColor: familyBg,
+                  borderColor: familyBorder,
                 },
               ]}
             >
-              {(isSelected || isAssigned) && (
-                <View style={styles.checkboxInner}>
-                  <Text style={styles.checkboxCheckmark}>
-                    {isAssigned ? '✓' : '✓'}
+              <View style={styles.familyPlanTopRow}>
+                <View style={styles.familyPlanLabelRow}>
+                  <Text style={styles.familyPlanShield}>🛡️</Text>
+                  <Text style={[styles.familyPlanLabel, { color: familyText }]}>
+                    Covered in Family Plan
                   </Text>
                 </View>
-              )}
-            </TouchableOpacity>
+                <Switch
+                  value
+                  disabled={
+                    userCurrentPlan !== 'family_plan' || isSubscriptionLoading
+                  }
+                  onValueChange={(nextVal: boolean) => {
+                    if (!nextVal && onRequestDeallocate) {
+                      onRequestDeallocate(item);
+                    }
+                  }}
+                  trackColor={{ false: '#BDBDBD', true: '#4CAF50' }}
+                  thumbColor="#FFFFFF"
+                  ios_backgroundColor="#BDBDBD"
+                  style={styles.familyPlanSwitch}
+                />
+              </View>
+            </View>
           )}
 
-          {/* Divider */}
-          <View
-            style={[
-              styles.divider,
-              {
-                backgroundColor:
-                  theme === 'dark'
-                    ? colors.themeBorderDropdown
-                    : colors.borderColor,
-              },
-            ]}
-          />
+          {/* Profile: avatar + name */}
+          <View style={styles.memberProfileRow}>
+            <View
+              style={[
+                styles.memberAvatar,
+                {
+                  borderColor: isDark
+                    ? 'rgba(223, 138, 93, 0.45)'
+                    : 'rgba(223, 138, 93, 0.35)',
+                  backgroundColor: isDark ? '#3F5570' : '#FFF5EE',
+                },
+              ]}
+            >
+              <Text style={[styles.memberAvatarText, { color: accent }]}>
+                {avatarInitial}
+              </Text>
+            </View>
+            <View style={styles.memberNameBlock}>
+              <Text style={[styles.memberNameTitle, { color: textPrimary }]}>
+                {memberName}
+              </Text>
+              <View
+                style={[
+                  styles.memberNameAccent,
+                  { backgroundColor: accent },
+                ]}
+              />
+            </View>
+          </View>
 
-          {/* Include this profile as part of Family Plan */}
+          {/* Include in family plan */}
           {userCurrentPlan === 'family_plan' &&
             item.current_plan !== 'family_plan' &&
             !isAssignPlanMode && (
               <View
                 style={[
                   styles.includeFamilyRow,
+                  styles.memberIncludeFamilyRow,
                   {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparentBg : '#F2E9D9',
-                    borderColor:
-                      theme === 'dark'
-                        ? colors.themeBorderDropdown
-                        : colors.borderColor,
+                    backgroundColor: isDark ? '#3A5068' : '#FFF3E8',
+                    borderColor: isDark ? borderSubtle : '#F5D9C4',
                     opacity: isSubscriptionLoading ? 0.7 : 1,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.includeFamilyText,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
+                <Text style={[styles.includeFamilyText, { color: textPrimary }]}>
                   I Would Like To Include This Profile As Part Of My Family Plan
                 </Text>
                 <Switch
@@ -511,176 +559,115 @@ const MemberItem = React.memo(
                     }
                   }}
                   trackColor={{ false: '#CFCFCF', true: '#0E3B2E' }}
-                  thumbColor={'#FFFFFF'}
+                  thumbColor="#FFFFFF"
                   ios_backgroundColor="#CFCFCF"
                   style={styles.includeFamilySwitch}
                 />
               </View>
             )}
 
-          {/* Date of Birth */}
-          <View style={styles.infoRow}>
-            <Text
+          {/* DOB + Location cards */}
+          <View style={styles.memberInfoCardsRow}>
+            <View
               style={[
-                styles.infoLabel,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
+                styles.memberInfoCard,
+                { backgroundColor: subCardBg, borderColor: borderSubtle },
               ]}
             >
-              Date Of Birth :
-            </Text>
-            <Text
+              <View style={[styles.memberIconBox, { backgroundColor: iconBoxBg }]}>
+                <Text style={[styles.memberIconEmoji, { color: accent }]}>📅</Text>
+              </View>
+              <View style={styles.memberInfoCardText}>
+                <Text style={[styles.memberInfoLabel, { color: textMuted }]}>
+                  Date Of Birth
+                </Text>
+                <Text style={[styles.memberInfoValue, { color: textPrimary }]}>
+                  {birthDate}
+                </Text>
+                <Text
+                  style={[
+                    styles.memberInfoTime,
+                    { color: accent },
+                  ]}
+                >
+                  {birthTime}
+                </Text>
+              </View>
+            </View>
+
+            <View
               style={[
-                styles.infoValue,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
+                styles.memberInfoCard,
+                { backgroundColor: subCardBg, borderColor: borderSubtle },
               ]}
             >
-              {combinedBirthDateTime}
-            </Text>
+              <View style={[styles.memberIconBox, { backgroundColor: iconBoxBg }]}>
+                  <Text style={[styles.memberIconEmoji, { color: accent }]}>
+                    📍
+                  </Text>
+              </View>
+              <View style={styles.memberInfoCardText}>
+                <Text style={[styles.memberInfoLabel, { color: textMuted }]}>
+                  Location
+                </Text>
+                <Text
+                  style={[styles.memberInfoValue, { color: textPrimary }]}
+                  numberOfLines={3}
+                >
+                  {location}
+                </Text>
+              </View>
+            </View>
           </View>
 
-          {/* Location */}
-          <View style={styles.infoRow}>
-            <Text
-              style={[
-                styles.infoLabel,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Location :
-            </Text>
-            <Text
-              style={[
-                styles.infoValue,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              {location}
-            </Text>
-          </View>
-
-          
-
-          {/* Prediction Links */}
-          <View style={styles.predictionLinksContainer}>
-           
-            {/* Dynamic Predictions - show for all, but check plan on click */}
-            {/* <TouchableOpacity
-              onPress={() => {
-
-                if (isPrimaryMember) {
-                  navigation.navigate('ChatTab', {
-                    screen: 'ChatScreen',
-                    params: { userId: item.id || item._id, tab: 'Dynamic Predictions' },
-                  });
-                  return;
-                }
-                // Check if user has paid plan
-                if (item.current_plan === 'eternal_path' || item.current_plan === 'family_plan') {
-                  // Navigate to Dynamic Predictions
-                  navigation.navigate('ChatTab', {
-                    screen: 'ChatScreen',
-                    params: { userId: item.id || item._id, tab: 'Dynamic Predictions' },
-                  });
-                } else {
-                  // Show upgrade modal
-                  if (onUpgradeClick) {
-                    onUpgradeClick();
-                  }
-                }
-              }}
-            >
-              <Text
-                style={[
-                  styles.predictionLink,
-                  {
-                    color: colors.Orangeaccentcolor,
-                  },
-                ]}
-              >
-                Dynamic Predictions
-              </Text>
-            </TouchableOpacity> */}
-
+          {/* Insights */}
           <TouchableOpacity
-            onPress={() => {
-              // Navigate to Static Predictions
-              if (isPrimaryMember) {
-                navigation.navigate('ChatTab', {
-                  screen: 'ChatScreen',
-                  params: { userId: item.id || item._id, tab: 'Static Predictions' },
-                });
-                return;
-              }
-
-              if (item.current_plan === 'eternal_path' || item.current_plan === 'family_plan') {
-                // Navigate to Dynamic Predictions
-                navigation.navigate('ChatTab', {
-                  screen: 'ChatScreen',
-                  params: { userId: item.id || item._id, tab: 'Static Predictions' },
-                });
-              } else {
-                // Show upgrade modal
-                if (onUpgradeClick) {
-                  onUpgradeClick();
-                }
-              }
-            }}
+            activeOpacity={0.85}
             style={[
-              styles.actionButton,
+              styles.memberBottomActionCard,
+              styles.memberBottomActionCardFull,
+              styles.memberInsightsActionCard,
               {
-                borderColor:
-                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                backgroundColor: subCardBg,
+                borderColor: borderSubtle,
               },
             ]}
+            onPress={navigateToInsights}
           >
-            <Text
+            <View style={[styles.memberIconBox, { backgroundColor: iconBoxBg }]}>
+              <Text style={[styles.memberIconEmoji, { color: accent }]}>💡</Text>
+            </View>
+            <View style={styles.memberBottomActionText}>
+              <Text style={[styles.memberBottomActionTitle, { color: textPrimary }]}>
+                Insights
+              </Text>
+              <Text style={[styles.memberBottomActionSub, { color: textMuted }]}>
+                Discover personalized insights about your future.
+              </Text>
+            </View>
+            <View
               style={[
-                styles.predictionLink,
+                styles.memberChevronCircle,
                 {
-                  color: colors.Orangeaccentcolor,
+                  backgroundColor: chevronCircleBg,
+                  borderColor: borderSubtle,
                 },
               ]}
             >
-              Insights
-            </Text>
+              <Text style={[styles.memberBottomChevron, { color: accent }]}>›</Text>
+            </View>
           </TouchableOpacity>
 
-
-          </View>
-
-          {/* Divider */}
-          <View
-            style={[
-              styles.divider,
-              {
-                backgroundColor:
-                  theme === 'dark'
-                    ? colors.themeBorderDropdown
-                    : colors.borderColor,
-              },
-            ]}
-          />
-
-          {/* Action Buttons */}
-          <View style={styles.actionButtonsContainer}>
+          {/* Buy Reports + Buy Plan */}
+          <View style={styles.memberBottomActionsRow}>
             <TouchableOpacity
+              activeOpacity={0.85}
               style={[
-                styles.actionButton,
+                styles.memberBottomActionCard,
+                !planCtaLabel && styles.memberBottomActionCardFull,
                 {
-                  borderColor:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                  backgroundColor: subCardBg,
+                  borderColor: borderSubtle,
                 },
               ]}
               onPress={() =>
@@ -689,72 +676,77 @@ const MemberItem = React.memo(
                 })
               }
             >
-              <Text
+              <View style={[styles.memberIconBox, { backgroundColor: iconBoxBg }]}>
+                <Image
+                  source={require('../../assets/icons/Report.png')}
+                  style={[styles.memberBottomActionIcon, { tintColor: accent }]}
+                />
+              </View>
+              <View style={styles.memberBottomActionText}>
+                <Text style={[styles.memberBottomActionTitle, { color: textPrimary }]}>
+                  Buy Reports
+                </Text>
+                <Text style={[styles.memberBottomActionSub, { color: textMuted }]}>
+                  Detailed astrological reports
+                </Text>
+              </View>
+              <View
                 style={[
-                  styles.actionButtonText,
+                  styles.memberChevronCircle,
                   {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
+                    backgroundColor: chevronCircleBg,
+                    borderColor: borderSubtle,
                   },
                 ]}
               >
-                Buy Reports
-              </Text>
+                <Text style={[styles.memberBottomChevron, { color: accent }]}>›</Text>
+              </View>
             </TouchableOpacity>
 
-           
-            {(() => {
-              // Rules:
-              // - If member already has family_plan: don't show CTA
-              // - If ANY member has eternal_path: ONLY show CTA on eternal_path member ("Upgrade to Family Plan")
-              // - Otherwise: show CTA for non-family members (Buy/Renew/Upgrade variants)
-              if (item.current_plan === 'family_plan') return null;
-
-              if (hasAnyEternalPath) {
-                if (item.current_plan !== 'eternal_path') return null;
-              }
-
-              const ctaLabel = isSubscriptionLoading
-                ? 'Loading...'
-                : item.current_plan === 'eternal_path'
-                  ? 'Upgrade to Family Plan'
-                  : item.current_plan === 'renew'
-                    ? 'Renew Plan'
-                    : 'Buy Plan';
-
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    {
-                      borderColor:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                    isSubscriptionLoading && { opacity: 0.6 },
-                  ]}
-                  onPress={onSubscriptionClick || (() => { })}
-                  disabled={isSubscriptionLoading}
-                >
+            {planCtaLabel ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[
+                  styles.memberBottomActionCard,
+                  {
+                    backgroundColor: subCardBg,
+                    borderColor: borderSubtle,
+                  },
+                  isSubscriptionLoading && { opacity: 0.6 },
+                ]}
+                onPress={onSubscriptionClick || (() => {})}
+                disabled={isSubscriptionLoading}
+              >
+                <View style={[styles.memberIconBox, { backgroundColor: iconBoxBg }]}>
+                  <Image
+                    source={require('../../assets/icons/subscription.png')}
+                    style={[styles.memberBottomActionIcon, { tintColor: accent }]}
+                  />
+                </View>
+                <View style={styles.memberBottomActionText}>
                   <Text
-                    style={[
-                      styles.actionButtonText,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
+                    style={[styles.memberBottomActionTitle, { color: textPrimary }]}
+                    numberOfLines={2}
                   >
-                    {ctaLabel}
+                    {planCtaLabel}
                   </Text>
-                </TouchableOpacity>
-              );
-            })()}
+                  <Text style={[styles.memberBottomActionSub, { color: textMuted }]}>
+                    Premium plans & benefits
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.memberChevronCircle,
+                    {
+                      backgroundColor: chevronCircleBg,
+                      borderColor: borderSubtle,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.memberBottomChevron, { color: accent }]}>›</Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </View>
@@ -762,11 +754,15 @@ const MemberItem = React.memo(
   },
 );
 
-const MemberPlanManagement = () => {
+const MemberPlanManagement = ({
+  embeddedPlanType,
+  embeddedMemberId,
+}: MemberPlanManagementEmbedProps = {}) => {
   const navigation = useNavigation<MemberPlanManagementNavigationProp>();
   const route = useRoute<MemberPlanManagementRouteProp>();
   const { theme, colors } = useTheme();
-  const planTypeFromParams = route.params?.planType ?? 'individual';
+  const planTypeFromParams =
+    embeddedPlanType ?? route.params?.planType ?? 'individual';
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.app.user);
   const userService = serviceFactory.get<UserService>('UserService');
@@ -790,18 +786,11 @@ const MemberPlanManagement = () => {
     useState(true);
   const [updating, setUpdating] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlanApiItem[]>([]);
+  const [subscriptionPlansLoading, setSubscriptionPlansLoading] = useState(false);
   const [showIndividualSubscribeConfirm, setShowIndividualSubscribeConfirm] =
     useState(false);
   const [showFamilyUpgradeModal, setShowFamilyUpgradeModal] = useState(false);
-  const [familyUpgradePreview, setFamilyUpgradePreview] = useState<{
-    loading: boolean;
-    orderId?: string;
-    amountPaise?: number;
-    currency?: string;
-    key?: string;
-    originalAmountPaise?: number;
-    walletUsedPaise?: number;
-  }>({ loading: false });
   const [selectedMemberForSubscription, setSelectedMemberForSubscription] =
     useState<any>(null);
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
@@ -856,6 +845,97 @@ const MemberPlanManagement = () => {
       console.error('Failed to fetch user plan details:', err);
     }
   }, [userId]);
+
+  const fetchSubscriptionPlans = React.useCallback(async () => {
+    setSubscriptionPlansLoading(true);
+    try {
+      const res = await http.get<{ status: boolean; data?: SubscriptionPlanApiItem[] }>('/plans');
+      const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+      setSubscriptionPlans(raw);
+    } catch (err) {
+      console.error('Failed to fetch subscription plans:', err);
+      setSubscriptionPlans([]);
+    } finally {
+      setSubscriptionPlansLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (showPremiumModal) {
+      fetchSubscriptionPlans();
+    }
+  }, [showPremiumModal, fetchSubscriptionPlans]);
+
+  const individualPlanFromApi = useMemo(
+    () => subscriptionPlans.find(p => p.title?.toLowerCase().includes('individual')) || null,
+    [subscriptionPlans],
+  );
+  const freePlanFromApi = useMemo(
+    () => subscriptionPlans.find(p => p.title?.toLowerCase().includes('free')) || null,
+    [subscriptionPlans],
+  );
+  const familyPlanFromApi = useMemo(
+    () => subscriptionPlans.find(p => p.title?.toLowerCase().includes('family')) || null,
+    [subscriptionPlans],
+  );
+  const freePrice = freePlanFromApi?.price ?? '0';
+  const individualPrice = individualPlanFromApi?.price ?? '299';
+  const familyPrice = familyPlanFromApi?.price ?? '999';
+
+  const renderPremiumCircleCheck = (variant: PremiumCheckVariant) => {
+    const bg =
+      variant === 'blue' ? '#3B6FD4' : variant === 'green' ? '#22C55E' : '#F2994A';
+    return (
+      <View style={[styles.premiumCircleCheck, { backgroundColor: bg }]}>
+        <Text style={styles.premiumCircleCheckMark}>✓</Text>
+      </View>
+    );
+  };
+
+  const renderPremiumFeatureList = (items: string[], variant: PremiumCheckVariant) =>
+    items.map((item, i) => (
+      <View key={`${item}-${i}`} style={styles.premiumModalFeatureRow}>
+        {renderPremiumCircleCheck(variant)}
+        <Text
+          style={
+            variant === 'blue'
+              ? [
+                  styles.premiumModalFeatureTextDark,
+                  {
+                    color: theme === 'dark' ? colors.white : '#1F2937',
+                  },
+                ]
+              : styles.premiumModalFeatureTextLight
+          }
+        >
+          {item}
+        </Text>
+      </View>
+    ));
+
+  const renderPremiumPrice = (
+    price: string,
+    priceMode?: string,
+    priceColor = '#FFFFFF',
+  ) => {
+    if (subscriptionPlansLoading) {
+      return (
+        <ActivityIndicator
+          size="small"
+          color={priceColor}
+          style={styles.premiumPriceLoader}
+        />
+      );
+    }
+    return (
+      <View style={styles.premiumPriceRow}>
+        <Text style={[styles.premiumPriceAmount, { color: priceColor }]}>₹ {price}</Text>
+        <Text style={[styles.premiumPriceUnit, { color: priceColor }]}>
+          {getPremiumPriceUnit(priceMode)}
+        </Text>
+      </View>
+    );
+  };
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -1022,6 +1102,11 @@ const MemberPlanManagement = () => {
     setPersonalizedDetailsEnabled(true);
   };
 
+  const openFamilyUpgradeForMember = useCallback((member: any) => {
+    setSelectedMemberForSubscription(member);
+    setShowFamilyUpgradeModal(true);
+  }, []);
+
   // Handle opening premium/assign modal - calls API first to check user plan
   const handleOpenPremiumModal = async (member: any) => {
     const userId = user?._id || (user as any)?.id;
@@ -1038,72 +1123,8 @@ const MemberPlanManagement = () => {
       setUserPlanDetails(planDetails);
       setSelectedMemberForSubscription(member);
 
-      // If user already has Individual plan (eternal_path), show Family upgrade preview modal
       if (planDetails.current_plan === 'eternal_path') {
-        setShowFamilyUpgradeModal(true);
-        setFamilyUpgradePreview({ loading: true });
-        try {
-          const memberUserId = member?.id || member?._id || '';
-          const familyPlanId = getPlanIdForPlatform('family');
-          const initRes = await subscriptionApi.upgradeInitiate({
-            user_id: userId,
-            member_user_id: memberUserId,
-            family_plan_id: familyPlanId,
-          });
-
-          const orderId =
-            (initRes as any)?.razorpay_order_id ||
-            (initRes as any)?.order_id ||
-            (initRes as any)?.data?.razorpay_order_id ||
-            (initRes as any)?.data?.order_id;
-          const amountPaiseRaw =
-            (initRes as any)?.amount_paise ||
-            (initRes as any)?.amount ||
-            (initRes as any)?.data?.amount_paise ||
-            (initRes as any)?.data?.amount;
-          const amountPaise = amountPaiseRaw != null ? Number(amountPaiseRaw) : undefined;
-          const currency =
-            (initRes as any)?.currency || (initRes as any)?.data?.currency || 'INR';
-          const userDataString = await AsyncStorage.getItem('USER_DATA');
-          const currentUserData: any = userDataString ? JSON.parse(userDataString) : {};
-          const key =
-            (initRes as any)?.razorpay_key ||
-            (initRes as any)?.data?.razorpay_key ||
-            currentUserData?.razorpay_key ||
-            'rzp_test_Rueu06YDULsQCD';
-
-          const originalAmountPaiseRaw =
-            (initRes as any)?.original_amount_paise ||
-            (initRes as any)?.data?.original_amount_paise ||
-            (initRes as any)?.original_price_paise ||
-            (initRes as any)?.data?.original_price_paise;
-          const originalAmountPaise =
-            originalAmountPaiseRaw != null ? Number(originalAmountPaiseRaw) : 2499 * 100;
-
-          const walletUsedPaiseRaw =
-            (initRes as any)?.wallet_used_paise ||
-            (initRes as any)?.data?.wallet_used_paise ||
-            (initRes as any)?.balance_used_paise ||
-            (initRes as any)?.data?.balance_used_paise;
-          const walletUsedPaise =
-            walletUsedPaiseRaw != null
-              ? Number(walletUsedPaiseRaw)
-              : amountPaise != null
-                ? Math.max(0, originalAmountPaise - amountPaise)
-                : undefined;
-
-          setFamilyUpgradePreview({
-            loading: false,
-            orderId,
-            amountPaise,
-            currency,
-            key,
-            originalAmountPaise,
-            walletUsedPaise,
-          });
-        } catch (e) {
-          setFamilyUpgradePreview(prev => ({ ...prev, loading: false }));
-        }
+        await openFamilyUpgradeForMember(member);
         return;
       }
 
@@ -1316,7 +1337,10 @@ const MemberPlanManagement = () => {
     }
 
     const uid = user?._id || (user as any)?.id || '';
-    const memberUserId = member?.id || member?._id || '';
+    const members =
+      localMembersData.length > 0 ? localMembersData : membersData ?? [];
+    const billingMember = resolveBillingMemberForFamilyUpgrade(member, members);
+    const memberUserId = getMemberUserId(billingMember);
     const familyPlanId = getPlanIdForPlatform('family');
 
     if (!uid || !memberUserId) {
@@ -1466,7 +1490,6 @@ const MemberPlanManagement = () => {
   const handleCloseFamilyUpgradeModal = () => {
     setShowFamilyUpgradeModal(false);
     setSelectedMemberForSubscription(null);
-    setFamilyUpgradePreview({ loading: false });
   };
 
   const handleCloseAssignModal = () => {
@@ -2298,6 +2321,177 @@ const MemberPlanManagement = () => {
     }
   };
 
+  const resolveMemberForPlanAction = useCallback(
+    (memberId?: string) => {
+      const members =
+        localMembersData.length > 0 ? localMembersData : membersData ?? [];
+      if (!members.length) return null;
+
+      if (memberId) {
+        const matched = members.find(
+          (m: { id?: string; _id?: string; birth_input_id?: string }) =>
+            String(m.id || m._id || m.birth_input_id) === String(memberId),
+        );
+        if (matched) return matched;
+      }
+
+      const primary = members.find(
+        (m: { primary_mamber?: string; first_user?: boolean }) =>
+          m?.primary_mamber === 'True' || m?.first_user,
+      );
+      return primary || members[0];
+    },
+    [localMembersData, membersData],
+  );
+
+  const startPlanActionForMember = useCallback(
+    async (member: any, planType: PlanType) => {
+      const userId = user?._id || (user as any)?.id;
+      if (!userId) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'User not found',
+          position: 'top',
+          topOffset: 60,
+        });
+        return;
+      }
+
+      try {
+        setIsFetchingPlan(true);
+        const planDetails = await planService.getUserPlanDetails(userId);
+        setUserPlanDetails(planDetails);
+        setSelectedMemberForSubscription(member);
+
+        if (planType === 'individual') {
+          if (
+            planDetails.current_plan === 'eternal_path' ||
+            planDetails.current_plan === 'family_plan'
+          ) {
+            Toast.show({
+              type: 'info',
+              text1: 'Already Subscribed',
+              text2: 'You already have an active plan',
+              position: 'top',
+              topOffset: 60,
+            });
+            return;
+          }
+          setShowIndividualSubscribeConfirm(true);
+          return;
+        }
+
+        if (planDetails.current_plan === 'family_plan') {
+          if (Number(planDetails.available_members_allow) <= 0) {
+            setShowNoAvailablePlanModal(true);
+            return;
+          }
+          setShowAssignModal(true);
+          return;
+        }
+
+        if (planDetails.current_plan === 'eternal_path') {
+          if (Platform.OS === 'android') {
+            await handleUpdatePlan(member);
+          } else {
+            await openFamilyUpgradeForMember(member);
+          }
+          return;
+        }
+
+        await handleBuyPremiumAccess('family');
+      } catch (err: any) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: err.message || 'Failed to start plan action',
+          position: 'top',
+          topOffset: 60,
+        });
+      } finally {
+        setIsFetchingPlan(false);
+      }
+    },
+    [
+      user,
+      handleBuyPremiumAccess,
+      handleUpdatePlan,
+      openFamilyUpgradeForMember,
+    ],
+  );
+
+  const processedPlanNavRef = useRef(false);
+  const lastPendingPlanKeyRef = useRef('');
+
+  const tryApplyPendingPlanAction = useCallback(async () => {
+    const planType = embeddedPlanType ?? route.params?.planType;
+    if (!planType) return;
+
+    const memberId = embeddedMemberId ?? route.params?.memberId;
+    const member = resolveMemberForPlanAction(memberId);
+    if (!member) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Member not found',
+        position: 'top',
+        topOffset: 60,
+      });
+      return;
+    }
+
+    await startPlanActionForMember(member, planType);
+
+    if (route.params?.planType) {
+      navigation.setParams({ planType: undefined, memberId: undefined });
+    }
+  }, [
+    embeddedPlanType,
+    embeddedMemberId,
+    route.params?.planType,
+    route.params?.memberId,
+    resolveMemberForPlanAction,
+    startPlanActionForMember,
+    navigation,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const planType = embeddedPlanType ?? route.params?.planType;
+      const memberId = embeddedMemberId ?? route.params?.memberId;
+      if (!planType) {
+        processedPlanNavRef.current = false;
+        lastPendingPlanKeyRef.current = '';
+        return;
+      }
+
+      const members =
+        localMembersData.length > 0 ? localMembersData : membersData ?? [];
+      if (!members.length) return;
+
+      const planKey = `${planType}:${memberId ?? ''}`;
+      if (
+        processedPlanNavRef.current &&
+        lastPendingPlanKeyRef.current === planKey
+      ) {
+        return;
+      }
+
+      processedPlanNavRef.current = true;
+      lastPendingPlanKeyRef.current = planKey;
+      void tryApplyPendingPlanAction();
+    }, [
+      embeddedPlanType,
+      embeddedMemberId,
+      route.params?.planType,
+      route.params?.memberId,
+      localMembersData,
+      membersData,
+      tryApplyPendingPlanAction,
+    ]),
+  );
+
   const handleMemberSelectForPremium = (member: any) => {
     setSelectedMemberForSubscription(member);
     setShowMemberDropdown(false);
@@ -2477,8 +2671,8 @@ const MemberPlanManagement = () => {
         </View> */}
 
         {/* Action Buttons */}
-        {!isAssignPlanMode ? (
-          <View style={styles.actionButtonsContainer}>
+        {!isAssignPlanMode ? (<>
+          // <View style={styles.actionButtonsContainer}>
             {/* <TouchableOpacity
               style={[
                 styles.assignPlanButton,
@@ -2494,7 +2688,7 @@ const MemberPlanManagement = () => {
             >
               <Text style={styles.assignPlanButtonText}>Assign Plan</Text>
             </TouchableOpacity> */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[
                 styles.paymentHistoryButton,
                 {
@@ -2553,8 +2747,9 @@ const MemberPlanManagement = () => {
               >
                 Create A New Chart
               </Text>
-            </TouchableOpacity>
-          </View>
+            </TouchableOpacity> */}
+          // </View>
+        </>
         ) : (
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
@@ -2992,246 +3187,24 @@ const MemberPlanManagement = () => {
         </View>
       </Modal>
 
-      {/* Family Upgrade Preview Modal (Individual -> Family) */}
-      <Modal
+      <FamilyUpgradeModal
         visible={showFamilyUpgradeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseFamilyUpgradeModal}
-      >
-        <View style={styles.premiumModalOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={handleCloseFamilyUpgradeModal}
-          />
-          <View
-            style={[
-              styles.premiumModalContainer,
-              {
-                backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.premiumModalCloseButton}
-              onPress={handleCloseFamilyUpgradeModal}
-            >
-              <Text
-                style={[
-                  styles.premiumModalCloseText,
-                  {
-                    color:
-                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
-                ]}
-              >
-                ✕
-              </Text>
-            </TouchableOpacity>
-
-            {/* <Text
-              style={[
-                styles.premiumModalTitle,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Annual Plan - What You Unlock
-            </Text> */}
-
-            {familyUpgradePreview.loading ? (
-              <View style={{ paddingVertical: 24 }}>
-                <ActivityIndicator
-                  color={theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy}
-                />
-              </View>
-            ) : (
-              <View style={[styles.premiumModalPlanCard, { backgroundColor: '#2D1B4E', width: '100%' }]}>
-                <Text style={[styles.premiumModalPlanCardTitle, { color: '#FFFFFF', textAlign: 'center' }]}>
-                  Family Annual
-                </Text>
-
-                <View style={[styles.premiumModalPriceBox, { backgroundColor: '#1E1335', alignSelf: 'center' }]}>
-                  {!!familyUpgradePreview.originalAmountPaise &&
-                    !!familyUpgradePreview.amountPaise &&
-                    familyUpgradePreview.amountPaise < familyUpgradePreview.originalAmountPaise && (
-                      <Text
-                        style={{
-                          color: 'rgba(255,255,255,0.8)',
-                          textDecorationLine: 'line-through',
-                          textAlign: 'center',
-                          marginBottom: 4,
-                          fontSize: 14,
-                        }}
-                      >
-                        ₹{Math.round(familyUpgradePreview.originalAmountPaise / 100)}
-                      </Text>
-                    )}
-
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center' }}>
-                    <Text style={[styles.premiumModalPlanPrice, { color: '#FFFFFF' }]}>
-                      ₹
-                      {familyUpgradePreview.amountPaise != null
-                        ? Math.round(familyUpgradePreview.amountPaise / 100)
-                        : 2499}
-                    </Text>
-                    <Text style={[styles.premiumModalPlanPriceUnit, { color: 'rgba(255,255,255,0.8)', marginLeft: 6 }]}>
-                      / year
-                    </Text>
-                  </View>
-
-                  {!!familyUpgradePreview.walletUsedPaise && familyUpgradePreview.walletUsedPaise > 0 && (
-                    <View
-                      style={{
-                        alignSelf: 'center',
-                        marginTop: 8,
-                        paddingVertical: 6,
-                        paddingHorizontal: 12,
-                        borderRadius: 999,
-                        backgroundColor: 'rgba(0,0,0,0.25)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.15)',
-                      }}
-                    >
-                      <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>
-                        Using ₹{Math.round(familyUpgradePreview.walletUsedPaise / 100)} from your balance
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {FAMILY_FEATURES.map((f, i) => (
-                  <View key={i} style={styles.premiumModalFeatureRow}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      style={[styles.premiumModalPlanCheckIcon, { tintColor: '#E8B923' }]}
-                    />
-                    <View style={styles.premiumModalFeatureTextWrapper}>
-                      <Text style={[styles.premiumModalPlanFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
-                      {f.sub?.map((s: string, j: number) => (
-                        <Text key={j} style={[styles.premiumModalPlanFeatureSub, { color: 'rgba(255,255,255,0.9)' }]}>
-                          • {s}
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                ))}
-
-                <TouchableOpacity
-                  style={[styles.premiumModalPlanCta, styles.premiumModalCtaGold, { marginTop: 16 }]}
-                  onPress={async () => {
-                    try {
-                      setCreatingSubscription(true);
-                      const uid = user?._id || (user as any)?.id || '';
-                      const memberUserId = selectedMemberForSubscription?.id || selectedMemberForSubscription?._id || '';
-                      if (!uid || !memberUserId) return;
-
-                      // If we don't have an orderId yet, fallback to full upgrade flow.
-                      if (!familyUpgradePreview.orderId || !familyUpgradePreview.amountPaise || !familyUpgradePreview.key) {
-                        await handleUpdatePlan(selectedMemberForSubscription);
-                        return;
-                      }
-
-                      const userDataString = await AsyncStorage.getItem('USER_DATA');
-                      const currentUserData: any = userDataString ? JSON.parse(userDataString) : {};
-                      const options = {
-                        key: familyUpgradePreview.key,
-                        order_id: familyUpgradePreview.orderId,
-                        amount: Number(familyUpgradePreview.amountPaise),
-                        method: {
-                          card: true,
-                          netbanking: false,
-                          wallet: false,
-                          upi: false,
-                          emi: false,
-                          paylater: false,
-                        },
-                        currency: familyUpgradePreview.currency || 'INR',
-                        config: {
-                          display: {
-                            blocks: {
-                              card: {
-                                name: 'Pay with Card',
-                                instruments: [{ method: 'card' }],
-                              },
-                            },
-                            sequence: ['block.card'],
-                            preferences: {
-                              show_default_blocks: false,
-                            },
-                          },
-                        },
-                        name: 'Astrodha',
-                        description: 'Upgrade to Family Plan',
-                        prefill: {
-                          email:
-                            currentUserData.email || (user as any)?.email || 'user@example.com',
-                          contact:
-                            currentUserData.phone || (user as any)?.phone || '9999999999',
-                          name:
-                            `${currentUserData.first_name || (user as any)?.first_name || ''} ${currentUserData.last_name || (user as any)?.last_name || ''}`.trim() ||
-                            'User',
-                        },
-                        theme: { color: '#DF8A5D' },
-                      };
-
-                      const payRes: any = await RazorpayCheckout.open(options as any);
-                      const confirmRes = await subscriptionApi.upgradeConfirm({
-                        razorpay_order_id: payRes.razorpay_order_id,
-                        razorpay_payment_id: payRes.razorpay_payment_id,
-                        razorpay_signature: payRes.razorpay_signature,
-                      });
-
-                      const ok =
-                        (confirmRes as any)?.success === true ||
-                        (confirmRes as any)?.status === 'success' ||
-                        (confirmRes as any)?.status === 'completed' ||
-                        String((confirmRes as any)?.success) === 'true';
-                      if (!ok) throw new Error((confirmRes as any)?.message || 'Upgrade failed');
-
-                      Toast.show({
-                        type: 'success',
-                        text1: 'Upgrade Successful',
-                        text2: 'Family plan has been activated',
-                        position: 'top',
-                        topOffset: 60,
-                      });
-
-                      handleCloseFamilyUpgradeModal();
-                      if (refreshProfileData) await refreshProfileData();
-                      fetchUserPlanDetails();
-                    } catch (e: any) {
-                      const msg = e?.description || e?.message || 'Upgrade cancelled';
-                      const isCancel = String(msg).toLowerCase().includes('cancel');
-                      Toast.show({
-                        type: isCancel ? 'info' : 'error',
-                        text1: isCancel ? 'Cancelled' : 'Error',
-                        text2: isCancel ? 'Upgrade cancelled' : msg,
-                        position: 'top',
-                        topOffset: 60,
-                      });
-                    } finally {
-                      setCreatingSubscription(false);
-                    }
-                  }}
-                  disabled={creatingSubscription}
-                >
-                  {creatingSubscription ? (
-                    <ActivityIndicator color="#1A2744" size="small" />
-                  ) : (
-                    <Text style={[styles.premiumModalPlanCtaText, { color: '#1A2744' }]}>
-                      Get Family Plan →
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={handleCloseFamilyUpgradeModal}
+        member={selectedMemberForSubscription}
+        membersData={localMembersData.length > 0 ? localMembersData : membersData}
+        user={user}
+        creatingSubscription={creatingSubscription}
+        onCreatingChange={setCreatingSubscription}
+        onSuccess={async () => {
+          if (refreshProfileData) await refreshProfileData();
+          fetchUserPlanDetails();
+        }}
+        onIosFamilyPurchase={async billingMember => {
+          if (!billingMember) return;
+          setSelectedMemberForSubscription(billingMember);
+          await handleBuyPremiumAccess('family');
+        }}
+      />
 
       {/* Premium Plan Modal - Individual & Family Plans */}
       <Modal
@@ -3296,67 +3269,182 @@ const MemberPlanManagement = () => {
               contentContainerStyle={styles.premiumModalCardsRow}
               style={styles.premiumModalCardsScroll}
             >
-              {/* Individual Annual Card */}
-              <View style={[styles.premiumModalPlanCard, { backgroundColor: '#1A2744' }]}>
-                <Text style={[styles.premiumModalPlanCardTitle, { color: '#FFFFFF' }]}>Individual Annual</Text>
-                <View style={[styles.premiumModalPriceBox, { backgroundColor: '#0F1A2E' }]}>
-                  <Text style={[styles.premiumModalPlanPrice, { color: '#FFFFFF' }]}>₹999</Text>
-                  <Text style={[styles.premiumModalPlanPriceUnit, { color: 'rgba(255,255,255,0.8)' }]}>/ year</Text>
+              {/* Free Plan */}
+              <View
+                style={[
+                  styles.premiumModalPlanCard,
+                  styles.premiumModalPlanCardFree,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : '#F3F4F8',
+                    borderColor:
+                      theme === 'dark' ? colors.themeBorderDropdown : '#E5E7EB',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.premiumModalPlanCardTitle,
+                    {
+                      color: theme === 'dark' ? colors.white : '#111827',
+                    },
+                  ]}
+                >
+                  FREE
+                </Text>
+                {renderPremiumPrice(freePrice, freePlanFromApi?.priceMode, '#2563EB')}
+                <View style={styles.premiumAlwaysFreePill}>
+                  <Text style={styles.premiumAlwaysFreePillText}>Always Free</Text>
                 </View>
+                <Text
+                  style={[
+                    styles.premiumFreeDescription,
+                    {
+                      color: theme === 'dark' ? colors.textSecondary : '#6B7280',
+                    },
+                  ]}
+                >
+                  Get your core astrology insights at no cost.
+                </Text>
+
+                <Text style={styles.premiumSectionHeaderPurple}>YOU GET (ALL FREE)</Text>
+                {renderPremiumFeatureList(PREMIUM_FREE_FEATURES, 'blue')}
+
+                <View style={styles.premiumFreeHighlightBox}>
+                  <Text style={styles.premiumFreeHighlightIcon}>🎁</Text>
+                  <View style={styles.premiumFreeHighlightTextWrap}>
+                    <Text style={styles.premiumFreeHighlightTitle}>
+                      100% FREE FOR ALL USERS
+                    </Text>
+                    <Text style={styles.premiumFreeHighlightSub}>
+                      No payment required.{'\n'}No credit card needed.
+                    </Text>
+                  </View>
+                </View>
+
                 <TouchableOpacity
                   style={[
                     styles.premiumModalPlanCta,
-                    styles.premiumModalCtaGold,
-                    (creatingSubscription || userPlanDetails?.current_plan === 'eternal_path') && {
-                      opacity: 0.5,
-                    },
+                    styles.premiumCtaCurrentPlan,
+                    styles.premiumCtaDisabled,
                   ]}
-                  onPress={() => setShowIndividualSubscribeConfirm(true)}
-                  disabled={creatingSubscription || userPlanDetails?.current_plan === 'eternal_path'}
+                  disabled
+                  activeOpacity={1}
                 >
-                  {creatingSubscription ? (
-                    <ActivityIndicator color="#1A2744" size="small" />
-                  ) : (
-                    <Text style={[styles.premiumModalPlanCtaText, { color: '#1A2744' }]}>
-                      Get Individual Plan →
-                    </Text>
-                  )}
+                  <Text style={styles.premiumCtaCurrentPlanText}>Current Plan</Text>
                 </TouchableOpacity>
-                {INDIVIDUAL_FEATURES.map((f, i) => (
-                  <View key={i} style={styles.premiumModalFeatureRow}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      style={[styles.premiumModalPlanCheckIcon, { tintColor: '#E8B923' }]}
-                    />
-                    <View style={styles.premiumModalFeatureTextWrapper}>
-                      <Text style={[styles.premiumModalPlanFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
-                      {f.sub?.map((s: string, j: number) => (
-                        <Text key={j} style={[styles.premiumModalPlanFeatureSub, { color: 'rgba(255,255,255,0.9)' }]}>
-                          • {s}
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                ))}
               </View>
 
-              {/* Family Annual Card */}
-              <View style={[styles.premiumModalPlanCard, { backgroundColor: '#2D1B4E' }]}>
-                <Text style={[styles.premiumModalPlanCardTitle, { color: '#FFFFFF' }]}>Family Annual</Text>
-                <View style={[styles.premiumModalPriceBox, { backgroundColor: '#1E1335' }]}>
-                  <Text style={[styles.premiumModalPlanPrice, { color: '#FFFFFF' }]}>₹2499</Text>
-                  <Text style={[styles.premiumModalPlanPriceUnit, { color: 'rgba(255,255,255,0.8)' }]}>/ year</Text>
+              {/* Individual Plan */}
+              <View style={styles.premiumIndividualOuter}>
+                <View style={styles.premiumMostPopularBadge}>
+                  <Text style={styles.premiumMostPopularBadgeText}>★ MOST POPULAR</Text>
                 </View>
+                <View style={[styles.premiumModalPlanCard, styles.premiumModalPlanCardIndividual]}>
+                  <Text style={[styles.premiumModalPlanCardTitle, styles.premiumTextWhite]}>
+                    INDIVIDUAL PLAN
+                  </Text>
+                  {renderPremiumPrice(individualPrice, individualPlanFromApi?.priceMode)}
+
+                  <View style={styles.premiumAutoUpdateBox}>
+                    <Text style={styles.premiumAutoUpdateIcon}>↻</Text>
+                    <Text style={styles.premiumAutoUpdateText}>
+                      Updates automatically as Mahadasha, Antardasha & Transits change.
+                    </Text>
+                  </View>
+
+                  <Text style={styles.premiumSectionHeaderGreen}>MONTHLY DYNAMIC UPDATES</Text>
+                  {renderPremiumFeatureList(PREMIUM_INDIVIDUAL_MONTHLY_UPDATES, 'green')}
+
+                  <Text style={styles.premiumSectionHeaderOrange}>★ BONUS: FULL HOUSE ANALYSIS</Text>
+                  <Text style={styles.premiumSectionSubtext}>For all 12 houses, receive:</Text>
+                  {renderPremiumFeatureList(PREMIUM_INDIVIDUAL_HOUSE_BONUS, 'orange')}
+
+                  <Text style={styles.premiumSectionHeaderLight}>ALSO INCLUDES</Text>
+                  {renderPremiumFeatureList(PREMIUM_INDIVIDUAL_ALSO_INCLUDES, 'green')}
+
+                  <View style={styles.premiumIndividualHighlightBox}>
+                    <Text style={styles.premiumIndividualHighlightIcon}>📅</Text>
+                    <Text style={styles.premiumIndividualHighlightText}>
+                      Always updated. Always relevant.{'\n'}No manual refresh needed.
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.premiumModalPlanCta,
+                      styles.premiumModalCtaOrange,
+                      (creatingSubscription || userPlanDetails?.current_plan === 'eternal_path') && {
+                        opacity: 0.5,
+                      },
+                    ]}
+                    onPress={() => setShowIndividualSubscribeConfirm(true)}
+                    disabled={creatingSubscription || userPlanDetails?.current_plan === 'eternal_path'}
+                  >
+                    {creatingSubscription ? (
+                      <ActivityIndicator color="#0F1A2E" size="small" />
+                    ) : (
+                      <Text style={[styles.premiumModalPlanCtaText, { color: '#0F1A2E' }]}>
+                        Start Individual →
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Family Plan */}
+              <View style={[styles.premiumModalPlanCard, styles.premiumModalPlanCardFamily]}>
+                <Text style={[styles.premiumModalPlanCardTitle, styles.premiumTextWhite]}>
+                  FAMILY PLAN
+                </Text>
+                {renderPremiumPrice(familyPrice, familyPlanFromApi?.priceMode)}
+
+                <View style={styles.premiumFamilySubtitleBox}>
+                  <Text style={styles.premiumFamilySubtitleText}>
+                    Everything in Individual Plan for up to 5 members
+                  </Text>
+                </View>
+
+                <View style={styles.premiumFamilyIconWrap}>
+                  <Image
+                    source={require('../../assets/icons/subscription.png')}
+                    style={styles.premiumFamilyIcon}
+                    resizeMode="contain"
+                  />
+                </View>
+
+                {renderPremiumFeatureList(PREMIUM_FAMILY_FEATURES, 'green')}
+
+                <View style={styles.premiumFamilyMembersBox}>
+                  <Text style={styles.premiumFamilyMembersIcon}>👥</Text>
+                  <View style={styles.premiumFamilyMembersTextWrap}>
+                    <Text style={styles.premiumFamilyMembersTitle}>UP TO 5 MEMBERS</Text>
+                    <Text style={styles.premiumFamilyMembersSub}>
+                      Manage up to 5 profiles in one plan.
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.premiumSectionHeaderLight, styles.premiumUpdateTriggeredHeader]}>
+                  Update Triggered By
+                </Text>
+                <View style={styles.premiumUpdateTriggersRow}>
+                  {PREMIUM_FAMILY_UPDATE_TRIGGERS.map((item, i) => (
+                    <View key={i} style={styles.premiumUpdateTriggerCol}>
+                      <Text style={styles.premiumUpdateTriggerIcon}>{item.icon}</Text>
+                      <Text style={styles.premiumUpdateTriggerLabel}>{item.label}</Text>
+                    </View>
+                  ))}
+                </View>
+
                 <TouchableOpacity
                   style={[styles.premiumModalPlanCta, styles.premiumModalCtaPurple]}
                   onPress={async () => {
                     if (userPlanDetails?.current_plan === 'eternal_path') {
-                      // For eternal_path, family selection should go through upgrade flow (Android)
                       if (Platform.OS === 'android') {
                         await handleUpdatePlan(selectedMemberForSubscription);
                         return;
                       }
-                      // iOS must not use Razorpay; fallback to iOS subscription purchase
                       await handleBuyPremiumAccess('family');
                       return;
                     }
@@ -3368,26 +3456,10 @@ const MemberPlanManagement = () => {
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
                     <Text style={[styles.premiumModalPlanCtaText, { color: '#FFFFFF' }]}>
-                      Get Family Plan →
+                      Upgrade to Family →
                     </Text>
                   )}
                 </TouchableOpacity>
-                {FAMILY_FEATURES.map((f, i) => (
-                  <View key={i} style={styles.premiumModalFeatureRow}>
-                    <Image
-                      source={require('../../assets/icons/checkIcon.png')}
-                      style={[styles.premiumModalPlanCheckIcon, { tintColor: '#E8B923' }]}
-                    />
-                    <View style={styles.premiumModalFeatureTextWrapper}>
-                      <Text style={[styles.premiumModalPlanFeatureText, { color: '#FFFFFF' }]}>{f.title}</Text>
-                      {f.sub?.map((s: string, j: number) => (
-                        <Text key={j} style={[styles.premiumModalPlanFeatureSub, { color: 'rgba(255,255,255,0.9)' }]}>
-                          • {s}
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                ))}
               </View>
             </ScrollView>
           </View>
@@ -4019,7 +4091,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: responsiveWidth(1),
-    marginTop: responsiveWidth(2),
+    // marginTop: responsiveWidth(2),
   },
   actionButton: {
     flex: 1,
@@ -4107,15 +4179,218 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontWeight: '600',
   },
+  memberCardV2: {
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#C4A88A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  memberCardV2Dark: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    overflow: 'visible',
+  },
+  memberCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: responsiveWidth(2.5),
+  },
+  memberCreatedAtBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: responsiveWidth(2),
+  },
+  memberIconBox: {
+    width: responsiveWidth(9),
+    height: responsiveWidth(9),
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: responsiveWidth(2),
+  },
+  memberIconEmoji: {
+    fontSize: 16,
+  },
+  memberMetaLabel: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    marginBottom: 2,
+  },
+  memberMetaValue: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '700',
+  },
+  memberHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: responsiveWidth(1.5),
+  },
+  memberHeaderIconGroup: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: responsiveWidth(2),
+  },
+  memberHeaderActionCol: {
+    alignItems: 'center',
+    minWidth: responsiveWidth(11),
+  },
+  memberHeaderActionLabel: {
+    fontSize: 10,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  memberRoundIconBtn: {
+    width: responsiveWidth(10),
+    height: responsiveWidth(10),
+    borderRadius: responsiveWidth(5),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberHeaderIconImg: {
+    width: responsiveWidth(4.5),
+    height: responsiveWidth(4.5),
+    resizeMode: 'contain',
+  },
+  memberAssignCheckbox: {
+    marginRight: 0,
+    marginLeft: 0,
+  },
+  memberProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: responsiveWidth(3),
+  },
+  memberAvatar: {
+    width: responsiveWidth(16),
+    height: responsiveWidth(16),
+    borderRadius: responsiveWidth(8),
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: responsiveWidth(3),
+  },
+  memberAvatarText: {
+    fontSize: 26,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '700',
+  },
+  memberNameBlock: {
+    flex: 1,
+  },
+  memberNameTitle: {
+    fontSize: 20,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  memberNameAccent: {
+    width: responsiveWidth(10),
+    height: 4,
+    borderRadius: 2,
+    marginTop: responsiveWidth(1),
+  },
+  memberIncludeFamilyRow: {
+    marginBottom: responsiveWidth(2.5),
+    borderRadius: 12,
+  },
+  memberInfoCardsRow: {
+    flexDirection: 'row',
+    gap: responsiveWidth(2),
+    marginBottom: responsiveWidth(2.5),
+  },
+  memberInfoCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: responsiveWidth(2.5),
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  memberInfoCardText: {
+    flex: 1,
+  },
+  memberInfoLabel: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    marginBottom: 4,
+  },
+  memberInfoValue: {
+    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  memberInfoTime: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    marginTop: 2,
+  },
+  memberInsightsActionCard: {
+    marginBottom: responsiveWidth(2.5),
+  },
+  memberBottomActionsRow: {
+    flexDirection: 'row',
+    gap: responsiveWidth(2),
+  },
+  memberBottomActionCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: responsiveWidth(2.5),
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: responsiveWidth(18),
+  },
+  memberBottomActionCardFull: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  memberBottomActionIcon: {
+    width: responsiveWidth(5),
+    height: responsiveWidth(5),
+    resizeMode: 'contain',
+  },
+  memberBottomActionText: {
+    flex: 1,
+    marginHorizontal: responsiveWidth(1.5),
+  },
+  memberBottomActionTitle: {
+    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  memberBottomActionSub: {
+    fontSize: 9,
+    fontFamily: fontFamily.regular,
+    lineHeight: 12,
+  },
+  memberBottomChevron: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: -1,
+  },
+  memberChevronCircle: {
+    width: responsiveWidth(7.5),
+    height: responsiveWidth(7.5),
+    borderRadius: responsiveWidth(3.75),
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   newMembersCard: {
     borderRadius: 12,
-    overflow: 'hidden',
-    // padding: responsiveWidth('3'),
-    // padding: responsiveWidth('3'),
     marginBottom: responsiveWidth('3'),
-    // marginHorizontal: 0,
-    // flex: 1,
-    borderWidth: 0.2,
+    borderWidth: 0,
     // // width: '100%',
     // shadowColor: '#000',
     // shadowOffset: {
@@ -4358,24 +4633,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   familyPlanBadge: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 5,
-    paddingVertical: responsiveWidth(0.5),
-    paddingHorizontal: responsiveWidth(2),
-    marginBottom: responsiveWidth(1),
-    minWidth: responsiveWidth(44),
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: responsiveWidth(2),
+    paddingHorizontal: responsiveWidth(2.5),
+    marginBottom: responsiveWidth(2.5),
   },
   familyPlanTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: responsiveWidth(1),
+    gap: responsiveWidth(2),
+  },
+  familyPlanLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: responsiveWidth(1.5),
+  },
+  familyPlanShield: {
+    fontSize: 16,
   },
   familyPlanLabel: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fontFamily.semiBold,
     fontWeight: '700',
+    flexShrink: 1,
   },
   familyPlanRenewalText: {
     marginTop: responsiveWidth(0.8),
@@ -4783,12 +5066,320 @@ const styles = StyleSheet.create({
   premiumModalPlanCard: {
     width: '100%',
     alignSelf: 'stretch',
-    borderRadius: 12,
-    // alignItems: 'center',
+    borderRadius: 16,
     padding: 16,
     paddingRight: 18,
     borderWidth: 1,
     borderColor: 'transparent',
+    overflow: 'hidden',
+  },
+  premiumModalPlanCardFree: {
+    marginBottom: 4,
+  },
+  premiumModalPlanCardIndividual: {
+    backgroundColor: '#0F1A2E',
+    borderColor: '#F2994A',
+    borderWidth: 2,
+    marginTop: 14,
+  },
+  premiumModalPlanCardFamily: {
+    backgroundColor: '#0F1A2E',
+    borderColor: '#7C3AED',
+    borderWidth: 1.5,
+  },
+  premiumIndividualOuter: {
+    position: 'relative',
+    marginTop: 4,
+  },
+  premiumMostPopularBadge: {
+    position: 'absolute',
+    top: 0,
+    alignSelf: 'center',
+    zIndex: 2,
+    backgroundColor: '#F2994A',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    elevation: 4,
+  },
+  premiumMostPopularBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: '#0F1A2E',
+    letterSpacing: 0.3,
+  },
+  premiumTextWhite: {
+    color: '#FFFFFF',
+  },
+  premiumPriceLoader: {
+    marginVertical: 8,
+    alignSelf: 'center',
+  },
+  premiumPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    marginBottom: 8,
+    gap: 4,
+  },
+  premiumPriceAmount: {
+    fontSize: 28,
+    fontFamily: fontFamily.bold,
+  },
+  premiumPriceUnit: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    opacity: 0.9,
+  },
+  premiumAlwaysFreePill: {
+    alignSelf: 'center',
+    borderWidth: 1.5,
+    borderColor: '#2563EB',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  premiumAlwaysFreePillText: {
+    fontSize: 11,
+    fontFamily: fontFamily.semiBold,
+    color: '#2563EB',
+  },
+  premiumFreeDescription: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 17,
+  },
+  premiumSectionHeaderPurple: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#7C3AED',
+    letterSpacing: 0.3,
+    marginBottom: 8,
+  },
+  premiumFreeHighlightBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(59, 111, 212, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 111, 212, 0.25)',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 12,
+    gap: 8,
+  },
+  premiumFreeHighlightIcon: {
+    fontSize: 20,
+  },
+  premiumFreeHighlightTextWrap: {
+    flex: 1,
+  },
+  premiumFreeHighlightTitle: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#2563EB',
+    marginBottom: 3,
+  },
+  premiumFreeHighlightSub: {
+    fontSize: 10,
+    fontFamily: fontFamily.regular,
+    color: '#4B5563',
+    lineHeight: 14,
+  },
+  premiumCtaCurrentPlan: {
+    backgroundColor: '#A5B4FC',
+  },
+  premiumCtaCurrentPlanText: {
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+    color: '#FFFFFF',
+  },
+  premiumCtaDisabled: {
+    opacity: 0.55,
+  },
+  premiumAutoUpdateBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(124, 58, 237, 0.2)',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 4,
+    gap: 8,
+  },
+  premiumAutoUpdateIcon: {
+    fontSize: 16,
+    color: '#A78BFA',
+  },
+  premiumAutoUpdateText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.9)',
+    lineHeight: 16,
+  },
+  premiumSectionHeaderGreen: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#22C55E',
+    letterSpacing: 0.3,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  premiumSectionHeaderOrange: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#F2994A',
+    letterSpacing: 0.3,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  premiumSectionHeaderLight: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: 'rgba(255,255,255,0.95)',
+    letterSpacing: 0.3,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  premiumSectionSubtext: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 6,
+  },
+  premiumCircleCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  premiumCircleCheckMark: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    lineHeight: 12,
+  },
+  premiumModalFeatureTextLight: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.92)',
+    lineHeight: 17,
+  },
+  premiumModalFeatureTextDark: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    color: '#1F2937',
+    lineHeight: 17,
+  },
+  premiumIndividualHighlightBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F2994A',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 12,
+    gap: 8,
+    backgroundColor: 'rgba(242, 153, 74, 0.08)',
+  },
+  premiumIndividualHighlightIcon: {
+    fontSize: 18,
+  },
+  premiumIndividualHighlightText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: fontFamily.semiBold,
+    color: '#F2994A',
+    lineHeight: 16,
+  },
+  premiumModalCtaOrange: {
+    backgroundColor: '#F2994A',
+  },
+  premiumFamilySubtitleBox: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 10,
+  },
+  premiumFamilySubtitleText: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  premiumFamilyIconWrap: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  premiumFamilyIcon: {
+    width: 48,
+    height: 48,
+    tintColor: '#A78BFA',
+  },
+  premiumFamilyMembersBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 6,
+    gap: 8,
+  },
+  premiumFamilyMembersIcon: {
+    fontSize: 20,
+  },
+  premiumFamilyMembersTextWrap: {
+    flex: 1,
+  },
+  premiumFamilyMembersTitle: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#A78BFA',
+    marginBottom: 3,
+  },
+  premiumFamilyMembersSub: {
+    fontSize: 10,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.8)',
+    lineHeight: 14,
+  },
+  premiumUpdateTriggeredHeader: {
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  premiumUpdateTriggersRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 6,
+  },
+  premiumUpdateTriggerCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  premiumUpdateTriggerIcon: {
+    fontSize: 18,
+    color: '#A78BFA',
+    marginBottom: 4,
+  },
+  premiumUpdateTriggerLabel: {
+    fontSize: 9,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    lineHeight: 13,
   },
   premiumModalPlanBanner: {
     alignSelf: 'center',

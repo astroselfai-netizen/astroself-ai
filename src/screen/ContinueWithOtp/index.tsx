@@ -155,8 +155,8 @@ const ContinueWithOtp = () => {
           'NAVIGATE_TO_CHAT_WITH_PROMPTS',
           JSON.stringify({
             userId: userId,
-            cardTitles: 'Snapshot Prediction',
-            tab: 'LifeNow',
+            cardTitles: 'Major Life Cycle',
+            tab: 'LONG TERM',
             planet: null,
           }),
         );

@@ -18,8 +18,9 @@ import { MainContainer } from '../../components/common/mainContainer';
 import { responsiveWidth, font, fontFamily, color } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import type { ProfilePlanNavigationParams } from '../../utils/navigateToProfilePlan';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
@@ -47,10 +48,12 @@ export type RootStackParamList = {
   HomeScreen: undefined;
   ContinueWithOtp: undefined;
   BasicDeatil: undefined;
-  AddNewMember: undefined;
+  AddNewMember: { fromMemberPlanManagement?: boolean } | undefined;
   MemberManagement: undefined;
   MemberPlanManagement: undefined;
+  ProfileScreen: ProfilePlanNavigationParams | undefined;
   NakshatraScreen: { userId: string };
+  PurchasedHistoryScreen: undefined;
 };
 
 type ProfileScreenNavigationProp = StackNavigationProp<
@@ -61,6 +64,31 @@ type ProfileScreenNavigationProp = StackNavigationProp<
 
 const ProfileScreen = () => {
     const navigation = useNavigation<ProfileScreenNavigationProp>();
+  const route = useRoute<RouteProp<RootStackParamList, 'ProfileScreen'>>();
+  const [planNavRequest, setPlanNavRequest] = useState<ProfilePlanNavigationParams | null>(
+    null,
+  );
+
+  React.useEffect(() => {
+    if (route.params?.planType) {
+      setPlanNavRequest({
+        planType: route.params.planType,
+        memberId: route.params.memberId,
+      });
+      (navigation as { setParams: (p: ProfilePlanNavigationParams) => void }).setParams(
+        {
+          planType: undefined,
+          memberId: undefined,
+        },
+      );
+    }
+  }, [route.params?.planType, route.params?.memberId, navigation]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => setPlanNavRequest(null);
+    }, []),
+  );
   const { profileData, membersData, loading, error, refreshProfileData } = useProfileData();
   const { colors, theme } = useTheme();
   const user = useSelector((state: RootState) => state.app.user);
@@ -241,6 +269,26 @@ const ProfileScreen = () => {
   const getPrimaryMemberId = () => {
     const primaryMember = getPrimaryMemberData();
     return primaryMember?.id || primaryMember?._id || null;
+  };
+
+  const totalMembers = membersData?.length || 0;
+
+  const renewCount = React.useMemo(() => {
+    if (!membersData?.length) {
+      return 0;
+    }
+    return membersData.filter((member: any) => {
+      const plan = member.current_plan;
+      return !plan || plan === 'cosmic_foundation' || plan === 'Plan Expiry date';
+    }).length;
+  }, [membersData]);
+
+  const handlePaymentHistory = () => {
+    navigation.navigate('PurchasedHistoryScreen');
+  };
+
+  const handleCreateNewChart = () => {
+    navigation.navigate('AddNewMember', { fromMemberPlanManagement: true });
   };
 
   // Payment handling function
@@ -497,331 +545,203 @@ const ProfileScreen = () => {
           }
         >
           <View style={{ padding: responsiveWidth('4') }}>
-            {/* Profile Card */}
-            <ImageBackground
-              source={
-                theme === 'dark'
-                  ? require('../../assets/image/DarkBackground.png')
-                  : require('../../assets/image/LightBackground.png')
-              }
-              blurRadius={12}
-              style={[
-                styles.membersCardMain,
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.transparent : colors.white,
-                    borderColor:
-                      theme === 'dark' ? colors.themeTextWhite : colors.Orangeaccentcolor,
-                      borderWidth:1,
-                },
-              ]}
-              imageStyle={[styles.membersBgImage, styles.membersCardMainImage]}
-            >
-              <View style={styles.membersOverlay} />
-              <View
-                style={[
-                  styles.profileCardRedesigned,
-                  {
-                    backgroundColor:
-                      theme === 'dark' ? colors.transparent : colors.white,
-                  },
-                ]}
-              >
-                {/* Profile Header Row */}
-                <View style={styles.profileHeaderRow}>
-                  {/* <View style={styles.profileAvatarContainer}>
-                    <Image
-                      source={getProfileImageSource()}
-                      style={styles.profileAvatar}
-                    />
-                  </View> */}
-                  <Text
+            {/* Profile summary card */}
+            {(() => {
+              const isDark = theme === 'dark';
+              const cardBg = isDark ? '#2A3F58' : colors.white;
+              const statsBg = isDark ? '#354D6A' : '#FFF5EE';
+              const iconBoxBg = isDark ? 'rgba(242, 116, 32, 0.18)' : '#FFF0E6';
+              const textPrimary = isDark ? colors.themeTextWhite : colors.DarkNavy;
+              const textMuted = isDark ? '#B8B0A0' : '#6B7280';
+              const borderColor = isDark
+                ? 'rgba(238, 229, 202, 0.22)'
+                : colors.Orangeaccentcolor;
+
+              return (
+                <>
+                  <View
                     style={[
-                      styles.profileNameText,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
+                      styles.profileSummaryCard,
+                      { backgroundColor: cardBg, borderColor },
                     ]}
                   >
-                    {getDisplayName()}
-                  </Text>
-                </View>
-
-                {/* Profile Information List - New Design */}
-                <View style={styles.profileInfoListNew}>
-                  {/* Email Section */}
-                  <View style={styles.profileInfoEmailSection}>
-                    <Text
-                      style={[
-                        styles.profileInfoLabelNew,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Email
-                    </Text>
-                    <Text
-                      style={[
-                        styles.profileInfoValueNew,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                              fontWeight: '600',
-                        },
-                      ]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {getDisplayEmail()}
-                    </Text>
-                  </View>
-
-                  {/* Bottom Row: Total member and Need to Renew */}
-                  <View style={styles.profileInfoBottomRow}>
-                    {/* Total member */}
-                    <View style={styles.profileInfoBottomItem}>
-                      <Text
+                    <View style={styles.profileSummaryHeader}>
+                      <View
                         style={[
-                          styles.profileInfoLabelNew,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
+                          styles.profileSummaryAvatarWrap,
+                          { backgroundColor: iconBoxBg },
                         ]}
                       >
-                        Total member
-                      </Text>
-                      <Text
-                        style={[
-                          styles.profileInfoValueNew,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        {membersData?.length || 0}
-                      </Text>
-                    </View>
-
-                    {/* Need to Renew */}
-                    <View
-                      style={[
-                        styles.profileInfoBottomItem,
-                        styles.profileInfoBottomItemLast,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.profileInfoLabelNew,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                            textAlign: 'right',
-                          },
-                        ]}
-                      >
-                        Need to Renew
-                      </Text>
-                      <Text
-                        style={[
-                          styles.profileInfoValueNew,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                            textAlign: 'right',
-                          },
-                        ]}
-                      >
-                        {membersData?.filter((member: any) => {
-                          // Check if member needs renewal (you can adjust this logic based on your requirements)
-                          // For now, checking if current_plan is 'cosmic_foundation' or if there's an expiry date
-                          const plan = member.current_plan;
-                          return !plan || plan === 'cosmic_foundation' || plan === 'Plan Expiry date';
-                        }).length || 0}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Old Profile Information List - Commented Out */}
-                {/* <View style={styles.profileInfoList}>
-                  <View style={styles.profileInfoRow}>
-                    <Text
-                      style={[
-                        styles.profileInfoLabel,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Email
-                    </Text>
-                    <Text
-                      style={[
-                        styles.profileInfoValue,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      : {getDisplayEmail()}
-                    </Text>
-                  </View>
-
-                  <View style={styles.profileInfoRow}>
-                    <Text
-                      style={[
-                        styles.profileInfoLabel,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Gender
-                    </Text>
-                    <View style={styles.genderValueContainer}>
-                      <Text
-                        style={[
-                          styles.profileInfoValue,
-                          {
-                            color:
-                              theme === 'dark'
-                                ? colors.themeTextWhite
-                                : colors.DarkNavy,
-                          },
-                        ]}
-                      >
-                        : {getDisplayGender()}
-                      </Text>
-                      <View style={styles.genderIconContainer}>
                         <Image
-                          source={getGenderIconSource()}
-                          style={styles.genderIcon}
+                          source={getProfileImageSource()}
+                          style={styles.profileSummaryAvatar}
                         />
+                      </View>
+                      <Text
+                        style={[styles.profileSummaryName, { color: textPrimary }]}
+                        numberOfLines={2}
+                      >
+                        {getDisplayName()}
+                      </Text>
+                    </View>
+
+                    <View style={styles.profileEmailRow}>
+                      <View
+                        style={[styles.profileIconBox, { backgroundColor: iconBoxBg }]}
+                      >
+                        <Text
+                          style={[
+                            styles.profileIconEmoji,
+                            { color: colors.Orangeaccentcolor },
+                          ]}
+                        >
+                          ✉️
+                        </Text>
+                      </View>
+                      <View style={styles.profileEmailTextWrap}>
+                        <Text style={[styles.profileFieldLabel, { color: textMuted }]}>
+                          Email
+                        </Text>
+                        <Text
+                          style={[styles.profileFieldValue, { color: textPrimary }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {getDisplayEmail()}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.profileStatsBar, { backgroundColor: statsBg }]}>
+                      <View style={styles.profileStatItem}>
+                        <View
+                          style={[
+                            styles.profileStatIconCircle,
+                            { backgroundColor: iconBoxBg },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.profileIconEmoji,
+                              { color: colors.Orangeaccentcolor },
+                            ]}
+                          >
+                            👥
+                          </Text>
+                        </View>
+                        <View style={styles.profileStatTextWrap}>
+                          <Text style={[styles.profileFieldLabel, { color: textMuted }]}>
+                            Total Member
+                          </Text>
+                          <Text style={[styles.profileStatValue, { color: textPrimary }]}>
+                            {totalMembers}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.profileStatDivider,
+                          { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : '#E8D5C8' },
+                        ]}
+                      />
+
+                      <View style={[styles.profileStatItem, styles.profileStatItemRight]}>
+                        <View
+                          style={[
+                            styles.profileStatIconCircle,
+                            { backgroundColor: iconBoxBg },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.profileIconEmoji,
+                              { color: colors.Orangeaccentcolor },
+                            ]}
+                          >
+                            🔄
+                          </Text>
+                        </View>
+                        <View style={styles.profileStatTextWrap}>
+                          <Text style={[styles.profileFieldLabel, { color: textMuted }]}>
+                            Need to Renew
+                          </Text>
+                          <Text style={[styles.profileStatValue, { color: textPrimary }]}>
+                            {renewCount}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   </View>
 
-                  <View style={styles.profileInfoRow}>
-                    <Text
+                  <View style={styles.profileActionsRow}>
+                    <TouchableOpacity
                       style={[
-                        styles.profileInfoLabel,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
+                        styles.profileActionButton,
+                        { backgroundColor: cardBg, borderColor },
                       ]}
+                      onPress={handlePaymentHistory}
+                      activeOpacity={0.85}
                     >
-                      Date Of Birth
-                    </Text>
-                    <Text
-                      style={[
-                        styles.profileInfoValue,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      : {getFormattedDateOfBirth()}
-                    </Text>
-                  </View>
+                      <View
+                        style={[styles.profileIconBox, { backgroundColor: iconBoxBg }]}
+                      >
+                        <Image
+                          source={require('../../assets/icons/Purchased-History.png')}
+                          style={[
+                            styles.profileActionIcon,
+                            { tintColor: colors.Orangeaccentcolor },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.profileActionLabel, { color: textPrimary }]}
+                        numberOfLines={2}
+                      >
+                        Payment History
+                      </Text>
+                      <Text
+                        style={[styles.profileActionChevron, { color: colors.Orangeaccentcolor }]}
+                      >
+                        ›
+                      </Text>
+                    </TouchableOpacity>
 
-                  <View style={styles.profileInfoRow}>
-                    <Text
+                    <TouchableOpacity
                       style={[
-                        styles.profileInfoLabel,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
+                        styles.profileActionButton,
+                        { backgroundColor: cardBg, borderColor },
                       ]}
+                      onPress={handleCreateNewChart}
+                      activeOpacity={0.85}
                     >
-                      Time Of Birth
-                    </Text>
-                    <Text
-                      style={[
-                        styles.profileInfoValue,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      : {getFormattedTimeOfBirth()}
-                    </Text>
+                      <View
+                        style={[styles.profileIconBox, { backgroundColor: iconBoxBg }]}
+                      >
+                        <Image
+                          source={require('../../assets/icons/home/Chart.png')}
+                          style={[
+                            styles.profileActionIcon,
+                            { tintColor: colors.Orangeaccentcolor },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.profileActionLabel, { color: textPrimary }]}
+                        numberOfLines={2}
+                      >
+                        Create A New Chart
+                      </Text>
+                      <Text
+                        style={[styles.profileActionChevron, { color: colors.Orangeaccentcolor }]}
+                      >
+                        ›
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-
-                  <View style={styles.profileInfoRow}>
-                    <Text
-                      style={[
-                        styles.profileInfoLabel,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      Place Of Birth
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                      style={[
-                        styles.profileInfoValue,
-                        {
-                          color:
-                            theme === 'dark'
-                              ? colors.themeTextWhite
-                              : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      : {getDisplayBirthplace()}
-                    </Text>
-                  </View>
-                </View> */}
-              </View>
-            </ImageBackground>
+                </>
+              );
+            })()}
 
             {/* Birth Chart Card */}
             {/* <View
@@ -966,7 +886,10 @@ const ProfileScreen = () => {
               </View>
             </ImageBackground> */}
 
-             <MemberPlanManagement />
+             <MemberPlanManagement
+               embeddedPlanType={planNavRequest?.planType}
+               embeddedMemberId={planNavRequest?.memberId}
+             />
           </View>
         </ScrollView>
         </MainContainer>
@@ -1743,6 +1666,138 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.regular,
     fontWeight: '500',
+  },
+  profileSummaryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: responsiveWidth('3.5'),
+    marginBottom: responsiveWidth('3'),
+  },
+  profileSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: responsiveWidth('3'),
+  },
+  profileSummaryAvatarWrap: {
+    width: responsiveWidth('14'),
+    height: responsiveWidth('14'),
+    borderRadius: responsiveWidth('7'),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: responsiveWidth('3'),
+    overflow: 'hidden',
+  },
+  profileSummaryAvatar: {
+    width: responsiveWidth('11'),
+    height: responsiveWidth('11'),
+    resizeMode: 'contain',
+  },
+  profileSummaryName: {
+    flex: 1,
+    fontSize: 22,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '700',
+    lineHeight: 28,
+  },
+  profileEmailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: responsiveWidth('3'),
+  },
+  profileIconBox: {
+    width: responsiveWidth('10'),
+    height: responsiveWidth('10'),
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: responsiveWidth('2.5'),
+  },
+  profileIconEmoji: {
+    fontSize: 16,
+  },
+  profileEmailTextWrap: {
+    flex: 1,
+  },
+  profileFieldLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    marginBottom: 2,
+  },
+  profileFieldValue: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+  },
+  profileStatsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingVertical: responsiveWidth('2.5'),
+    paddingHorizontal: responsiveWidth('2'),
+  },
+  profileStatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth('1'),
+  },
+  profileStatItemRight: {
+    justifyContent: 'flex-end',
+  },
+  profileStatIconCircle: {
+    width: responsiveWidth('9'),
+    height: responsiveWidth('9'),
+    borderRadius: responsiveWidth('4.5'),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: responsiveWidth('2'),
+  },
+  profileStatTextWrap: {
+    flexShrink: 1,
+  },
+  profileStatValue: {
+    fontSize: 20,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '700',
+    lineHeight: 24,
+  },
+  profileStatDivider: {
+    width: 1,
+    height: responsiveWidth('12'),
+    marginHorizontal: responsiveWidth('1'),
+  },
+  profileActionsRow: {
+    flexDirection: 'row',
+    gap: responsiveWidth('2.5'),
+    // marginBottom: responsiveWidth('3'),
+  },
+  profileActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: responsiveWidth('2.5'),
+    paddingHorizontal: responsiveWidth('2'),
+    minHeight: responsiveWidth('14'),
+  },
+  profileActionLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    lineHeight: 16,
+    marginRight: responsiveWidth('1'),
+  },
+  profileActionIcon: {
+    width: responsiveWidth('5'),
+    height: responsiveWidth('5'),
+    resizeMode: 'contain',
+  },
+  profileActionChevron: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: -2,
   },
 });
 

@@ -1,6 +1,6 @@
 // ChatScreen.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,8 +15,6 @@ import {
   Alert,
   ImageBackground,
   KeyboardAvoidingView,
-  ActivityIndicator,
-  Linking,
 } from 'react-native';
 import {
   font,
@@ -29,8 +27,6 @@ import {
 import { MainContainer } from '../../components/common/mainContainer';
 import { useProfileData } from '../../hooks/useProfileData';
 import CurrentSituation from '../../components/CurrentSituation';
-import GeneralAnalysis from '../../components/GeneralAnalysis';
-import SnapshotPredictions from '../../components/SnapshotPredictions';
 import {
   useNavigation,
   useFocusEffect,
@@ -41,12 +37,12 @@ import { useTheme } from '../../context/ThemeContext';
 import LottieView from 'lottie-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
-import FreePointsModal from '../../components/FreePointsModal';
+import PremiumPlansModal from '../../components/PremiumPlansModal';
+import FamilyUpgradeModal from '../../components/FamilyUpgradeModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import RazorpayCheckout from 'react-native-razorpay';
-import serviceFactory from '../../services/serviceFactory';
-import PaymentService from '../../services/payment/payment.service';
 import Toast from 'react-native-toast-message';
+import { useMemberPlanActions } from '../../hooks/useMemberPlanActions';
+import planService from '../../services/plan/plan.service';
 
 type RootStackParamList = {
   ChatScreen: { userId: string; tab?: string };
@@ -56,22 +52,33 @@ type ChatScreenRouteProp = RouteProp<RootStackParamList, 'ChatScreen'>;
 
 const ChatScreen = () => {
   const route = useRoute<ChatScreenRouteProp>();
-  const [activeTab, setActiveTab] = useState('Current Situation');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
   const [showBuyMembershipModal, setShowBuyMembershipModal] = useState(false);
   const [modalFeatureName, setModalFeatureName] = useState<string>('Dynamic Predictions');
-  const [membersShownModal, setMembersShownModal] = useState<Set<string>>(new Set());
+  const [_membersShownModal, setMembersShownModal] = useState<Set<string>>(new Set());
   // const [showFreePointsModal, setShowFreePointsModal] = useState(false);
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [creatingSubscription, setCreatingSubscription] = useState(false);
-  const [showPaymentSuccessLoader, setShowPaymentSuccessLoader] = useState(false);
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
-  const { profileData, membersData, loading, error, refreshProfileData } =
+  const { membersData, loading, error, refreshProfileData } =
     useProfileData();
   const user = useSelector((state: RootState) => state.app.user);
-  const paymentService = serviceFactory.get<PaymentService>('PaymentService');
+  const {
+    creatingSubscription,
+    isAssigning,
+    purchaseForMember,
+    assignFamilyToMember,
+  } =
+    useMemberPlanActions({ refreshProfileData });
+  const [showAssignFamilyModal, setShowAssignFamilyModal] = useState(false);
+  const [assignMember, setAssignMember] = useState<any>(null);
+  const [showFamilyUpgradeModal, setShowFamilyUpgradeModal] = useState(false);
+  const [familyUpgradeMember, setFamilyUpgradeMember] = useState<any>(null);
+  const [familyUpgradeCreating, setFamilyUpgradeCreating] = useState(false);
+  const [userPlanDetails, setUserPlanDetails] = useState<{
+    current_plan: string;
+    available_members_allow: number;
+  } | null>(null);
 
   console.log('profileData===>39', membersData);
 
@@ -119,60 +126,45 @@ const ChatScreen = () => {
     return age >= 15 && age <= 18;
   }, [selectedMember]);
 
-  // Check if selected member has cosmic_foundation plan (first_user gets full access - keep enabled)
-  const isCosmicFoundationPlan = React.useMemo(() => {
-    console.log('selectedMember---->121', selectedMember);
-    const isCosmic =
-      selectedMember?.current_plan === 'cosmic_foundation' &&
-      !selectedMember?.first_user;
-    console.log('isCosmicFoundationPlan check:', {
-      selectedMemberId,
-      current_plan: selectedMember?.current_plan,
-      isCosmic,
-      selectedMember: selectedMember ? 'exists' : 'null',
-    });
-    return isCosmic;
-  }, [selectedMember, selectedMemberId]);
+  const memberDisplayInfo = React.useMemo(() => {
+    const member =
+      selectedMember && typeof selectedMember === 'object'
+        ? selectedMember
+        : null;
+    const name = member?.full_name || 'Select Member';
 
-  const canAccessDynamicPredictions = React.useMemo(() => {
-    if (selectedMember?.current_plan === 'family_plan') {
-      return true;
+    let birthDateTime = 'Not Available';
+    if (member?.birth_data) {
+      const { day, month, year, hour, min } = member.birth_data;
+      const dateStr = new Date(year, month - 1, day).toLocaleDateString(
+        'en-US',
+        {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        },
+      );
+      let timeStr = '';
+      if (hour !== undefined && min !== undefined) {
+        const hour12 = hour % 12 || 12;
+        const minute = min < 10 ? `0${min}` : min;
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        timeStr = ` ${hour12}:${minute} ${ampm}`;
+      }
+      birthDateTime = `${dateStr}${timeStr}`;
     }
-    return !isProcessingPending && !isSelectedMemberChild;
-  }, [
-    selectedMember?.current_plan,
-    isProcessingPending,
-    isSelectedMemberChild,
-  ]);
+
+    return {
+      name,
+      birthDateTime,
+      birthplace: member?.birthplace || 'Not Available',
+    };
+  }, [selectedMember]);
 
   // Reset modal state when member changes (but don't clear the Set - we want to remember which members have seen it)
   useEffect(() => {
     setShowBuyMembershipModal(false);
   }, [selectedMemberId]);
-
-  // Switch to Current Situation tab if processing is pending or if member is child
-  // (family_plan members keep access to Dynamic Predictions)
-  useEffect(() => {
-    if (
-      isProcessingPending &&
-      activeTab === 'General Analysis' &&
-      selectedMember?.current_plan !== 'family_plan'
-    ) {
-      setActiveTab('Current Situation');
-    }
-    if (
-      isSelectedMemberChild &&
-      activeTab === 'General Analysis' &&
-      selectedMember?.current_plan !== 'family_plan'
-    ) {
-      setActiveTab('Current Situation');
-    }
-  }, [
-    isProcessingPending,
-    activeTab,
-    isSelectedMemberChild,
-    selectedMember?.current_plan,
-  ]);
 
   // Check if free points modal should be shown after login
   // useEffect(() => {
@@ -219,23 +211,69 @@ const ChatScreen = () => {
     }, [refreshProfileData]),
   );
 
-  // Set selectedMemberId and activeTab only when userId comes from route params
+  // Set selectedMemberId when userId comes from route params
   useEffect(() => {
     if (route.params?.userId && route.params.userId.trim() !== '') {
       console.log('Setting member from route params:', route.params.userId);
       setSelectedMemberId(route.params.userId);
     }
-    // Set activeTab if tab parameter is provided
-    if (route.params?.tab) {
-      const tabParam = route.params.tab;
-      // Map tab values to actual tab names
-      if (tabParam === 'Static Predictions' || tabParam === 'staticpredictions' || tabParam === 'LifeNow') {
-        setActiveTab('Current Situation');
-      } else if (tabParam === 'Dynamic Predictions' || tabParam === 'dynamicpredictions' || tabParam === 'LifeView') {
-        setActiveTab('General Analysis');
+  }, [route.params?.userId]);
+
+
+  useEffect(() => {
+    const checkAndNavigate = async () => {
+      try {
+        const navParamsStr = await AsyncStorage.getItem(
+          'NAVIGATE_TO_CHAT_WITH_PROMPTS',
+        );
+
+        console.log('navParamsStr===>220', navParamsStr);
+        if (navParamsStr) {
+          let navParams = JSON.parse(navParamsStr);
+
+          console.log(
+            'Navigating to ChatWithPrompts with params:',
+            membersData,
+          );
+          navParams = { ...navParams, userId: membersData[0]?.id };
+          console.log('Navigating to ChatWithPrompts with params:', navParams);
+
+          navParams = {
+            "userId": membersData[0]?.id,
+            "cardTitles": navParams.cardTitles,
+            "tab": navParams.tab,
+            "current_plan": navParams.current_plan,
+            "subCards": navParams.subCards,
+            "planet": navParams.planet,
+            "onOpen": true,
+          }
+
+          // Clear the flag
+          await AsyncStorage.removeItem('NAVIGATE_TO_CHAT_WITH_PROMPTS');
+
+          // Navigate to ChatTab with ChatWithPrompts
+          setTimeout(() => {
+            const rootNavigation = navigation.getParent();
+            if (rootNavigation) {
+              (rootNavigation as any).navigate('ChatTab', {
+                screen: 'ChatWithPrompts',
+                params: navParams,
+              });
+            } else {
+              navigation.navigate('ChatWithPrompts' as any, navParams);
+            }
+          }, 10);
+        }
+      } catch (errNav) {
+        console.error('Error checking navigation flag:', errNav);
       }
-    }
-  }, [route.params?.userId, route.params?.tab]);
+    };
+
+    checkAndNavigate();
+
+    console.log('membersData===>252', membersData);
+  }, [navigation, membersData, selectedMemberId]);
+
 
   // Show error alert if there's an error
   React.useEffect(() => {
@@ -304,7 +342,7 @@ const ChatScreen = () => {
       );
       setSelectedMemberId(primaryMemberId);
     }
-  }, [membersData]);
+  }, [membersData, selectedMemberId]);
 
   // Navigate to Nakshatra screen
   const handleNakshatraNavigation = () => {
@@ -316,212 +354,212 @@ const ChatScreen = () => {
       //   },
       // });
 
-       navigation.navigate('NakshatraScreen', {
-         userId: selectedMemberId,
-       });
+      navigation.navigate('NakshatraScreen', {
+        userId: selectedMemberId,
+      });
     } else {
       Alert.alert('Error', 'Please select a member first');
     }
   };
 
-  // Handle opening premium modal
-  const handleOpenPremiumModal = () => {
-    setShowPremiumModal(true);
+  const handleCloseBuyMembershipModal = () => {
+    setShowBuyMembershipModal(false);
+    setModalFeatureName('Dynamic Predictions');
+    if (selectedMemberId) {
+      setMembersShownModal(prev => new Set(prev).add(selectedMemberId));
+    }
   };
 
-  // Handle closing premium modal
-  const handleClosePremiumModal = () => {
-    setShowPremiumModal(false);
-  };
-
-  // Handle Buy Premium Access
-  const handleBuyPremiumAccess = async () => {
-    if (!selectedMember || !user) {
+  const getSelectedMemberOrWarn = () => {
+    if (!selectedMember || selectedMember === false) {
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Member or user information not found',
+        text2: 'Please select a member first',
         position: 'top',
         topOffset: 60,
         visibilityTime: 3000,
       });
-      return;
+      return null;
     }
+    return selectedMember;
+  };
 
+  const getAccountPlanForMember = useCallback(async (userId: string) => {
     try {
-      setCreatingSubscription(true);
+      return await planService.getUserPlanDetails(userId);
+    } catch (err: any) {
+      const message = String(err.message || '').toLowerCase();
+      const hasIndividualOnAccount =
+        String(user?.current_plan || '') === 'eternal_path' ||
+        membersData?.some(
+          (m: { current_plan?: string }) => String(m.current_plan) === 'eternal_path',
+        );
+      const hasFamilyOnAccount =
+        String(user?.current_plan || '') === 'family_plan' ||
+        membersData?.some(
+          (m: { current_plan?: string }) => String(m.current_plan) === 'family_plan',
+        );
 
-      const planId = 'd461266c-574b-4312-994a-ebd2b5cf6dc3'; // Premium plan ID
-      const userId = user?._id || (user as any)?.id || '';
-      const memberUserId =
-        selectedMember.id ||
-        selectedMember._id ||
-        '';
-
-      // First create subscription
-      const subscriptionResponse = await paymentService.createSubscription({
-        plan_id: planId,
-        user_id: userId,
-        member_user_id: memberUserId,
-        notes: {
-          action: 'premium_subscription',
-          member_name: selectedMember.full_name || 'Member',
-        },
-      });
-
-      console.log('Subscription created:', subscriptionResponse);
-
-      // Check if subscription was created
-      if (!subscriptionResponse.subscription_id) {
-        throw new Error('Subscription ID not received from server');
+      if (
+        message.includes('no active subscription') ||
+        message.includes('subscription not found') ||
+        message.includes('subscription')
+      ) {
+        if (hasIndividualOnAccount) {
+          return {
+            current_plan: 'eternal_path',
+            members_allow: 1,
+            available_members_allow: 0,
+            email: '',
+          };
+        }
+        if (hasFamilyOnAccount) {
+          return {
+            current_plan: 'family_plan',
+            members_allow: 5,
+            available_members_allow: 1,
+            email: '',
+          };
+        }
       }
 
-      // iOS: open short_url / payment_url in browser instead of Razorpay SDK
-      if (Platform.OS === 'ios') {
-        const paymentUrl =
-          subscriptionResponse.short_url || subscriptionResponse.payment_url;
+      throw err;
+    }
+  }, [user, membersData]);
 
-        if (!paymentUrl) {
-          throw new Error('Payment URL not received from server');
-        }
+  const openFamilyUpgradeForMember = useCallback((member: any) => {
+    setFamilyUpgradeMember(member);
+    setShowFamilyUpgradeModal(true);
+  }, []);
 
-        // Close modals before opening browser
-        handleClosePremiumModal();
-        setShowBuyMembershipModal(false);
+  const applyMemberPlanFlow = useCallback(
+    async (
+      member: any,
+      options?: { planType?: 'individual' | 'family'; featureName?: string },
+    ) => {
+      if (options?.featureName) {
+        setModalFeatureName(options.featureName);
+      }
 
-        const supported = await Linking.canOpenURL(paymentUrl);
-        if (!supported) {
-          throw new Error('Unable to open payment URL');
-        }
-
-        Toast.show({
-          type: 'info',
-          text1: 'Redirecting to Payment',
-          text2: 'Opening secure payment page in your browser',
-          position: 'top',
-          topOffset: 60,
-          visibilityTime: 2000,
-        });
-
-        await Linking.openURL(paymentUrl);
-
-        // For iOS browser flow, server/webhook will update subscription.
-        // App can refresh profile data when user returns (handled via focus).
+      const memberPlan = String(member.current_plan || '');
+      if (memberPlan === 'family_plan' || memberPlan === 'eternal_path') {
         return;
       }
 
-      // Android: use Razorpay SDK as before
-      if (!subscriptionResponse.razorpay_key) {
-        throw new Error('Razorpay key not received from server');
+      const userId = user?._id || (user as any)?.id;
+      if (!userId) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'User not found',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+        return;
       }
-
-      // Get user data for prefill
-      const userDataString = await AsyncStorage.getItem('USER_DATA');
-      let currentUserData: any = {};
-      if (userDataString) {
-        currentUserData = JSON.parse(userDataString);
-      }
-
-      // Close the premium modal before opening Razorpay
-      handleClosePremiumModal();
-      setShowBuyMembershipModal(false);
-
-      // Razorpay payment options for subscription
-      const options = {
-        key: subscriptionResponse.razorpay_key,
-        amount: (subscriptionResponse as any).amount || 99900, // Amount in paise (999 INR)
-        currency: (subscriptionResponse as any).currency || 'INR',
-        name: 'Astrodha',
-        description: 'Premium Subscription',
-        subscription_id: subscriptionResponse.subscription_id,
-        prefill: {
-          email: currentUserData.email || '',
-          contact: currentUserData.phone || '',
-          name: currentUserData.full_name || currentUserData.name || '',
-        },
-        theme: { color: '#DF8A5D' },
-      };
 
       try {
-        // Open Razorpay checkout modal (Android only)
-        const paymentData = await RazorpayCheckout.open(options);
+        const planDetails = await getAccountPlanForMember(userId);
+        setUserPlanDetails({
+          current_plan: planDetails.current_plan,
+          available_members_allow: Number(planDetails.available_members_allow),
+        });
 
-        console.log('Payment response:', paymentData);
-
-        // Payment successful
-        if (paymentData) {
-          // Show progress loader for 5 seconds
-          setShowPaymentSuccessLoader(true);
-          
-          // Wait for 5 seconds
-          setTimeout(() => {
-            setShowPaymentSuccessLoader(false);
-            
-            // Show success toast
+        if (options?.planType === 'individual') {
+          if (
+            planDetails.current_plan === 'eternal_path' ||
+            planDetails.current_plan === 'family_plan'
+          ) {
             Toast.show({
-              type: 'success',
-              text1: 'Payment Successful',
-              text2: 'Your premium subscription has been activated',
+              type: 'info',
+              text1: 'Already Subscribed',
+              text2: 'You already have an active plan',
               position: 'top',
               topOffset: 60,
               visibilityTime: 3000,
-              onHide: async () => {
-                // Refresh profile data after toast is dismissed
-                await refreshProfileData();
-              },
             });
-          }, 5000);
+            return;
+          }
+          await purchaseForMember(member, 'individual');
+          return;
         }
-      } catch (razorpayError: any) {
-        console.error('Razorpay error:', razorpayError);
 
-        // Check if it's a cancellation
-        const isCancelled =
-          razorpayError?.code === 'BAD_REQUEST_ERROR' ||
-          razorpayError?.code === 'NETWORK_ERROR' ||
-          razorpayError?.description?.toLowerCase().includes('cancelled') ||
-          razorpayError?.reason?.toLowerCase().includes('cancelled') ||
-          razorpayError?.step === 'payment_cancelled';
-
-        if (isCancelled) {
-          // User cancelled, don't show error
-          console.log('Payment cancelled by user');
-          Toast.show({
-            type: 'info',
-            text1: 'Payment Cancelled',
-            text2: 'You can try again later',
-            position: 'top',
-            topOffset: 60,
-            visibilityTime: 2000,
-          });
-        } else {
-          // Show error for other cases
-          Toast.show({
-            type: 'error',
-            text1: 'Payment Error',
-            text2:
-              razorpayError?.description ||
-              razorpayError?.message ||
-              'Payment failed. Please try again.',
-            position: 'top',
-            topOffset: 60,
-            visibilityTime: 3000,
-          });
+        if (planDetails.current_plan === 'family_plan') {
+          if (Number(planDetails.available_members_allow) <= 0) {
+            Toast.show({
+              type: 'info',
+              text1: 'No Slots Available',
+              text2: 'All family plan slots are already assigned.',
+              position: 'top',
+              topOffset: 60,
+              visibilityTime: 3000,
+            });
+            return;
+          }
+          setAssignMember(member);
+          setShowAssignFamilyModal(true);
+          return;
         }
+
+        if (planDetails.current_plan === 'eternal_path') {
+          openFamilyUpgradeForMember(member);
+          return;
+        }
+
+        if (options?.planType === 'family') {
+          await purchaseForMember(member, 'family');
+          return;
+        }
+
+        setShowBuyMembershipModal(true);
+      } catch (err: any) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: err.message || 'Failed to load plan details',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
       }
-    } catch (subscriptionError: any) {
-      console.error('Error creating subscription:', subscriptionError);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: subscriptionError.message || 'Failed to create subscription',
-        position: 'top',
-        topOffset: 60,
-        visibilityTime: 3000,
-      });
-    } finally {
-      setCreatingSubscription(false);
-    }
+    },
+    [user, getAccountPlanForMember, openFamilyUpgradeForMember, purchaseForMember],
+  );
+
+  const handleShowBuyMembershipModal = useCallback(
+    async (featureName?: string) => {
+      if (!selectedMember || selectedMember === false) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Please select a member first',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+        return;
+      }
+
+      await applyMemberPlanFlow(selectedMember, { featureName });
+    },
+    [selectedMember, applyMemberPlanFlow],
+  );
+
+  const navigateToProfileForPlan = async (planType: 'individual' | 'family') => {
+    const member = getSelectedMemberOrWarn();
+    if (!member) return;
+    handleCloseBuyMembershipModal();
+    await applyMemberPlanFlow(member, { planType });
+  };
+
+  const handleSelectIndividualPlan = () => {
+    navigateToProfileForPlan('individual');
+  };
+
+  const handleSelectFamilyPlan = () => {
+    navigateToProfileForPlan('family');
   };
 
   if (loading) {
@@ -698,13 +736,6 @@ const ChatScreen = () => {
 
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          {/* <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backBtn}
-            activeOpacity={0.7}
-          >
-            <Image source={icons.Icback} style={styles.backIcon} />
-          </TouchableOpacity> */}
           <View style={styles.headerCenter}>
             <Text
               style={[
@@ -781,8 +812,8 @@ const ChatScreen = () => {
               >
                 {selectedMemberId
                   ? membersData?.find(
-                      (m: any) => (m.id || m._id) == selectedMemberId,
-                    )?.full_name || 'Select Member'
+                    (m: any) => (m.id || m._id) === selectedMemberId,
+                  )?.full_name || 'Select Member'
                   : 'Select Member'}
               </Text>
             </TouchableOpacity>
@@ -822,7 +853,6 @@ const ChatScreen = () => {
                             onPress={() => {
                               setSelectedMemberId(item.id || item._id);
                               setIsMemberDropdownOpen(false);
-                              setActiveTab('Current Situation');
                             }}
                             activeOpacity={0.7}
                           >
@@ -905,473 +935,155 @@ const ChatScreen = () => {
           </View>
         )}
 
-        {/* Greeting Section Card */}
-        <ImageBackground
-          source={
-            theme === 'dark'
-              ? require('../../assets/image/DarkBackground.png')
-              : require('../../assets/image/LightBackground.png')
-          }
-          blurRadius={12}
-          style={[
-            styles.greetingCard as any,
-            {
-              backgroundColor:
-                theme === 'dark' ? colors.transparent : colors.white,
-              borderColor:
-                theme === 'dark'
-                  ? colors.themeBorderDropdown
-                  : colors.borderColor,
-            },
-          ]}
-          imageStyle={[
-            styles.greetingCardBgImage,
-            {
-              backgroundColor:
-                theme === 'dark' ? colors.transparent : colors.white,
-              borderColor:
-                theme === 'dark'
-                  ? colors.themeBorderDropdown
-                  : colors.borderColor,
-            },
-          ]}
-        >
-          <View style={styles.greetingOverlay} />
-          <View
-            style={[
-              styles.greetingContent,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.transparent : colors.white,
-                borderColor:
-                  theme === 'dark'
-                    ? colors.themeBorderDropdown
-                    : colors.borderColor,
-              },
-            ]}
-          >
-            {/* <View style={styles.greetingSection}>
-              <Text style={styles.greetingText}>
-                Hello{' '}
-                <Text style={styles.highlightedName}>
-                  {selectedMemberId
-                    ? membersData?.find((m: any) => m.id === selectedMemberId)
-                        ?.full_name || 'Member'
-                    : 'Member'}
-                </Text>{' '}
-                👋, how can I guide you today?
-              </Text>
-              <Text style={styles.instructionText}>
-                Tap a house to explore deeper insights
-              </Text>
-            </View> */}
+        {/* Birth details + Charts / Reports */}
+        {(() => {
+          const isDark = theme === 'dark';
+          const cardBg = isDark ? '#2A3F58' : colors.white;
+          const textPrimary = isDark ? colors.themeTextWhite : colors.DarkNavy;
+          const textMuted = isDark ? colors.textSecondary || '#B8B0A0' : '#6B7280';
+          const borderSubtle = isDark ? 'rgba(238, 229, 202, 0.22)' : '#E8E4DC';
+          const iconBoxBg = isDark ? '#3F5570' : '#FFF0E6';
 
-            {/* Separator Line */}
-            {/* <View style={styles.separatorLine} /> */}
-
-            {/* User Details */}
+          return (
             <View
               style={[
-                styles.userDetailsCard,
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.transparent : colors.white,
-                  borderColor:
-                    theme === 'dark'
-                      ? colors.themeBorderDropdown
-                      : colors.borderColor,
-                },
+                styles.chatDetailsCard,
+                { backgroundColor: cardBg, borderColor: borderSubtle },
               ]}
             >
-              {/* Date of Birth */}
-              <View style={styles.birthInfoRow}>
-                <Text
-                  style={[
-                    styles.birthInfoLabel,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  Date Of Birth :{' '}
-                </Text>
-                <Text
-                  style={[
-                    styles.birthInfoValue,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
-                  ]}
-                >
-                  {selectedMemberId &&
-                  membersData?.find(
-                    (m: any) => (m.id || m._id) == selectedMemberId,
-                  )?.birth_data
-                    ? (() => {
-                        const member = membersData.find(
-                          (m: any) => (m.id || m._id) == selectedMemberId,
-                        );
-                        const { day, month, year, hour, min } =
-                          member.birth_data;
-                        const dateStr = new Date(
-                          year,
-                          month - 1,
-                          day,
-                        ).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        });
-
-                        // Format time in 12-hour format with AM/PM
-                        let timeStr = '';
-                        if (hour !== undefined && min !== undefined) {
-                          const hour12 = hour % 12 || 12;
-                          const minute = min < 10 ? `0${min}` : min;
-                          const ampm = hour >= 12 ? 'PM' : 'AM';
-                          timeStr = ` ${hour12}:${minute} ${ampm}`;
-                        }
-
-                        return `${dateStr}${timeStr}`;
-                      })()
-                    : 'Not Available'}
-                </Text>
+              <View style={styles.chatDetailRow}>
+                <View style={[styles.chatIconBox, { backgroundColor: iconBoxBg }]}>
+                  <Text style={[styles.chatIconEmoji, { color: colors.Orangeaccentcolor }]}>
+                    📅
+                  </Text>
+                </View>
+                <View style={styles.chatDetailTextWrap}>
+                  <Text style={[styles.chatDetailLabel, { color: textMuted }]}>
+                    Date Of Birth
+                  </Text>
+                  <Text style={[styles.chatDetailValue, { color: textPrimary }]}>
+                    {memberDisplayInfo.birthDateTime}
+                  </Text>
+                </View>
               </View>
 
-              {/* Place of Birth */}
-              <View style={styles.birthInfoRow}>
-                <Text
+              <View
+                style={[styles.chatDetailDivider, { backgroundColor: borderSubtle }]}
+              />
+
+              <View style={styles.chatDetailRow}>
+                <View style={[styles.chatIconBox, { backgroundColor: iconBoxBg }]}>
+                  <Text style={[styles.chatIconEmoji, { color: colors.Orangeaccentcolor }]}>
+                    📍
+                  </Text>
+                </View>
+                <View style={styles.chatDetailTextWrap}>
+                  <Text style={[styles.chatDetailLabel, { color: textMuted }]}>
+                    Place Of Birth
+                  </Text>
+                  <Text
+                    style={[styles.chatDetailValue, { color: textPrimary }]}
+                    numberOfLines={3}
+                  >
+                    {memberDisplayInfo.birthplace}
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={[styles.chatDetailDivider, { backgroundColor: borderSubtle }]}
+              />
+
+              <View style={styles.chatActionRow}>
+                <TouchableOpacity
                   style={[
-                    styles.birthInfoLabel,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
+                    styles.chatOutlineButton,
+                    { backgroundColor: cardBg, borderColor: colors.Orangeaccentcolor },
                   ]}
+                  onPress={handleNakshatraNavigation}
+                  activeOpacity={0.8}
                 >
-                  Place Of Birth :{' '}
-                </Text>
-                <Text
+                  <Image
+                    source={require('../../assets/icons/home/Chart.png')}
+                    style={[
+                      styles.chatOutlineButtonIcon,
+                      { tintColor: colors.Orangeaccentcolor },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.chatOutlineButtonText,
+                      { color: colors.Orangeaccentcolor },
+                    ]}
+                  >
+                    Charts
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   style={[
-                    styles.birthInfoValue,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.themeTextWhite
-                          : colors.DarkNavy,
-                    },
+                    styles.chatOutlineButton,
+                    { backgroundColor: cardBg, borderColor: colors.Orangeaccentcolor },
                   ]}
+                  onPress={() => {
+                    navigation.navigate('ReportScreen', {
+                      userId: selectedMemberId,
+                    });
+                  }}
+                  activeOpacity={0.8}
                 >
-                  {selectedMemberId &&
-                  membersData?.find(
-                    (m: any) => (m.id || m._id) == selectedMemberId,
-                  )?.birthplace
-                    ? membersData.find(
-                        (m: any) => (m.id || m._id) == selectedMemberId,
-                      ).birthplace
-                    : 'Not Available'}
-                </Text>
+                  <Image
+                    source={require('../../assets/icons/home/Report.png')}
+                    style={[
+                      styles.chatOutlineButtonIcon,
+                      { tintColor: colors.Orangeaccentcolor },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.chatOutlineButtonText,
+                      { color: colors.Orangeaccentcolor },
+                    ]}
+                  >
+                    Reports
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
+          );
+        })()}
 
-            {/* Charts & Report Buttons */}
-            <View style={styles.actionButtonsContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  {
-                    borderColor: colors.Orangeaccentcolor,
-                  },
-                ]}
-                onPress={handleNakshatraNavigation}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={require('../../assets/icons/home/Chart.png')}
-                  style={[
-                    styles.actionButtonIcon,
-                    {
-                      tintColor:
-                        theme === 'dark'
-                          ? colors.Orangeaccentcolor
-                          : colors.Orangeaccentcolor,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.actionButtonText,
-                    {
-                      color: colors.Orangeaccentcolor,
-                    },
-                  ]}
-                >
-                  Charts
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  {
-                    borderColor: colors.Orangeaccentcolor,
-                  },
-                ]}
-                onPress={() => {
-                  navigation.navigate('ReportScreen', {
-                    userId: selectedMemberId,
-                  });
-                }}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={require('../../assets/icons/home/Report.png')}
-                  style={[
-                    styles.actionButtonIcon,
-                    {
-                      tintColor:
-                        theme === 'dark'
-                          ? colors.Orangeaccentcolor
-                          : colors.Orangeaccentcolor,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.actionButtonText,
-                    {
-                      color: colors.Orangeaccentcolor,
-                    },
-                  ]}
-                >
-                  Reports
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ImageBackground>
-
-        {/* Analysis Tabs */}
-        <ImageBackground
-          source={
-            theme === 'dark'
-              ? require('../../assets/image/DarkBackground.png')
-              : require('../../assets/image/LightBackground.png')
+        {/* Analysis: card_type = tabs, sub_card = tab content */}
+        <CurrentSituation
+          key={`predictions-${selectedMemberId}`}
+          selectedMemberId={selectedMemberId || ''}
+          current_plan={
+            selectedMember && typeof selectedMember === 'object'
+              ? selectedMember.current_plan
+              : undefined
           }
-          blurRadius={12}
-          style={[
-            styles.tabsContainer as any,
-            {
-              backgroundColor:
-                theme === 'dark' ? colors.transparent : colors.white,
-              borderColor:
-                theme === 'dark'
-                  ? colors.themeBorderDropdown
-                  : colors.borderColor,
-            },
-          ]}
-          imageStyle={[
-            styles.tabsBgImage,
-            {
-              backgroundColor:
-                theme === 'dark' ? colors.transparent : colors.white,
-              borderColor:
-                theme === 'dark'
-                  ? colors.themeBorderDropdown
-                  : colors.borderColor,
-            },
-          ]}
-        >
-          <View style={styles.tabsOverlay} />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.tabsScrollContent,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.transparent : colors.white,
-                borderColor:
-                  theme === 'dark'
-                    ? colors.themeBorderDropdown
-                    : colors.borderColor,
-              },
-            ]}
-            style={styles.tabsScrollView}
-          >
-            {/* <TouchableOpacity
-               style={[
-                 styles.tab,
-                 activeTab === 'Snapshot Predictions' && {
-                   ...styles.activeTab,
-                   borderBottomColor: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
-                 },
-                 {
-                   backgroundColor:
-                     theme === 'dark' ? colors.transparent : colors.white,
-                   borderColor:
-                     theme === 'dark'
-                       ? colors.themeBorderDropdown
-                       : colors.borderColor,
-                 },
-               ]}
-               onPress={() => setActiveTab('Snapshot Predictions')}
-             >
-               <Text
-                 style={[
-                   styles.tabText,
-                   {
-                     color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                   },
-                   activeTab === 'Snapshot Predictions' && {
-                     color: theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
-                   },
-                 ]}
-               >
-                 Snap cast
-               </Text>
-             </TouchableOpacity> */}
-
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === 'Current Situation' && {
-                  ...styles.activeTab,
-                  borderBottomColor:
-                    theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
-                },
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.transparent : colors.white,
-                  borderColor:
-                    theme === 'dark'
-                      ? colors.themeBorderDropdown
-                      : colors.borderColor,
-                },
-              ]}
-              onPress={() => setActiveTab('Current Situation')}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                  activeTab === 'Current Situation' && {
-                    color:
-                      theme === 'dark'
-                        ? colors.accent
-                        : colors.Orangeaccentcolor,
-                  },
-                ]}
-              >
-                Birth Chart Predictions
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === 'General Analysis' && {
-                  ...styles.activeTab,
-                  borderBottomColor:
-                    theme === 'dark' ? colors.accent : colors.Orangeaccentcolor,
-                },
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.transparent : colors.white,
-                  borderColor:
-                    theme === 'dark'
-                      ? colors.themeBorderDropdown
-                      : colors.borderColor,
-                  opacity: canAccessDynamicPredictions ? 1 : 0.5,
-                },
-              ]}
-              onPress={() => {
-                if (!canAccessDynamicPredictions) {
-                  return;
-                }
-                if (isCosmicFoundationPlan) {
-                  setModalFeatureName('Dynamic Predictions');
-                  setShowBuyMembershipModal(true);
-                } else {
-                  setActiveTab('General Analysis');
-                }
-              }}
-              disabled={!canAccessDynamicPredictions}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                  activeTab === 'General Analysis' && {
-                    color:
-                      theme === 'dark'
-                        ? colors.accent
-                        : colors.Orangeaccentcolor,
-                  },
-                  !canAccessDynamicPredictions && {
-                    opacity: 0.5,
-                  },
-                ]}
-              >
-                Dynamic Predictions
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </ImageBackground>
-
-        {/* Tab Content */}
-        <View style={styles.tabContentContainer}>
-          {activeTab === 'Snapshot Predictions' ? (
-            <SnapshotPredictions selectedMemberId={selectedMemberId || ''} />
-          ) : activeTab === 'Current Situation' ? (
-            <CurrentSituation
-              selectedMemberId={selectedMemberId || ''}
-              current_plan={selectedMember?.current_plan}
-              first_user={!!selectedMember?.first_user}
-              isPrimaryMember={selectedMember?.primary_mamber === 'True'}
-              isChild={isSelectedMemberChild}
-              onShowBuyMembershipModal={featureName => {
-                setModalFeatureName(featureName || 'Dynamic Predictions');
-                setShowBuyMembershipModal(true);
-              }}
-            />
-          ) : (
-            <GeneralAnalysis
-              current_plan={selectedMember?.current_plan}
-              selectedMemberId={selectedMemberId || ''}
-            />
-          )}
-        </View>
-        {/* {activeTab === 'General Analysis' ? (
-          <GeneralAnalysis selectedMemberId={selectedMemberId} />
-        )} */}
-        {/* {activeTab === 'General Analysis' && (
-          <GeneralAnalysis selectedMemberId={selectedMemberId} />
-        )} */}
+          first_user={
+            selectedMember && typeof selectedMember === 'object'
+              ? !!selectedMember.first_user
+              : false
+          }
+          isPrimaryMember={
+            selectedMember && typeof selectedMember === 'object'
+              ? selectedMember.primary_mamber === 'True'
+              : false
+          }
+          isChild={isSelectedMemberChild}
+          isProcessingPending={isProcessingPending}
+          onShowBuyMembershipModal={handleShowBuyMembershipModal}
+        />
 
         <View style={styles.bottomNavigation}>
           <TouchableOpacity
             style={[
               styles.bottomNavigationButton,
-              { backgroundColor: colors.Orangeaccentcolor },
+              { backgroundColor: theme === 'dark' ? colors.cardBackground : '#FFFFFF',
+                borderColor: colors.Orangeaccentcolor,
+               },
             ]}
             onPress={() => {
               navigation.navigate('AddNewMember', { fromMemberPlanManagement: true });
@@ -1380,7 +1092,7 @@ const ChatScreen = () => {
             <Text
               style={[
                 styles.bottomNavigationButtonText,
-                { color: colors.white },
+                { color:colors.Orangeaccentcolor },
               ]}
             >
               Create New Chart
@@ -1389,345 +1101,110 @@ const ChatScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Buy Memberships Modal */}
-      <Modal
+      <PremiumPlansModal
         visible={showBuyMembershipModal}
-        transparent={true}
+        onClose={handleCloseBuyMembershipModal}
+        title="Choose Your Plan"
+        subtitle={`To access ${modalFeatureName}, please upgrade your plan.`}
+        creatingSubscription={creatingSubscription}
+        individualDisabled={
+          userPlanDetails?.current_plan === 'eternal_path' ||
+          userPlanDetails?.current_plan === 'family_plan'
+        }
+        onSelectIndividual={handleSelectIndividualPlan}
+        onSelectFamily={handleSelectFamilyPlan}
+      />
+
+      <Modal
+        visible={showAssignFamilyModal}
+        transparent
         animationType="fade"
         onRequestClose={() => {
-          setShowBuyMembershipModal(false);
-          setModalFeatureName('Dynamic Predictions'); // Reset to default
-          // Mark member as having seen the modal when closed
-          if (selectedMemberId) {
-            setMembersShownModal(prev => new Set(prev).add(selectedMemberId));
-          }
+          if (!isAssigning) setShowAssignFamilyModal(false);
         }}
       >
-        <View style={styles.buyMembershipModalOverlay}>
-          <View style={styles.buyMembershipModalContainer}>
-            {/* Icon */}
-
-            {/* Title */}
-            <Text style={styles.modalTitle}>Upgrade Plan</Text>
-
-            {/* Body Text */}
-            <Text style={styles.modalBodyText}>
-              To Access {modalFeatureName}, Please Upgrade Your Plan.
+        <View style={styles.confirmModalOverlay}>
+          <View
+            style={[
+              styles.confirmModalContainer,
+              {
+                backgroundColor: theme === 'dark' ? colors.DarkNavy : colors.white,
+                borderColor:
+                  theme === 'dark' ? colors.themeBorderDropdown : colors.borderColor,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.confirmModalTitle,
+                { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+              ]}
+            >
+              Assign Family Plan
+            </Text>
+            <Text
+              style={[
+                styles.confirmModalMessage,
+                { color: theme === 'dark' ? colors.textSecondary : '#6B7280' },
+              ]}
+            >
+              {`Assign a family plan slot to ${assignMember?.full_name || 'this member'}?`}
             </Text>
 
-            {/* Action Buttons */}
-            <View style={styles.modalButtonsContainer}>
-              {/* <TouchableOpacity
-                style={[styles.modalButton, styles.buyButton]}
-                onPress={() => {
-                  // Mark member as having seen the modal
-                  if (selectedMemberId) {
-                    setMembersShownModal(prev =>
-                      new Set(prev).add(selectedMemberId),
-                    );
-                  }
-                  setShowBuyMembershipModal(false);
-                  setModalFeatureName('Dynamic Predictions'); // Reset to default
-                  // Open Premium Plan Modal instead of navigating
-                  handleOpenPremiumModal();
-                }}
-              >
-                <Text style={styles.buyButtonText}>Buy</Text>
-              </TouchableOpacity> */}
+            <View style={styles.confirmModalButtonsRow}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  // Mark member as having seen the modal
-                  if (selectedMemberId) {
-                    setMembersShownModal(prev =>
-                      new Set(prev).add(selectedMemberId),
-                    );
-                  }
-                  setShowBuyMembershipModal(false);
-                  setModalFeatureName('Dynamic Predictions'); // Reset to default
-                }}
+                style={[styles.confirmModalButton, styles.confirmModalCancelButton]}
+                onPress={() => setShowAssignFamilyModal(false)}
+                disabled={isAssigning}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.confirmModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmModalButton,
+                  {
+                    backgroundColor: colors.Orangeaccentcolor,
+                    opacity: isAssigning ? 0.7 : 1,
+                  },
+                ]}
+                onPress={async () => {
+                  if (!assignMember) return;
+                  await assignFamilyToMember(assignMember);
+                  setShowAssignFamilyModal(false);
+                  setAssignMember(null);
+                }}
+                disabled={isAssigning}
+              >
+                <Text style={[styles.confirmModalButtonText, { color: '#FFFFFF' }]}>
+                  {isAssigning ? 'Assigning...' : 'Assign'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Premium Plan Modal */}
-      <Modal
-        visible={showPremiumModal}
-        transparent
-        animationType="fade"
-        onRequestClose={handleClosePremiumModal}
-      >
-        <TouchableOpacity
-          style={styles.premiumModalOverlay}
-          activeOpacity={1}
-          onPress={handleClosePremiumModal}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={e => e.stopPropagation()}
-            style={[
-              styles.premiumModalContainer,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.DarkNavy : colors.white,
-              },
-            ]}
-          >
-            {/* Close Button */}
-            <TouchableOpacity
-              style={styles.premiumModalCloseButton}
-              onPress={handleClosePremiumModal}
-            >
-              <Text
-                style={[
-                  styles.premiumModalCloseText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                ✕
-              </Text>
-            </TouchableOpacity>
-
-            {/* Header with Crown Icon */}
-            {/* <View style={styles.premiumModalHeader}>
-              <Text style={styles.premiumModalCrownIcon}>👑</Text>
-              <Text
-                style={[
-                  styles.premiumModalTitle,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Annual Plan – What You Unlock
-              </Text>
-            </View> */}
-
-            {/* Price */}
-            <View style={styles.premiumModalPriceContainer}>
-              <Text
-                style={[
-                  styles.premiumModalPrice,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                999
-              </Text>
-              <Text
-                style={[
-                  styles.premiumModalPriceUnit,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
-                  },
-                ]}
-              >
-                INR/year
-              </Text>
-            </View>
-
-            {/* Description */}
-            <Text
-              style={[
-                styles.premiumModalDescription,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Experience the full power of{' '}
-              <Text style={styles.premiumModalBoldText}>
-                Natal Insights + Dynamic Planetary Insights + Action Alignment
-              </Text>{' '}
-              in one seamless journey.
-            </Text>
-
-            {/* Features List */}
-            <View style={styles.premiumModalFeaturesContainer}>
-              {/* Feature 1 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Natal Chart-Based Insights:
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Deep interpretations of core personality, soul desires, &
-                    blended predictions for all 12 houses. Includes 100 BNN
-                    snapshot predictions, planetary strength/weakness, &
-                    hyper-personalisation.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Feature 2 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Dynamic Insights (Active Planet + Transits):
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Guidance that evolves: your most active planet, transit
-                    influences, and refreshed updates every 15 days with new
-                    planetary movements.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Feature 3 */}
-              <View style={styles.premiumModalFeatureItem}>
-                <Text style={styles.premiumModalCheckIcon}>✓</Text>
-                <View style={styles.premiumModalFeatureTextContainer}>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureTitle,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Dynamic Task Module (Mobile App Only):
-                  </Text>
-                  <Text
-                    style={[
-                      styles.premiumModalFeatureDescription,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.DarkNavy,
-                      },
-                    ]}
-                  >
-                    Karma-Aligned Action: Turn insights into momentum with
-                    personalised Do's & Don'ts, track progress, and build habits
-                    aligned with your planetary phase.
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Buy Premium Access Button */}
-            <TouchableOpacity
-              style={[
-                styles.premiumModalBuyButton,
-                {
-                  backgroundColor: colors.Orangeaccentcolor,
-                  opacity: creatingSubscription ? 0.6 : 1,
-                },
-              ]}
-              onPress={handleBuyPremiumAccess}
-              disabled={creatingSubscription}
-            >
-              {creatingSubscription ? (
-                <ActivityIndicator color={colors.white} />
-              ) : (
-                <>
-                  <Text style={styles.premiumModalBuyButtonText}>
-                    Buy an Annual Plan
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Payment Success Progress Loader Modal */}
-      <Modal
-        visible={showPaymentSuccessLoader}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.paymentLoaderOverlay}>
-          <View
-            style={[
-              styles.paymentLoaderContainer,
-              {
-                backgroundColor:
-                  theme === 'dark' ? colors.DarkNavy : colors.white,
-              },
-            ]}
-          >
-            <ActivityIndicator size="large" color={colors.Orangeaccentcolor} />
-            <Text
-              style={[
-                styles.paymentLoaderText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              Verifying your payment... Please wait
-            </Text>
-          </View>
-        </View>
-      </Modal>
+      <FamilyUpgradeModal
+        visible={showFamilyUpgradeModal}
+        onClose={() => {
+          setShowFamilyUpgradeModal(false);
+          setFamilyUpgradeMember(null);
+        }}
+        member={familyUpgradeMember}
+        membersData={membersData}
+        user={user}
+        creatingSubscription={familyUpgradeCreating}
+        onCreatingChange={setFamilyUpgradeCreating}
+        onSuccess={() => {
+          if (refreshProfileData) {
+            refreshProfileData();
+          }
+        }}
+        onIosFamilyPurchase={async billingMember => {
+          await purchaseForMember(billingMember, 'family');
+        }}
+      />
 
       {/* Free Points Modal */}
       {/* <FreePointsModal
@@ -1814,6 +1291,9 @@ const styles = StyleSheet.create({
     // fontWeight: '500',
     fontSize: 16,
     fontFamily: fontFamily.regular,
+  },
+  arrowIconContainer: {
+    alignSelf: 'center',
   },
   arrowIcon: {
     width: responsiveWidth('7%'),
@@ -1984,79 +1464,19 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontWeight: '500',
   },
-  tabsContainer: {
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: color.themeBorderDropdown,
-    overflow: 'hidden',
-    marginBottom: responsiveHeight(2),
-    // marginHorizontal: responsiveWidth(3),
-  },
-  tabsBgImage: {
-    borderRadius: 10,
-    opacity: 0.7,
-  },
-  tabsOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    // backgroundColor: 'rgba(32, 41, 69, 0.7)',
-  },
-  tabsScrollView: {
-    position: 'relative',
-    zIndex: 1,
-  },
-  tabsScrollContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // justifyContent: "space-between",
-    paddingHorizontal: responsiveWidth(2),
-  },
-  tab: {
-    paddingVertical: responsiveWidth(2),
-    paddingHorizontal: responsiveWidth(1.5),
-    alignItems: 'center',
-    // justifyContent: "space-between",
-    minWidth: responsiveWidth(43.5),
-  },
-  activeTab: {
-    borderBottomWidth: 3,
-    borderBottomColor: '#F2994A', // This will be overridden by theme colors
-  },
-  tabText: {
-    color: color.themeTextWhite,
-    // ...font.button,
-    fontSize: 16,
-    // fontWeight: '500',
-    fontFamily: fontFamily.regular,
-    lineHeight: 27,
-    letterSpacing: -0.45,
-    // textAlign: 'center',
-  },
-  activeTabText: {
-    color: '#F2994A',
-    fontFamily: fontFamily.regular,
-    // ...font.button,
-    fontSize: 16,
-    // fontWeight: '500',
-    lineHeight: 27,
-    letterSpacing: -0.45,
-    textAlign: 'center',
-  },
   bottomNavigation: {
     // backgroundColor: '#223149',
     // paddingVertical: responsiveHeight(1),
     // paddingHorizontal: responsiveWidth(2),
     // marginBottom: responsiveHeight(2),
-    marginTop: responsiveHeight(2),
+    // marginTop: responsiveHeight(2),
   },
   bottomNavigationButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,
+    borderWidth: 1,
     paddingVertical: 14,
     paddingHorizontal: responsiveWidth(2),
   },
@@ -2064,7 +1484,72 @@ const styles = StyleSheet.create({
     color: color.themeTextWhite,
     fontSize: 14,
     fontFamily: fontFamily.regular,
-    fontWeight: '400' as const,
+    fontWeight: '600' as const,
+  },
+  chatDetailsCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: responsiveWidth(3.5),
+    marginBottom: responsiveWidth(3),
+  },
+  chatDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  chatIconBox: {
+    width: responsiveWidth(9),
+    height: responsiveWidth(9),
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: responsiveWidth(2.5),
+  },
+  chatIconEmoji: {
+    fontSize: 16,
+  },
+  chatDetailTextWrap: {
+    flex: 1,
+  },
+  chatDetailLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    marginBottom: 4,
+  },
+  chatDetailValue: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  chatDetailDivider: {
+    height: 1,
+    marginVertical: responsiveWidth(2.5),
+    opacity: 0.55,
+  },
+  chatActionRow: {
+    flexDirection: 'row',
+    gap: responsiveWidth(2.5),
+    marginTop: responsiveWidth(0.5),
+  },
+  chatOutlineButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: responsiveWidth(2.8),
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: responsiveWidth(2),
+  },
+  chatOutlineButtonIcon: {
+    width: responsiveWidth(5),
+    height: responsiveWidth(5),
+    resizeMode: 'contain',
+  },
+  chatOutlineButtonText: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
   },
   navItem: {
     flex: 1,
@@ -2085,10 +1570,6 @@ const styles = StyleSheet.create({
   activeNavText: {
     color: '#DF8A5D',
     fontWeight: '600' as const,
-  },
-  tabContentContainer: {
-    flex: 1,
-    paddingTop: responsiveHeight(1),
   },
   // Loading state styles
   loadingContainer: {
@@ -2226,6 +1707,52 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  confirmModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth(4),
+  },
+  confirmModalContainer: {
+    width: '100%',
+    maxWidth: responsiveWidth(85),
+    borderRadius: 16,
+    padding: responsiveWidth(5),
+    alignItems: 'center',
+  },
+  confirmModalTitle: {
+    fontSize: 22,
+    fontFamily: fontFamily.bold,
+    marginBottom: responsiveWidth(3),
+    textAlign: 'center',
+  },
+  confirmModalMessage: {
+    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    marginBottom: responsiveWidth(5),
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  confirmModalButtonsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: responsiveWidth(3),
+  },
+  confirmModalButton: {
+    flex: 1,
+    paddingVertical: responsiveWidth(3),
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmModalCancelButton: {
+    borderWidth: 1,
+  },
+  confirmModalButtonText: {
+    fontSize: 15,
+    fontFamily: fontFamily.semiBold,
   },
   modalIconContainer: {
     marginBottom: responsiveHeight(2),

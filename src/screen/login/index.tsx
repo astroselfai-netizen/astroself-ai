@@ -58,13 +58,17 @@ type LoginScreenNavigationProp = StackNavigationProp<
   'Login'
 >;
 
-// Validation schema for formik
-const validationSchema = Yup.object().shape({
+const emailOnlySchema = Yup.object().shape({
+  email: Yup.string()
+    .email('Please enter a valid email address')
+    .required('Please enter your email'),
+});
+
+const loginWithPasswordSchema = Yup.object().shape({
   email: Yup.string()
     .email('Please enter a valid email address')
     .required('Please enter your email'),
   password: Yup.string()
-
     .matches(
       /[A-Z]/,
       'Password must contain at least one uppercase letter (A-Z)',
@@ -95,6 +99,11 @@ const Login = () => {
   const googleAuthService = serviceFactory.get<GoogleAuthService>('GoogleAuthService');
   const appleAuthService = serviceFactory.get<AppleAuthService>('AppleAuthService');
 
+  const [showPasswordField, setShowPasswordField] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
+
   // Helper function to navigate based on members data
   const navigateAfterAuth = (current_members: number, userData: any) => {
     console.log('Checking members data for navigation:', membersData);
@@ -117,8 +126,8 @@ const Login = () => {
         'NAVIGATE_TO_CHAT_WITH_PROMPTS',
         JSON.stringify({
           userId: userId,
-          cardTitles: 'Snapshot Prediction',
-          tab: 'LifeNow',
+          cardTitles: 'Major Life Cycle',
+          tab: 'LONG TERM',
           planet: null,
         }),
       );
@@ -128,69 +137,101 @@ const Login = () => {
     }
   };
 
+  const completeLogin = async (data: {
+    access_token: string | null;
+    data: any;
+  }) => {
+    if (!data?.access_token || !data?.data) {
+      return;
+    }
+
+    dispatch(setUser(data.data));
+    dispatch(setUserToken(data.access_token));
+
+    try {
+      const userId = data.data._id || data.data.user_id || data.data.id;
+      if (userId) {
+        const hasSeenModal = await AsyncStorage.getItem(
+          `FREE_POINTS_MODAL_SEEN_${userId}`,
+        );
+        if (!hasSeenModal) {
+          await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking/setting free points modal flag:', error);
+    }
+
+    setTimeout(() => {
+      navigateAfterAuth(data.data.current_members, data.data);
+    }, 1000);
+  };
+
   const formik = useFormik({
     initialValues: {
       email: '',
       password: '',
       general: undefined,
     },
-    validationSchema,
+    validationSchema: showPasswordField
+      ? loginWithPasswordSchema
+      : emailOnlySchema,
     onSubmit: async values => {
-      console.log('values.email==>1', values.email, values.password);
       setIsLoading(true);
       try {
-        console.log('values.email==>', values.email, values.password);
+        if (!showPasswordField) {
+          let fcmToken: string | null = null;
+          try {
+            fcmToken = await notificationService.getOrCreateFCMToken();
+          } catch (error) {
+            console.error('Error getting FCM token:', error);
+          }
 
-        // Get FCM token (reuse stored token if available, generate only if needed)
+          const checkResponse = await userService.login(
+            values.email,
+            undefined,
+            fcmToken || undefined,
+          );
+
+          // Google / passwordless account — direct login with email only
+          if (checkResponse.access_token && checkResponse.data) {
+            await completeLogin(checkResponse);
+            return;
+          }
+
+          if (checkResponse.is_user_exist) {
+            setShowPasswordField(true);
+            formik.setFieldValue('password', '');
+            formik.setFieldError('general', undefined);
+            return;
+          }
+
+          Toast.show({
+            type: 'info',
+            text1: 'Account not found',
+            text2: 'Please register to create a new account.',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3000,
+          });
+          return;
+        }
+
         let fcmToken: string | null = null;
         try {
           fcmToken = await notificationService.getOrCreateFCMToken();
-          console.log('FCM Token for login:', fcmToken);
         } catch (error) {
           console.error('Error getting FCM token:', error);
-          // Continue with login even if FCM token fails
         }
 
-        const data = await userService.login(values.email, values.password, fcmToken || undefined);
+        const data = await userService.login(
+          values.email,
+          values.password,
+          fcmToken || undefined,
+        );
 
-        if (data && data.access_token) {
-          // Dispatch user data to Redux state
-          dispatch(setUser(data.data));
-          dispatch(setUserToken(data.access_token));
-
-          // Check if this user has already seen the free points modal
-          try {
-            const userId = data.data._id || data.data.user_id || data.data.id;
-            if (userId) {
-              const hasSeenModal = await AsyncStorage.getItem(
-                `FREE_POINTS_MODAL_SEEN_${userId}`,
-              );
-              // Only set flag if user hasn't seen the modal before
-              if (!hasSeenModal) {
-                await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
-              }
-            }
-          } catch (error) {
-            console.error('Error checking/setting free points modal flag:', error);
-          }
-
-          // Toast.show({
-          //   type: 'success',
-          //   text1: 'Login Successful',
-          //   text2: 'Welcome back! You have successfully logged in.',
-          //   position: 'top',
-          //   topOffset: 60,
-          //   visibilityTime: 3000,
-          // });
-
-          console.log('data.data₹183', data.data);
-
-          console.log('data.data', data.data.current_members);
-
-          // Wait a bit for the profile data to be loaded, then check members
-          setTimeout(() => {
-            navigateAfterAuth(data.data.current_members, data.data);
-          }, 1000);
+        if (data?.access_token) {
+          await completeLogin(data);
         } else {
           Toast.show({
             type: 'error',
@@ -205,14 +246,11 @@ const Login = () => {
           });
         }
       } catch (error: any) {
-        console.log('Full error object:', error);
-        console.log('Error response:', error?.response);
-        console.log('Error response data:', error?.response?.data);
-        console.log('Error status:', error?.response?.status);
-        console.log('Error message:', error?.message);
+        console.log('Login error:', error);
 
         const errorMessage =
           error?.response?.data?.error_message ||
+          error?.message ||
           'Something went wrong. Please try again.';
         Toast.show({
           type: 'error',
@@ -228,6 +266,15 @@ const Login = () => {
       }
     },
   });
+
+  const handleEmailChange = (text: string) => {
+    if (showPasswordField) {
+      setShowPasswordField(false);
+      formik.setFieldValue('password', '');
+      formik.setFieldError('password', undefined);
+    }
+    formik.handleChange('email')(text);
+  };
 
   const handleRegister = () => {
     navigation.navigate('Register');
@@ -392,9 +439,6 @@ const Login = () => {
   const [, setKeyboardVisible] = useState(false);
   const [keyboardHeight] = useState(new Animated.Value(0));
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isAppleLoading, setIsAppleLoading] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -515,13 +559,15 @@ const Login = () => {
               keyboardType="email-address"
               autoCapitalize="none"
               value={formik.values.email}
-              onChangeText={formik.handleChange('email')}
+              onChangeText={handleEmailChange}
               onBlur={formik.handleBlur('email')}
               editable={!isLoading && !isGoogleLoading && !isAppleLoading}
             />
             {formik.touched.email && formik.errors.email && (
               <Text style={styles.errorText}>{formik.errors.email}</Text>
             )}
+            {showPasswordField && (
+            <>
             <View
               style={[
                 styles.passwordInputContainer,
@@ -591,9 +637,12 @@ const Login = () => {
             {formik.touched.password && formik.errors.password && (
               <Text style={styles.errorText}>{formik.errors.password}</Text>
             )}
+            </>
+            )}
             {formik.errors.general && (
               <Text style={styles.errorText}>{formik.errors.general}</Text>
             )}
+            {showPasswordField && (
             <TouchableOpacity 
               onPress={handleForgotPassword}
               disabled={isLoading || isGoogleLoading}
@@ -614,6 +663,7 @@ const Login = () => {
                 Forgot Password?
               </Text>
             </TouchableOpacity>
+            )}
             {/* Login Button */}
             <TouchableOpacity
               onPress={() => {
@@ -633,11 +683,13 @@ const Login = () => {
                 <View style={styles.loaderContainer}>
                   <ActivityIndicator size="small" color={color.themeTextWhite} />
                   <Text style={[styles.loginButtonText, styles.loadingText]}>
-                    Logging in...
+                    {showPasswordField ? 'Logging in...' : 'Please wait...'}
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
+                <Text style={styles.loginButtonText}>
+                  {showPasswordField ? 'Login' : 'Continue'}
+                </Text>
               )}
             </TouchableOpacity>
             {/* Continue with OTP */}

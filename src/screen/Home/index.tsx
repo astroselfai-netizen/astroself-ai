@@ -305,45 +305,45 @@ const HomeScreen = () => {
   }, []);
 
   // Check if we need to navigate to ChatWithPrompts after login
-  useEffect(() => {
-    const checkAndNavigate = async () => {
-      try {
-        const navParamsStr = await AsyncStorage.getItem(
-          'NAVIGATE_TO_CHAT_WITH_PROMPTS',
-        );
-        if (navParamsStr) {
-          let navParams = JSON.parse(navParamsStr);
+  // useEffect(() => {
+  //   const checkAndNavigate = async () => {
+  //     try {
+  //       const navParamsStr = await AsyncStorage.getItem(
+  //         'NAVIGATE_TO_CHAT_WITH_PROMPTS',
+  //       );
+  //       if (navParamsStr) {
+  //         let navParams = JSON.parse(navParamsStr);
 
-          console.log(
-            'Navigating to ChatWithPrompts with params:',
-            membersData,
-          );
-          navParams = { ...navParams, userId: membersData[0]?.id };
-          console.log('Navigating to ChatWithPrompts with params:', navParams);
+  //         console.log(
+  //           'Navigating to ChatWithPrompts with params:',
+  //           membersData,
+  //         );
+  //         navParams = { ...navParams, userId: membersData[0]?.id };
+  //         console.log('Navigating to ChatWithPrompts with params:', navParams);
 
-          // Clear the flag
-          await AsyncStorage.removeItem('NAVIGATE_TO_CHAT_WITH_PROMPTS');
+  //         // Clear the flag
+  //         await AsyncStorage.removeItem('NAVIGATE_TO_CHAT_WITH_PROMPTS');
 
-          // Navigate to ChatTab with ChatWithPrompts
-          setTimeout(() => {
-            const rootNavigation = navigation.getParent();
-            if (rootNavigation) {
-              (rootNavigation as any).navigate('ChatTab', {
-                screen: 'ChatWithPrompts',
-                params: navParams,
-              });
-            } else {
-              navigation.navigate('ChatWithPrompts' as any, navParams);
-            }
-          }, 10);
-        }
-      } catch (error) {
-        console.error('Error checking navigation flag:', error);
-      }
-    };
+  //         // Navigate to ChatTab with ChatWithPrompts
+  //         setTimeout(() => {
+  //           const rootNavigation = navigation.getParent();
+  //           if (rootNavigation) {
+  //             (rootNavigation as any).navigate('ChatTab', {
+  //               screen: 'ChatWithPrompts',
+  //               params: navParams,
+  //             });
+  //           } else {
+  //             navigation.navigate('ChatWithPrompts' as any, navParams);
+  //           }
+  //         }, 10);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error checking navigation flag:', error);
+  //     }
+  //   };
 
-    checkAndNavigate();
-  }, [navigation, membersData]);
+  //   checkAndNavigate();
+  // }, [navigation, membersData]);
   const [dashaData, setDashaData] = useState<any[]>([]);
   const [dashaLoading, setDashaLoading] = useState(false);
   const [_dashaError, setDashaError] = useState<string | null>(null);

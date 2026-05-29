@@ -8,34 +8,36 @@ import { Api, CurrentDashaTimeResponse } from '../../types/api';
 export default class UserService extends Service {
   async login(
     email: string,
-    password: string,
+    password?: string | null,
     fcmToken?: string,
   ): Promise<{
     status: boolean;
-    data: Api.User.Res.Detail;
-    access_token: string;
+    is_user_exist?: boolean;
+    data: Api.User.Res.Detail | null;
+    access_token: string | null;
     message?: string;
   }> {
     try {
-      console.log('email--->', email, password);
-      console.log('Making API call to /login with:', {
-        username: email,
-        password,
-        fcm_token: fcmToken || 'not provided',
-      });
-
+      console.log('email--->', email, password ?? '(email check only)');
       const payload: {
         username: string;
-        password: string;
+        password?: string | null;
         fcm_token?: string;
       } = {
         username: email,
-        password,
       };
+
+      if (password) {
+        payload.password = password;
+      }else{
+        payload.password = "";
+      }
 
       if (fcmToken) {
         payload.fcm_token = fcmToken;
       }
+
+      console.log('Making API call to /login with:', payload);
 
       const axiosResponse = await http.post('mobile/login', payload);
 
@@ -43,29 +45,37 @@ export default class UserService extends Service {
       console.log('API Response data:', axiosResponse.data);
       console.log('API Response status:', axiosResponse.status);
 
-      console.log('====================================');
-      console.log('axiosResponse==>123', axiosResponse.data.data);
-      console.log('====================================');
+      const responseData = axiosResponse?.data;
 
-      if (axiosResponse?.data?.status && axiosResponse?.data?.data) {
-        // Store complete user data
+      if (
+        responseData?.status &&
+        responseData?.data &&
+        responseData?.access_token
+      ) {
         await AsyncStorage.setItem(
           'USER_DATA',
-          JSON.stringify(axiosResponse.data.data),
+          JSON.stringify(responseData.data),
         );
-
-        // Store token separately
-        if (axiosResponse.data.access_token) {
-          await AsyncStorage.setItem(
-            'USER_TOKEN',
-            axiosResponse.data.access_token,
-          );
-        }
-
-        return axiosResponse.data;
+        await AsyncStorage.setItem('USER_TOKEN', responseData.access_token);
+        return responseData;
       }
 
-      throw new Error(axiosResponse?.data?.error_message || 'Login failed');
+      // Email-only step: user exists, show password field on client
+      if (responseData?.is_user_exist === true && !password) {
+        return {
+          status: responseData.status ?? false,
+          is_user_exist: true,
+          data: responseData.data ?? null,
+          access_token: responseData.access_token ?? null,
+          message: responseData.message,
+        };
+      }
+
+      throw new Error(
+        responseData?.error_message ||
+          responseData?.message ||
+          'Login failed',
+      );
     } catch (error: any) {
       console.error('Login error in service:', error);
       console.error('Login error response:', error.response);
@@ -484,21 +494,7 @@ export default class UserService extends Service {
    * @param birthData - The birth data object containing all required fields
    * @returns The API response from the birth data creation
    */
-  async createBirthData(birthData: {
-    userId: string;
-    first_name: string;
-    last_name: string;
-    gender: string;
-    birthplace: string;
-    day: number;
-    month: number;
-    year: number;
-    hour: number;
-    min: number;
-    lat: number;
-    lon: number;
-    tzone: number;
-  }): Promise<any> {
+  async createBirthData(birthData: Record<string, unknown>): Promise<any> {
     try {
       console.log('Creating birth data for member:', birthData);
       const token = await AsyncStorage.getItem('USER_TOKEN');
@@ -548,21 +544,21 @@ export default class UserService extends Service {
   async getBlendedPredictions(
     userId: string,
     mainHeading: string = "General Analysis",
-    topic: string = "Blended Predictions"
-    
+    topic?: string
   ): Promise<string[]> {
     try {
      
-      if (mainHeading === "General Analysis") {
-        topic = "Blended Predictions";
+      if (mainHeading === 'About Your Partner') {
+        topic = 'Partner';
+        mainHeading = 'Your Personality';
       }
 
-      if (mainHeading === "Snapshot Prediction") {
-        topic = "Snapshot Prediction";
-      }
-      if (mainHeading === "Your Personality") {
-        topic = 'Blended Predictions';
-      }
+      // if (mainHeading === "Snapshot Prediction") {
+      //   topic = "Snapshot Prediction";
+      // }
+      // if (mainHeading === "Your Personality") {
+      //   topic = 'Blended Predictions';
+      // }
 
       // if (mainHeading === 'Birth Chart Insights') {
       //   mainHeading = 'summary';
@@ -571,18 +567,16 @@ export default class UserService extends Service {
       console.log('mainHeading---->399', mainHeading);
       console.log('topic---->400', topic);
 
-      console.log(
-        'mainHeading---->401',
-        `house/categorize?user_id=${userId}&main_heading=${encodeURIComponent(
-          mainHeading,
-        )}&topic=${encodeURIComponent(topic)}`,
-      );
+      const categorizeUrl =
+        `/house/mobile/categorize?user_id=${userId}` +
+        `&main_heading=${encodeURIComponent(mainHeading)}` +
+        (topic ? `&topic=${encodeURIComponent(topic)}` : '');
+
+      console.log('mainHeading---->401', categorizeUrl);
 
       const token = await AsyncStorage.getItem('USER_TOKEN');
       const axiosResponse = await http.get(
-        `house/categorize?user_id=${userId}&main_heading=${encodeURIComponent(
-          mainHeading,
-        )}&topic=${encodeURIComponent(topic)}`,
+        categorizeUrl,
         {
           headers: {
             accept: 'application/json',
@@ -655,12 +649,19 @@ export default class UserService extends Service {
         },
       );
 
-      console.log('Dasha categorize data response:', axiosResponse);
+      console.log('Dasha categorize data response:', axiosResponse.data);
 
-      if (axiosResponse.data && axiosResponse.data.status === true && Array.isArray(axiosResponse.data.data)) {
+      const payload = axiosResponse.data;
+      const data = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : null;
+
+      if (data) {
         return {
-          data: axiosResponse.data.data,
-          updated_list: axiosResponse.data.updated_list || {},
+          data,
+          updated_list: payload?.updated_list || {},
         };
       }
 
@@ -699,6 +700,8 @@ export default class UserService extends Service {
   ): Promise<string[]> {
     try {
       console.log('Fetching Antardasha data for userId:', userId, 'planet:', planet);
+
+      
 
       const token = await AsyncStorage.getItem('USER_TOKEN');
 

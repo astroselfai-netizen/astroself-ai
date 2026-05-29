@@ -77,6 +77,14 @@ interface DropdownItem {
   place_id: string;
 }
 
+interface SelectOption {
+  label: string;
+  value: string;
+}
+
+const toSelectOptions = (items: string[]): SelectOption[] =>
+  items.map(item => ({ label: item, value: item }));
+
 type AddNewMemberRouteProp = RouteProp<RootStackParamList, 'AddNewMember'>;
 
 const AddNewMember = () => {
@@ -94,6 +102,8 @@ const AddNewMember = () => {
     lastName: string;
   } | null>(null);
   const [showGenderModal, setShowGenderModal] = useState(false);
+  const [showOccupationModal, setShowOccupationModal] = useState(false);
+  const [showMaritalStatusModal, setShowMaritalStatusModal] = useState(false);
   const [showPredictionTypeModal, setShowPredictionTypeModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showMemberAddedModal, setShowMemberAddedModal] = useState(false);
@@ -107,6 +117,8 @@ const AddNewMember = () => {
   // Centralized function to close all modals
   const closeAllModals = () => {
     setShowGenderModal(false);
+    setShowOccupationModal(false);
+    setShowMaritalStatusModal(false);
     setShowPredictionTypeModal(false);
     setShowDatePicker(false);
     setShowTimePicker(false);
@@ -118,6 +130,16 @@ const AddNewMember = () => {
   const openGenderModal = () => {
     closeAllModals();
     setShowGenderModal(true);
+  };
+
+  const openOccupationModal = () => {
+    closeAllModals();
+    setShowOccupationModal(true);
+  };
+
+  const openMaritalStatusModal = () => {
+    closeAllModals();
+    setShowMaritalStatusModal(true);
   };
 
   const openPredictionTypeModal = () => {
@@ -178,6 +200,87 @@ const AddNewMember = () => {
 
   const genderOptions = ['Male', 'Female'];
   const predictionTypeOptions = ['Bullet', 'Paragraph'];
+  const professionOptions = toSelectOptions([
+    'Student',
+    'Working Professional',
+    'Corporate Employee',
+    'Government Employee',
+    'Business Owner',
+    'Entrepreneur',
+    'Self-Employed',
+    'Freelancer',
+    'Consultant',
+    'Homemaker',
+    'Teacher',
+    'Professor / Lecturer',
+    'Doctor',
+    'Surgeon',
+    'Nurse / Healthcare Worker',
+    'Therapist / Counselor',
+    'Lawyer / Advocate',
+    'Chartered Accountant / CA',
+    'Banker / Finance Professional',
+    'Stock Trader / Investor',
+    'IT Professional',
+    'Software Developer / Engineer',
+    'Designer (Graphic / UI / UX / Fashion / Interior)',
+    'Architect',
+    'Engineer (Civil / Mechanical / Electrical / etc.)',
+    'Scientist / Researcher',
+    'Artist / Creative Professional',
+    'Writer / Author',
+    'Content Creator / Influencer',
+    'Digital Marketer',
+    'Sales Professional',
+    'Marketing Professional',
+    'HR Professional',
+    'Real Estate Professional',
+    'Property Dealer / Builder',
+    'Retail Shop Owner',
+    'Manufacturer',
+    'Trader / Merchant',
+    'Farmer / Agriculture Professional',
+    'NGO / Social Worker',
+    'Religious / Spiritual Professional',
+    'Astrologer / Healer',
+    'Fitness Trainer / Coach',
+    'Sports Professional / Athlete',
+    'Actor / Performer / Musician',
+    'Photographer / Videographer',
+    'Event Planner',
+    'Hospitality Professional',
+    'Chef / Food Business Owner',
+    'Transport / Logistics Professional',
+    'Defense / Police / Security Services',
+    'Politician / Public Servant',
+    'Retired',
+    'Job Seeker',
+    'Between Jobs',
+    'Not Currently Working',
+    'Other',
+  ]);
+
+  const relationshipOptions = toSelectOptions([
+    'Single',
+    'Unmarried',
+    'Married',
+    'Engaged',
+    'In a Relationship',
+    'Separated',
+    'Divorced',
+    'Widowed',
+    'Complicated',
+    'Prefer Not to Say',
+  ]);
+
+  const shouldShowChildrenQuestion = (status: string) =>
+    status === 'Married' || status === 'Divorced';
+  const childrenOptions = [
+    'Have Children',
+    'No Children',
+    'Planning for Child',
+    'Prefer Not to Say',
+  ];
 
   // Search places using Google Places API
   const searchPlaces = async (query: string) => {
@@ -305,9 +408,22 @@ const AddNewMember = () => {
     placeOfBirthDisplay: Yup.string()
       .trim()
       .required('Please select your place of birth'),
-    whatDoYouDo: Yup.string()
+    whatDoYouDo: Yup.string().required('Please select what you do currently'),
+    maritalStatus: Yup.string().required('Please select your relationship status'),
+    children: Yup.string().when('maritalStatus', {
+      is: (status: string) => shouldShowChildrenQuestion(status),
+      then: schema =>
+        schema.required('Please select an option for children'),
+      otherwise: schema => schema.notRequired(),
+    }),
+    currentFuturePlans: Yup.string()
       .trim()
-      .required('Please enter your personal details'),
+      .required('Please share what you are focused on or planning next'),
+    currentChallenges: Yup.string()
+      .trim()
+      .required('Please share your current challenges'),
+    healthIssuesIfAny: Yup.string().trim(),
+    mainSourceOfFinances: Yup.string().trim(),
   });
 
   // Payment handling function
@@ -515,25 +631,32 @@ const AddNewMember = () => {
 
     // Prepare birth data for API
     const birthData = {
+      isDeactivated: false,
       userId,
       first_name: values.firstName,
       last_name: values.lastName,
+      isProfile: false,
       gender: values.gender.toLowerCase(),
-      prediction_type: values.predictionType,
+      prediction_type: (values.predictionType || 'Bullet').toLowerCase(),
+      personalizedDetails: false,
       birthplace: values.placeOfBirthDisplay,
-      day: dateObj.getDate(),
-      month: dateObj.getMonth() + 1, // getMonth() returns 0-11
-      year: dateObj.getFullYear(),
-      hour: timeObj.getHours(),
-      min: timeObj.getMinutes(),
+      day: String(dateObj.getDate()),
+      month: String(dateObj.getMonth() + 1),
+      year: String(dateObj.getFullYear()),
+      hour: String(timeObj.getHours()),
+      min: String(timeObj.getMinutes()),
       what_do_you_do: values.whatDoYouDo,
-      marital_status: 'single',
-      children: 'no',
-      health_issues_if_any: '-',
-      main_source_of_finances: '-',
+      marital_status: values.maritalStatus,
+      children: shouldShowChildrenQuestion(values.maritalStatus)
+        ? values.children
+        : '',
+      current_future_plans: values.currentFuturePlans.trim(),
+      current_challenges: values.currentChallenges.trim(),
+      health_issues_if_any: values.healthIssuesIfAny?.trim() || '',
+      main_source_of_finances: values.mainSourceOfFinances?.trim() || '',
       lat: lat || 0,
       lon: lng || 0,
-      tzone: 5.5, // Default timezone for India, you might want to make this dynamic
+      tzone: 5.5,
     };
 
     console.log('Form values:', values);
@@ -582,6 +705,12 @@ const AddNewMember = () => {
       placeOfBirth: null,
       placeOfBirthDisplay: '',
       whatDoYouDo: '',
+      maritalStatus: '',
+      children: '',
+      currentFuturePlans: '',
+      currentChallenges: '',
+      healthIssuesIfAny: '',
+      mainSourceOfFinances: '',
     },
     enableReinitialize: true, // Re-populate when Apple/Google name becomes available
     validationSchema,
@@ -1288,26 +1417,52 @@ const AddNewMember = () => {
             </View>
 
             {/* Personal Details */}
-            <View style={styles.inputContainer}>
-              <Text
+            <View
+              style={[
+                styles.personalDetailsCard,
+                {
+                  backgroundColor:
+                    theme === 'dark' ? colors.cardBackground : '#FFF9F1',
+                  borderColor:
+                    theme === 'dark'
+                      ? colors.themeBorderDropdown
+                      : '#F5E6D8',
+                },
+              ]}
+            >
+              <View
                 style={[
-                  styles.inputTitleText,
+                  styles.personalDetailsInfoBox,
                   {
-                    color:
+                    backgroundColor:
+                      theme === 'dark' ? 'rgba(242, 116, 32, 0.12)' : '#FFF3E8',
+                    borderColor:
                       theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.DarkNavy,
+                        ? colors.themeBorderDropdown
+                        : '#F5D9C4',
                   },
                 ]}
               >
-                Personalized predictions depend on the level of details shared by you - more precise, accurate, and comprehensive details will help generate relatable predictions
-              </Text>
+                <Text
+                  style={[
+                    styles.personalDetailsInfoText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                >
+                  Personalized predictions work best with clear context. Choose
+                  the closest options and share what you want guidance for.
+                </Text>
+              </View>
+
               <Text
                 style={[
-                  styles.inputTitleText,
+                  styles.personalDetailsSectionTitle,
                   {
-                    marginTop: responsiveWidth(2),
-                    fontWeight: '700',
                     color:
                       theme === 'dark'
                         ? colors.themeTextWhite
@@ -1317,14 +1472,217 @@ const AddNewMember = () => {
               >
                 Personal Details
               </Text>
+
+              {/* What do you do currently? */}
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                What do you do currently? *
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  styles.personalDetailsSelect,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+                onPress={openOccupationModal}
+              >
+                <Text
+                  style={[
+                    styles.inputText,
+                    {
+                      color: formik.values.whatDoYouDo
+                        ? theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy
+                        : colors.grayText,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {formik.values.whatDoYouDo || 'Select occupation'}
+                </Text>
+                <Image
+                  source={require('../../assets/icons/Dropdown.png')}
+                  style={[
+                    styles.dropdownIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+              {formik.touched.whatDoYouDo && formik.errors.whatDoYouDo && (
+                <Text style={styles.errorText}>{formik.errors.whatDoYouDo}</Text>
+              )}
+
+              {/* Relationship status */}
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                What is your relationship status? *
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  styles.personalDetailsSelect,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                  },
+                ]}
+                onPress={openMaritalStatusModal}
+              >
+                <Text
+                  style={[
+                    styles.inputText,
+                    {
+                      color: formik.values.maritalStatus
+                        ? theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy
+                        : colors.grayText,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {formik.values.maritalStatus || 'Select status'}
+                </Text>
+                <Image
+                  source={require('../../assets/icons/Dropdown.png')}
+                  style={[
+                    styles.dropdownIcon,
+                    {
+                      tintColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.DarkNavy,
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+              {formik.touched.maritalStatus && formik.errors.maritalStatus && (
+                <Text style={styles.errorText}>{formik.errors.maritalStatus}</Text>
+              )}
+
+              {/* Children — only for Married or Divorced */}
+              {shouldShowChildrenQuestion(formik.values.maritalStatus) && (
+                <>
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                    ]}
+                  >
+                    Do you have children, or are you planning for children?
+                  </Text>
+                  <View style={styles.pillRow}>
+                    {childrenOptions.map(option => {
+                      const isSelected = formik.values.children === option;
+                      return (
+                        <TouchableOpacity
+                          key={option}
+                          style={[
+                            styles.pillButton,
+                            {
+                              backgroundColor: isSelected
+                                ? colors.Orangeaccentcolor
+                                : theme === 'dark'
+                                  ? colors.cardBackground
+                                  : colors.white,
+                              borderColor: isSelected
+                                ? colors.Orangeaccentcolor
+                                : theme === 'dark'
+                                  ? colors.themeBorderDropdown
+                                  : colors.borderColor,
+                            },
+                          ]}
+                          onPress={() => {
+                            formik.setFieldValue('children', option);
+                            formik.setFieldTouched('children', true, false);
+                          }}
+                          activeOpacity={0.85}
+                        >
+                          <Text
+                            style={[
+                              styles.pillButtonText,
+                              {
+                                color: isSelected
+                                  ? colors.white
+                                  : theme === 'dark'
+                                    ? colors.themeTextWhite
+                                    : colors.DarkNavy,
+                              },
+                            ]}
+                          >
+                            {option}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  {formik.touched.children && formik.errors.children && (
+                    <Text style={styles.errorText}>{formik.errors.children}</Text>
+                  )}
+                </>
+              )}
+
+              {/* Current / future plans */}
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                What are you focused on or planning next? *
+              </Text>
               <TextInput
                 style={[
                   styles.textAreaInput,
+                  styles.personalDetailsTextArea,
                   {
                     backgroundColor:
-                      theme === 'dark'
-                        ? colors.cardBackground
-                        : colors.white,
+                      theme === 'dark' ? colors.cardBackground : colors.white,
                     borderColor:
                       theme === 'dark'
                         ? colors.themeBorderDropdown
@@ -1333,41 +1691,80 @@ const AddNewMember = () => {
                       theme === 'dark'
                         ? colors.themeTextWhite
                         : colors.DarkNavy,
-                    marginTop: responsiveWidth(2),
                   },
                 ]}
-                placeholder={`Example:
-
-(a) What do you do - e.g. studying, working, home maker, retired, consultant etc.
-
-(b) Work details - e.g. employed, running a business, stock trader, IT professional, studying, doctor, etc.
-
-(c) Family details - Father mother, children, siblings, partner etc.
-
-(d) What keeps you busy these days
-
-(e) Anything else that you wish to share.
-                `}
-                placeholderTextColor={
-                  theme === 'dark' ? colors.themeTextWhite : colors.grayText
-                }
-                value={formik.values.whatDoYouDo}
-                onChangeText={formik.handleChange('whatDoYouDo')}
-                onBlur={formik.handleBlur('whatDoYouDo')}
+                placeholder="e.g. career growth, marriage planning, business expansion, relocation, etc."
+                placeholderTextColor={colors.grayText}
+                value={formik.values.currentFuturePlans}
+                onChangeText={formik.handleChange('currentFuturePlans')}
+                onBlur={formik.handleBlur('currentFuturePlans')}
                 onFocus={() => {
                   if (isPlaceDropdownOpen) {
                     setIsPlaceDropdownOpen(false);
                   }
                 }}
-                multiline={true}
-                numberOfLines={5}
+                multiline
+                numberOfLines={4}
                 textAlignVertical="top"
               />
-              {formik.touched.whatDoYouDo && formik.errors.whatDoYouDo && (
-                <Text style={styles.errorText}>
-                  {formik.errors.whatDoYouDo}
-                </Text>
-              )}
+              {formik.touched.currentFuturePlans &&
+                formik.errors.currentFuturePlans && (
+                  <Text style={styles.errorText}>
+                    {formik.errors.currentFuturePlans}
+                  </Text>
+                )}
+
+              {/* Current challenges */}
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                What challenges are you facing right now? *
+              </Text>
+              <TextInput
+                style={[
+                  styles.textAreaInput,
+                  styles.personalDetailsTextArea,
+                  {
+                    backgroundColor:
+                      theme === 'dark' ? colors.cardBackground : colors.white,
+                    borderColor:
+                      theme === 'dark'
+                        ? colors.themeBorderDropdown
+                        : colors.borderColor,
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+                placeholder="e.g. career issues, financial stress, relationship concerns, health, etc."
+                placeholderTextColor={colors.grayText}
+                value={formik.values.currentChallenges}
+                onChangeText={formik.handleChange('currentChallenges')}
+                onBlur={formik.handleBlur('currentChallenges')}
+                onFocus={() => {
+                  if (isPlaceDropdownOpen) {
+                    setIsPlaceDropdownOpen(false);
+                  }
+                }}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+              {formik.touched.currentChallenges &&
+                formik.errors.currentChallenges && (
+                  <Text style={styles.errorText}>
+                    {formik.errors.currentChallenges}
+                  </Text>
+                )}
             </View>
 
             {/* Save Button */}
@@ -1473,6 +1870,178 @@ const AddNewMember = () => {
                     ]}
                   >
                     {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              ItemSeparatorComponent={() => (
+                <View
+                  style={[
+                    styles.modalSeparator,
+                    {
+                      backgroundColor:
+                        theme === 'dark'
+                          ? 'rgba(34, 49, 73, 1)'
+                          : colors.borderColor,
+                    },
+                  ]}
+                />
+              )}
+              contentContainerStyle={{ paddingBottom: 16 }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Occupation Selection Modal */}
+      <Modal
+        visible={showOccupationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAllModals}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalBackdrop}
+          onPress={closeAllModals}
+        >
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHandle,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.borderColor,
+                },
+              ]}
+            />
+            <FlatList
+              data={professionOptions}
+              keyExtractor={item => item.value}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modalItem,
+                    formik.values.whatDoYouDo === item.value &&
+                      styles.selectedModalItem,
+                  ]}
+                  onPress={() => {
+                    formik.setFieldValue('whatDoYouDo', item.value);
+                    formik.setFieldTouched('whatDoYouDo', true, false);
+                    closeAllModals();
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                      formik.values.whatDoYouDo === item.value &&
+                        styles.selectedModalItemText,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              ItemSeparatorComponent={() => (
+                <View
+                  style={[
+                    styles.modalSeparator,
+                    {
+                      backgroundColor:
+                        theme === 'dark'
+                          ? 'rgba(34, 49, 73, 1)'
+                          : colors.borderColor,
+                    },
+                  ]}
+                />
+              )}
+              contentContainerStyle={{ paddingBottom: 16 }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Marital Status Selection Modal */}
+      <Modal
+        visible={showMaritalStatusModal}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAllModals}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.modalBackdrop}
+          onPress={closeAllModals}
+        >
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor:
+                  theme === 'dark' ? colors.DarkNavy : colors.white,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHandle,
+                {
+                  backgroundColor:
+                    theme === 'dark'
+                      ? colors.themeTextWhite
+                      : colors.borderColor,
+                },
+              ]}
+            />
+            <FlatList
+              data={relationshipOptions}
+              keyExtractor={item => item.value}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modalItem,
+                    formik.values.maritalStatus === item.value &&
+                      styles.selectedModalItem,
+                  ]}
+                  onPress={() => {
+                    formik.setFieldValue('maritalStatus', item.value);
+                    formik.setFieldTouched('maritalStatus', true, false);
+                    if (!shouldShowChildrenQuestion(item.value)) {
+                      formik.setFieldValue('children', '');
+                      formik.setFieldError('children', undefined);
+                    }
+                    closeAllModals();
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.DarkNavy,
+                      },
+                      formik.values.maritalStatus === item.value &&
+                        styles.selectedModalItemText,
+                    ]}
+                  >
+                    {item.label}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -2154,6 +2723,60 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 10,
+  },
+  personalDetailsCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: responsiveWidth(3),
+    marginBottom: responsiveWidth(3),
+  },
+  personalDetailsInfoBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: responsiveWidth(3),
+    marginBottom: responsiveWidth(3),
+  },
+  personalDetailsInfoText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    lineHeight: 19,
+  },
+  personalDetailsSectionTitle: {
+    fontSize: 18,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '700',
+    marginBottom: responsiveWidth(2.5),
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+    marginBottom: responsiveWidth(1.5),
+    marginTop: responsiveWidth(1),
+  },
+  personalDetailsSelect: {
+    marginBottom: responsiveWidth(1),
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: responsiveWidth(2),
+    marginBottom: responsiveWidth(1),
+  },
+  pillButton: {
+    paddingHorizontal: responsiveWidth(3),
+    paddingVertical: responsiveWidth(2),
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  pillButtonText: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontWeight: '500',
+  },
+  personalDetailsTextArea: {
+    marginBottom: responsiveWidth(1),
+    minHeight: responsiveWidth(28),
   },
   inputTitleText: {
     fontSize: 16,
