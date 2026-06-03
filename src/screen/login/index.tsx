@@ -290,9 +290,24 @@ const Login = () => {
       const result = await googleAuthService.signInWithGoogle();
       
       if (result.success) {
-        // Use the user data from your backend API
+        // We require backend token for app APIs. If backend is down, don't proceed.
         const userData = result.user;
-        const token = result.token || result.idToken;
+        const token = result.token;
+
+        if (!token) {
+          Toast.show({
+            type: 'error',
+            text1: 'Server Unavailable',
+            text2:
+              'Google sign-in worked, but our server is down (503). Please try again later.',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3500,
+          });
+          // Ensure we don't keep a half-signed-in session.
+          await googleAuthService.signOut();
+          return;
+        }
 
         // Dispatch user data to Redux state
         dispatch(setUser(userData));

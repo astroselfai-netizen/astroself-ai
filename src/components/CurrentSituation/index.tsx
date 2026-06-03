@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -63,7 +63,6 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const openedUpgradeModalRef = useRef('');
 
   const persistActiveTabIndex = useCallback(
     async (index: number) => {
@@ -120,24 +119,13 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({
       setSections(headings);
       setActiveTabIndex(restoredIndex);
     } catch (err: any) {
-      const message = String(err.message || '').toLowerCase();
-      const isSubscriptionError =
-        message.includes('subscription') ||
-        message.includes('no active') ||
-        message.includes('plan');
-
-      if (isSubscriptionError && onShowBuyMembershipModal) {
-        onShowBuyMembershipModal('Predictions');
-        setError(null);
-      } else {
-        setError(err.message || 'Failed to fetch prediction headings');
-      }
+      setError(err.message || 'Failed to fetch prediction headings');
       setSections([]);
       setActiveTabIndex(0);
     } finally {
       setLoading(false);
     }
-  }, [selectedMemberId, restoreActiveTabIndex, onShowBuyMembershipModal]);
+  }, [selectedMemberId, restoreActiveTabIndex]);
 
   useEffect(() => {
     if (selectedMemberId) {
@@ -189,44 +177,6 @@ const CurrentSituation: React.FC<CurrentSituationProps> = ({
       });
     }, [selectedMemberId, sections.length, restoreActiveTabIndex]),
   );
-
-  useEffect(() => {
-    openedUpgradeModalRef.current = '';
-  }, [selectedMemberId]);
-
-  useEffect(() => {
-    const tabType = activeSection?.tab_type;
-    if (!tabType || loading || error || !onShowBuyMembershipModal) {
-      return;
-    }
-    const isTabLocked =
-      !hasAnalysisTabAccess ||
-      (is360ViewOfLifeTab(tabType) && isPrimaryFirstCosmicFoundation);
-
-    if (!isTabLocked) {
-      return;
-    }
-
-    const modalKey = `${selectedMemberId}:${tabType}`;
-    if (openedUpgradeModalRef.current === modalKey) {
-      return;
-    }
-    openedUpgradeModalRef.current = modalKey;
-
-    onShowBuyMembershipModal(
-      is360ViewOfLifeTab(tabType) && isPrimaryFirstCosmicFoundation
-        ? '360° View of Life'
-        : tabType,
-    );
-  }, [
-    activeSection,
-    loading,
-    error,
-    selectedMemberId,
-    onShowBuyMembershipModal,
-    isPrimaryFirstCosmicFoundation,
-    hasAnalysisTabAccess,
-  ]);
 
   const handleTabPress = (index: number, section: AnalysisTabSection) => {
     setActiveTabIndex(index);

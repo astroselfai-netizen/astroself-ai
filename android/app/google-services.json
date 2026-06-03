@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "279160023240-01iq149as4cmkppo02aui8p9fp5qqci8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astrodha.ai",
+            "certificate_hash": "0fb429bafcbe9b6b8980b287bb12b8dd612c2e7a"
+          }
+        },
+        {
           "client_id": "279160023240-1s65q18fursjgj30ss8fjec2aqd5mjf4.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -35,6 +43,14 @@
           "android_info": {
             "package_name": "com.astrodha.ai",
             "certificate_hash": "19e0c47a7f05c8cb0f3dda8f1fbb5d536b495dd3"
+          }
+        },
+        {
+          "client_id": "279160023240-aa366f05ar73npha3dp2g1cpfhhhm6hj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astrodha.ai",
+            "certificate_hash": "dabcd0ca9129df16db8e3acb36bd33af2dc78bee"
           }
         },
         {

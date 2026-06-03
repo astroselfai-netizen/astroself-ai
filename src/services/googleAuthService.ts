@@ -22,18 +22,19 @@ class GoogleAuthService extends Service {
   }
 
   private configureGoogleSignIn() {
-    // Update after Firebase download has oauth_client with client_type: 3 (279160023240-...)
-    // 128164235380-... is a different GCP project — do not use with astrodha-b8493
+    // ONLY client_type: 3 from google-services.json (Web). Never use client_type: 1 (Android).
+    // Wrong IDs that cause DEVELOPER_ERROR: 01iq149..., aa366f05..., 128164235380-...
     const webClientId =
       '279160023240-cpcuvcrr815an858pqrd9clu1ec557ti.apps.googleusercontent.com';
 
     GoogleSignin.configure({
-      iosClientId:
-        '279160023240-cpcuvcrr815an858pqrd9clu1ec557ti.apps.googleusercontent.com',
-      webClientId:
-        Platform.OS === 'ios'
-          ? '279160023240-cpcuvcrr815an858pqrd9clu1ec557ti.apps.googleusercontent.com'
-          : webClientId,
+      ...(Platform.OS === 'ios'
+        ? {
+            iosClientId:
+              '279160023240-ovuh25ge2isabaarno8in0h858c10eic.apps.googleusercontent.com',
+          }
+        : {}),
+      webClientId,
       offlineAccess: true,
       hostedDomain: '',
       forceCodeForRefreshToken: true,
@@ -119,7 +120,7 @@ class GoogleAuthService extends Service {
         return {
           success: false,
           error:
-            'DEVELOPER_ERROR: Firebase astrodha-b8493 → com.astrodha.ai par Debug+Release SHA-1 add karo, Authentication mein Google Enable karo, phir google-services.json dubara download karo (oauth_client empty nahi hona chahiye).',
+            'Google Sign-In config error (DEVELOPER_ERROR). Firebase project astrodha-b8493: add Play Store App signing SHA-1 for com.astrodha.ai, enable Google in Authentication, then download a fresh google-services.json.',
         };
       } else {
         return {
@@ -216,21 +217,23 @@ class GoogleAuthService extends Service {
           };
         } catch (registerError: any) {
           console.log('Both login and registration failed:', registerError);
-          
-          // If both fail, return the Firebase user data as fallback
+
+          const status = registerError?.response?.status ?? loginError?.response?.status;
+          if (status && status >= 500) {
+            return {
+              success: false,
+              error:
+                'Server is temporarily unavailable (503/5xx). Please try again in a few minutes.',
+            };
+          }
+
           return {
-            success: true,
-            user: {
-              id: firebaseUser.uid,
-              email: firebaseUser.email,
-              firstName: userData.firstName,
-              lastName: userData.lastName,
-              photoURL: firebaseUser.photoURL,
-              provider: 'google',
-            },
-            token: null, // No backend token available
-            isNewUser: true,
-            fallback: true, // Indicates this is a fallback response
+            success: false,
+            error:
+              registerError?.response?.data?.message ||
+              registerError?.response?.data?.error_message ||
+              registerError?.message ||
+              'Failed to register/login with backend',
           };
         }
       }

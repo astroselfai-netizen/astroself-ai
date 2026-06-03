@@ -161,9 +161,13 @@ const ChatScreen = () => {
     };
   }, [selectedMember]);
 
-  // Reset modal state when member changes (but don't clear the Set - we want to remember which members have seen it)
+  // Close plan modals when switching member — upgrade flow only on explicit user action
   useEffect(() => {
     setShowBuyMembershipModal(false);
+    setShowAssignFamilyModal(false);
+    setShowFamilyUpgradeModal(false);
+    setAssignMember(null);
+    setFamilyUpgradeMember(null);
   }, [selectedMemberId]);
 
   // Check if free points modal should be shown after login

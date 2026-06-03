@@ -1,0 +1,71 @@
+{
+  "project_info": {
+    "project_number": "279160023240",
+    "project_id": "astrodha-b8493",
+    "storage_bucket": "astrodha-b8493.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:279160023240:android:1114037d35d2bedcaf5dfd",
+        "android_client_info": {
+          "package_name": "com.astrodha.ai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "279160023240-1s65q18fursjgj30ss8fjec2aqd5mjf4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astrodha.ai",
+            "certificate_hash": "fc0181177b65cfa86fb3928b4f55f3cb440979e9"
+          }
+        },
+        {
+          "client_id": "279160023240-5f8l0420gjtqervdtn3io5k17ibb1bkc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astrodha.ai",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "279160023240-7ea03pp5qne5m0l4bg1nle3uuthcj8oi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astrodha.ai",
+            "certificate_hash": "19e0c47a7f05c8cb0f3dda8f1fbb5d536b495dd3"
+          }
+        },
+        {
+          "client_id": "279160023240-noac9qbb64l4k263fj1khqa9i52pmgou.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.astrodha.ai",
+            "certificate_hash": "b0c365f442c5090278d78d709e5522fecef3e0e6"
+          }
+        },
+        {
+          "client_id": "279160023240-cpcuvcrr815an858pqrd9clu1ec557ti.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6nC2zssrWpU5lKKL53Fkaws5m-_LvahQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "279160023240-cpcuvcrr815an858pqrd9clu1ec557ti.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -509,7 +509,21 @@ const Register = () => {
       if (result.success) {
         // Use the user data from your backend API
         const userData = result.user;
-        const token = result.token || result.idToken;
+        const token = result.token;
+
+        if (!token) {
+          Toast.show({
+            type: 'error',
+            text1: 'Server Unavailable',
+            text2:
+              'Google sign-in worked, but our server is down (503). Please try again later.',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3500,
+          });
+          await googleAuthService.signOut();
+          return;
+        }
 
         // Dispatch user data to Redux state
         dispatch(setUser(userData));
