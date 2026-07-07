@@ -1177,57 +1177,62 @@ const Register = () => {
             </View>
 
             {/* Google Signup */}
-            <TouchableOpacity
-              style={[
-                styles.googleButton,
-                {
-                  borderColor:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.primaryBlue,
-                },
-                (formik.isSubmitting || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
-              ]}
-              onPress={handleGoogleSignup}
-              disabled={formik.isSubmitting || isGoogleLoading || isAppleLoading}
-            >
-              {isGoogleLoading ? (
-                <View style={styles.loaderContainer}>
-                  <ActivityIndicator size="small" color={theme === 'dark' ? colors.themeTextWhite : colors.primaryBlue} />
-                  <Text
-                    style={[
-                      styles.googleButtonText,
-                      styles.loadingText,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.primaryBlue,
-                      },
-                    ]}
-                  >
-                    Signing up...
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <Image source={icons.Ic_google} style={styles.googleIcon} />
-                  <Text
-                    style={[
-                      styles.googleButtonText,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.primaryBlue,
-                      },
-                    ]}
-                  >
-                    Sign up with Google
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {
+              Platform.OS === 'android' && (
+                <TouchableOpacity
+                  style={[
+                    styles.googleButton,
+                    {
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.primaryBlue,
+                    },
+                    (formik.isSubmitting || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
+                  ]}
+                  onPress={handleGoogleSignup}
+                  disabled={formik.isSubmitting || isGoogleLoading || isAppleLoading}
+                >
+                  {isGoogleLoading ? (
+                    <View style={styles.loaderContainer}>
+                      <ActivityIndicator size="small" color={theme === 'dark' ? colors.themeTextWhite : colors.primaryBlue} />
+                      <Text
+                        style={[
+                          styles.googleButtonText,
+                          styles.loadingText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.primaryBlue,
+                          },
+                        ]}
+                      >
+                        Signing up...
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Image source={icons.Ic_google} style={styles.googleIcon} />
+                      <Text
+                        style={[
+                          styles.googleButtonText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.primaryBlue,
+                          },
+                        ]}
+                      >
+                        Sign up with Google
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )
+            }
+          
             {/* Apple Signup */}
             <AppleLoginButton
               onPress={handleAppleSignup}

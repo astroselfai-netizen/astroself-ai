@@ -504,6 +504,76 @@ class PaymentService extends Service {
     }
   }
 
+  async getAstrologerPaymentHistory(userId: string): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await http.get(
+        `/astrologer/user/payment-history/${encodeURIComponent(userId)}?user_id=${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching astrologer payment history:', error);
+      if (error.response) {
+        throw new Error(
+          error.response.data?.message || 'Failed to fetch payment history',
+        );
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while fetching payment history');
+      }
+    }
+  }
+
+  async getAstrologerAutoPay(
+    userId: string,
+    skip = 0,
+    take = 10,
+    limit = 10,
+    pageNo = 0,
+  ): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await http.get(
+        `/astrologer/user/auto-pay/${encodeURIComponent(userId)}?skip=${skip}&take=${take}&limit=${limit}&pageNo=${pageNo}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching astrologer auto pay:', error);
+      if (error.response) {
+        throw new Error(
+          error.response.data?.message || 'Failed to fetch auto pay',
+        );
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while fetching auto pay');
+      }
+    }
+  }
+
   async cancelSubscription(
     subscriptionId: string,
     memberUserId: string,

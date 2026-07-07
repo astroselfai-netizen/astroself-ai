@@ -6,6 +6,7 @@ import { Api } from '../types/api';
 import { setMembers, setUser } from '../state/slices/appSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { isAstrologerUser, mergeUserProfile } from '../utils/userRole';
 
 export const useProfileData = () => {
   const dispatch = useDispatch();
@@ -24,6 +25,7 @@ export const useProfileData = () => {
       setError(null);
       
       let userId = user?._id;
+      let currentUser = user as (Api.User.Res.Detail & { role?: string }) | undefined;
       
       // If no user in Redux state, try to get from AsyncStorage
       if (!userId) {
@@ -32,6 +34,7 @@ export const useProfileData = () => {
           if (userDataString) {
             const userData = JSON.parse(userDataString);
             userId = userData._id;
+            currentUser = userData;
             // Also update Redux state
             dispatch(setUser(userData));
           }
@@ -46,6 +49,12 @@ export const useProfileData = () => {
         setLoading(false);
         return;
       }
+
+      if (isAstrologerUser(currentUser)) {
+        console.log('Astrologer user - skipping regular profile fetch');
+        setLoading(false);
+        return;
+      }
        
 
       const userService = new UserService();
@@ -55,14 +64,18 @@ export const useProfileData = () => {
       
       if (response.status && response.data.user_details) {
         console.log('Profile data fetched successfully, updating state...');
-        setProfileData(response.data.user_details);
+        const mergedUser = mergeUserProfile(
+          user,
+          response.data.user_details as Record<string, unknown>,
+        );
+        setProfileData(mergedUser as Api.User.Res.Detail);
 
         console.log('Members data length:', response.data.data?.length);
         console.log('Members data:', response.data.data);
         setMembersData(response.data.data);
-        // Update the global user state with the latest profile data
-        dispatch(setUser(response.data.user_details));
+        dispatch(setUser(mergedUser as Api.User.Res.Detail));
         dispatch(setMembers(response.data.data));
+        await AsyncStorage.setItem('USER_DATA', JSON.stringify(mergedUser));
         console.log('State updated successfully');
       }
     } catch (error: any) {

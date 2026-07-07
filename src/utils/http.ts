@@ -25,9 +25,9 @@ export const baseURL = __DEV__
       default: 'https://astrouat.astroself.ai/api',
     })
   : Platform.select({
-      android: 'https://astrouat.astroself.ai/api',
-      ios: 'https://astrouat.astroself.ai/api',
-      default: 'https://astrouat.astroself.ai/api',
+      android: 'https://astrodha.ai/api',
+      ios: 'https://astrodha.ai/api',
+      default: 'https://astrodha.ai/api',
     }); // Production URL
 
 // Create Axios instance with default headers

@@ -14,6 +14,22 @@ declare module 'react-native-razorpay' {
       name?: string;
     };
     notes?: Record<string, any>;
+    recurring?: number | string;
+    config?: {
+      display?: {
+        blocks?: Record<
+          string,
+          {
+            name?: string;
+            instruments?: Array<{ method?: string }>;
+          }
+        >;
+        sequence?: string[];
+        preferences?: {
+          show_default_blocks?: boolean;
+        };
+      };
+    };
     theme?: {
       color?: string;
     };
@@ -21,8 +37,9 @@ declare module 'react-native-razorpay' {
 
   interface RazorpayResponse {
     razorpay_payment_id: string;
-    razorpay_order_id: string;
     razorpay_signature: string;
+    razorpay_order_id?: string;
+    razorpay_subscription_id?: string;
   }
 
   interface RazorpayError {

@@ -28,12 +28,21 @@ import serviceFactory from '../../services/serviceFactory';
 import GoogleAuthService from '../../services/googleAuthService';
 import notificationService from '../../services/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isAstrologerUser } from '../../utils/userRole';
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
   Register: undefined; // Register screen
   ForgotPassword: undefined;
   HomeScreen: undefined;
+  AstrologerHome: undefined;
+  AstrologerRegister:
+    | {
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+      }
+    | undefined;
   AddNewMember: undefined;
   ExploreScreen: undefined;
   // Add other screens as needed
@@ -100,7 +109,7 @@ const ContinueWithOtp = () => {
     setErrorMessage('');
     
     try {
-      const response = await userService.requestOtp(email);
+      const response = await userService.requestAstrologerOtp(email);
       console.log('OTP sent successfully:', response);
       
       setIsOtpActive(true);
@@ -124,7 +133,7 @@ const ContinueWithOtp = () => {
     setErrorMessage('');
     
     try {
-      const response = await userService.requestOtp(email);
+      const response = await userService.requestAstrologerOtp(email);
       console.log('OTP resent successfully:', response);
       
       setOtp(['', '', '', '', '', '']);
@@ -141,28 +150,19 @@ const ContinueWithOtp = () => {
     }
   };
 
-  const navigateAfterAuth = async (current_members: number, userData: any) => {
-    if (current_members === 0) {
-      navigation.navigate("ExploreScreen");
-    } else {
-      console.log('Members found, navigating to ChatWithPrompts', userData);
-      // Get user_id from userData
-      const userId = userData._id || userData.user_id || userData.id;
-      
-      if (userId) {
-        // Store navigation params in AsyncStorage to be picked up by HomeScreen
-        await AsyncStorage.setItem(
-          'NAVIGATE_TO_CHAT_WITH_PROMPTS',
-          JSON.stringify({
-            userId: userId,
-            cardTitles: 'Major Life Cycle',
-            tab: 'LONG TERM',
-            planet: null,
-          }),
-        );
-      }
-      navigation.navigate('HomeScreen');
+  const navigateAfterAuth = async (userData: any) => {
+    if (isAstrologerUser(userData)) {
+      navigation.replace('AstrologerHome');
+      return;
     }
+    Toast.show({
+      type: 'error',
+      text1: 'Access denied',
+      text2: 'This login is for astrologers only.',
+      position: 'top',
+      topOffset: 60,
+      visibilityTime: 3000,
+    });
   };
 
   const handleLogin = async () => {
@@ -183,11 +183,27 @@ const ContinueWithOtp = () => {
         // Continue with OTP verification even if FCM token fails
       }
       
-      const response = await userService.verifyOtp(email, otpString, fcmToken || undefined);
+      const response = await userService.verifyAstrologerOtp(
+        email,
+        otpString,
+        fcmToken || undefined,
+      );
       console.log('OTP verified successfully:', response);
       
       // Dispatch user data to Redux state
       if (response?.status && response?.data) {
+        if (!isAstrologerUser(response.data)) {
+          Toast.show({
+            type: 'error',
+            text1: 'Access denied',
+            text2: 'This login is for astrologers only.',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3000,
+          });
+          return;
+        }
+
         dispatch(setUser(response.data));
         if (response.access_token) {
           dispatch(setUserToken(response.access_token));
@@ -195,7 +211,11 @@ const ContinueWithOtp = () => {
         
         // Check if this user has already seen the free points modal
         try {
-          const userId = response.data._id || response.data.user_id || response.data.id;
+          const userData = response.data as typeof response.data & {
+            _id?: string;
+            id?: string;
+          };
+          const userId = userData._id || response.data.user_id || userData.id;
           if (userId) {
             const hasSeenModal = await AsyncStorage.getItem(
               `FREE_POINTS_MODAL_SEEN_${userId}`,
@@ -210,7 +230,7 @@ const ContinueWithOtp = () => {
         }
         
         setTimeout(async () => {
-          await navigateAfterAuth(response.data.current_members, response.data);
+          await navigateAfterAuth(response.data);
         }, 1000);
       }
       
@@ -275,11 +295,21 @@ const ContinueWithOtp = () => {
      const result = await googleAuthService.signInWithGoogle();
 
      if (result.success) {
-       // Use the user data from your backend API
        const userData = result.user;
        const token = result.token || result.idToken;
 
-      // Dispatch user data to Redux state
+      if (!isAstrologerUser(userData)) {
+        Toast.show({
+          type: 'error',
+          text1: 'Access denied',
+          text2: 'This login is for astrologers only.',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+        return;
+      }
+
       dispatch(setUser(userData));
       if (token) {
         dispatch(setUserToken(token));
@@ -316,12 +346,9 @@ const ContinueWithOtp = () => {
         visibilityTime: 3000,
       });
 
-      setTimeout(async () => {
-        await navigateAfterAuth(result?.user?.current_members || 0, result?.user);
+      setTimeout(() => {
+        navigation.replace('AstrologerHome');
       }, 1000);
-
-       // navigation.replace('HomeScreen');
-      //  navigation.navigate('HomeScreen');
      } else {
        Toast.show({
          type: 'error',
@@ -655,35 +682,40 @@ const ContinueWithOtp = () => {
             </View>
 
             {/* Google Login */}
-            <TouchableOpacity
-              onPress={handleGoogleLogin}
-              style={[
-                styles.googleButton,
-                {
-                  borderColor:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.primaryBlue,
-                },
-              ]}
-            >
-              {/* <Text style={styles.googleG}>G</Text> */}
-              <Image source={icons.Ic_google} style={styles.googleG} />
-              <Text
-                style={[
-                  styles.googleButtonText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.primaryBlue,
-                  },
-                ]}
-              >
-                {' '}
-                Login with Google
-              </Text>
-            </TouchableOpacity>
+            {
+              Platform.OS === 'android' && (
+                <TouchableOpacity
+                  onPress={handleGoogleLogin}
+                  style={[
+                    styles.googleButton,
+                    {
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.primaryBlue,
+                    },
+                  ]}
+                >
+                  {/* <Text style={styles.googleG}>G</Text> */}
+                  <Image source={icons.Ic_google} style={styles.googleG} />
+                  <Text
+                    style={[
+                      styles.googleButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.primaryBlue,
+                      },
+                    ]}
+                  >
+                    {' '}
+                    Login with Google
+                  </Text>
+                </TouchableOpacity>
+              )
+            }
+           
           </View>
         </ScrollView>
       </AuthContainer>

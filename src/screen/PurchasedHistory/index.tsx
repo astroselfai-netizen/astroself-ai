@@ -29,6 +29,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
 import PaymentService from '../../services/payment/payment.service';
 import LottieView from 'lottie-react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../state/store';
+import { isAstrologerUser } from '../../utils/userRole';
 
 type CancelAutopayResultModal =
   | { kind: 'success' }
@@ -65,6 +68,9 @@ const PurchasedHistoryScreen = () => {
   const { theme, colors } = useTheme();
   const navigation = useNavigation<PurchasedHistoryScreenNavigationProp>();
   const { profileData } = useProfileData();
+  const user = useSelector((state: RootState) => state.app.user);
+  const isAstrologer = isAstrologerUser(user);
+  const activeUserId = isAstrologer ? user?._id : profileData?._id;
   const [activeTab, setActiveTab] = useState<'Purchase History' | 'Auto Payment'>(
     'Purchase History',
   );
@@ -188,12 +194,10 @@ const PurchasedHistoryScreen = () => {
     return bankName && network ? `${bankName} - ${network} •••• ${last4}` : `•••• ${last4}`;
   }, []);
 
-  // Fetch payment history and auto pay
   const fetchPaymentData = useCallback(async () => {
     try {
-      // Get user ID from profileData
-      const userId = profileData?._id;
-      
+      const userId = activeUserId;
+
       if (!userId) {
         setLoading(false);
         return;
@@ -210,64 +214,87 @@ const PurchasedHistoryScreen = () => {
 
       const paymentService = new PaymentService();
 
+      const transformCombinedItems = (combinedItems: any[]) =>
+        combinedItems.map((item: any, index: number) => {
+          const planName = item.plan_name || '';
+          const formattedPlanName = planName
+            .split('_')
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+
+          let description = '';
+          if (item.type === 'subscription') {
+            if (planName === 'eternal_path' || planName.includes('premium')) {
+              description = 'Annual Membership Renewal - Premium Plan';
+            } else if (planName === '2999_plan' || planName === 'pro') {
+              description = 'Astrologer Pro Subscription';
+            } else if (planName === '4999_plan' || planName === 'premium') {
+              description = 'Astrologer Premium Subscription';
+            } else {
+              description = `${formattedPlanName} Subscription`;
+            }
+          } else {
+            const reportType = item.report_type || '';
+            const reportTypeMap: { [key: string]: string } = {
+              nakshatra: 'Nakshatra Report',
+              adl: 'Antardasha Report',
+              tarot: 'Tarot Card Reading',
+              numerology: 'Numerology Insights',
+              vedic: 'Vedic Astrology Chart',
+              compatibility: 'Compatibility Analysis',
+            };
+            const reportDisplayName =
+              reportTypeMap[reportType.toLowerCase()] || formattedPlanName || 'Report';
+            description = `Purchased ${reportDisplayName}`;
+          }
+
+          const dateTime = item.verified_at || item.activated_at || null;
+
+          return {
+            id: item.unique_code || `history-${index}`,
+            dateTime: formatDateTime(dateTime),
+            description,
+            amount: formatAmount(item.amount),
+            currency: item.currency || 'INR',
+            uniqueCode: item.unique_code || 'N/A',
+            verifiedAt: item.verified_at,
+            activatedAt: item.activated_at,
+            card: item.card ? formatCardInfo(item.card) : null,
+            type: item.type || 'subscription',
+            planName,
+            status: item.status || 'N/A',
+          };
+        });
+
+      const transformSubscriptions = (subscriptions: any[]) =>
+        subscriptions.map((sub: any, index: number) => ({
+          id: sub.subscription_id || sub.unique_code || `autopay-${index}`,
+          subscriptionId: sub.subscription_id || 'N/A',
+          planName: sub.plan_name || 'N/A',
+          memberName: sub.name || 'N/A',
+          memberUserId: sub.member_user_id || userId,
+          status: sub.status || 'N/A',
+          startPlan: sub.start_plan ? formatDate(sub.start_plan) : null,
+          endPlan: sub.end_plan ? formatDate(sub.end_plan) : null,
+          nextRenewalDate: sub.end_plan ? formatDate(sub.end_plan) : null,
+          uniqueCode: sub.unique_code || 'N/A',
+          verifiedAt: sub.verified_at,
+          activatedAt: sub.activated_at,
+          card: sub.card ? formatCardInfo(sub.card) : null,
+          type: sub.type || 'subscription',
+        }));
+
       // Fetch Payment History
       try {
-        const paymentHistoryResponse = await paymentService.getPaymentHistory(userId);
+        const paymentHistoryResponse = isAstrologer
+          ? await paymentService.getAstrologerPaymentHistory(userId)
+          : await paymentService.getPaymentHistory(userId);
 
-        console.log('paymentHistoryResponse--?>', paymentHistoryResponse);
         if (paymentHistoryResponse.status === 'success' && paymentHistoryResponse.data) {
           const combinedItems = paymentHistoryResponse.data.combined_items || [];
-          const transformedHistory = combinedItems.map((item: any, index: number) => {
-            // Format plan name for display
-            const planName = item.plan_name || '';
-            const formattedPlanName = planName
-              .split('_')
-              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ');
-            
-            // Generate description - for subscriptions show "Annual Membership Renewal - Premium Plan"
-            // For reports show "Purchased Nakshatra Report for Member Name"
-            let description = '';
-            if (item.type === 'subscription') {
-              if (planName === 'eternal_path' || planName.includes('premium')) {
-                description = `Annual Membership Renewal - Premium Plan`;
-              } else {
-                description = `${formattedPlanName} Subscription`;
-              }
-            } else {
-              // For reports, we need to check if there's a report_type or similar
-              const reportType = item.report_type || '';
-              const reportTypeMap: { [key: string]: string } = {
-                'nakshatra': 'Nakshatra Report',
-                'adl': 'Antardasha Report',
-                'tarot': 'Tarot Card Reading',
-                'numerology': 'Numerology Insights',
-                'vedic': 'Vedic Astrology Chart',
-                'compatibility': 'Compatibility Analysis',
-              };
-              const reportDisplayName = reportTypeMap[reportType.toLowerCase()] || formattedPlanName || 'Report';
-              description = `Purchased ${reportDisplayName}`;
-            }
-            
-            // Get date time - prefer verified_at, then activated_at
-            const dateTime = item.verified_at || item.activated_at || null;
-            
-            return {
-              id: item.unique_code || `history-${index}`,
-              dateTime: formatDateTime(dateTime),
-              description: description,
-              amount: formatAmount(item.amount),
-              currency: item.currency || 'INR',
-              uniqueCode: item.unique_code || 'N/A',
-              verifiedAt: item.verified_at,
-              activatedAt: item.activated_at,
-              card: item.card ? formatCardInfo(item.card) : null,
-              type: item.type || 'subscription',
-              planName: planName,
-              status: item.status || 'N/A',
-            };
-          });
-          setPurchaseHistoryData(transformedHistory);
+          setPurchaseHistoryData(transformCombinedItems(combinedItems));
+        } else {
+          setPurchaseHistoryData([]);
         }
       } catch (err: any) {
         console.error('Error fetching payment history:', err);
@@ -276,29 +303,15 @@ const PurchasedHistoryScreen = () => {
 
       // Fetch Auto Pay
       try {
-        const autoPayResponse = await paymentService.getAutoPay(userId);
+        const autoPayResponse = isAstrologer
+          ? await paymentService.getAstrologerAutoPay(userId)
+          : await paymentService.getAutoPay(userId);
 
-        console.log('autoPayResponse------', autoPayResponse);
         if (autoPayResponse.status === 'success' && autoPayResponse.data) {
           const subscriptions = autoPayResponse.data.subscriptions || [];
-          const transformedAutoPay = subscriptions.map((sub: any, index: number) => ({
-            id: sub.subscription_id || sub.unique_code || `autopay-${index}`,
-            subscriptionId: sub.subscription_id || 'N/A',
-            planName: sub.plan_name || 'N/A',
-            memberName: sub.name || 'N/A',
-            memberUserId: sub.member_user_id || 'N/A',
-            status: sub.status || 'N/A',
-            startPlan: sub.start_plan ? formatDate(sub.start_plan) : null,
-            endPlan: sub.end_plan ? formatDate(sub.end_plan) : null,
-            /** Next renewal = charge / renewal date (end of current period) */
-            nextRenewalDate: sub.end_plan ? formatDate(sub.end_plan) : null,
-            uniqueCode: sub.unique_code || 'N/A',
-            verifiedAt: sub.verified_at,
-            activatedAt: sub.activated_at,
-            card: sub.card ? formatCardInfo(sub.card) : null,
-            type: sub.type || 'subscription',
-          }));
-          setAutoPayData(transformedAutoPay);
+          setAutoPayData(transformSubscriptions(subscriptions));
+        } else {
+          setAutoPayData([]);
         }
       } catch (err: any) {
         console.error('Error fetching auto pay:', err);
@@ -314,7 +327,14 @@ const PurchasedHistoryScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [profileData?._id, formatDate, formatDateTime, formatAmount, formatCardInfo]);
+  }, [
+    activeUserId,
+    formatDate,
+    formatDateTime,
+    formatAmount,
+    formatCardInfo,
+    isAstrologer,
+  ]);
 
   const handleCancelAutopay = useCallback((subscription: any) => {
     setCancelAutopayModalSub(subscription);
@@ -350,23 +370,19 @@ const PurchasedHistoryScreen = () => {
     }
   }, [cancelAutopayModalSub, fetchPaymentData]);
 
-  // Fetch data when profileData becomes available or changes
   React.useEffect(() => {
-    if (profileData?._id && fetchedUserIdRef.current !== profileData._id) {
+    if (activeUserId && fetchedUserIdRef.current !== activeUserId) {
       fetchPaymentData();
     }
-  }, [profileData?._id, fetchPaymentData]);
+  }, [activeUserId, fetchPaymentData]);
 
-  // Fetch data when screen comes into focus (only if profileData is available)
   useFocusEffect(
     React.useCallback(() => {
-      console.log('Purchased History screen focused, fetching payment data...');
-      if (profileData?._id) {
-        // Reset the ref to allow refetch on focus
+      if (activeUserId) {
         fetchedUserIdRef.current = null;
         fetchPaymentData();
       }
-    }, [profileData?._id, fetchPaymentData]),
+    }, [activeUserId, fetchPaymentData]),
   );
 
   return (

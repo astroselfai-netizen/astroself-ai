@@ -1,0 +1,86 @@
+[debug] [2026-06-03T11:36:47.831Z] ----------------------------------------------------------------------
+[debug] [2026-06-03T11:36:47.844Z] Command:       /Users/nikul/.nvm/versions/node/v20.19.1/bin/node /opt/homebrew/bin/firebase apps:list --project astrodha-b8493
+[debug] [2026-06-03T11:36:47.844Z] CLI Version:   11.16.1
+[debug] [2026-06-03T11:36:47.844Z] Platform:      darwin
+[debug] [2026-06-03T11:36:47.844Z] Node Version:  v20.19.1
+[debug] [2026-06-03T11:36:47.844Z] Time:          Wed Jun 03 2026 17:06:47 GMT+0530 (India Standard Time)
+[debug] [2026-06-03T11:36:47.844Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-03T11:36:47.846Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-06-03T11:36:47.852Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-03T11:36:47.852Z] > authorizing via signed-in user (nikulmakvana767@gmail.com)
+[debug] [2026-06-03T11:36:47.854Z] > refreshing access token with scopes: []
+[debug] [2026-06-03T11:36:47.854Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-06-03T11:36:47.854Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-06-03T11:36:47.903Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 403
+[debug] [2026-06-03T11:36:47.904Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json "Blocked by sandbox network policy\nDestination: firebase-public.firebaseio.com:443\nReason: not on allow list\n"
+[warn] ⚠  Unable to fetch the CLI MOTD and remote config. 
+[debug] [2026-06-03T11:36:47.904Z] Failed to fetch MOTD FirebaseError: Unable to parse JSON: SyntaxError: Unexpected token 'B', "Blocked by"... is not valid JSON
+[debug] [2026-06-03T11:36:48.044Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-06-03T11:36:48.044Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-06-03T11:36:48.045Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/astrodha-b8493:searchApps pageSize=100
+[debug] [2026-06-03T11:36:48.314Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/astrodha-b8493:searchApps 401
+[debug] [2026-06-03T11:36:48.315Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/astrodha-b8493:searchApps {"error":{"code":401,"message":"Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.","status":"UNAUTHENTICATED"}}
+[debug] [2026-06-03T11:36:48.315Z] HTTP Error: 401, Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+[debug] [2026-06-03T11:36:48.321Z] FirebaseError: HTTP Error: 401, Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+    at responseToError (/opt/homebrew/lib/node_modules/firebase-tools/lib/responseToError.js:49:12)
+    at RetryOperation._fn (/opt/homebrew/lib/node_modules/firebase-tools/lib/apiv2.js:288:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[error] 
+[error] Error: Failed to list Firebase apps. See firebase-debug.log for more info.
+[debug] [2026-06-03T11:36:48.585Z] Error: EPERM: operation not permitted, open '/Users/nikul/.config/configstore/firebase-tools.json.2459126516'
+    at Object.openSync (node:fs:574:18)
+    at Function.writeFileSync [as sync] (/opt/homebrew/lib/node_modules/firebase-tools/node_modules/write-file-atomic/index.js:205:13)
+    at set all [as all] (/opt/homebrew/lib/node_modules/firebase-tools/node_modules/configstore/index.js:61:20)
+    at Configstore.delete (/opt/homebrew/lib/node_modules/firebase-tools/node_modules/configstore/index.js:101:12)
+    at process.<anonymous> (/opt/homebrew/lib/node_modules/firebase-tools/lib/bin/firebase.js:105:41)
+    at process.emit (node:events:536:35)
+    at process.exit (node:internal/process/per_thread:184:15)
+    at Timeout._onTimeout (/opt/homebrew/lib/node_modules/firebase-tools/lib/errorOut.js:20:17)
+    at listOnTimeout (node:internal/timers:581:17)
+    at process.processTimers (node:internal/timers:519:7)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-06-03T11:37:16.721Z] ----------------------------------------------------------------------
+[debug] [2026-06-03T11:37:16.722Z] Command:       /Users/nikul/.nvm/versions/node/v20.19.1/bin/node /opt/homebrew/bin/firebase apps:list --project astrodha-b8493
+[debug] [2026-06-03T11:37:16.722Z] CLI Version:   11.16.1
+[debug] [2026-06-03T11:37:16.722Z] Platform:      darwin
+[debug] [2026-06-03T11:37:16.722Z] Node Version:  v20.19.1
+[debug] [2026-06-03T11:37:16.722Z] Time:          Wed Jun 03 2026 17:07:16 GMT+0530 (India Standard Time)
+[debug] [2026-06-03T11:37:16.722Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-03T11:37:16.724Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-06-03T11:37:16.749Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-03T11:37:16.749Z] > authorizing via signed-in user (nikulmakvana767@gmail.com)
+[debug] [2026-06-03T11:37:16.750Z] > refreshing access token with scopes: []
+[debug] [2026-06-03T11:37:16.751Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-06-03T11:37:16.751Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-06-03T11:37:16.883Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-06-03T11:37:16.883Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-06-03T11:37:16.884Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/astrodha-b8493:searchApps pageSize=100
+[debug] [2026-06-03T11:37:17.064Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/astrodha-b8493:searchApps 401
+[debug] [2026-06-03T11:37:17.064Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/astrodha-b8493:searchApps {"error":{"code":401,"message":"Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.","status":"UNAUTHENTICATED"}}
+[debug] [2026-06-03T11:37:17.064Z] HTTP Error: 401, Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+[debug] [2026-06-03T11:37:17.180Z] FirebaseError: HTTP Error: 401, Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.
+    at responseToError (/opt/homebrew/lib/node_modules/firebase-tools/lib/responseToError.js:49:12)
+    at RetryOperation._fn (/opt/homebrew/lib/node_modules/firebase-tools/lib/apiv2.js:288:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[error] 
+[error] Error: Failed to list Firebase apps. See firebase-debug.log for more info.
+[debug] [2026-06-03T11:37:17.341Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-06-03T11:37:17.341Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[warn] ⚠  Unable to fetch the CLI MOTD and remote config. 
+[debug] [2026-06-03T11:37:17.343Z] Failed to fetch MOTD Error: EPERM: operation not permitted, open '/Users/nikul/.config/configstore/firebase-tools.json.3767814201'
+[debug] [2026-06-03T11:37:17.442Z] Error: EPERM: operation not permitted, open '/Users/nikul/.config/configstore/firebase-tools.json.2512094386'
+    at Object.openSync (node:fs:574:18)
+    at Function.writeFileSync [as sync] (/opt/homebrew/lib/node_modules/firebase-tools/node_modules/write-file-atomic/index.js:205:13)
+    at set all [as all] (/opt/homebrew/lib/node_modules/firebase-tools/node_modules/configstore/index.js:61:20)
+    at Configstore.delete (/opt/homebrew/lib/node_modules/firebase-tools/node_modules/configstore/index.js:101:12)
+    at process.<anonymous> (/opt/homebrew/lib/node_modules/firebase-tools/lib/bin/firebase.js:105:41)
+    at process.emit (node:events:536:35)
+    at process.exit (node:internal/process/per_thread:184:15)
+    at Timeout._onTimeout (/opt/homebrew/lib/node_modules/firebase-tools/lib/errorOut.js:20:17)
+    at listOnTimeout (node:internal/timers:581:17)
+    at process.processTimers (node:internal/timers:519:7)
+[error] 
+[error] Error: An unexpected error has occurred.

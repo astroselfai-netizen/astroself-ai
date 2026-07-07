@@ -139,7 +139,7 @@ export const lightTheme = {
     textPrimary: '#000000', // Black text for light theme
     textSecondary: '#2C3E50', // Dark gray for secondary text
     accent: '#FF8C00', // Orange accent color
-    Orangeaccentcolor: '#DF8A5D',
+    Orangeaccentcolor: '#1A3673',
     accentLight: '#FFA500', // Light orange
     borderColor: '#E0E0E0', // Light gray border
     primaryBlue: 'rgba(73, 108, 168, 1)',

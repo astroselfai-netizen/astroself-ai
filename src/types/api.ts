@@ -6,6 +6,7 @@ export namespace Api {
         email: string;
         first_name: string;
         last_name: string;
+        role?: string;
         current_plan: string;
         complete_profile: boolean;
         members_allow: number;
@@ -31,6 +32,145 @@ export namespace Api {
           data: any[];
           user_details: Detail;
         };
+      }
+
+      export interface AstrologerClientBirthData {
+        day: number;
+        month: number;
+        year: number;
+        hour: number;
+        min: number;
+        lat?: number;
+        lon?: number;
+        tzone?: number;
+        full_date?: string;
+      }
+
+      export interface AstrologerClient {
+        id: string;
+        userId: string;
+        first_name: string;
+        last_name: string;
+        full_name: string;
+        gender: string;
+        birthplace: string;
+        birth_data: AstrologerClientBirthData;
+        created_at: string;
+        about_client?: string;
+      }
+
+      export interface AstrologerClientsResponse {
+        status: boolean;
+        message: string | null;
+        data: {
+          data: AstrologerClient[];
+          user_details: Detail & Record<string, unknown>;
+        };
+      }
+
+      export interface AstrologerChatHistoryItem {
+        created_at: string;
+        question: string;
+        answer: string;
+        conversation_id: string;
+      }
+
+      export interface AstrologerChatHistoryResponse {
+        status: boolean;
+        count: number;
+        data: AstrologerChatHistoryItem[];
+      }
+
+      export interface AstrologerMemberDashaResult {
+        Mahadasha?: Record<string, string[]>;
+        Antardasha?: Record<string, string[]>;
+        Pratyantardasha?: Record<string, string[]>;
+      }
+
+      export interface AstrologerMemberBirthDetails {
+        first_name: string;
+        last_name: string;
+        gender: string;
+        birthplace: string;
+        birth_data: AstrologerClientBirthData;
+      }
+
+      export interface AstrologerMemberDetailsResponse {
+        dasha_result: AstrologerMemberDashaResult;
+        birth_details: AstrologerMemberBirthDetails;
+      }
+
+      export interface AstrologerUsageResponse {
+        astrologer_id: string;
+        inr_budget: number;
+        limit: number;
+        used: number;
+        remaining: number;
+        percent_used: number;
+        percent_remaining: number;
+        period_start?: string;
+        period_end?: string;
+      }
+
+      export interface AstrologerDignityRuleSet {
+        [key: string]: string;
+      }
+
+      export interface AstrologerDignityRuleGroup {
+        D1_positive?: AstrologerDignityRuleSet;
+        D1_positive_count?: number;
+        D1_negative?: AstrologerDignityRuleSet;
+        D1_negative_count?: number;
+        D9_positive?: AstrologerDignityRuleSet;
+        D9_positive_count?: number;
+        D9_negative?: AstrologerDignityRuleSet;
+        D9_negative_count?: number;
+        D10_positive?: AstrologerDignityRuleSet;
+        D10_positive_count?: number;
+        D10_negative?: AstrologerDignityRuleSet;
+        D10_negative_count?: number;
+      }
+
+      export interface AstrologerDignityPlanet {
+        planet: string;
+        ruling_house?: number[] | null;
+        sitting_in_house?: number;
+        sitting_house?: number;
+        rules?: AstrologerDignityRuleGroup[];
+      }
+
+      export interface AstrologerDignityDivisionData {
+        user_id: string;
+        dignity: AstrologerDignityPlanet[];
+      }
+
+      export interface AstrologerDignitySummaryItem {
+        name: string;
+        house: number;
+        normDegree: number;
+        isRetro: string | boolean;
+        sign: string;
+        nakshatra: string;
+        nakshatra_pad: number | string;
+        d1_dignity: string;
+        d9_sign: string;
+        d9_dignity: string;
+        d10_sign: string;
+        d10_dignity: string;
+      }
+
+      export interface AstrologerDignityChartResponse {
+        status: boolean;
+        data: Array<{
+          d1_data?: AstrologerDignityDivisionData;
+          d1_chart?: string;
+          d9_data?: AstrologerDignityDivisionData;
+          d9_chart?: string;
+          d10_data?: AstrologerDignityDivisionData;
+          d10_chart?: string;
+          summary?: AstrologerDignitySummaryItem[];
+        }>;
+        error?: unknown[];
       }
     }
   }

@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setUser, setUserToken, setMembers } from '../state/slices/appSlice';
 import serviceFactory from '../services/serviceFactory';
 import UserService from '../services/user/user.service';
 import { useMemberCreationTimestamp } from './useMemberCreationTimestamp';
+import { isAstrologerUser, mergeUserProfile } from '../utils/userRole';
 
 export const useAppInitialization = () => {
   const dispatch = useDispatch();
@@ -36,10 +37,44 @@ export const useAppInitialization = () => {
             // Dispatch user data to Redux state
             dispatch(setUser(userData));
             dispatch(setUserToken(userToken));
+
+            const userService = new UserService();
+
+            if (isAstrologerUser(userData)) {
+              try {
+                const clientsResponse = await userService.getAstrologerClients(
+                  userData._id || userData.user_id,
+                  0,
+                  10,
+                );
+
+                if (
+                  clientsResponse.status &&
+                  clientsResponse.data?.user_details
+                ) {
+                  const mergedUser = mergeUserProfile(
+                    userData,
+                    clientsResponse.data.user_details as Record<string, unknown>,
+                  );
+                  dispatch(setUser(mergedUser as typeof userData));
+                  await AsyncStorage.setItem(
+                    'USER_DATA',
+                    JSON.stringify(mergedUser),
+                  );
+                }
+              } catch (profileError) {
+                console.error(
+                  'Error fetching astrologer data during app initialization:',
+                  profileError,
+                );
+              }
+
+              console.log('App initialized with astrologer user data from storage');
+              return;
+            }
             
             // Fetch profile data including members immediately
             try {
-              const userService = new UserService();
               const profileResponse = await userService.getProfileData(userData._id || userData.user_id, 0);
               
               if (profileResponse.status && profileResponse.data.user_details) {
@@ -47,8 +82,12 @@ export const useAppInitialization = () => {
                 console.log('Members data length:', profileResponse.data.data?.length);
                 console.log('Members data:', profileResponse.data.data);
                 
-                // Update user data with latest profile info
-                dispatch(setUser(profileResponse.data.user_details));
+                const mergedUser = mergeUserProfile(
+                  userData,
+                  profileResponse.data.user_details as Record<string, unknown>,
+                );
+                dispatch(setUser(mergedUser as typeof userData));
+                await AsyncStorage.setItem('USER_DATA', JSON.stringify(mergedUser));
                 // Set members data
                 dispatch(setMembers(profileResponse.data.data as any));
                 

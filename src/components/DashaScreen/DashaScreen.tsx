@@ -49,12 +49,31 @@ const planetNameToId: { [key: string]: number } = {
 
 // Dasha type options
 const dashaTypes = [
-  { key: 'major', label: 'Maha dasha' },
-  { key: 'minor', label: 'Antar dasha' },
-  { key: 'sub_minor', label: 'Pratyantar dasha' },
-  { key: 'sub_sub_minor', label: 'Sookshma dasha' },
-  { key: 'sub_sub_sub_minor', label: 'Pran dasha' },
+  { key: 'major', label: 'Maha dasha', level: 'mahadasha', param: 'md' as const },
+  { key: 'minor', label: 'Antar dasha', level: 'antardasha', param: 'ad' as const },
+  {
+    key: 'sub_minor',
+    label: 'Pratyantar dasha',
+    level: 'pratyantardasha',
+    param: 'pd' as const,
+  },
+  {
+    key: 'sub_sub_minor',
+    label: 'Sookshma dasha',
+    level: 'sookshmadasha',
+    param: 'sd' as const,
+  },
+  { key: 'sub_sub_sub_minor', label: 'Pran dasha', level: 'prandasha', param: null },
 ];
+
+export type AstrologerDashaSelection = {
+  level: string;
+  md: string;
+  ad: string;
+  pd: string;
+  sd: string;
+  clickedPlanet: string;
+};
 
 interface DashaTableItem {
   id: number;
@@ -72,18 +91,33 @@ interface DashaScreenPropsWithIcons extends DashaScreenProps {
     name: string;
     path: string;
   }>;
+  hideCurrentDashaOverview?: boolean;
+  astrologerClientMode?: boolean;
+  onAstrologerDashaRowPress?: (
+    selection: AstrologerDashaSelection,
+  ) => void | Promise<void>;
 }
 
 const DashaScreen = ({
   dashaDetails,
   planets_icon,
+  hideCurrentDashaOverview = false,
+  astrologerClientMode = false,
+  onAstrologerDashaRowPress,
 }: DashaScreenPropsWithIcons) => {
   const { theme, colors } = useTheme();
   const [selectedDashaType, setSelectedDashaType] = useState('major');
   const [currentDashaData, setCurrentDashaData] = useState<DashaTableItem[]>(
     [],
   );
+  const [selectedPlanets, setSelectedPlanets] = useState({
+    md: '',
+    ad: '',
+    pd: '',
+    sd: '',
+  });
   const hasSetInitialValue = useRef(true);
+  const hasInitializedAstrologerSelections = useRef(false);
 
   console.log('all_dasha===>', dashaDetails);
 
@@ -243,6 +277,55 @@ const DashaScreen = ({
     );
   }, [dashaDetails, selectedDashaType, isCurrentPeriod, getPlanetIconFromAPI]);
 
+  const getActivePlanetForType = useCallback(
+    (typeKey: string): string => {
+      if (!dashaDetails) return '';
+
+      if ('MahaDasha' in dashaDetails) {
+        const dashaTypeMapping: { [key: string]: string } = {
+          major: 'MahaDasha',
+          minor: 'AntarDasha',
+          sub_minor: 'PratyantarDasha',
+          sub_sub_minor: 'SookshmaDasha',
+          sub_sub_sub_minor: 'PranDasha',
+        };
+        const dashaKey = dashaTypeMapping[typeKey];
+        const dashaData = dashaKey ? (dashaDetails as any)[dashaKey] : null;
+        return dashaData?.planet || '';
+      }
+
+      const oldDashaDetails = dashaDetails as any;
+      const dashaTypeData = oldDashaDetails[typeKey];
+      if (!dashaTypeData?.dasha_period?.length) return '';
+
+      const active = dashaTypeData.dasha_period.find((period: DashaPeriod) =>
+        isCurrentPeriod(period.start, period.end),
+      );
+      return active?.planet || dashaTypeData.dasha_period[0]?.planet || '';
+    },
+    [dashaDetails, isCurrentPeriod],
+  );
+
+  useEffect(() => {
+    if (!astrologerClientMode || !dashaDetails) return;
+    if (hasInitializedAstrologerSelections.current) return;
+
+    setSelectedPlanets({
+      md: getActivePlanetForType('major'),
+      ad: getActivePlanetForType('minor') || getActivePlanetForType('major'),
+      pd:
+        getActivePlanetForType('sub_minor') ||
+        getActivePlanetForType('minor') ||
+        getActivePlanetForType('major'),
+      sd:
+        getActivePlanetForType('sub_sub_minor') ||
+        getActivePlanetForType('sub_minor') ||
+        getActivePlanetForType('minor') ||
+        getActivePlanetForType('major'),
+    });
+    hasInitializedAstrologerSelections.current = true;
+  }, [astrologerClientMode, dashaDetails, getActivePlanetForType]);
+
   useEffect(() => {
     setCurrentDashaData(getCurrentDashaData());
   }, [dashaDetails, selectedDashaType, getCurrentDashaData]);
@@ -265,6 +348,45 @@ const DashaScreen = ({
       }
     }
   }, [selectedDashaType, getNextDashaType]);
+
+  const handleAstrologerRowClick = useCallback(
+    async (item: DashaTableItem) => {
+      const dashaType = dashaTypes.find(type => type.key === selectedDashaType);
+      if (!dashaType) return;
+
+      const nextSelections = { ...selectedPlanets };
+      if (dashaType.param) {
+        nextSelections[dashaType.param] = item.planet;
+      }
+      setSelectedPlanets(nextSelections);
+
+      const nextDashaType = getNextDashaType(selectedDashaType);
+      if (nextDashaType) {
+        setSelectedDashaType(nextDashaType);
+      }
+
+      const selection: AstrologerDashaSelection = {
+        level: dashaType.level,
+        md: nextSelections.md,
+        ad: nextSelections.ad,
+        pd: nextSelections.pd,
+        sd: nextSelections.sd,
+        clickedPlanet: item.planet,
+      };
+
+      try {
+        await onAstrologerDashaRowPress?.(selection);
+      } catch {
+        // Parent shows error toast.
+      }
+    },
+    [
+      selectedDashaType,
+      selectedPlanets,
+      onAstrologerDashaRowPress,
+      getNextDashaType,
+    ],
+  );
 
   // const currentDashaData = getCurrentDashaData();
   const selectedDashaLabel =
@@ -314,7 +436,11 @@ const DashaScreen = ({
 
   const dashaSelectorData = dashaTypes.map((type, index) => {
     const summary = getDashaSummaryForType(type.key);
-    const planetName = summary?.planet || '--';
+    const selectedPlanet =
+      astrologerClientMode && type.param
+        ? selectedPlanets[type.param]
+        : summary?.planet || '--';
+    const planetName = selectedPlanet || summary?.planet || '--';
     const planetId = planetNameToId[planetName] ?? 0;
     return {
       id: `${type.key}-${index}`,
@@ -332,7 +458,7 @@ const DashaScreen = ({
 
   return (
     <View>
-      {/* Current Dasha Overview (same UI as Nakshatra) */}
+      {!hideCurrentDashaOverview ? (
       <ImageBackground
         source={
           theme === 'dark'
@@ -450,6 +576,7 @@ const DashaScreen = ({
           </View>
         </View>
       </ImageBackground>
+      ) : null}
 
       {/* Dasha Table */}
 
@@ -575,10 +702,25 @@ const DashaScreen = ({
                 <View style={styles.tableBody}>
                   {currentDashaData.length > 0 ? (
                     currentDashaData.map((item: DashaTableItem) => {
-                      const RowComponent = item.isActive ? TouchableOpacity : View;
-                      const rowProps = item.isActive
+                      const dashaType = dashaTypes.find(
+                        type => type.key === selectedDashaType,
+                      );
+                      const isSelectedRow =
+                        astrologerClientMode && dashaType?.param
+                          ? selectedPlanets[dashaType.param] === item.planet
+                          : item.isActive;
+                      const isRowClickable = astrologerClientMode
+                        ? Boolean(onAstrologerDashaRowPress)
+                        : item.isActive;
+                      const RowComponent = isRowClickable
+                        ? TouchableOpacity
+                        : View;
+                      const rowProps = isRowClickable
                         ? {
-                            onPress: () => handleActiveRowClick(item),
+                            onPress: () =>
+                              astrologerClientMode
+                                ? handleAstrologerRowClick(item)
+                                : handleActiveRowClick(item),
                             activeOpacity: 0.7,
                           }
                         : {};
@@ -595,7 +737,7 @@ const DashaScreen = ({
                               borderBottomColor:
                                 theme === 'dark' ? '#CFCFCF' : colors.borderColor,
                             },
-                            item.isActive && styles.activeTableRow,
+                            isSelectedRow && styles.activeTableRow,
                             item.id === currentDashaData.length - 1 &&
                               styles.lastTableRow,
                           ]}
@@ -612,7 +754,7 @@ const DashaScreen = ({
                                   color:
                                     theme === 'dark' ? '#23304D' : colors.DarkNavy,
                                 },
-                                item.isActive && styles.activeText,
+                                isSelectedRow && styles.activeText,
                               ]}
                             >
                               {item.planet}
@@ -628,7 +770,7 @@ const DashaScreen = ({
                                       ? '#23304D'
                                       : colors.DarkNavy,
                                 },
-                                item.isActive && styles.activeText,
+                                isSelectedRow && styles.activeText,
                               ]}
                             >
                               {formatDateForDisplay(item.from)}
@@ -644,7 +786,7 @@ const DashaScreen = ({
                                       ? '#23304D'
                                       : colors.DarkNavy,
                                 },
-                                item.isActive && styles.activeText,
+                                isSelectedRow && styles.activeText,
                               ]}
                             >
                               {formatDateForDisplay(item.to)}

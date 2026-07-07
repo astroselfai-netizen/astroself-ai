@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Api } from '../../types/api';
+import { mergeUserProfile } from '../../utils/userRole';
 
 export interface AppState {
   keyState: number;
@@ -30,7 +31,14 @@ const appSlice = createSlice({
       state.userToken = action.payload;
     },
     setUser(state, action: PayloadAction<Api.User.Res.Detail | undefined>) {
-      state.user = action.payload;
+      if (!action.payload) {
+        state.user = undefined;
+        return;
+      }
+      state.user = mergeUserProfile(
+        state.user,
+        action.payload as Record<string, unknown>,
+      ) as Api.User.Res.Detail;
     },
     setMembers(state, action: PayloadAction<Api.User.Res.Detail | undefined>) {
       state.members = action.payload;

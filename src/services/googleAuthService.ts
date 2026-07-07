@@ -6,6 +6,57 @@ import UserService from './user/user.service';
 import serviceFactory from './serviceFactory';
 import notificationService from './notificationService';
 
+function extractApiErrorMessage(error: unknown): string {
+  if (!error) {
+    return '';
+  }
+
+  const err = error as {
+    message?: string;
+    response?: { data?: unknown };
+  };
+
+  const data = err.response?.data;
+
+  if (typeof data === 'string' && data.trim()) {
+    return data.trim();
+  }
+
+  if (data && typeof data === 'object') {
+    const payload = data as Record<string, unknown>;
+    const fields = ['message', 'error_message', 'detail', 'error'];
+
+    for (const field of fields) {
+      const value = payload[field];
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
+  const message = err.message?.trim() || '';
+  if (message && !/^Request failed with status code \d+$/i.test(message)) {
+    return message;
+  }
+
+  return '';
+}
+
+function isUserNotRegisteredError(error: any): boolean {
+  const message = (
+    error?.message ||
+    error?.response?.data?.message ||
+    error?.response?.data?.error_message ||
+    ''
+  ).toLowerCase();
+
+  return (
+    message.includes('not registered') ||
+    message.includes('sign up first') ||
+    message.includes('please register')
+  );
+}
+
 class GoogleAuthService extends Service {
   private static instance: GoogleAuthService;
 
@@ -25,13 +76,13 @@ class GoogleAuthService extends Service {
     // ONLY client_type: 3 from google-services.json (Web). Never use client_type: 1 (Android).
     // Wrong IDs that cause DEVELOPER_ERROR: 01iq149..., aa366f05..., 128164235380-...
     const webClientId =
-      '279160023240-cpcuvcrr815an858pqrd9clu1ec557ti.apps.googleusercontent.com';
+      '279160023240-0thjsthpl0gkvm80bb98a2etai3q0s6v.apps.googleusercontent.com';
 
     GoogleSignin.configure({
       ...(Platform.OS === 'ios'
         ? {
             iosClientId:
-              '279160023240-ovuh25ge2isabaarno8in0h858c10eic.apps.googleusercontent.com',
+              '279160023240-0thjsthpl0gkvm80bb98a2etai3q0s6v.apps.googleusercontent.com',
           }
         : {}),
       webClientId,
@@ -74,9 +125,18 @@ class GoogleAuthService extends Service {
         console.error('Error getting FCM token for Google login:', error);
         // Continue with login even if FCM token fails
       }
-      
+
+
+      console.log('====================================');
+      console.log('userCredential', userCredential);
+      console.log('====================================');
       // Register or login the user with your backend API
       const apiResponse = await this.registerOrLoginGoogleUser(userCredential.user, fcmToken || undefined);
+
+
+      console.log('====================================');
+      console.log('apiResponse', apiResponse);
+      console.log('====================================');
       
       if (apiResponse.success) {
         return {
@@ -91,7 +151,7 @@ class GoogleAuthService extends Service {
       } else {
         return {
           success: false,
-          error: apiResponse.error || 'Failed to register/login with backend',
+          error: apiResponse.error || '',
           firebaseUser: userCredential.user,
         };
       }
@@ -195,15 +255,89 @@ class GoogleAuthService extends Service {
           isNewUser: false,
         };
       } catch (loginError: any) {
-        console.log('Login failed, user might be new. Trying registration:', loginError);
-        
-        // If login fails, try to register (new user)
+        console.log('Password login failed, trying email-only login:', loginError);
+
+        const emailOnlyResponse = await this.tryEmailOnlyLogin(
+          userService,
+          userData.email,
+          fcmToken,
+        );
+        if (emailOnlyResponse?.success) {
+          return emailOnlyResponse;
+        }
+
+        console.log('Email-only login failed, trying registration');
+
+        const emailOnlyError = emailOnlyResponse?.error;
+        if (
+          isUserNotRegisteredError(loginError) ||
+          isUserNotRegisteredError(emailOnlyError)
+        ) {
+          try {
+            const registerResponse = await userService.registerAstrologer({
+              first_name:
+                userData.firstName ||
+                userData.email?.split('@')[0] ||
+                'User',
+              last_name: userData.lastName || '',
+              email: userData.email,
+              password: userData.password,
+              experience: '1',
+              bio: 'Registered via Google',
+            });
+
+            console.log(
+              'Google User Astrologer Registration Success:',
+              registerResponse,
+            );
+            return {
+              success: true,
+              user: registerResponse.data,
+              token: registerResponse.access_token,
+              isNewUser: true,
+            };
+          } catch (registerError: any) {
+            console.log('Astrologer registration failed:', registerError);
+
+            const errorMessage = extractApiErrorMessage(registerError);
+            const isUserExistsError =
+              errorMessage.toLowerCase().includes('already exists') ||
+              errorMessage.toLowerCase().includes('user already exists') ||
+              errorMessage.toLowerCase().includes('email already exists');
+
+            if (isUserExistsError) {
+              const existingUserResponse = await this.tryEmailOnlyLogin(
+                userService,
+                userData.email,
+                fcmToken,
+              );
+              if (existingUserResponse?.success) {
+                return existingUserResponse;
+              }
+            }
+
+            return {
+              success: false,
+              error: errorMessage,
+            };
+          }
+        }
+
+        const backendError =
+          extractApiErrorMessage(loginError) ||
+          extractApiErrorMessage(emailOnlyError);
+
+        return {
+          success: false,
+          error: backendError,
+        };
+        /*
         try {
           const registerResponse = await userService.register({
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,
-            phone: userData.phone || '+91', // Default phone if not available
+            phone: userData.phone || '+91',
             password: userData.password,
             fcmToken: fcmToken,
           });
@@ -216,7 +350,28 @@ class GoogleAuthService extends Service {
             isNewUser: true,
           };
         } catch (registerError: any) {
-          console.log('Both login and registration failed:', registerError);
+          console.log('Registration failed:', registerError);
+
+          const errorMessage =
+            registerError?.response?.data?.message ||
+            registerError?.response?.data?.error_message ||
+            registerError?.message ||
+            '';
+          const isUserExistsError =
+            errorMessage.toLowerCase().includes('already exists') ||
+            errorMessage.toLowerCase().includes('user already exists') ||
+            errorMessage.toLowerCase().includes('email already exists');
+
+          if (isUserExistsError) {
+            const existingUserResponse = await this.tryEmailOnlyLogin(
+              userService,
+              userData.email,
+              fcmToken,
+            );
+            if (existingUserResponse) {
+              return existingUserResponse;
+            }
+          }
 
           const status = registerError?.response?.status ?? loginError?.response?.status;
           if (status && status >= 500) {
@@ -229,21 +384,49 @@ class GoogleAuthService extends Service {
 
           return {
             success: false,
-            error:
-              registerError?.response?.data?.message ||
-              registerError?.response?.data?.error_message ||
-              registerError?.message ||
-              'Failed to register/login with backend',
+            error: errorMessage || 'Failed to register/login with backend',
           };
         }
+        */
       }
     } catch (error: any) {
       console.log('Google User Registration/Login Error:', error);
       return {
         success: false,
-        error: error.message || 'Failed to register/login Google user',
+        error: extractApiErrorMessage(error),
       };
     }
+  }
+
+  private async tryEmailOnlyLogin(
+    userService: UserService,
+    email: string,
+    fcmToken?: string,
+  ): Promise<
+    | {
+        success: true;
+        user: any;
+        token: string;
+        isNewUser: false;
+      }
+    | { success: false; error: any }
+  > {
+    try {
+      const loginResponse = await userService.login(email, undefined, fcmToken);
+      if (loginResponse.access_token && loginResponse.data) {
+        console.log('Email-only login success:', loginResponse);
+        return {
+          success: true,
+          user: loginResponse.data,
+          token: loginResponse.access_token,
+          isNewUser: false,
+        };
+      }
+    } catch (error) {
+      console.log('Email-only login failed:', error);
+      return { success: false, error: extractApiErrorMessage(error) };
+    }
+    return { success: false, error: '' };
   }
 
   // Helper method to check if user exists (optional - for future use)

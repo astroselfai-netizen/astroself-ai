@@ -39,7 +39,7 @@ export default class UserService extends Service {
 
       console.log('Making API call to /login with:', payload);
 
-      const axiosResponse = await http.post('mobile/login', payload);
+      const axiosResponse = await http.post('astrologer/mobile/login', payload);
 
       console.log('API Response:', axiosResponse);
       console.log('API Response data:', axiosResponse.data);
@@ -161,6 +161,68 @@ export default class UserService extends Service {
     }
   }
 
+  async registerAstrologer(params: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    experience: string;
+    bio: string;
+  }): Promise<{
+    status: boolean;
+    message?: string;
+    data?: Api.User.Res.Detail & { _id?: string; id?: string };
+    access_token?: string;
+  }> {
+    try {
+      const axiosResponse = await http.post(
+        '/astrologer/users/mobile/register',
+        {
+          first_name: params.first_name,
+          last_name: params.last_name,
+          email: params.email,
+          password: params.password,
+          role: 'astrologer',
+          experience: params.experience,
+          bio: params.bio,
+        },
+        {
+          headers: {
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer null',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status) {
+        if (axiosResponse?.data?.data) {
+          await AsyncStorage.setItem(
+            'USER_DATA',
+            JSON.stringify(axiosResponse.data.data),
+          );
+        }
+        if (axiosResponse?.data?.access_token) {
+          await AsyncStorage.setItem(
+            'USER_TOKEN',
+            axiosResponse.data.access_token,
+          );
+        }
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to register astrologer',
+      );
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to register. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
   async requestOtp(email: string) {
     try {
       console.log('Requesting OTP for email:', email);
@@ -182,6 +244,23 @@ export default class UserService extends Service {
     }
   }
 
+  async requestAstrologerOtp(email: string) {
+    try {
+      const axiosResponse = await http.post('/astrologer/request-otp', {
+        email,
+      });
+
+      if (axiosResponse?.data?.status) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(axiosResponse?.data?.message || 'Failed to send OTP');
+    } catch (error: any) {
+      console.error('Astrologer request OTP error in service:', error);
+      throw error;
+    }
+  }
+
   async requestEmailOtp(email: string) {
     try {
       console.log('Requesting OTP for email:', email);
@@ -199,6 +278,23 @@ export default class UserService extends Service {
       throw new Error(axiosResponse?.data?.message || 'Failed to send OTP');
     } catch (error: any) {
       console.error('Request OTP error in service:', error);
+      throw error;
+    }
+  }
+
+  async requestAstrologerEmailOtp(email: string) {
+    try {
+      const axiosResponse = await http.post('/astrologer/email/request-otp', {
+        email,
+      });
+
+      if (axiosResponse?.data?.status) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(axiosResponse?.data?.message || 'Failed to send OTP');
+    } catch (error: any) {
+      console.error('Astrologer request OTP error in service:', error);
       throw error;
     }
   }
@@ -261,6 +357,57 @@ export default class UserService extends Service {
     }
   }
 
+  async verifyAstrologerOtp(
+    email: string,
+    otp: string,
+    fcmToken?: string,
+  ): Promise<{
+    status: boolean;
+    data: Api.User.Res.Detail;
+    access_token: string;
+    message?: string;
+  }> {
+    try {
+      const payload: {
+        email: string;
+        otp: string;
+        fcm_token?: string;
+      } = {
+        email,
+        otp,
+      };
+
+      if (fcmToken) {
+        payload.fcm_token = fcmToken;
+      }
+
+      const axiosResponse = await http.post('/astrologer/verify-otp', payload);
+
+      if (axiosResponse?.data?.status === true) {
+        await AsyncStorage.setItem(
+          'USER_DATA',
+          JSON.stringify(axiosResponse.data.data),
+        );
+
+        if (axiosResponse.data.access_token) {
+          await AsyncStorage.setItem(
+            'USER_TOKEN',
+            axiosResponse.data.access_token,
+          );
+        }
+
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'OTP verification failed',
+      );
+    } catch (error: any) {
+      console.error('Verify astrologer OTP error in service:', error);
+      throw error;
+    }
+  }
+
   async verifyEmail(
     email: string,
     otp: string,
@@ -287,6 +434,32 @@ export default class UserService extends Service {
       );
     } catch (error: any) {
       console.error('Verify email error in service:', error);
+      throw error;
+    }
+  }
+
+  async verifyAstrologerEmail(
+    email: string,
+    otp: string,
+  ): Promise<{
+    status: boolean;
+    message?: string;
+  }> {
+    try {
+      const axiosResponse = await http.post('/astrologer/email/verify-otp', {
+        email,
+        otp,
+      });
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Email verification failed',
+      );
+    } catch (error: any) {
+      console.error('Verify astrologer email error in service:', error);
       throw error;
     }
   }
@@ -384,6 +557,751 @@ export default class UserService extends Service {
       }
 
       throw error;
+    }
+  }
+
+  async getAstrologerClients(
+    userId: string,
+    skip: number = 0,
+    take: number = 10,
+  ): Promise<Api.User.Res.AstrologerClientsResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/birth_data?userId=${userId}&skip=${skip}&take=${take}&limit=${take}&pageNo=${skip}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch astrologer clients',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer clients error in service:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      throw error;
+    }
+  }
+
+  async createAstrologerClient(
+    userId: string,
+    payload: {
+      first_name: string;
+      last_name: string;
+      gender: string;
+      isDeactivated: boolean;
+      day: string;
+      month: string;
+      year: string;
+      hour: number;
+      min: number;
+      birthplace: string;
+      lat: number;
+      lon: number;
+      tzone: number;
+      personalizedDetails: boolean;
+      about_client: string;
+      isTransit: boolean;
+      prediction_type: string;
+      userId: string;
+    },
+  ): Promise<{ status: boolean; message?: string | null; data?: unknown }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post(
+        `/astrologer/birth_data?userId=${userId}`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to create client',
+      );
+    } catch (error: any) {
+      console.error('Create astrologer client error in service:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to create client. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async updateAstrologerClient(
+    clientId: string,
+    payload: Record<string, unknown>,
+  ): Promise<{ status: boolean; message?: string }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.put(
+        `/astrologer/birth_data/${clientId}`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to update client',
+      );
+    } catch (error: any) {
+      console.error('Update astrologer client error in service:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to update client. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async createAstrologerCurrentTransit(payload: {
+    day: number;
+    month: number;
+    year: number;
+    hour: number;
+    min: number;
+    birthplace: string;
+    lat: number;
+    lon: number;
+    tzone: number;
+  }): Promise<{ status: boolean; data?: Record<string, unknown> }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post('/astrologer/current-transit', payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to generate transit chart',
+      );
+    } catch (error: any) {
+      console.error('Create astrologer current transit error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to generate transit chart. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerChatHistory(
+    clientId: string,
+  ): Promise<Api.User.Res.AstrologerChatHistoryResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(`/astrologer/chat-history/${clientId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accept: 'application/json',
+        },
+      });
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch chat history',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer chat history error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch chat history. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerMemberBirthChart(
+    userId: string,
+    chartType: string,
+  ): Promise<{
+    status: boolean;
+    chart?: string;
+    planets_positions?: Array<Record<string, unknown>>;
+    summary?: Array<Record<string, unknown>>;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post(
+        '/astrologer/member_birth/chart',
+        {
+          userId,
+          chart_type: chartType,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch vedic chart',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer member birth chart error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch vedic chart. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerMemberDetails(
+    userId: string,
+  ): Promise<Api.User.Res.AstrologerMemberDetailsResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/get-members-details/?user_id=${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.birth_details && axiosResponse?.data?.dasha_result) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch member details',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer member details error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch member details. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerChartDetails(clientId: string): Promise<{
+    status: boolean;
+    data?: Record<string, unknown>;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/chart_details/${encodeURIComponent(clientId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch chart details',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer chart details error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch chart details. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerClientDashaDetails(params: {
+    user_id: string;
+    level: string;
+    md: string;
+    ad: string;
+    pd: string;
+    sd: string;
+  }): Promise<{
+    status: boolean;
+    message?: string;
+    data?: Record<string, unknown>;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const query = new URLSearchParams({
+        user_id: params.user_id,
+        level: params.level,
+        md: params.md,
+        ad: params.ad,
+        pd: params.pd,
+        sd: params.sd,
+      });
+
+      const axiosResponse = await http.get(
+        `/astrologer/client/dasha/details?${query.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch dasha details',
+      );
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch dasha details. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerDignityChart(
+    userId: string,
+  ): Promise<Api.User.Res.AstrologerDignityChartResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/dignity_chart?user_id=${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch dignity chart',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer dignity chart error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch dignity chart. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerUsage(
+    astrologerId: string,
+    inrBudget: number,
+  ): Promise<Api.User.Res.AstrologerUsageResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/usage?astrologer_id=${encodeURIComponent(astrologerId)}&inr_budget=${encodeURIComponent(String(inrBudget))}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.percent_remaining != null) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch astrologer usage',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer usage error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch astrologer usage. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerTransitResult(userId: string): Promise<{
+    status: boolean;
+    current_date?: string;
+    data?: Array<{
+      heading?: string;
+      subheading?: string[];
+    }>;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/transit_result?user_id=${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch transit combinations',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer transit result error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch transit combinations. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerTransitHeadingReport(
+    userId: string,
+    heading: string,
+  ): Promise<{
+    status: boolean;
+    answer?: string;
+    heading?: string;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post(
+        '/astrologer/transit/heading-report',
+        {
+          user_id: userId,
+          heading,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch transit analysis report',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer transit heading report error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch transit analysis report. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerCombinations(
+    userId: string,
+    dataType: 'combinations' | 'active_combinations',
+  ): Promise<{
+    status: boolean;
+    data?: Array<{
+      heading?: string;
+      collection?: string;
+      pipeline?: Array<Record<string, unknown>>;
+    }>;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/combinations/${encodeURIComponent(userId)}?data_type=${encodeURIComponent(dataType)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch combinations',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer combinations error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch combinations. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerComboContent(
+    collection: string,
+    pipeline: Array<Record<string, unknown>>,
+  ): Promise<{
+    status: boolean;
+    data?: unknown;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post(
+        '/astrologer/get-content',
+        {
+          collection,
+          pipeline,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true || axiosResponse?.data?.status === 'true') {
+        return axiosResponse.data;
+      }
+
+      if (Array.isArray(axiosResponse?.data?.data)) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch combination content',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer combo content error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch combination content. Please try again.';
+      throw new Error(errorMessage);
     }
   }
 
@@ -1166,6 +2084,51 @@ export default class UserService extends Service {
       }
     } catch (error: any) {
       console.error('Delete user error:', error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to delete account. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * Delete astrologer account
+   * @param userId - Astrologer user ID to delete
+   */
+  async deleteAstrologerUser(userId: string): Promise<{
+    status: boolean;
+    message?: string;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.delete(
+        `/astrologer/mobile/delete/users?user_id=${userId}`,
+        {
+          headers: {
+            accept: 'application/json, text/plain, */*',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status !== false) {
+        return {
+          status: true,
+          message:
+            axiosResponse?.data?.message ||
+            'User and related data deleted successfully',
+        };
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to delete account',
+      );
+    } catch (error: any) {
       const errorMessage =
         error?.response?.data?.message ||
         error?.message ||

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { fontFamily } from '../constant/theme';
@@ -89,11 +90,17 @@ const AstroselfLogin = () => {
         </View>
 
         {/* Google Login */}
-        <TouchableOpacity style={styles.googleButton}>
-          {/* <Text style={styles.googleIcon}>G</Text> */}
-          {/* <Im */}
-          <Text style={styles.googleButtonText}>Login with Google</Text>
-        </TouchableOpacity>
+        {
+          Platform.OS === 'android' && (
+            
+          <TouchableOpacity style={styles.googleButton}>
+            {/* <Text style={styles.googleIcon}>G</Text> */}
+            {/* <Im */}
+            <Text style={styles.googleButtonText}>Login with Google</Text>
+          </TouchableOpacity>
+        )
+        }
+        
 
         {/* Register Link */}
         <View style={styles.registerContainer}>

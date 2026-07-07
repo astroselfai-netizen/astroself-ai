@@ -58,6 +58,16 @@ import TasksForTheDayScreen from '../screen/TasksForTheDay';
 import TaskActivityDetailsScreen from '../screen/TaskActivityDetails';
 import MemberPlanManagement from '../screen/MemberPlanManagement';
 import StartExploring from '../screen/StartExploring';
+import AstrologerMyClientsScreen from '../screen/AstrologerMyClients';
+import AstrologerMyProfileScreen from '../screen/AstrologerMyProfile';
+import AstrologerPlanScreen from '../screen/AstrologerPlan';
+import AstrologerCreateClientScreen from '../screen/AstrologerCreateClient';
+import AstrologerCurrentTransitScreen from '../screen/AstrologerCurrentTransit';
+import AstrologerCurrentTransitResultScreen from '../screen/AstrologerCurrentTransitResult';
+import AstrologerClientChatScreen from '../screen/AstrologerClientChat';
+import AstrologerClientChartScreen from '../screen/AstrologerClientChart';
+import AstrologerDignityAnalysisScreen from '../screen/AstrologerDignityAnalysis';
+import AstrologerRegisterScreen from '../screen/AstrologerRegister';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -150,6 +160,304 @@ const SettingsStack = createAppStack('SettingsScreen');
 const ReportStack = createAppStack('ReportScreen');
 const ResourcesStack = createAppStack('ResourcesScreen');
 
+function createAstrologerStack(initialRouteName) {
+  return function AstrologerAppStack() {
+    return (
+      <Stack.Navigator
+        initialRouteName={initialRouteName}
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen
+          name="AstrologerMyClientsScreen"
+          component={AstrologerMyClientsScreen}
+        />
+        <Stack.Screen
+          name="AstrologerMyProfileScreen"
+          component={AstrologerMyProfileScreen}
+        />
+        <Stack.Screen
+          name="AstrologerPlanScreen"
+          component={AstrologerPlanScreen}
+        />
+        <Stack.Screen name="SettingsScreen" component={SettingsScreen} />
+        <Stack.Screen
+          name="PurchasedHistoryScreen"
+          component={PurchasedHistoryScreen}
+        />
+        <Stack.Screen
+          name="PrivacyPolicyScreen"
+          component={PrivacyPolicyScreen}
+        />
+        <Stack.Screen
+          name="TermsAndConditions"
+          component={TermsAndConditions}
+        />
+        <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
+        <Stack.Screen name="ResourcesScreen" component={ResourcesScreen} />
+        <Stack.Screen
+          name="ResourcesDetailsScreen"
+          component={ResourcesDetailsScreen}
+        />
+        <Stack.Screen name="PaidPlanScreen" component={PaidPlanScreen} />
+        <Stack.Screen name="FaqsScreen" component={FaqsScreen} />
+        <Stack.Screen name="ReportScreen" component={ReportScreen} />
+        <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
+      </Stack.Navigator>
+    );
+  };
+}
+
+const MyClientsStack = createAstrologerStack('AstrologerMyClientsScreen');
+const MyProfileStack = createAstrologerStack('AstrologerMyProfileScreen');
+const PlanStack = createAstrologerStack('AstrologerPlanScreen');
+const AstrologerSettingsStack = createAstrologerStack('SettingsScreen');
+
+function AstrologerTabs() {
+  const { colors, theme } = useTheme();
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
+    >
+      <Tab.Navigator
+        initialRouteName="MyClientsTab"
+        screenOptions={{
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
+          tabBarShowLabel: false,
+          tabBarStyle: {
+            position: 'absolute',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            height: responsiveWidth('20%'),
+            borderWidth: 1,
+            borderColor:
+              theme === 'dark' ? colors.borderColor : colors.surfaceOpacity,
+            paddingBottom: 0,
+            paddingTop: responsiveWidth('5%'),
+          },
+          tabBarBackground: () => (
+            <Image
+              source={colors.backgroundImage}
+              style={{
+                width: '100%',
+                height: '100%',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                opacity: 10,
+                resizeMode: 'cover',
+              }}
+            />
+          ),
+        }}
+      >
+        <Tab.Screen
+          name="MyClientsTab"
+          component={MyClientsStack}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View style={styles.tabItemContainer}>
+                <Image
+                  source={
+                    focused ? icons.icProfileActive : icons.icProfileInActive
+                  }
+                  style={[
+                    styles.iconStyle,
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  My Clients
+                </Text>
+              </View>
+            ),
+          }}
+          listeners={({ navigation, route }) => ({
+            tabPress: e => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+
+              if (currentRoute?.name !== 'AstrologerMyClientsScreen') {
+                e.preventDefault();
+                navigation.navigate('MyClientsTab', {
+                  screen: 'AstrologerMyClientsScreen',
+                });
+              }
+            },
+          })}
+        />
+        <Tab.Screen
+          name="MyProfileTab"
+          component={MyProfileStack}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View style={styles.tabItemContainer}>
+                <Image
+                  source={
+                    focused ? icons.icNakshatraActive : icons.icNakshatraInActive
+                  }
+                  style={[
+                    styles.iconStyle,
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  My Profile
+                </Text>
+              </View>
+            ),
+          }}
+          listeners={({ navigation, route }) => ({
+            tabPress: e => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+
+              if (currentRoute?.name !== 'AstrologerMyProfileScreen') {
+                e.preventDefault();
+                navigation.navigate('MyProfileTab', {
+                  screen: 'AstrologerMyProfileScreen',
+                });
+              }
+            },
+          })}
+        />
+        <Tab.Screen
+          name="PlanTab"
+          component={PlanStack}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View style={styles.tabItemContainer}>
+                <Image
+                  source={focused ? icons.icHomeActive : icons.icHome}
+                  style={[
+                    styles.iconStyle,
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                      width: responsiveWidth(6),
+                      height: responsiveWidth(6),
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  Plan
+                </Text>
+              </View>
+            ),
+          }}
+          listeners={({ navigation, route }) => ({
+            tabPress: e => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+
+              if (currentRoute?.name !== 'AstrologerPlanScreen') {
+                e.preventDefault();
+                navigation.navigate('PlanTab', {
+                  screen: 'AstrologerPlanScreen',
+                });
+              }
+            },
+          })}
+        />
+        <Tab.Screen
+          name="SettingsTab"
+          component={AstrologerSettingsStack}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View style={styles.tabItemContainer}>
+                <Image
+                  source={
+                    focused ? icons.icSettingsActive : icons.icSettingsInActive
+                  }
+                  style={[
+                    styles.iconStyle,
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  Settings
+                </Text>
+              </View>
+            ),
+          }}
+          listeners={({ navigation, route }) => ({
+            tabPress: e => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+
+              if (currentRoute?.name !== 'SettingsScreen') {
+                e.preventDefault();
+                navigation.navigate('SettingsTab', {
+                  screen: 'SettingsScreen',
+                });
+              }
+            },
+          })}
+        />
+      </Tab.Navigator>
+    </KeyboardAvoidingView>
+  );
+}
+
 function MainNavigator() {
   return (
     <NavigationContainer>
@@ -170,8 +478,35 @@ function MainNavigator() {
         <Stack.Screen name="StartExploring" component={StartExploring} />
         <Stack.Screen name="NakshatraScreen" component={NakshatraScreen} />
         <Stack.Screen name="Register" component={Register} />
+        <Stack.Screen name="AstrologerRegister" component={AstrologerRegisterScreen} />
+        <Stack.Screen name="TermsAndConditions" component={TermsAndConditions} />
         {/* Main app with tabs - tabs will be visible on all screens inside MyTabs */}
         <Stack.Screen name="HomeScreen" component={MyTabs} />
+        <Stack.Screen name="AstrologerHome" component={AstrologerTabs} />
+        <Stack.Screen
+          name="AstrologerCreateClientScreen"
+          component={AstrologerCreateClientScreen}
+        />
+        <Stack.Screen
+          name="AstrologerCurrentTransitScreen"
+          component={AstrologerCurrentTransitScreen}
+        />
+        <Stack.Screen
+          name="AstrologerCurrentTransitResultScreen"
+          component={AstrologerCurrentTransitResultScreen}
+        />
+        <Stack.Screen
+          name="AstrologerClientChatScreen"
+          component={AstrologerClientChatScreen}
+        />
+        <Stack.Screen
+          name="AstrologerClientChartScreen"
+          component={AstrologerClientChartScreen}
+        />
+        <Stack.Screen
+          name="AstrologerDignityAnalysisScreen"
+          component={AstrologerDignityAnalysisScreen}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,6 +1,6 @@
 // HomeScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -23,6 +23,16 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
 import { useTheme } from '../../context/ThemeContext';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../state/store';
+import { isAstrologerUser } from '../../utils/userRole';
+
+const ASTROLOGER_HIDDEN_GENERAL_LABELS = [
+  'Paid Plans',
+  'Reports',
+  'Resources',
+  'Purchase History',
+];
 
 export type RootStackParamList = {
   Login: undefined; // Login screen
@@ -57,29 +67,29 @@ const settingsList = [
       //   icon: require('../../assets/icons/notification.png'),
       //   label: 'Notification',
       // },
-      { icon: require('../../assets/icons/PaidPlan.png'), label: 'Paid Plans' },
-      {
-        icon: require('../../assets/icons/Reports-Plans.png'),
-        label: 'Reports',
-      },
-      {
-        icon: require('../../assets/icons/Resources.png'),
-        label: 'Resources',
-      },
+      // { icon: require('../../assets/icons/PaidPlan.png'), label: 'Paid Plans' },
+      // {
+      //   icon: require('../../assets/icons/Reports-Plans.png'),
+      //   label: 'Reports',
+      // },
+      // {
+      //   icon: require('../../assets/icons/Resources.png'),
+      //   label: 'Resources',
+      // },
       // {
       //   icon: require('../../assets/icons/LanguageIcon.png'),
       //   label: 'Language',
       //   right: 'English (US)',
       // },
-      {
-        icon: require('../../assets/icons/Purchased-History.png'),
-        label: 'Purchase History',
-      },
-      {
-        icon: require('../../assets/icons/Dark-Mode.png'),
-        label: 'Dark Mode',
-        isSwitch: true,
-      },
+      // {
+      //   icon: require('../../assets/icons/Purchased-History.png'),
+      //   label: 'Purchase History',
+      // },
+      // {
+      //   icon: require('../../assets/icons/Dark-Mode.png'),
+      //   label: 'Dark Mode',
+      //   isSwitch: true,
+      // },
       { icon: require('../../assets/icons/info.png'), label: 'Help Center' },
       // { icon: require('../../assets/icons/star.png'), label: 'Rate us' },
     ],
@@ -108,7 +118,18 @@ const settingsList = [
 const SettingsScreen = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const { theme, toggleTheme, colors } = useTheme();
+  const user = useSelector((state: RootState) => state.app.user);
   const [darkMode, setDarkMode] = useState(theme === 'dark');
+
+  const generalItems = useMemo(() => {
+    const items = settingsList[0].data;
+    if (isAstrologerUser(user)) {
+      return items.filter(
+        item => !ASTROLOGER_HIDDEN_GENERAL_LABELS.includes(item.label),
+      );
+    }
+    return items;
+  }, [user]);
 
   // Sync local state with theme context
   React.useEffect(() => {
@@ -212,7 +233,7 @@ const SettingsScreen = () => {
               >
                 General
               </Text>
-              {settingsList[0].data.map((item, idx) => (
+              {generalItems.map((item, idx) => (
                 <TouchableOpacity
                   key={idx}
                   style={styles.row}
@@ -407,8 +428,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop:
       Platform.OS === 'android'
-        ? responsiveHeight('0.5%')
-        : responsiveWidth('15%'),
+        ? 0
+        : responsiveWidth('12%'),
     // marginBottom: responsiveWidth('5%'),
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,

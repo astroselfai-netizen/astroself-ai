@@ -20,11 +20,12 @@ import { responsiveHeight, responsiveWidth, color } from '../../constant/theme';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import serviceFactory from '../../services/serviceFactory';
-import UserService from '../../services/user/user.service';
 import GoogleAuthService from '../../services/googleAuthService';
 import AppleAuthService from '../../services/appleAuthService';
-import notificationService from '../../services/notificationService';
 import AppleLoginButton from '../../components/AppleLoginButton';
+import UserService from '../../services/user/user.service';
+import notificationService from '../../services/notificationService';
+import { isAstrologerUser } from '../../utils/userRole';
 // import {InputBox} from '../../components/common/inputBox';
 import Toast from 'react-native-toast-message';
 
@@ -35,21 +36,28 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthContainer } from '../../components/common/AuthContainer';
 import { icons } from '../../assets';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { setUser, setUserToken } from '../../state/slices/appSlice';
-import { RootState } from '../../state/store';
 import { useTheme } from '../../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type RootStackParamList = {
-  Login: undefined; // Login screen
-  Register: undefined; // Register screen
+  Login: undefined;
+  Register: undefined;
+  AstrologerRegister:
+    | {
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+      }
+    | undefined;
   ForgotPassword: undefined;
   HomeScreen: undefined;
+  AstrologerHome: undefined;
   ContinueWithOtp: undefined;
   AddNewMember: undefined;
-  BasicDeatil:undefined;
-  // Add other screens as needed
+  BasicDeatil: undefined;
+  TermsAndConditions: undefined;
 };
 
 // Define your navigation prop type
@@ -90,7 +98,6 @@ const Login = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const dispatch = useDispatch();
   const { theme, colors } = useTheme();
-  const membersData = useSelector((state: RootState) => state.app.members);
   // Ensure serviceFactory is initialized
   React.useEffect(() => {
     serviceFactory.create();
@@ -104,37 +111,23 @@ const Login = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
 
-  // Helper function to navigate based on members data
-  const navigateAfterAuth = (current_members: number, userData: any) => {
-    console.log('Checking members data for navigation:', membersData);
-    if (current_members === 0) {
-      console.log('No members found, navigating to AddNewMember');
-      navigation.replace('AddNewMember');
-    } else {
-      console.log('Members found, navigating to ChatWithPrompts', userData);
-      // Get user_id from userData
-      const userId = userData._id || userData.user_id || userData.id;
-      
-      if (!userId) {
-        console.error('User ID not found, navigating to HomeScreen instead');
-        navigation.replace('HomeScreen');
-        return;
-      }
+  const showAstrologerOnlyError = () => {
+    Toast.show({
+      type: 'error',
+      text1: 'Access denied',
+      text2: 'This login is for astrologers only.',
+      position: 'top',
+      topOffset: 60,
+      visibilityTime: 3000,
+    });
+  };
 
-      // Store navigation params in AsyncStorage to be picked up by HomeScreen
-      AsyncStorage.setItem(
-        'NAVIGATE_TO_CHAT_WITH_PROMPTS',
-        JSON.stringify({
-          userId: userId,
-          cardTitles: 'Major Life Cycle',
-          tab: 'LONG TERM',
-          planet: null,
-        }),
-      );
-
-      // Navigate to HomeScreen
-      navigation.replace('HomeScreen');
+  const navigateAfterAuth = (userData: any) => {
+    if (isAstrologerUser(userData)) {
+      navigation.replace('AstrologerHome');
+      return;
     }
+    showAstrologerOnlyError();
   };
 
   const completeLogin = async (data: {
@@ -142,6 +135,11 @@ const Login = () => {
     data: any;
   }) => {
     if (!data?.access_token || !data?.data) {
+      return;
+    }
+
+    if (!isAstrologerUser(data.data)) {
+      showAstrologerOnlyError();
       return;
     }
 
@@ -163,7 +161,7 @@ const Login = () => {
     }
 
     setTimeout(() => {
-      navigateAfterAuth(data.data.current_members, data.data);
+      navigation.replace('AstrologerHome');
     }, 1000);
   };
 
@@ -193,7 +191,6 @@ const Login = () => {
             fcmToken || undefined,
           );
 
-          // Google / passwordless account — direct login with email only
           if (checkResponse.access_token && checkResponse.data) {
             await completeLogin(checkResponse);
             return;
@@ -277,7 +274,7 @@ const Login = () => {
   };
 
   const handleRegister = () => {
-    navigation.navigate('Register');
+    navigation.navigate('AstrologerRegister');
   };
 
   const handleForgotPassword = () => {
@@ -304,12 +301,16 @@ const Login = () => {
             topOffset: 60,
             visibilityTime: 3500,
           });
-          // Ensure we don't keep a half-signed-in session.
           await googleAuthService.signOut();
           return;
         }
 
-        // Dispatch user data to Redux state
+        if (!isAstrologerUser(userData)) {
+          await googleAuthService.signOut();
+          showAstrologerOnlyError();
+          return;
+        }
+
         dispatch(setUser(userData));
         if (token) {
           dispatch(setUserToken(token));
@@ -344,17 +345,15 @@ const Login = () => {
           visibilityTime: 3000,
         });
 
-        console.log('result.isNewUser', result?.user?.current_members);
-
-        // Wait a bit for the profile data to be loaded, then check members
+        // Astrologer login screen — Google sign-in goes directly to astrologer module
         setTimeout(() => {
-          navigateAfterAuth(result?.user?.current_members || 0, userData);
+          navigation.replace('AstrologerHome');
         }, 1000);
-      } else {
+      } else if (result.error) {
         Toast.show({
           type: 'error',
           text1: 'Google Login Failed',
-          text2: result.error || 'Failed to login with Google. Please try again.',
+          text2: result.error,
           position: 'top',
           topOffset: 60,
           visibilityTime: 3000,
@@ -362,14 +361,22 @@ const Login = () => {
       }
     } catch (error: any) {
       console.log('Google Login Error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Something went wrong with Google login. Please try again.',
-        position: 'top',
-        topOffset: 60,
-        visibilityTime: 3000,
-      });
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error_message ||
+        error?.message ||
+        '';
+
+      if (errorMessage) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: errorMessage,
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+      }
     } finally {
       setIsGoogleLoading(false);
     }
@@ -381,24 +388,25 @@ const Login = () => {
       const result = await appleAuthService.signInWithApple();
       
       if (result.success) {
-        // Use the user data from your backend API
         const userData = result.user;
         const token = result.token || result.identityToken;
 
-        // Dispatch user data to Redux state
+        if (!isAstrologerUser(userData)) {
+          showAstrologerOnlyError();
+          return;
+        }
+
         dispatch(setUser(userData));
         if (token) {
           dispatch(setUserToken(token));
         }
 
-        // Check if this user has already seen the free points modal
         try {
           const userId = userData._id || userData.user_id || userData.id;
           if (userId) {
             const hasSeenModal = await AsyncStorage.getItem(
               `FREE_POINTS_MODAL_SEEN_${userId}`,
             );
-            // Only set flag if user hasn't seen the modal before
             if (!hasSeenModal) {
               await AsyncStorage.setItem('SHOW_FREE_POINTS_MODAL', 'true');
             }
@@ -420,11 +428,8 @@ const Login = () => {
           visibilityTime: 3000,
         });
 
-        console.log('Apple login result.isNewUser', result?.user?.current_members);
-
-        // Wait a bit for the profile data to be loaded, then check members
         setTimeout(() => {
-          navigateAfterAuth(result?.user?.current_members || 0, userData);
+          navigateAfterAuth(userData);
         }, 1000);
       } else {
         Toast.show({
@@ -707,7 +712,6 @@ const Login = () => {
                 </Text>
               )}
             </TouchableOpacity>
-            {/* Continue with OTP */}
             <TouchableOpacity
               onPress={() => navigation.navigate('ContinueWithOtp')}
               style={[
@@ -736,7 +740,6 @@ const Login = () => {
                 Continue with OTP
               </Text>
             </TouchableOpacity>
-            {/* Divider */}
             <View style={styles.dividerRow}>
               <View
                 style={[
@@ -775,58 +778,62 @@ const Login = () => {
               />
             </View>
             {/* Google Login */}
-            <TouchableOpacity
-              style={[
-                styles.googleButton,
-                {
-                  borderColor:
-                    theme === 'dark'
-                      ? colors.themeTextWhite
-                      : colors.primaryBlue,
-                },
-                (isLoading || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
-              ]}
-              onPress={handleGoogleLogin}
-              disabled={isLoading || isGoogleLoading || isAppleLoading}
-            >
-              {isGoogleLoading ? (
-                <View style={styles.loaderContainer}>
-                  <ActivityIndicator size="small" color={theme === 'dark' ? colors.themeTextWhite : colors.primaryBlue} />
-                  <Text
-                    style={[
-                      styles.googleButtonText,
-                      styles.loadingText,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.primaryBlue,
-                      },
-                    ]}
-                  >
-                    Logging in...
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <Image source={icons.Ic_google} style={styles.googleG} />
-                  <Text
-                    style={[
-                      styles.googleButtonText,
-                      {
-                        color:
-                          theme === 'dark'
-                            ? colors.themeTextWhite
-                            : colors.primaryBlue,
-                      },
-                    ]}
-                  >
-                    Login with Google
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-            {/* Apple Login */}
+            {
+              Platform.OS === 'android' && (
+                <TouchableOpacity
+                  style={[
+                    styles.googleButton,
+                    {
+                      borderColor:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.primaryBlue,
+                    },
+                    (isLoading || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
+                  ]}
+                  onPress={handleGoogleLogin}
+                  disabled={isLoading || isGoogleLoading || isAppleLoading}
+                >
+                  {isGoogleLoading ? (
+                    <View style={styles.loaderContainer}>
+                      <ActivityIndicator size="small" color={theme === 'dark' ? colors.themeTextWhite : colors.primaryBlue} />
+                      <Text
+                        style={[
+                          styles.googleButtonText,
+                          styles.loadingText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.primaryBlue,
+                          },
+                        ]}
+                      >
+                        Logging in...
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Image source={icons.Ic_google} style={styles.googleG} />
+                      <Text
+                        style={[
+                          styles.googleButtonText,
+                          {
+                            color:
+                              theme === 'dark'
+                                ? colors.themeTextWhite
+                                : colors.primaryBlue,
+                          },
+                        ]}
+                      >
+                        Login with Google
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )
+            }
+           
             <AppleLoginButton
               onPress={handleAppleLogin}
               isLoading={isAppleLoading}
