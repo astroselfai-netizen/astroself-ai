@@ -154,6 +154,25 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
     return zodiacMap2[key] || key;
   };
 
+  const getPlanetShortName = (planetName: string): string => {
+    const normalized = (planetName || '').trim().toLowerCase();
+    const planetMap: Record<string, string> = {
+      sun: 'Su',
+      moon: 'Mo',
+      mars: 'Ma',
+      mercury: 'Me',
+      jupiter: 'Ju',
+      venus: 'Ve',
+      saturn: 'Sa',
+      rahu: 'Ra',
+      ketu: 'Ke',
+      ascendant: 'As',
+      lagna: 'As',
+    };
+
+    return planetMap[normalized] || planetName.slice(0, 2);
+  };
+
   // Dynamic dasha data from chartDetails.planets_positions
   const dashaData =
     chartDetails?.planets_positions?.map(planet => {
@@ -496,14 +515,6 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
               >
                 <Text
                   style={[
-                    styles.dashaHeaderHouse,
-                    { color: theme === 'dark' ? '#23304D' : colors.white },
-                  ]}
-                >
-                  House
-                </Text>
-                <Text
-                  style={[
                     styles.dashaHeaderPlanet,
                     { color: theme === 'dark' ? '#23304D' : colors.white },
                   ]}
@@ -539,7 +550,7 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
               <View style={[styles.tableBody]}>
                 {finalDashaData.map((row, idx) => (
                   <View
-                    key={row.house + idx}
+                    key={`${row.planet}-${idx}`}
                     style={[
                       styles.dashaTableRow,
                       {
@@ -553,23 +564,13 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
                   >
                     <Text
                       style={[
-                        styles.dashaCellHouse,
-                        {
-                          color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
-                        },
-                      ]}
-                    >
-                      {row.house}
-                    </Text>
-                    <Text
-                      style={[
                         styles.dashaCellPlanet,
                         {
                           color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
                         },
                       ]}
                     >
-                      {row.planet}
+                      {getPlanetShortName(row.planet)}
                       {row.isRetro ? ' (R)' : ''}
                     </Text>
                     <View style={styles.dashaCellSign}>
@@ -749,6 +750,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
     overflow: 'hidden',
+    width: '100%',
   },
   tableBody: {
     // Table body container
@@ -756,32 +758,25 @@ const styles = StyleSheet.create({
   dashaTableHeader: {
     flexDirection: 'row',
     backgroundColor: '#D6C295',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    minWidth: responsiveWidth('100'),
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    width: '100%',
+    gap: 12,
   },
   dashaTableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#CFCFCF',
     backgroundColor: '#EFE6D0',
-    minWidth: responsiveWidth('100'),
-  },
-  dashaHeaderHouse: {
-    width: responsiveWidth('14'),
-    color: '#23304D',
-    fontWeight: 'bold',
-    fontFamily: fontFamily.regular,
-    fontSize: 14,
-    // marginLeft: -responsiveWidth('1'),
-
-    textAlign: 'left',
+    width: '100%',
+    gap: 12,
   },
   dashaHeaderPlanet: {
-    width: responsiveWidth('22'),
+    width: responsiveWidth('13'),
+    flexShrink: 0,
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -789,7 +784,8 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderSign: {
-    width: responsiveWidth('10'),
+    width: responsiveWidth('9'),
+    flexShrink: 0,
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -797,7 +793,8 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderDegree: {
-    width: responsiveWidth('18'),
+    width: responsiveWidth('15'),
+    flexShrink: 0,
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -805,7 +802,9 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderNakshatra: {
-    width: responsiveWidth('27'),
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -820,16 +819,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     textAlign: 'center',
   },
-  dashaCellHouse: {
-    width: responsiveWidth('14'),
-    color: '#23304D',
-    fontSize: 14,
-    fontFamily: fontFamily.regular,
-    textAlign: 'left',
-    fontWeight: '400',
-  },
   dashaCellPlanet: {
-    width: responsiveWidth('22'),
+    width: responsiveWidth('13'),
+    flexShrink: 0,
     color: '#23304D',
     fontSize: 14,
     fontFamily: fontFamily.regular,
@@ -837,12 +829,12 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellSign: {
-    width: responsiveWidth('10'),
+    width: responsiveWidth('9'),
+    flexShrink: 0,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
   dashaSignIcon: {
-    width: responsiveWidth('25'),
     color: '#23304D',
     fontSize: 14,
     fontFamily: fontFamily.regular,
@@ -850,7 +842,8 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellDegree: {
-    width: responsiveWidth('18'),
+    width: responsiveWidth('15'),
+    flexShrink: 0,
     color: '#23304D',
     fontSize: 14,
     textAlign: 'left',
@@ -858,7 +851,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
   },
   dashaCellNakshatra: {
-    width: responsiveWidth('27'),
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     color: '#23304D',
     fontSize: 14,
     textAlign: 'left',
@@ -898,10 +893,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   tableScrollContainer: {
-    flex: 1,
+    width: '100%',
   },
   tableScrollContent: {
-    flexGrow: 1,
+    width: '100%',
   },
 });
 

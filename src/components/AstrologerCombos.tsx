@@ -29,10 +29,10 @@ export const CLIENT_COMBO_SHORTCUTS: {
   label: string;
   icon: string;
 }[] = [
-  { tab: 'combinations', label: 'Combinations', icon: '☸' },
-  { tab: 'antar_dasha', label: 'Antardasha Analysis', icon: '◉' },
+  { tab: 'antar_dasha', label: 'Antardasha Analysis/Report', icon: '⚡' },
   { tab: 'transit_analysis', label: 'Transit Analysis', icon: '▦' },
   { tab: 'transit', label: 'Transit Combinations', icon: '⬡' },
+  { tab: 'combinations', label: 'Chart Combinations', icon: '◎' },
 ];
 
 type TransitComboItem = {
@@ -55,6 +55,7 @@ type AstrologerCombosProps = {
   textPrimary: string;
   textMuted: string;
   initialTab?: ComboTab;
+  useParentScroll?: boolean;
 };
 
 const formatAsOfDate = (date: Date) => {
@@ -181,6 +182,8 @@ const extractComboContent = (payload: unknown): string => {
   return '';
 };
 
+const getTransitAnalysisContentId = (id: string) => `analysis-${id}`;
+
 const AstrologerCombos = ({
   clientId,
   cardBg,
@@ -188,11 +191,13 @@ const AstrologerCombos = ({
   textPrimary,
   textMuted,
   initialTab = 'combinations',
+  useParentScroll = false,
 }: AstrologerCombosProps) => {
   const { width: windowWidth } = useWindowDimensions();
   const userService = useMemo(() => new UserService(), []);
   const [comboTab, setComboTab] = useState<ComboTab>(initialTab);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [transitItems, setTransitItems] = useState<TransitComboItem[]>([]);
   const [combinationItems, setCombinationItems] = useState<CombinationListItem[]>([]);
   const [activeComboItems, setActiveComboItems] = useState<CombinationListItem[]>([]);
@@ -212,20 +217,21 @@ const AstrologerCombos = ({
   );
 
   const contentWidth = Math.max(0, windowWidth - responsiveWidth('14'));
+  const expandedContentColor = textPrimary;
 
   const htmlBaseStyle = useMemo(
     () => ({
-      color: textMuted,
+      color: expandedContentColor,
       fontSize: 13,
       lineHeight: 20,
       fontFamily: fontFamily.regular,
     }),
-    [textMuted],
+    [expandedContentColor],
   );
 
   const htmlTagsStyles = useMemo(
     () => ({
-      body: { color: textMuted },
+      body: { color: expandedContentColor },
       h1: {
         color: NAVY,
         fontSize: 15,
@@ -237,34 +243,34 @@ const AstrologerCombos = ({
         fontSize: 14,
         fontFamily: fontFamily.bold,
         marginTop: 10,
-        marginBottom: 6,
+        marginBottom: 2,
       },
       h3: {
         color: NAVY,
         fontSize: 13,
         fontFamily: fontFamily.semiBold,
-        marginTop: 8,
+        marginTop: 4,
         marginBottom: 4,
       },
       ol: { marginTop: 0, marginBottom: 0, paddingLeft: 18 },
       ul: { marginTop: 0, marginBottom: 0, paddingLeft: 18 },
-      li: { marginBottom: 8, color: textMuted },
+      li: { marginBottom: 8, color: expandedContentColor },
       p: {
         marginTop: 0,
-        marginBottom: 8,
-        color: textMuted,
+        marginBottom: 3,
+        color: expandedContentColor,
         fontSize: 13,
         lineHeight: 20,
       },
       strong: {
         fontFamily: fontFamily.bold,
-        color: textMuted,
+        color: expandedContentColor,
       },
     }),
-    [textMuted],
+    [expandedContentColor],
   );
 
-  const loadTransitCombos = useCallback(async () => {
+  const loadTransitCombos = useCallback(async (): Promise<TransitComboItem[]> => {
     try {
       const response = await userService.getAstrologerTransitResult(clientId);
       const items = extractComboListFromResponse(response).map((item, index) => ({
@@ -282,8 +288,10 @@ const AstrologerCombos = ({
         }
       }
       setExpandedComboId(prev => prev ?? items[0]?.id ?? null);
+      return items;
     } catch {
       setTransitItems([]);
+      return [];
     }
   }, [clientId, userService]);
 
@@ -300,41 +308,55 @@ const AstrologerCombos = ({
     }
   }, [clientId, userService]);
 
-  const loadActiveCombinations = useCallback(async () => {
+  const loadActiveCombinations = useCallback(async (): Promise<CombinationListItem[]> => {
     try {
       const response = await userService.getAstrologerCombinations(
         clientId,
         'active_combinations',
       );
-      setActiveComboItems(
-        extractComboListFromResponse(response).map((item, index) =>
-          mapComboListItem(item, index, 'active'),
-        ),
+      const items = extractComboListFromResponse(response).map((item, index) =>
+        mapComboListItem(item, index, 'active'),
       );
+      setActiveComboItems(items);
+      return items;
     } catch {
       setActiveComboItems([]);
+      return [];
     }
   }, [clientId, userService]);
 
-  const loadAllCombos = useCallback(async () => {
-    if (!clientId) {
-      return;
-    }
+  const loadAllCombos = useCallback(
+    async (options?: { isRefresh?: boolean }) => {
+      if (!clientId) {
+        return { transitItems: [], activeComboItems: [] };
+      }
 
-    setLoading(true);
-    try {
-      await Promise.all([
-        loadTransitCombos(),
-        loadCombinations(),
-        loadActiveCombinations(),
-      ]);
-      setCombosAsOfDate(new Date());
-    } catch {
-      // Individual loaders already clear their own state on failure.
-    } finally {
-      setLoading(false);
-    }
-  }, [clientId, loadActiveCombinations, loadCombinations, loadTransitCombos]);
+      if (options?.isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const [loadedTransitItems, , loadedActiveComboItems] = await Promise.all([
+          loadTransitCombos(),
+          loadCombinations(),
+          loadActiveCombinations(),
+        ]);
+        setCombosAsOfDate(new Date());
+        return {
+          transitItems: loadedTransitItems,
+          activeComboItems: loadedActiveComboItems,
+        };
+      } catch {
+        return { transitItems: [], activeComboItems: [] };
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [clientId, loadActiveCombinations, loadCombinations, loadTransitCombos],
+  );
 
   useEffect(() => {
     setComboTab(initialTab);
@@ -346,11 +368,6 @@ const AstrologerCombos = ({
     loadAllCombos();
   }, [loadAllCombos]);
 
-  const handleRefresh = () => {
-    setContentById({});
-    loadAllCombos();
-  };
-
   const handleTabChange = (tab: ComboTab) => {
     setComboTab(tab);
     setExpandedComboId(null);
@@ -359,8 +376,6 @@ const AstrologerCombos = ({
   const toggleTransitItem = (id: string) => {
     setExpandedComboId(prev => (prev === id ? null : id));
   };
-
-  const getTransitAnalysisContentId = (id: string) => `analysis-${id}`;
 
   const toggleTransitAnalysisItem = async (item: TransitComboItem) => {
     const contentId = getTransitAnalysisContentId(item.id);
@@ -408,6 +423,98 @@ const AstrologerCombos = ({
     [userService],
   );
 
+  const fetchComboContentById = useCallback(
+    async (
+      tab: ComboTab,
+      expandedId: string,
+      transitList: TransitComboItem[],
+      activeList: CombinationListItem[],
+    ) => {
+      if (tab === 'transit_analysis') {
+        const item = transitList.find(
+          entry => getTransitAnalysisContentId(entry.id) === expandedId,
+        );
+        if (!item) {
+          return;
+        }
+
+        setContentLoadingId(expandedId);
+        try {
+          const response = await userService.getAstrologerTransitHeadingReport(
+            clientId,
+            item.heading,
+          );
+          const content = response?.answer?.trim() || 'No details available.';
+          setContentById(prev => ({
+            ...prev,
+            [expandedId]: content,
+          }));
+        } catch {
+          setContentById(prev => ({
+            ...prev,
+            [expandedId]: 'Failed to load details.',
+          }));
+        } finally {
+          setContentLoadingId(null);
+        }
+        return;
+      }
+
+      if (tab === 'antar_dasha') {
+        const item = activeList.find(entry => entry.id === expandedId);
+        if (!item) {
+          return;
+        }
+
+        setContentLoadingId(expandedId);
+        try {
+          const content = await fetchActiveComboContent(item);
+          setContentById(prev => ({
+            ...prev,
+            [expandedId]: content,
+          }));
+        } catch {
+          setContentById(prev => ({
+            ...prev,
+            [expandedId]: 'Failed to load details.',
+          }));
+        } finally {
+          setContentLoadingId(null);
+        }
+      }
+    },
+    [clientId, fetchActiveComboContent, userService],
+  );
+
+  const handleRefresh = useCallback(async () => {
+    const expandedId = expandedComboId;
+    const currentTab = comboTab;
+    const shouldReloadExpandedContent =
+      Boolean(expandedId) &&
+      (currentTab === 'antar_dasha' || currentTab === 'transit_analysis');
+
+    if (shouldReloadExpandedContent && expandedId) {
+      setContentLoadingId(expandedId);
+    } else {
+      setContentById({});
+    }
+
+    const { transitItems: freshTransitItems, activeComboItems: freshActiveItems } =
+      await loadAllCombos({ isRefresh: true });
+
+    if (shouldReloadExpandedContent && expandedId) {
+      await fetchComboContentById(
+        currentTab,
+        expandedId,
+        freshTransitItems,
+        freshActiveItems,
+      );
+      return;
+    }
+
+    setContentById({});
+  }, [comboTab, expandedComboId, fetchComboContentById, loadAllCombos]);
+
   const toggleActiveComboItem = async (item: CombinationListItem) => {
     const willExpand = expandedComboId !== item.id;
     setExpandedComboId(willExpand ? item.id : null);
@@ -436,7 +543,7 @@ const AstrologerCombos = ({
   const renderComboContent = (content: string, isTransitAnalysis = false) => {
     if (!content) {
       return (
-        <Text style={[styles.comboContentText, { color: textMuted }]}>
+        <Text style={[styles.comboContentText, { color: expandedContentColor }]}>
           No details available.
         </Text>
       );
@@ -460,7 +567,9 @@ const AstrologerCombos = ({
     }
 
     return (
-      <Text style={[styles.comboContentText, { color: textMuted }]}>{content}</Text>
+      <Text style={[styles.comboContentText, { color: expandedContentColor }]}>
+        {content}
+      </Text>
     );
   };
 
@@ -526,7 +635,7 @@ const AstrologerCombos = ({
           </View>
           <View style={styles.comboChevronBox}>
             <Text style={[styles.comboChevron, { color: textMuted }]}>
-              {entry.isExpanded ? '⌃' : '⌄'}
+              {entry.isExpanded ? '▲' : '▼'}
             </Text>
           </View>
         </TouchableOpacity>,
@@ -640,8 +749,42 @@ const AstrologerCombos = ({
           ? 'Combinations'
           : 'Antardasha Analysis';
 
+  const renderListContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={NAVY} />
+        </View>
+      );
+    }
+
+    if (comboTab === 'combinations') {
+      return (
+        <View style={styles.listScrollContent}>{renderCombinationsList()}</View>
+      );
+    }
+
+    if (expandableListData?.empty) {
+      return (
+        <Text style={[styles.emptyText, { color: textMuted }]}>
+          {expandableListData.empty}
+        </Text>
+      );
+    }
+
+    return (
+      <View style={styles.listScrollContent}>{expandableListData?.nodes}</View>
+    );
+  };
+
   return (
-    <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+    <View
+      style={[
+        styles.card,
+        useParentScroll ? styles.cardInParentScroll : null,
+        { backgroundColor: cardBg, borderColor: cardBorder },
+      ]}
+    >
       <View style={styles.headerRow}>
         <View style={styles.headerTextWrap}>
           <Text style={[styles.title, { color: textPrimary }]}>{headerTitle}</Text>
@@ -655,9 +798,14 @@ const AstrologerCombos = ({
           style={styles.refreshBtn}
           onPress={handleRefresh}
           activeOpacity={0.85}
+          disabled={refreshing || loading}
         >
-          <Text style={styles.refreshIcon}>↻</Text>
-          <Text style={styles.refreshText}>Refresh</Text>
+          {refreshing ? (
+            <ActivityIndicator size="small" color={NAVY} />
+          ) : (
+            <Text style={styles.refreshIcon}>↻</Text>
+          )}
+          <Text style={styles.refreshText}>{refreshing ? 'Refreshing' : 'Refresh'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -694,7 +842,9 @@ const AstrologerCombos = ({
         })}
       </ScrollView>
 
-      {loading ? (
+      {useParentScroll ? (
+        renderListContent()
+      ) : loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={NAVY} />
         </View>
@@ -734,6 +884,10 @@ const styles = StyleSheet.create({
     padding: responsiveWidth('2'),
     overflow: 'hidden',
   },
+  cardInParentScroll: {
+    flex: 0,
+    flexGrow: 0,
+  },
   listScroll: {
     flex: 1,
   },
@@ -741,14 +895,15 @@ const styles = StyleSheet.create({
     paddingBottom: responsiveWidth('4'),
   },
   stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     width: '100%',
-    position: 'relative',
-    justifyContent: 'center',
     paddingLeft: 12,
-    paddingRight: 40,
+    paddingRight: 12,
     paddingVertical: 12,
     borderWidth: 1,
     borderRadius: 10,
+    gap: 8,
   },
   stickyHeaderCollapsed: {
     marginBottom: 10,
@@ -853,7 +1008,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   comboCardTitleWrap: {
-    width: '100%',
+    flex: 1,
+    minWidth: 0,
   },
   comboCardTitle: {
     fontSize: 13,
@@ -862,18 +1018,15 @@ const styles = StyleSheet.create({
     color: NAVY,
   },
   comboChevronBox: {
-    position: 'absolute',
-    right: -25,
-    top: 0,
-    bottom: 0,
-    width: 20,
-    alignItems: 'flex-end',
+    width: 24,
+    alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   comboChevron: {
-    fontSize: 18,
+    fontSize: 12,
     fontFamily: fontFamily.bold,
-    lineHeight: 20,
+    lineHeight: 14,
   },
   comboCardBody: {
     paddingHorizontal: 12,

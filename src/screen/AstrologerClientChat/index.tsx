@@ -2,12 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   BackHandler,
-  Dimensions,
   FlatList,
   Image,
   ImageBackground,
   Keyboard,
-  KeyboardEvent,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -46,6 +45,7 @@ import {
 } from '../../utils/astrologerCurrentTransitSession';
 import { Api } from '../../types/api';
 import { icons } from '../../assets';
+import { resolveBottomSafeInset } from '../../utils/safeAreaInsets';
 
 const NAVY = '#1A3673';
 const GOLD = '#C5A370';
@@ -315,17 +315,6 @@ const getClientDisplayName = (client: Api.User.Res.AstrologerClient) =>
   `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
   'Unknown Client';
 
-const INPUT_BAR_HEIGHT = 72;
-
-const resolveKeyboardOffset = (event: KeyboardEvent) => {
-  if (Platform.OS === 'android') {
-    const windowHeight = Dimensions.get('window').height;
-    return Math.max(0, windowHeight - event.endCoordinates.screenY);
-  }
-
-  return event.endCoordinates.height;
-};
-
 const AstrologerClientChatScreen = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, 'AstrologerClientChatScreen'>>();
@@ -381,7 +370,8 @@ const AstrologerClientChatScreen = () => {
   const [memberDetails, setMemberDetails] =
     useState<Api.User.Res.AstrologerMemberDetailsResponse | null>(null);
   const [memberDetailsLoading, setMemberDetailsLoading] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const isKeyboardVisibleRef = useRef(false);
 
   useEffect(() => {
     if (route.params?.initialView) {
@@ -419,12 +409,15 @@ const AstrologerClientChatScreen = () => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const showSubscription = Keyboard.addListener(showEvent, event => {
-      setKeyboardHeight(resolveKeyboardOffset(event));
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      isKeyboardVisibleRef.current = true;
+      setIsKeyboardVisible(true);
       scrollToBottom(false);
     });
+
     const hideSubscription = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
+      isKeyboardVisibleRef.current = false;
+      setIsKeyboardVisible(false);
     });
 
     return () => {
@@ -979,21 +972,22 @@ const AstrologerClientChatScreen = () => {
     fetchTransitChart(payload, true);
   };
 
+  const screenBottomInset = useMemo(
+    () =>
+      resolveBottomSafeInset(insets.bottom, {
+        keyboardVisible: isKeyboardVisible,
+      }),
+    [insets.bottom, isKeyboardVisible],
+  );
+
   const inputBottomPadding = useMemo(() => {
-    if (keyboardHeight > 0) {
+    if (isKeyboardVisible) {
       return responsiveWidth('2');
     }
 
-    const androidNavFallback =
-      Platform.OS === 'android' && insets.bottom === 0 ? 48 : 0;
-
-    return Math.max(insets.bottom, androidNavFallback, responsiveWidth('2'));
-  }, [insets.bottom, keyboardHeight]);
-
-  const listBottomPadding = useMemo(
-    () => INPUT_BAR_HEIGHT + (keyboardHeight > 0 ? responsiveWidth('2') : inputBottomPadding),
-    [inputBottomPadding, keyboardHeight],
-  );
+    // Screen already applies bottom safe inset on the root container.
+    return responsiveWidth('2');
+  }, [isKeyboardVisible]);
 
   const palette = useMemo(() => {
     const isDark = theme === 'dark';
@@ -1458,30 +1452,138 @@ const AstrologerClientChatScreen = () => {
     </ScrollView>
   );
 
-  const renderCombosContent = () => (
-    <View style={[styles.combosPanelWrap, { backgroundColor: palette.screenBg }]}>
-      {activeClientId ? (
-        <AstrologerCombos
-          key={activeClientId}
-          clientId={activeClientId}
-          cardBg={palette.toolbarBg}
-          cardBorder={palette.toolbarBorder}
-          textPrimary={palette.textPrimary}
-          textMuted={palette.textMuted}
-          initialTab={route.params?.initialComboTab}
-        />
-      ) : (
-        <View style={[styles.panelCard, { backgroundColor: palette.toolbarBg, borderColor: palette.toolbarBorder }]}>
-          <Text style={[styles.panelEmptyText, { color: palette.textMuted }]}>
-            Select a client to view combinations
-          </Text>
-        </View>
-      )}
+  const renderToolbarTabs = () => (
+    <View
+      style={[
+        styles.toolbarCard,
+        {
+          backgroundColor: palette.toolbarBg,
+          borderColor: palette.toolbarBorder,
+        },
+      ]}
+    >
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.toolbarRight}
+      >
+        {renderViewPill(
+          'chat',
+          'Chat',
+          <Image
+            source={require('../../assets/icons/Chat-inactive.png')}
+            style={
+              activeView === 'chat'
+                ? styles.toolbarPillIconActive
+                : [styles.toolbarPillIconInactive, { tintColor: inactivePillColor }]
+            }
+          />,
+        )}
+
+        {renderViewPill(
+          'vedic',
+          'Vedic',
+          <Image
+            source={require('../../assets/icons/home/Chart.png')}
+            style={
+              activeView === 'vedic'
+                ? [styles.toolbarPillIconActive, { tintColor: '#FFFFFF' }]
+                : [styles.toolbarPillIconInactive, { tintColor: inactivePillColor }]
+            }
+          />,
+        )}
+
+        {renderViewPill(
+          'transit',
+          'Transit',
+          <Text
+            style={[
+              styles.transitSunIconInactive,
+              { color: activeView === 'transit' ? '#FFFFFF' : inactivePillColor },
+            ]}
+          >
+            ☀
+          </Text>,
+        )}
+
+        {renderViewPill(
+          'combos',
+          'Combos',
+          <Text
+            style={[
+              styles.combosListIcon,
+              { color: activeView === 'combos' ? '#FFFFFF' : inactivePillColor },
+            ]}
+          >
+            ☰
+          </Text>,
+        )}
+      </ScrollView>
     </View>
   );
 
+  const renderMemberHeader = () => (
+    <AstrologerChatMemberHeader
+      loading={memberDetailsLoading}
+      memberDetails={memberDetails}
+      fallbackName={activeClientName}
+      isDark={palette.isDark}
+      borderColor={palette.topHeaderBorder}
+      backgroundColor={palette.topHeaderBg}
+      onOpenSidebar={openSidebar}
+      onOpenCharts={handleOpenCharts}
+      onCheckTransitCombo={handleCheckTransitCombo}
+    />
+  );
+
+  const renderCombosContent = () => (
+    <ScrollView
+      style={[styles.panelScroll, { backgroundColor: palette.screenBg }]}
+      contentContainerStyle={styles.combosPanelContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+    >
+      {renderMemberHeader()}
+      {renderToolbarTabs()}
+      <View style={styles.combosPanelInner}>
+        {activeClientId ? (
+          <AstrologerCombos
+            key={activeClientId}
+            clientId={activeClientId}
+            cardBg={palette.toolbarBg}
+            cardBorder={palette.toolbarBorder}
+            textPrimary={palette.textPrimary}
+            textMuted={palette.textMuted}
+            initialTab={route.params?.initialComboTab}
+            useParentScroll
+          />
+        ) : (
+          <View
+            style={[
+              styles.panelCard,
+              { backgroundColor: palette.toolbarBg, borderColor: palette.toolbarBorder },
+            ]}
+          >
+            <Text style={[styles.panelEmptyText, { color: palette.textMuted }]}>
+              Select a client to view combinations
+            </Text>
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+
   return (
-    <View style={[styles.flex, { backgroundColor: palette.screenBg }]}>
+    <View
+      style={[
+        styles.flex,
+        {
+          backgroundColor: palette.screenBg,
+          paddingBottom: screenBottomInset,
+        },
+      ]}
+    >
       <StatusBar
         barStyle={palette.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={palette.topHeaderBg}
@@ -1510,85 +1612,11 @@ const AstrologerClientChatScreen = () => {
         <View style={styles.headerBackBtnPlaceholder} />
       </View>
 
-      <AstrologerChatMemberHeader
-        loading={memberDetailsLoading}
-        memberDetails={memberDetails}
-        fallbackName={activeClientName}
-        isDark={palette.isDark}
-        borderColor={palette.topHeaderBorder}
-        backgroundColor={palette.topHeaderBg}
-        onOpenSidebar={openSidebar}
-        onOpenCharts={handleOpenCharts}
-        onCheckTransitCombo={handleCheckTransitCombo}
-      />
+      {activeView !== 'combos' ? renderMemberHeader() : null}
 
-      <View
-        style={[
-          styles.toolbarCard,
-          {
-            backgroundColor: palette.toolbarBg,
-            borderColor: palette.toolbarBorder,
-          },
-        ]}
-      >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.toolbarRight}
-        >
-          {renderViewPill(
-            'chat',
-            'Chat',
-            <Image
-              source={require('../../assets/icons/Chat-inactive.png')}
-              style={
-                activeView === 'chat'
-                  ? styles.toolbarPillIconActive
-                  : [styles.toolbarPillIconInactive, { tintColor: inactivePillColor }]
-              }
-            />,
-          )}
-
-          {renderViewPill(
-            'vedic',
-            'Vedic',
-            <Image
-              source={require('../../assets/icons/home/Chart.png')}
-              style={
-                activeView === 'vedic'
-                  ? [styles.toolbarPillIconActive, { tintColor: '#FFFFFF' }]
-                  : [styles.toolbarPillIconInactive, { tintColor: inactivePillColor }]
-              }
-            />,
-          )}
-
-          {renderViewPill(
-            'transit',
-            'Transit',
-            <Text
-              style={[
-                styles.transitSunIconInactive,
-                { color: activeView === 'transit' ? '#FFFFFF' : inactivePillColor },
-              ]}
-            >
-              ☀
-            </Text>,
-          )}
-
-          {renderViewPill(
-            'combos',
-            'Combos',
-            <Text
-              style={[
-                styles.combosListIcon,
-                { color: activeView === 'combos' ? '#FFFFFF' : inactivePillColor },
-              ]}
-            >
-              ☰
-            </Text>,
-          )}
-        </ScrollView>
-      </View>
+      {activeView !== 'combos' && !(activeView === 'chat' && isKeyboardVisible)
+        ? renderToolbarTabs()
+        : null}
 
       <Modal visible={showSidebar} animationType="slide" onRequestClose={closeSidebar}>
         <View
@@ -1722,89 +1750,99 @@ const AstrologerClientChatScreen = () => {
       </Modal>
 
       {activeView === 'chat' ? (
-        <View style={styles.chatContent}>
-          <FlatList
-            ref={listRef}
-            data={messages}
-            extraData={typingRevision}
-            keyExtractor={item => item.id}
-            renderItem={renderMessage}
-            style={[styles.messagesList, { backgroundColor: palette.screenBg }]}
-            contentContainerStyle={[
-              styles.messagesContent,
-              messages.length === 0 ? styles.messagesContentEmpty : null,
-              { paddingBottom: listBottomPadding },
-            ]}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews={false}
-            initialNumToRender={12}
-            maxToRenderPerBatch={8}
-            windowSize={7}
-            onContentSizeChange={handleListContentSizeChange}
-            keyboardShouldPersistTaps="handled"
-            ListFooterComponent={<View style={styles.messagesFooterSpacer} />}
-            ListEmptyComponent={
-              historyLoading ? (
-                <View style={styles.historyLoadingWrap}>
-                  <ActivityIndicator size="small" color={palette.textMuted} />
-                  <Text style={[styles.historyLoadingText, { color: palette.textMuted }]}>
-                    Loading chat history...
-                  </Text>
-                </View>
-              ) : null
-            }
-          />
+        (() => {
+          const ChatWrapper = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+          const chatWrapperProps =
+            Platform.OS === 'ios'
+              ? { style: styles.chatContent, behavior: 'padding' as const }
+              : { style: styles.chatContent };
 
-          <View
-            style={[
-              styles.inputBar,
-              {
-                backgroundColor: palette.inputBarBg,
-                borderTopColor: palette.toolbarBorder,
-                paddingBottom: inputBottomPadding,
-                bottom: keyboardHeight,
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.inputWrapper,
-                {
-                  backgroundColor: palette.inputBg,
-                  borderColor: palette.inputBorder,
-                },
-              ]}
-            >
-              <TextInput
-                style={[styles.textInput, { color: palette.textPrimary }]}
-                placeholder={isSending ? 'Waiting for response...' : 'Type your message...'}
-                placeholderTextColor={palette.textMuted}
-                value={inputText}
-                onChangeText={setInputText}
-                editable={!isSending && !historyLoading}
-                multiline
-                maxLength={500}
+          return (
+            <ChatWrapper {...chatWrapperProps}>
+              <FlatList
+                ref={listRef}
+                data={messages}
+                extraData={typingRevision}
+                keyExtractor={item => item.id}
+                renderItem={renderMessage}
+                style={[styles.messagesList, { backgroundColor: palette.screenBg }]}
+                contentContainerStyle={[
+                  styles.messagesContent,
+                  messages.length === 0 ? styles.messagesContentEmpty : null,
+                ]}
+                showsVerticalScrollIndicator={false}
+                removeClippedSubviews={false}
+                initialNumToRender={12}
+                maxToRenderPerBatch={8}
+                windowSize={7}
+                onContentSizeChange={handleListContentSizeChange}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                ListFooterComponent={<View style={styles.messagesFooterSpacer} />}
+                ListEmptyComponent={
+                  historyLoading ? (
+                    <View style={styles.historyLoadingWrap}>
+                      <ActivityIndicator size="small" color={palette.textMuted} />
+                      <Text style={[styles.historyLoadingText, { color: palette.textMuted }]}>
+                        Loading chat history...
+                      </Text>
+                    </View>
+                  ) : null
+                }
               />
-              <TouchableOpacity
+
+              <View
                 style={[
-                  styles.sendButton,
+                  styles.inputBar,
                   {
-                    backgroundColor:
-                      inputText.trim() && !isSending && !historyLoading
-                        ? palette.sendBtnActiveBg
-                        : palette.sendBtnBg,
-                    opacity: isSending || historyLoading ? 0.6 : inputText.trim() ? 1 : 0.55,
+                    backgroundColor: palette.inputBarBg,
+                    borderTopColor: palette.toolbarBorder,
+                    paddingBottom: inputBottomPadding,
                   },
                 ]}
-                onPress={handleSend}
-                disabled={isSending || historyLoading || !inputText.trim()}
-                activeOpacity={0.85}
               >
-                <Text style={styles.sendIcon}>➤</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: palette.inputBg,
+                      borderColor: palette.inputBorder,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.textInput, { color: palette.textPrimary }]}
+                    placeholder={isSending ? 'Waiting for response...' : 'Type your message...'}
+                    placeholderTextColor={palette.textMuted}
+                    value={inputText}
+                    onChangeText={setInputText}
+                    editable={!isSending && !historyLoading}
+                    multiline
+                    maxLength={500}
+                    textAlignVertical="center"
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.sendButton,
+                      {
+                        backgroundColor:
+                          inputText.trim() && !isSending && !historyLoading
+                            ? palette.sendBtnActiveBg
+                            : palette.sendBtnBg,
+                        opacity: isSending || historyLoading ? 0.6 : inputText.trim() ? 1 : 0.55,
+                      },
+                    ]}
+                    onPress={handleSend}
+                    disabled={isSending || historyLoading || !inputText.trim()}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.sendIcon}>➤</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ChatWrapper>
+          );
+        })()
       ) : null}
 
       {activeView === 'vedic' ? renderVedicContent() : null}
@@ -2102,15 +2140,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   panelScroll: { flex: 1 },
-  combosPanelWrap: {
-    flex: 1,
-    paddingHorizontal: responsiveWidth('3'),
-    paddingTop: responsiveWidth('1'),
-    paddingBottom: responsiveWidth('2'),
-  },
   combosPanelContent: {
     flexGrow: 1,
-    minHeight: responsiveWidth('120'),
+    paddingBottom: responsiveWidth('6'),
+  },
+  combosPanelInner: {
+    paddingHorizontal: responsiveWidth('3'),
+    paddingTop: responsiveWidth('1'),
   },
   panelScrollContent: {
     paddingHorizontal: responsiveWidth('3'),
@@ -2245,7 +2281,6 @@ const styles = StyleSheet.create({
   chatContent: {
     flex: 1,
     minHeight: 0,
-    position: 'relative',
   },
   messagesContent: {
     paddingHorizontal: responsiveWidth('3.5'),
@@ -2443,9 +2478,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   inputBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
     paddingHorizontal: responsiveWidth('3'),
     paddingTop: responsiveWidth('2'),
     borderTopWidth: 1,

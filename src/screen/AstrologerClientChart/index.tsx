@@ -166,7 +166,7 @@ const AstrologerClientChartScreen = () => {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
-        <MainContainer>
+        <MainContainer safeBottom>
           <View style={styles.loadingContainer}>
             <LottieView
               source={require('../../assets/lottie/loader-Animation-1.json')}
@@ -186,7 +186,7 @@ const AstrologerClientChartScreen = () => {
       style={styles.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer>
+      <MainContainer safeBottom>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}

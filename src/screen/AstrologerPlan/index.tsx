@@ -25,7 +25,6 @@ import { setUser } from '../../state/slices/appSlice';
 import http from '../../utils/http';
 import UserService from '../../services/user/user.service';
 import {
-  AstrologerAutopayPlanType,
   subscriptionApi,
 } from '../../api/subscriptionApi';
 import { mergeUserProfile } from '../../utils/userRole';
@@ -78,50 +77,149 @@ const isRazorpayPaymentCancelled = (paymentError: {
   );
 };
 
+type PlanFeature = {
+  icon?: string | null;
+  title: string;
+  richContent?: string;
+};
+
 type PlanApiItem = {
   id: number;
   _id?: string;
   plan_id?: string;
+  plan_name?: string;
+  plan_type?: string;
   title: string;
+  badge?: string;
   price: string;
   priceMode?: string;
+  features?: PlanFeature[];
+  featuresTitle?: string;
+  footerText?: string;
+  footerNote?: string;
+  [key: string]: unknown;
 };
-
-type AstrologerPlanKey = 'free' | 'pro' | 'premium';
 
 const sleep = (ms: number) =>
   new Promise<void>(resolve => {
     setTimeout(() => resolve(), ms);
   });
 
-const resolveAstrologerBillingUserId = (userData: Record<string, unknown>) =>
-  String(userData.user_id || userData._id || userData.id || '');
+const getNormalizedPlanLabel = (plan: PlanApiItem | null) =>
+  `${plan?.featuresTitle || ''} ${plan?.title || ''}`.toLowerCase().trim();
 
-const resolvePlanMongoId = (plan: PlanApiItem | null) => {
-  if (!plan) {
+const isAstrologerBillingConfig = (plan: PlanApiItem) =>
+  Boolean(plan.plan_name && (!plan.features || plan.features.length === 0));
+
+const isFreePlan = (plan: PlanApiItem) => {
+  const label = getNormalizedPlanLabel(plan);
+  return label.includes('free') || Number(plan.price || 0) <= 0;
+};
+
+const isPaidPlan = (plan: PlanApiItem) => !isFreePlan(plan);
+
+const resolveBillingPlanId = (billingConfig: PlanApiItem | null) =>
+  String(billingConfig?._id || billingConfig?.plan_id || RAZORPAY_CONFIG.PLAN_ID);
+
+const getPlanIdentityTokens = (plan: PlanApiItem) => {
+  const normalizedTitle = plan.title?.toLowerCase().trim();
+  const normalizedFeatureTitle = plan.featuresTitle?.toLowerCase().trim();
+  const normalizedPrice = String(plan.price || '').trim();
+  const normalizedPlanId = String(plan.plan_id || plan._id || plan.id || '').trim();
+
+  return [normalizedTitle, normalizedFeatureTitle, normalizedPrice, normalizedPlanId].filter(
+    Boolean,
+  ) as string[];
+};
+
+const resolveBillingPlanTypeFromConfig = (
+  plan: PlanApiItem,
+  billingConfig: PlanApiItem | null,
+) => {
+  if (!billingConfig) {
     return '';
   }
-  return String(plan._id || plan.plan_id || plan.id || '');
+
+  const planTokens = getPlanIdentityTokens(plan);
+  if (planTokens.length === 0) {
+    return '';
+  }
+
+  const matchingEntry = Object.entries(billingConfig).find(([key, rawValue]) => {
+    if (!key.endsWith('_plan')) {
+      return false;
+    }
+
+    const value = String(rawValue || '').toLowerCase().trim();
+    if (!value) {
+      return false;
+    }
+
+    return planTokens.some(token => value === token || value.includes(token) || token.includes(value));
+  });
+
+  return matchingEntry?.[0]?.trim() || '';
 };
 
-const isPlanActive = (currentPlan: string, planKey: AstrologerPlanKey) => {
-  const normalized = currentPlan.toLowerCase();
-  if (planKey === 'free') {
-    return normalized === 'free' || normalized === '';
+const resolveBillingPlanType = (
+  plan: PlanApiItem,
+  billingConfig: PlanApiItem | null = null,
+) => {
+  if (plan.plan_type?.trim()) {
+    return plan.plan_type.trim();
   }
-  if (planKey === 'pro') {
-    return (
-      normalized === 'pro' ||
-      normalized === '2999_plan' ||
-      normalized.includes('2999')
-    );
+
+  const configuredPlanType = resolveBillingPlanTypeFromConfig(plan, billingConfig);
+  if (configuredPlanType) {
+    return configuredPlanType;
   }
-  return (
-    normalized === 'premium' ||
-    normalized === '4999_plan' ||
-    normalized.includes('4999')
-  );
+
+  const price = Number(plan.price || 0);
+  if (price > 0) {
+    return `${price}_plan`;
+  }
+
+  return '';
 };
+
+const getPlanMatchers = (plan: PlanApiItem, billingConfig: PlanApiItem | null = null) => {
+  const billingType = resolveBillingPlanType(plan, billingConfig);
+  const label = getNormalizedPlanLabel(plan);
+
+  return [
+    billingType,
+    label,
+    plan.title?.toLowerCase().trim(),
+    plan.featuresTitle?.toLowerCase().trim(),
+    String(plan.price || ''),
+  ].filter(Boolean) as string[];
+};
+
+const isPlanItemActive = (
+  currentPlan: string,
+  plan: PlanApiItem,
+  billingConfig: PlanApiItem | null = null,
+) => {
+  const normalized = currentPlan.toLowerCase().trim();
+
+  if (!normalized && isFreePlan(plan)) {
+    return true;
+  }
+
+  if (!normalized) {
+    return false;
+  }
+
+  return getPlanMatchers(plan, billingConfig).some(token => {
+    if (!token) {
+      return false;
+    }
+
+    return normalized.includes(token) || token.includes(normalized);
+  });
+};
+
+const getPlanSubscriptionKey = (plan: PlanApiItem) => String(plan.id);
 
 type PlansApiResponse = {
   status: boolean;
@@ -129,46 +227,52 @@ type PlansApiResponse = {
   data?: PlanApiItem[];
 };
 
-const FREE_FEATURES = [
-  '1 chart is free',
-  'Up to 5 questions on that chart',
-  'Valid for 1 month',
-  'Analyze all transits for the next 48 months',
-  'All core astrology insights',
-];
-
-const PRO_FEATURES = [
-  'Unlimited chats',
-  'Transit search up to 48 months',
-  'Search from Lagna, Moon & Dasha Lagna',
-  'Combinations with repetition & higher probability',
-  'Dignity analysis of planets with reasoning',
-];
-
-const PREMIUM_FEATURES = [
-  'Unlimited chats',
-  'Everything in Pro',
-  'Transit search up to 48 months',
-  'Deeper long-term analysis & timing insights',
+const SUBSCRIPTION_EXPIRES = [
+  {
+    step: '1',
+    icon: '👁',
+    description: 'You can continue viewing previously created charts',
+  },
+  {
+    step: '2',
+    icon: '⊕',
+    description: 'You cannot create new charts',
+  },
+  {
+    step: '3',
+    icon: '↻',
+    description: 'You cannot refresh transit combinations',
+  },
+  {
+    step: '4',
+    icon: '⏱',
+    description: 'You cannot generate new analyses until subscription is renewed',
+  },
 ];
 
 const HOW_IT_WORKS = [
   {
     step: '1',
-    title: 'You Ask',
-    description: 'Find all connections between Saturn and the 10th lord',
+    title: 'ASK',
+    description: 'Find all connections between Saturn and the 10th lord.',
   },
   {
     step: '2',
-    title: 'System Checks',
+    title: 'SYSTEM CHECKS',
     description:
-      'Conjunctions, Aspects, Exchanges, Dispositors, Nakshatra Links, Dasha Activation, Transit Activation',
+      'Conjunctions • Exchanges • Nakshatra Links • Transit Activation • Aspects • Dispositors • Dasha Activation',
   },
   {
     step: '3',
-    title: 'Answer Generated',
-    description: 'Relevant astrological relationships returned instantly',
+    title: 'ANSWER GENERATED',
+    description: 'All relevant astrological relationships are returned instantly.',
   },
+];
+
+const TOP_FEATURE_BADGES = [
+  'Natural Language Queries',
+  'Transit & Dasha Activation',
+  'Active Combination Search',
 ];
 
 const EXAMPLE_QUESTIONS = [
@@ -191,6 +295,120 @@ const getPriceUnit = (priceMode?: string) => {
   return mode.includes('year') ? '/ year' : '/ month';
 };
 
+const decodeHtmlEntities = (text: string) =>
+  text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+
+const stripHtmlTags = (html: string) =>
+  decodeHtmlEntities(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+
+const extractListItemsFromHtml = (html: string): string[] => {
+  if (!html) {
+    return [];
+  }
+
+  const items: string[] = [];
+  const liRegex = /<li[^>]*>(.*?)<\/li>/gis;
+  let match = liRegex.exec(html);
+
+  while (match) {
+    const text = stripHtmlTags(match[1]);
+    if (text) {
+      items.push(text);
+    }
+    match = liRegex.exec(html);
+  }
+
+  if (items.length === 0) {
+    const plain = stripHtmlTags(html);
+    if (plain) {
+      items.push(plain);
+    }
+  }
+
+  return items;
+};
+
+const isAstrologerDisplayPlan = (item: unknown): item is PlanApiItem => {
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+
+  const plan = item as PlanApiItem;
+
+  if (isAstrologerBillingConfig(plan)) {
+    return false;
+  }
+
+  if (!plan.title?.trim()) {
+    return false;
+  }
+
+  return Array.isArray(plan.features) && plan.features.length > 0;
+};
+
+const getPlanLabel = (plan: PlanApiItem | null, fallback: string) =>
+  (plan?.featuresTitle || plan?.title || fallback).toUpperCase();
+
+const getPlanFeatureItems = (
+  plan: PlanApiItem | null,
+  fallback: string[],
+): string[] => {
+  if (!plan?.features?.length) {
+    return fallback;
+  }
+
+  const items: string[] = [];
+
+  plan.features.forEach(feature => {
+    const title = feature.title?.trim().toUpperCase() || '';
+    if (title === 'NOTE' || title.includes('EXAMPLE')) {
+      return;
+    }
+
+    const listItems = extractListItemsFromHtml(feature.richContent || '');
+    if (listItems.length > 0) {
+      items.push(...listItems);
+      return;
+    }
+
+    if (feature.title?.trim()) {
+      items.push(feature.title.trim());
+    }
+  });
+
+  return items.length > 0 ? items : fallback;
+};
+
+const getPlanExampleText = (plan: PlanApiItem | null): string | null => {
+  const exampleFeature = plan?.features?.find(feature =>
+    feature.title?.toLowerCase().includes('example'),
+  );
+
+  if (!exampleFeature?.richContent) {
+    return null;
+  }
+
+  return stripHtmlTags(exampleFeature.richContent) || null;
+};
+
+const getPlanNoteText = (plan: PlanApiItem | null): string | null => {
+  const noteFeature = plan?.features?.find(
+    feature => feature.title?.trim().toUpperCase() === 'NOTE',
+  );
+
+  if (!noteFeature?.richContent) {
+    return plan?.footerNote?.trim() || plan?.footerText?.trim() || null;
+  }
+
+  return stripHtmlTags(noteFeature.richContent) || null;
+};
+
 const AstrologerPlanScreen = () => {
   const dispatch = useDispatch();
   const { theme, colors } = useTheme();
@@ -199,39 +417,31 @@ const AstrologerPlanScreen = () => {
   const userService = useMemo(() => new UserService(), []);
 
   const [plansLoading, setPlansLoading] = useState(false);
-  const [plansError, setPlansError] = useState<string | null>(null);
+  const [_plansError, setPlansError] = useState<string | null>(null);
   const [plans, setPlans] = useState<PlanApiItem[]>([]);
-  const [subscribingPlan, setSubscribingPlan] = useState<AstrologerPlanKey | null>(
-    null,
-  );
+  const [billingConfig, setBillingConfig] = useState<PlanApiItem | null>(null);
+  const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const isPollingRef = useRef(false);
 
-  const currentPlan = String(astrologerUser?.current_plan || 'pro').toLowerCase();
-  const startPlanTime = String(astrologerUser?.start_plan_time || '—');
-  const endPlanTime = String(astrologerUser?.end_plan_time || '—');
-  const membersAllow = Number(astrologerUser?.members_allow) || 0;
-  const availableMembers = Number(astrologerUser?.available_members_allow) || 0;
-  const currentMembers = Number(astrologerUser?.astrologer_current_members) || 0;
-
-  const formatPlanName = (plan: string) =>
-    plan
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-
+  const currentPlan = String(astrologerUser?.current_plan || '').toLowerCase();
   const fetchPlans = useCallback(async () => {
+
+    console.log('fetchPlans401');
     setPlansLoading(true);
     setPlansError(null);
     try {
-      const res = await http.get<PlansApiResponse>('/plans');
+
+      console.log('fetchPlans406');
+      const res = await http.get<PlansApiResponse>('/astrologer/plans');
+      console.log('fetchPlans407');
+
+      console.log('res---?>405', res);
       const raw = Array.isArray(res.data?.data) ? res.data.data : [];
-      setPlans(
-        raw.filter(
-          (item: PlanApiItem) =>
-            typeof item?.id === 'number' && typeof item?.title === 'string',
-        ),
-      );
+      const billingRow =
+        raw.find(item => isAstrologerBillingConfig(item as PlanApiItem)) || null;
+      setBillingConfig(billingRow);
+      setPlans(raw.filter(isAstrologerDisplayPlan));
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { message?: string } };
@@ -247,32 +457,47 @@ const AstrologerPlanScreen = () => {
   }, []);
 
   useFocusEffect(
+
+    
     useCallback(() => {
+
+      console.log('fetchPlans');
       fetchPlans();
     }, [fetchPlans]),
   );
 
-  const freePlan = useMemo(
-    () => plans.find(plan => plan.title?.toLowerCase().includes('free')) || null,
-    [plans],
-  );
-  const proPlan = useMemo(
+  const displayPlans = useMemo(() => {
+    return [...plans].sort((a, b) => {
+      const freeDiff = Number(isFreePlan(b)) - Number(isFreePlan(a));
+      if (freeDiff !== 0) {
+        return freeDiff;
+      }
+
+      const priceDiff = Number(a.price || 0) - Number(b.price || 0);
+      if (priceDiff !== 0) {
+        return priceDiff;
+      }
+
+      return a.title.localeCompare(b.title);
+    });
+  }, [plans]);
+
+  const activePlanPrice = useMemo(() => {
+    const activePlan = displayPlans.find(plan =>
+      isPlanItemActive(currentPlan, plan, billingConfig),
+    );
+    return activePlan ? Number(activePlan.price || 0) : 0;
+  }, [billingConfig, currentPlan, displayPlans]);
+
+  const highestPaidPrice = useMemo(
     () =>
-      plans.find(
-        plan =>
-          (plan.title?.toLowerCase().includes('pro') &&
-            !plan.title?.toLowerCase().includes('premium')) ||
-          plan.price === '2999',
-      ) || null,
-    [plans],
-  );
-  const premiumPlan = useMemo(
-    () =>
-      plans.find(
-        plan =>
-          plan.title?.toLowerCase().includes('premium') || plan.price === '4999',
-      ) || null,
-    [plans],
+      displayPlans.reduce((max, plan) => {
+        if (!isPaidPlan(plan)) {
+          return max;
+        }
+        return Math.max(max, Number(plan.price || 0));
+      }, 0),
+    [displayPlans],
   );
 
   const refreshAstrologerUser = useCallback(async () => {
@@ -300,7 +525,7 @@ const AstrologerPlanScreen = () => {
     async (
       subscriptionId: string,
       userId: string,
-      planKey: AstrologerPlanKey,
+      planTitle: string,
       paymentResponse: AstrologerRazorpayPaymentResponse,
     ) => {
       if (isPollingRef.current) {
@@ -338,10 +563,7 @@ const AstrologerPlanScreen = () => {
             Toast.show({
               type: 'success',
               text1: 'Payment Successful',
-              text2:
-                planKey === 'premium'
-                  ? 'Your Premium plan is now active.'
-                  : 'Your Pro plan is now active.',
+              text2: `Your ${planTitle} is now active.`,
               position: 'top',
               topOffset: 60,
               visibilityTime: 3000,
@@ -366,9 +588,12 @@ const AstrologerPlanScreen = () => {
   );
 
   const handleSubscribe = useCallback(
-    async (planKey: 'pro' | 'premium') => {
+    async (plan: PlanApiItem) => {
       try {
-        setSubscribingPlan(planKey);
+        
+        console.log('plan---?>', plan);
+        
+        setSubscribingPlanId(getPlanSubscriptionKey(plan));
 
         const userDataString = await AsyncStorage.getItem('USER_DATA');
         if (!userDataString) {
@@ -380,17 +605,22 @@ const AstrologerPlanScreen = () => {
           unknown
         >;
 
-        console.log('currentUserData', currentUserData);
         const userId = String(currentUserData._id || '');
 
         if (!userId) {
           throw new Error('User ID not found. Please login again.');
         }
 
-        const planType: AstrologerAutopayPlanType =
-          planKey === 'premium' ? '4999_plan' : '2999_plan';
-        const selectedPlan = planKey === 'premium' ? premiumPlan : proPlan;
-        const planId = resolvePlanMongoId(selectedPlan) || RAZORPAY_CONFIG.PLAN_ID;
+        const planType = resolveBillingPlanType(plan, billingConfig);
+        if (!planType) {
+          throw new Error('Plan type not available for this subscription.');
+        }
+
+        console.log('planType---?>', planType);
+
+        const planId = resolveBillingPlanId(billingConfig);
+
+          console.log('planId---?>', planId);
 
         const subscriptionResponse =
           await subscriptionApi.createAstrologerAutopaySubscription({
@@ -435,10 +665,7 @@ const AstrologerPlanScreen = () => {
           subscription_id: subscriptionResponse.subscription_id,
           // recurring: 1,
           name: 'Astrodha',
-          description:
-            planKey === 'premium'
-              ? 'Astrologer Premium Subscription'
-              : 'Astrologer Pro Subscription',
+          description: `${plan.title} Subscription`,
           currency: 'INR',
           prefill: {
             email: String(currentUserData.email || 'user@example.com'),
@@ -480,7 +707,7 @@ const AstrologerPlanScreen = () => {
         await pollSubscriptionVerification(
           String(paymentResponse.razorpay_subscription_id || ''),
           userId,
-          planKey,
+          plan.title,
           paymentResponse,
         );
       } catch (paymentError: unknown) {
@@ -521,10 +748,10 @@ const AstrologerPlanScreen = () => {
           [{ text: 'OK', style: 'default' }],
         );
       } finally {
-        setSubscribingPlan(null);
+        setSubscribingPlanId(null);
       }
     },
-    [astrologerUser, pollSubscriptionVerification, premiumPlan, proPlan],
+    [billingConfig, pollSubscriptionVerification],
   );
 
   const isDark = theme === 'dark';
@@ -532,6 +759,7 @@ const AstrologerPlanScreen = () => {
   const textMuted = isDark ? '#B8B0A0' : '#6B7280';
   const cardBg = isDark ? '#2A3F58' : colors.white;
   const borderColor = isDark ? 'rgba(238, 229, 202, 0.22)' : '#E5E7EB';
+  const topFeaturesBg = isDark ? 'rgba(34,49,73,0.9)' : 'rgba(223,138,93,0.15)';
 
   const renderCheckRow = (text: string, light = false) => (
     <View key={text} style={styles.featureRow}>
@@ -559,16 +787,44 @@ const AstrologerPlanScreen = () => {
     );
   };
 
-  const renderPlanButton = (planKey: AstrologerPlanKey, label: string) => {
-    const isActive = isPlanActive(currentPlan, planKey);
-    const isLoading = subscribingPlan === planKey;
-    const canUpgradeToPremium =
-      planKey === 'premium' && isPlanActive(currentPlan, 'pro') && !isActive;
-    const canSubscribe =
-      (planKey === 'pro' && !isPlanActive(currentPlan, 'pro') && !isPlanActive(currentPlan, 'premium')) ||
-      canUpgradeToPremium;
+  const renderPlanNoteSection = (
+    note: string | null,
+    variant: 'pro' | 'premium',
+  ) => {
+    if (!note) {
+      return null;
+    }
 
-    if (planKey === 'free' && isActive) {
+    const isPro = variant === 'pro';
+    const noteBorderColor = isPro ? '#8B5CF6' : '#F2994A';
+    const noteIconBg = isPro ? 'rgba(139, 92, 246, 0.2)' : 'rgba(242, 153, 74, 0.2)';
+    const noteIconColor = isPro ? '#C4B5FD' : '#F2994A';
+
+    return (
+      <View style={[styles.planNoteBox, { borderColor: noteBorderColor }]}>
+        <View style={styles.planNoteHeader}>
+          <View style={[styles.planNoteIcon, { backgroundColor: noteIconBg }]}>
+            <Text style={[styles.planNoteIconText, { color: noteIconColor }]}>i</Text>
+          </View>
+          <Text style={styles.planNoteTitle}>NOTE</Text>
+        </View>
+        <Text style={styles.planNoteBody}>{note}</Text>
+      </View>
+    );
+  };
+
+  const renderPlanButton = (plan: PlanApiItem) => {
+    const planKey = getPlanSubscriptionKey(plan);
+    const isActive = isPlanItemActive(currentPlan, plan, billingConfig);
+    const isLoading = subscribingPlanId === planKey;
+    const planPrice = Number(plan.price || 0);
+    const isUpgrade =
+      isPaidPlan(plan) &&
+      activePlanPrice > 0 &&
+      planPrice > activePlanPrice &&
+      !isActive;
+
+    if (isFreePlan(plan) && isActive) {
       return (
         <View style={styles.ctaCurrentPlan}>
           <Text style={styles.ctaCurrentPlanText}>Current Plan</Text>
@@ -576,7 +832,7 @@ const AstrologerPlanScreen = () => {
       );
     }
 
-    if (planKey === 'pro' && isActive) {
+    if (isPaidPlan(plan) && isActive) {
       return (
         <View style={styles.ctaActivePlan}>
           <Text style={styles.ctaActivePlanText}>Active Plan</Text>
@@ -584,51 +840,114 @@ const AstrologerPlanScreen = () => {
       );
     }
 
-    if (planKey === 'premium' && isActive) {
-      return (
-        <View style={styles.ctaActivePlan}>
-          <Text style={styles.ctaActivePlanText}>Active Plan</Text>
-        </View>
-      );
-    }
+    if (isPaidPlan(plan)) {
+      const buttonLabel = isUpgrade
+        ? `Upgrade to ${plan.title}`
+        : `Get ${plan.title}`;
 
-    if (planKey === 'pro' ) {
       return (
         <TouchableOpacity
           style={styles.ctaPremium}
-          onPress={() => handleSubscribe('pro')}
+          onPress={() => handleSubscribe(plan)}
           disabled={isLoading || verifyingPayment}
           activeOpacity={0.85}
         >
           {isLoading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.ctaPremiumText}>{label}</Text>
-          )}
-        </TouchableOpacity>
-      );
-    }
-
-    if (planKey === 'premium' ) {
-      return (
-        <TouchableOpacity
-          style={styles.ctaPremium}
-          onPress={() => handleSubscribe('premium')}
-          disabled={isLoading || verifyingPayment}
-          activeOpacity={0.85}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={styles.ctaPremiumText}>
-              {canUpgradeToPremium ? 'Upgrade to Premium' : label}
-            </Text>
+            <Text style={styles.ctaPremiumText}>{buttonLabel}</Text>
           )}
         </TouchableOpacity>
       );
     }
 
     return null;
+  };
+
+  const renderPlanCard = (plan: PlanApiItem, index: number) => {
+    const isFree = isFreePlan(plan);
+    const isTopTier =
+      isPaidPlan(plan) &&
+      highestPaidPrice > 0 &&
+      Number(plan.price || 0) === highestPaidPrice;
+    const isLightCard = isFree;
+    const features = getPlanFeatureItems(plan, []);
+    const example = getPlanExampleText(plan);
+    const note = getPlanNoteText(plan);
+    const titleColor = isLightCard ? textPrimary : '#FFFFFF';
+    const priceColor = isLightCard ? '#2563EB' : '#FFFFFF';
+    const noteVariant = isTopTier ? 'premium' : 'pro';
+
+    const card = (
+      <View
+        style={
+          isFree
+            ? [styles.planCard, styles.planCardFree, { backgroundColor: cardBg, borderColor }]
+            : isTopTier
+              ? [styles.planCard, styles.planCardPremium]
+              : [styles.planCard, styles.planCardPro]
+        }
+      >
+        <Text style={[styles.planCardTitle, { color: titleColor }]}>
+          {getPlanLabel(plan, plan.title)}
+        </Text>
+        {renderPrice(
+          plan.price ?? '0',
+          plan.priceMode,
+          priceColor,
+          plansLoading && !plan.price,
+        )}
+        {isFree ? (
+          <View style={styles.alwaysFreePill}>
+            <Text style={styles.alwaysFreePillText}>Always Free</Text>
+          </View>
+        ) : null}
+        {features.map(feature => renderCheckRow(feature, !isLightCard))}
+        {!isFree ? renderPlanNoteSection(note, noteVariant) : null}
+        {example ? (
+          <View
+            style={
+              isLightCard ? [styles.exampleBox, { borderColor }] : styles.exampleBoxDark
+            }
+          >
+            <Text
+              style={
+                isLightCard
+                  ? [styles.exampleLabel, { color: textMuted }]
+                  : styles.exampleLabelDark
+              }
+            >
+              Example:
+            </Text>
+            <Text
+              style={
+                isLightCard
+                  ? [styles.exampleText, { color: textPrimary }]
+                  : styles.exampleTextDark
+              }
+            >
+              {example}
+            </Text>
+          </View>
+        ) : null}
+        {renderPlanButton(plan)}
+      </View>
+    );
+
+    if (plan.badge?.trim()) {
+      return (
+        <View key={`${plan.id}-${index}`} style={styles.popularWrap}>
+          <View style={styles.mostPopularBadge}>
+            <Text style={styles.mostPopularBadgeText}>
+              ★ {plan.badge.trim().toUpperCase()}
+            </Text>
+          </View>
+          {card}
+        </View>
+      );
+    }
+
+    return <View key={`${plan.id}-${index}`}>{card}</View>;
   };
 
   return (
@@ -669,33 +988,35 @@ const AstrologerPlanScreen = () => {
           <View style={styles.heroOverlay}>
             <Text style={styles.heroTitle}>Ask Technical Astrology Questions.</Text>
             <Text style={styles.heroSubtitle}>Get Answers Instantly.</Text>
+            <Text style={styles.heroDescription}>
+              Query planetary relationships, house lord interactions, transit
+              triggers, dignities, nakshatra connections, and active combinations
+              using natural language.
+            </Text>
           </View>
         </View>
 
         <View
           style={[
             styles.topFeaturesRow,
-            {
-              backgroundColor: isDark ? 'rgba(34,49,73,0.9)' : 'rgba(223,138,93,0.15)',
-            },
+            { backgroundColor: topFeaturesBg },
           ]}
         >
-          <Text style={[styles.topFeatureItem, { color: textPrimary }]}>
-            ✓ Client Management
-          </Text>
-          <Text style={[styles.topFeatureItem, { color: textPrimary }]}>
-            ✓ Professional Tools
-          </Text>
-          <Text style={[styles.topFeatureItem, { color: textPrimary }]}>
-            ✓ Plan Tracking
-          </Text>
+          {TOP_FEATURE_BADGES.map(badge => (
+            <Text
+              key={badge}
+              style={[styles.topFeatureItem, { color: textPrimary }]}
+            >
+              ✓ {badge}
+            </Text>
+          ))}
         </View>
 
-        {plansError ? (
+        {/* {plansError ? (
           <TouchableOpacity onPress={fetchPlans} activeOpacity={0.8} style={styles.plansErrorBanner}>
             <Text style={styles.plansErrorText}>{plansError} Tap to retry.</Text>
           </TouchableOpacity>
-        ) : null}
+        ) : null} */}
 
         {verifyingPayment ? (
           <View style={styles.verifyingBanner}>
@@ -738,77 +1059,29 @@ const AstrologerPlanScreen = () => {
         </View> */}
 
         <View style={styles.planCardsColumn}>
-          <View
-            style={[
-              styles.planCard,
-              styles.planCardFree,
-              { backgroundColor: cardBg, borderColor },
-            ]}
-          >
-            <Text style={[styles.planCardTitle, { color: textPrimary }]}>FREE</Text>
-            {renderPrice(
-              freePlan?.price ?? '0',
-              freePlan?.priceMode,
-              '#2563EB',
-              plansLoading && !freePlan?.price,
-            )}
-            <View style={styles.alwaysFreePill}>
-              <Text style={styles.alwaysFreePillText}>Always Free</Text>
-            </View>
-            {FREE_FEATURES.map(feature => renderCheckRow(feature))}
-            <View style={[styles.exampleBox, { borderColor }]}>
-              <Text style={[styles.exampleLabel, { color: textMuted }]}>Example:</Text>
-              <Text style={[styles.exampleText, { color: textPrimary }]}>
-                Which planets are connected to the 10th lord?
-              </Text>
-            </View>
-            {renderPlanButton('free', 'Current Plan')}
-          </View>
-
-          <View style={styles.popularWrap}>
-            <View style={styles.mostPopularBadge}>
-              <Text style={styles.mostPopularBadgeText}>★ MOST POPULAR</Text>
-            </View>
-            <View style={[styles.planCard, styles.planCardPro]}>
-              <Text style={[styles.planCardTitle, styles.textWhite]}>PRO</Text>
-              {renderPrice(
-                proPlan?.price ?? '2999',
-                proPlan?.priceMode,
-                '#FFFFFF',
-                plansLoading && !proPlan?.price,
-              )}
-              {PRO_FEATURES.map(feature => renderCheckRow(feature, true))}
-              <View style={styles.exampleBoxDark}>
-                <Text style={styles.exampleLabelDark}>Example:</Text>
-                <Text style={styles.exampleTextDark}>
-                  Which natal combinations are activated by transit Saturn?
-                </Text>
-              </View>
-              {renderPlanButton('pro', 'Get Pro Plan')}
-            </View>
-          </View>
-
-          <View style={[styles.planCard, styles.planCardPremium]}>
-            <Text style={[styles.planCardTitle, styles.textWhite]}>PREMIUM</Text>
-            {renderPrice(
-              premiumPlan?.price ?? '4999',
-              premiumPlan?.priceMode,
-              '#FFFFFF',
-              plansLoading && !premiumPlan?.price,
-            )}
-            {PREMIUM_FEATURES.map(feature => renderCheckRow(feature, true))}
-            <View style={styles.exampleBoxDark}>
-              <Text style={styles.exampleLabelDark}>Example:</Text>
-              <Text style={styles.exampleTextDark}>
-                Show all periods between 2024–2030 when Jupiter activates Venus combinations.
-              </Text>
-            </View>
-            {renderPlanButton('premium', 'Get Premium Plan')}
-          </View>
+          {displayPlans.map((plan, index) => renderPlanCard(plan, index))}
         </View>
 
         <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
-          <Text style={[styles.sectionTitle, { color: textPrimary }]}>How It Works</Text>
+          <Text style={[styles.sectionTitle, { color: textPrimary }]}>
+            When your subscription expires:
+          </Text>
+          {SUBSCRIPTION_EXPIRES.map(item => (
+            <View key={item.step} style={styles.howItWorksRow}>
+              <View style={styles.stepBadge}>
+                <Text style={styles.stepBadgeText}>{item.icon}</Text>
+              </View>
+              <View style={styles.howItWorksTextWrap}>
+                <Text style={[styles.howItWorksDesc, { color: textMuted }]}>
+                  {item.description}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor }]}>
+          <Text style={[styles.sectionTitle, { color: textPrimary }]}>HOW IT WORKS</Text>
           {HOW_IT_WORKS.map(item => (
             <View key={item.step} style={styles.howItWorksRow}>
               <View style={styles.stepBadge}>
@@ -865,7 +1138,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     paddingTop: responsiveWidth('19'),
-    paddingBottom: Platform.OS === 'android' ? 90 : 90,
+    paddingBottom: Platform.OS === 'android' ? 140 : 120,
   },
   stickyHeaderContainer: {
     position: 'absolute',
@@ -897,7 +1170,7 @@ const styles = StyleSheet.create({
     marginBottom: responsiveWidth(3),
     borderRadius: 12,
     overflow: 'hidden',
-    minHeight: 120,
+    minHeight: 160,
     backgroundColor: '#0F1A2E',
   },
   heroImage: {
@@ -907,7 +1180,7 @@ const styles = StyleSheet.create({
   heroOverlay: {
     padding: 18,
     justifyContent: 'center',
-    minHeight: 120,
+    minHeight: 160,
   },
   heroTitle: {
     color: '#FFFFFF',
@@ -920,6 +1193,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: fontFamily.semiBold,
     marginTop: 4,
+  },
+  heroDescription: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    lineHeight: 18,
+    marginTop: 10,
   },
   topFeaturesRow: {
     flexDirection: 'row',
@@ -1122,6 +1402,47 @@ const styles = StyleSheet.create({
   exampleText: {
     fontSize: 13,
     fontFamily: fontFamily.regular,
+    lineHeight: 18,
+  },
+  planNoteBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 6,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  planNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  planNoteIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planNoteIconText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
+  planNoteTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 0.4,
+  },
+  planNoteBody: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontStyle: 'italic',
     lineHeight: 18,
   },
   exampleBoxDark: {

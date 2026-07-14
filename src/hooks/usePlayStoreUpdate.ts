@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import VersionCheck from 'react-native-version-check';
 import { ANDROID_PLAY_STORE_PACKAGE, NATIVE_APP_VERSION } from '../constants/appVersion';
-import { fetchAppVersionConfig } from '../services/appVersionCheck.service';
+import { fetchPlayStoreLatestVersion } from '../utils/fetchPlayStoreVersion';
 import { compareVersion } from '../utils/versionCompare';
 
 export type PlayStoreUpdateState = {
@@ -22,12 +23,19 @@ const initial: PlayStoreUpdateState = {
   storeUrl: '',
 };
 
+/** Cold-start retries help Vivo/Oppo where network is blocked briefly after launch. */
+const RETRY_DELAYS_MS = [0, 2500, 6000, 12000];
+
 function getCurrentAppVersion(): string {
   try {
-    return VersionCheck.getCurrentVersion();
+    const fromNative = VersionCheck.getCurrentVersion();
+    if (fromNative && String(fromNative).trim()) {
+      return String(fromNative).trim();
+    }
   } catch {
-    return NATIVE_APP_VERSION;
+    // fall through
   }
+  return NATIVE_APP_VERSION;
 }
 
 async function resolvePlayStoreUrl(fallbackFromVc?: string): Promise<string> {
@@ -42,85 +50,141 @@ async function resolvePlayStoreUrl(fallbackFromVc?: string): Promise<string> {
       });
       return url ?? '';
     } catch {
-      return '';
+      return `https://play.google.com/store/apps/details?id=${ANDROID_PLAY_STORE_PACKAGE}&hl=en`;
     }
   }
   return '';
 }
 
-export function usePlayStoreUpdate() {
-  const [state, setState] = useState<PlayStoreUpdateState>(initial);
+type StoreLatest = {
+  version: string;
+  storeUrl: string;
+  isNeeded: boolean;
+};
 
-  const runCheck = useCallback(async () => {
-    const [vcRaw, api] = await Promise.all([
-      VersionCheck.needUpdate(
-        Platform.OS === 'android'
-          ? { packageName: ANDROID_PLAY_STORE_PACKAGE }
-          : {}
-      ).catch(() => null as null),
-      fetchAppVersionConfig(),
+/**
+ * Frontend-only: compare installed version vs Play Store / App Store listing.
+ * No backend API required. Runs custom scrape + library in parallel for OEM reliability.
+ */
+async function resolveStoreLatest(current: string): Promise<StoreLatest | null> {
+  if (Platform.OS === 'android') {
+    const [custom, vcRaw] = await Promise.all([
+      fetchPlayStoreLatestVersion(ANDROID_PLAY_STORE_PACKAGE),
+      VersionCheck.needUpdate({
+        packageName: ANDROID_PLAY_STORE_PACKAGE,
+        ignoreErrors: true,
+      }).catch(() => null),
     ]);
 
-    const vc =
-      vcRaw && typeof vcRaw === 'object' && 'isNeeded' in vcRaw
-        ? vcRaw
-        : null;
-
-    const current = vc?.currentVersion ?? getCurrentAppVersion();
-
-    let shouldShow = false;
-    let latestVersion = '';
-    let message: string | undefined;
-    let storeUrl = '';
-
-    const outdatedVsApi =
-      api != null && compareVersion(current, api.latest_version) < 0;
-    const minSupported = api?.min_supported_version?.trim();
-    const belowMin =
-      Boolean(minSupported) &&
-      compareVersion(current, minSupported as string) < 0;
-
-    // Play / App Store: newer listing than installed → block app until update
-    if (vc?.isNeeded && vc) {
-      shouldShow = true;
-      latestVersion = vc.latestVersion;
-      storeUrl = vc.storeUrl ?? '';
-      const apiMsg = api?.message?.trim();
-      if (apiMsg) {
-        message = apiMsg;
-      }
-    } else if (belowMin && api) {
-      shouldShow = true;
-      latestVersion = api.latest_version;
-      message = api.message;
-    } else if (api && outdatedVsApi) {
-      // Backend says a newer target exists (e.g. store check failed)
-      shouldShow = true;
-      latestVersion = api.latest_version;
-      message = api.message;
+    if (custom?.version) {
+      return {
+        version: custom.version,
+        storeUrl: custom.storeUrl,
+        isNeeded: compareVersion(current, custom.version) < 0,
+      };
     }
 
-    if (!shouldShow) {
-      setState((prev) => ({ ...prev, visible: false }));
+    if (vcRaw && typeof vcRaw === 'object' && 'isNeeded' in vcRaw && vcRaw.latestVersion) {
+      return {
+        version: vcRaw.latestVersion,
+        storeUrl: vcRaw.storeUrl ?? '',
+        isNeeded: Boolean(vcRaw.isNeeded),
+      };
+    }
+
+    return null;
+  }
+
+  try {
+    const vcRaw = await VersionCheck.needUpdate({ ignoreErrors: true });
+    if (vcRaw && typeof vcRaw === 'object' && 'isNeeded' in vcRaw && vcRaw.latestVersion) {
+      return {
+        version: vcRaw.latestVersion,
+        storeUrl: vcRaw.storeUrl ?? '',
+        isNeeded: Boolean(vcRaw.isNeeded),
+      };
+    }
+  } catch {
+    // continue
+  }
+
+  return null;
+}
+
+export function usePlayStoreUpdate() {
+  const [state, setState] = useState<PlayStoreUpdateState>(initial);
+  const checkingRef = useRef(false);
+  const upToDateRef = useRef(false);
+
+  const runCheck = useCallback(async () => {
+    if (checkingRef.current || upToDateRef.current) {
       return;
     }
+    checkingRef.current = true;
 
-    if (!storeUrl) {
-      storeUrl = await resolvePlayStoreUrl(vc?.storeUrl);
+    try {
+      const current = getCurrentAppVersion();
+      const store = await resolveStoreLatest(current);
+
+      if (!store) {
+        // Network / scrape failed — keep modal if already shown; retry later
+        return;
+      }
+
+      if (!store.isNeeded) {
+        upToDateRef.current = true;
+        setState((prev) => ({
+          ...prev,
+          visible: false,
+          currentVersion: current,
+          latestVersion: store.version,
+        }));
+        return;
+      }
+
+      const storeUrl =
+        store.storeUrl || (await resolvePlayStoreUrl(store.storeUrl));
+
+      setState({
+        visible: true,
+        forceUpdate: true,
+        latestVersion: store.version,
+        currentVersion: current,
+        storeUrl,
+      });
+    } finally {
+      checkingRef.current = false;
     }
-
-    setState({
-      visible: true,
-      forceUpdate: true,
-      latestVersion,
-      currentVersion: current,
-      message,
-      storeUrl,
-    });
   }, []);
 
   useEffect(() => {
-    runCheck();
+    const timers = RETRY_DELAYS_MS.map((delay) =>
+      setTimeout(() => {
+        runCheck().catch(() => undefined);
+      }, delay),
+    );
+
+    const onAppState = (next: AppStateStatus) => {
+      if (next === 'active') {
+        runCheck().catch(() => undefined);
+      }
+    };
+    const appSub = AppState.addEventListener('change', onAppState);
+
+    // Vivo/Oppo often report offline at cold start; recheck when internet is back.
+    const netSub = NetInfo.addEventListener((netState) => {
+      const online =
+        netState.isConnected === true && netState.isInternetReachable !== false;
+      if (online) {
+        runCheck().catch(() => undefined);
+      }
+    });
+
+    return () => {
+      timers.forEach(clearTimeout);
+      appSub.remove();
+      netSub();
+    };
   }, [runCheck]);
 
   /** No-op: update is mandatory; modal has no "Later". */

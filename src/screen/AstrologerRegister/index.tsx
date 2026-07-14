@@ -24,6 +24,7 @@ import { useTheme } from '../../context/ThemeContext';
 import serviceFactory from '../../services/serviceFactory';
 import UserService from '../../services/user/user.service';
 import { setUser, setUserToken } from '../../state/slices/appSlice';
+import { AstrologerCreateClientNavParams } from '../../utils/resolveAstrologerPostAuthNavigation';
 
 const GOLD = '#C5A370';
 
@@ -31,6 +32,7 @@ type RootStackParamList = {
   Login: undefined;
   TermsAndConditions: undefined;
   AstrologerHome: undefined;
+  AstrologerCreateClientScreen: AstrologerCreateClientNavParams | undefined;
   AstrologerRegister:
     | {
         email?: string;
@@ -62,11 +64,6 @@ const validationSchema = Yup.object().shape({
     )
     .min(8, 'Password must be at least 8 characters')
     .required('Please enter your password'),
-  experience: Yup.string()
-    .trim()
-    .required('Experience is required')
-    .matches(/^\d+$/, 'Experience must be a valid number'),
-  bio: Yup.string().trim().required('Short bio is required'),
   agreeTerms: Yup.boolean().oneOf([true], 'Please accept Terms and Conditions'),
 });
 
@@ -170,8 +167,6 @@ const AstrologerRegisterScreen = () => {
       lastName: googlePrefill?.lastName ?? '',
       email: googlePrefill?.email ?? '',
       password: '',
-      experience: '',
-      bio: '',
       agreeTerms: false,
       general: undefined as string | undefined,
     },
@@ -240,8 +235,6 @@ const AstrologerRegisterScreen = () => {
           last_name: values.lastName.trim(),
           email: values.email.trim(),
           password: values.password,
-          experience: values.experience.trim(),
-          bio: values.bio.trim(),
         });
 
         if (response?.status) {
@@ -282,7 +275,9 @@ const AstrologerRegisterScreen = () => {
 
           setTimeout(() => {
             if (response.access_token) {
-              navigation.replace('AstrologerHome');
+              navigation.replace('AstrologerCreateClientScreen', {
+                fromRegistration: true,
+              });
             } else {
               navigation.navigate('Login');
             }
@@ -574,41 +569,6 @@ const AstrologerRegisterScreen = () => {
 
             {!showOtpSection ? (
               <>
-                <View style={styles.fieldBlock}>
-                  {renderLabel('Experience (Years)')}
-                  <TextInput
-                    style={[styles.input, inputThemeStyle]}
-                    placeholder="Experience (Years)"
-                    placeholderTextColor={placeholderColor}
-                    keyboardType="number-pad"
-                    value={formik.values.experience}
-                    onChangeText={formik.handleChange('experience')}
-                    onBlur={formik.handleBlur('experience')}
-                    editable={!formik.isSubmitting}
-                  />
-                  {formik.touched.experience && formik.errors.experience ? (
-                    <Text style={styles.errorText}>{formik.errors.experience}</Text>
-                  ) : null}
-                </View>
-
-                <View style={styles.fieldBlock}>
-                  {renderLabel('Short Bio / About')}
-                  <TextInput
-                    style={[styles.input, styles.bioInput, inputThemeStyle]}
-                    placeholder="Short Bio / About"
-                    placeholderTextColor={placeholderColor}
-                    multiline
-                    textAlignVertical="top"
-                    value={formik.values.bio}
-                    onChangeText={formik.handleChange('bio')}
-                    onBlur={formik.handleBlur('bio')}
-                    editable={!formik.isSubmitting}
-                  />
-                  {formik.touched.bio && formik.errors.bio ? (
-                    <Text style={styles.errorText}>{formik.errors.bio}</Text>
-                  ) : null}
-                </View>
-
                 <TouchableOpacity
                   style={styles.termsRow}
                   onPress={() =>
@@ -861,10 +821,6 @@ const styles = StyleSheet.create({
     height: 1.8,
     transform: [{ rotate: '-35deg' }],
     borderRadius: 1,
-  },
-  bioInput: {
-    minHeight: 100,
-    paddingTop: 12,
   },
   termsRow: {
     flexDirection: 'row',

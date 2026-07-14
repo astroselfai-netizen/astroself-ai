@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'android' ? 100 : 90,
+    paddingBottom: Platform.OS === 'android' ? 140 : 120,
   },
   scrollView: {
     flex: 1,

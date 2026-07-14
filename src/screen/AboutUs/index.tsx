@@ -83,7 +83,7 @@ const AboutUsScreen = () => {
         translucent={true}
       />
 
-      <MainContainer>
+      <MainContainer safeBottom>
         {/* Header */}
         <View style={styles.headerWrap}>
           <TouchableOpacity

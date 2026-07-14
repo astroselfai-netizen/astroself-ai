@@ -18,7 +18,7 @@ import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Toast from 'react-native-toast-message';
 import { MainContainer } from '../../components/common/mainContainer';
-import { CLIENT_COMBO_SHORTCUTS, ComboTab } from '../../components/AstrologerCombos';
+import { ComboTab } from '../../components/AstrologerCombos';
 import { responsiveWidth, fontFamily } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { useAstrologerClients } from '../../hooks/useAstrologerClients';
@@ -253,6 +253,51 @@ const ClientCard = ({
     `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
     'Unknown Client';
 
+  const shortcutItems: Array<{
+    key: string;
+    label: string;
+    icon?: string;
+    image?: number;
+    onPress: () => void;
+  }> = [
+    {
+      key: 'antar_dasha',
+      label: 'Antardasha Analysis/Report',
+      icon: '⚡',
+      onPress: () => onComboShortcut(client, 'antar_dasha'),
+    },
+    {
+      key: 'transit_analysis',
+      label: 'Transit Analysis',
+      icon: '▦',
+      onPress: () => onComboShortcut(client, 'transit_analysis'),
+    },
+    {
+      key: 'charts',
+      label: 'Charts and Dashas',
+      image: require('../../assets/icons/ZodiacWheel.png'),
+      onPress: () => onChart(client),
+    },
+    {
+      key: 'dignity',
+      label: 'Dignity Analysis',
+      icon: '★',
+      onPress: () => onDignityAnalysis(client),
+    },
+    {
+      key: 'transit',
+      label: 'Transit Combinations',
+      icon: '⬡',
+      onPress: () => onComboShortcut(client, 'transit'),
+    },
+    {
+      key: 'combinations',
+      label: 'Chart Combinations',
+      icon: '◎',
+      onPress: () => onComboShortcut(client, 'combinations'),
+    },
+  ];
+
   return (
     <View
       style={[
@@ -283,10 +328,9 @@ const ClientCard = ({
               {clientName}
             </Text>
             <View style={styles.locationRow}>
-              <Image
-                source={require('../../assets/icons/office-building.png')}
-                style={[styles.locationIcon, { tintColor: palette.textMuted }]}
-              />
+              <Text style={[styles.locationPin, { color: palette.textMuted }]}>
+                📍
+              </Text>
               <Text
                 style={[styles.locationText, { color: palette.textMuted }]}
                 numberOfLines={2}
@@ -311,22 +355,6 @@ const ClientCard = ({
           >
             <Image
               source={require('../../assets/icons/edit-painel.png')}
-              style={[styles.clientActionIcon, { tintColor: palette.textPrimary }]}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.clientActionBtn,
-              {
-                backgroundColor: palette.clientActionBtnBg,
-                borderColor: palette.clientActionBtnBorder,
-              },
-            ]}
-            onPress={() => onChart(client)}
-            activeOpacity={0.85}
-          >
-            <Image
-              source={require('../../assets/icons/ZodiacWheel.png')}
               style={[styles.clientActionIcon, { tintColor: palette.textPrimary }]}
             />
           </TouchableOpacity>
@@ -391,32 +419,29 @@ const ClientCard = ({
       ) : null}
 
       <View style={styles.comboShortcutsList}>
-        {CLIENT_COMBO_SHORTCUTS.map(shortcut => (
+        {shortcutItems.map(shortcut => (
           <TouchableOpacity
-            key={shortcut.tab}
-            style={[
-              styles.comboShortcutRow,
-              {
-                borderColor: palette.birthInfoBorder,
-                backgroundColor: palette.isDark ? palette.statsBg : palette.white,
-              },
-            ]}
-            onPress={() => onComboShortcut(client, shortcut.tab)}
+            key={shortcut.key}
+            style={styles.comboShortcutRow}
+            onPress={shortcut.onPress}
             activeOpacity={0.85}
           >
             <View
               style={[
                 styles.comboShortcutIconBox,
                 {
-                  backgroundColor: palette.isDark
-                    ? 'rgba(197, 163, 112, 0.2)'
-                    : '#FFF8F0',
+                  backgroundColor: palette.gold,
                 },
               ]}
             >
-              <Text style={[styles.comboShortcutIcon, { color: palette.gold }]}>
-                {shortcut.icon}
-              </Text>
+              {shortcut.image ? (
+                <Image
+                  source={shortcut.image}
+                  style={styles.comboShortcutImageIcon}
+                />
+              ) : (
+                <Text style={styles.comboShortcutIcon}>{shortcut.icon}</Text>
+              )}
             </View>
             <Text style={[styles.comboShortcutLabel, { color: palette.textPrimary }]}>
               {shortcut.label}
@@ -425,32 +450,19 @@ const ClientCard = ({
         ))}
       </View>
 
-      <View style={styles.clientFooterActions}>
-        <TouchableOpacity
-          style={[styles.chatButton, getOutlinedButtonStyle(palette)]}
-          onPress={() => onChat(client)}
-          activeOpacity={0.85}
-        >
-          <Image
-            source={require('../../assets/icons/Chat-inactive.png')}
-            style={[styles.chatButtonIcon, { tintColor: palette.secondaryButtonText }]}
-          />
-          <Text style={[styles.chatButtonText, { color: palette.secondaryButtonText }]}>
-            Chat
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.dignityButton, getOutlinedButtonStyle(palette)]}
-          onPress={() => onDignityAnalysis(client)}
-          activeOpacity={0.85}
-        >
-          <Text style={[styles.dignityStar, { color: palette.secondaryButtonText }]}>★</Text>
-          <Text style={[styles.dignityButtonText, { color: palette.secondaryButtonText }]}>
-            Dignity analysis
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={[styles.chatButton, getOutlinedButtonStyle(palette)]}
+        onPress={() => onChat(client)}
+        activeOpacity={0.85}
+      >
+        <Image
+          source={require('../../assets/icons/Chat-inactive.png')}
+          style={[styles.chatButtonIcon, { tintColor: palette.secondaryButtonText }]}
+        />
+        <Text style={[styles.chatButtonText, { color: palette.secondaryButtonText }]}>
+          Chat
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -782,7 +794,7 @@ const AstrologerMyClientsScreen = () => {
           <View style={styles.heroTopRow}>
             <View>
               <Text style={[styles.heroTitle, { color: palette.textPrimary }]}>
-                My Clients
+                Your Charts
               </Text>
               <View style={[styles.heroTitleUnderline, { backgroundColor: palette.gold }]} />
             </View>
@@ -831,12 +843,12 @@ const AstrologerMyClientsScreen = () => {
           }
         >
           <View style={styles.contentPadding}>
-            <View style={styles.yourClientsHeader}>
+            {/* <View style={styles.yourClientsHeader}>
               <View style={[styles.yourClientsMarker, { backgroundColor: palette.gold }]} />
               <Text style={[styles.yourClientsTitle, { color: palette.textPrimary }]}>
-                Your Clients
+                Your Charts
               </Text>
-            </View>
+            </View> */}
 
             <View style={styles.primaryActionRow}>
               <TouchableOpacity
@@ -844,7 +856,7 @@ const AstrologerMyClientsScreen = () => {
                   styles.primaryActionButton,
                   styles.primaryActionButtonHalf,
                   getOutlinedButtonStyle(palette),
-                  {width: '30%', maxWidth: '40%'},
+                  { width: '50%', maxWidth: '50%'},
                 ]}
                 onPress={handleCreateClient}
                 activeOpacity={0.85}
@@ -859,7 +871,7 @@ const AstrologerMyClientsScreen = () => {
                     { color: palette.secondaryButtonText },
                   ]}
                 >
-                  Create Client
+                  Create Chart
                 </Text>
               </TouchableOpacity>
 
@@ -910,7 +922,7 @@ const AstrologerMyClientsScreen = () => {
                       { color: palette.secondaryButtonText },
                     ]}
                   >
-                    Current Transit Chart
+                    Current Transit
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1196,7 +1208,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'android' ? 100 : 90,
+    paddingBottom: Platform.OS === 'android' ? 100 : 120,
   },
   scrollView: {
     flex: 1,
@@ -1392,12 +1404,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  locationIcon: {
-    width: 14,
-    height: 14,
+  locationPin: {
+    fontSize: 11,
     marginRight: 4,
-    marginTop: 2,
-    resizeMode: 'contain',
+    marginTop: 1,
   },
   locationText: {
     flex: 1,
@@ -1451,13 +1461,13 @@ const styles = StyleSheet.create({
     marginBottom: responsiveWidth('2.5'),
   },
   comboShortcutsList: {
-    gap: responsiveWidth('2'),
+    gap: responsiveWidth('1'),
     marginBottom: responsiveWidth('3'),
   },
   comboShortcutRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 0.2,
     borderRadius: 10,
     paddingVertical: responsiveWidth('2'),
     paddingHorizontal: responsiveWidth('2.5'),
@@ -1471,52 +1481,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   comboShortcutIcon: {
-    fontSize: 16,
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+  comboShortcutImageIcon: {
+    width: 14,
+    height: 14,
+    resizeMode: 'contain',
+    tintColor: '#FFFFFF',
   },
   comboShortcutLabel: {
     flex: 1,
-    fontSize: 12,
-    fontFamily: fontFamily.medium,
-  },
-  clientFooterActions: {
-    flexDirection: 'row',
-    gap: responsiveWidth('2'),
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
   },
   chatButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderRadius: 8,
-    maxWidth: '35%',
+    borderRadius: 10,
     paddingVertical: responsiveWidth('2'),
-    gap: 6,
+    gap: 8,
   },
   chatButtonIcon: {
-    width: 14,
-    height: 14,
+    width: 16,
+    height: 16,
     resizeMode: 'contain',
   },
   chatButtonText: {
-    fontSize: 13,
-    fontFamily: fontFamily.medium,
-  },
-  dignityButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    paddingVertical: responsiveWidth('2'),
-    gap: 6,
-  },
-  dignityStar: {
-    fontSize: 16,
-  },
-  dignityButtonText: {
-    fontSize: 13,
-    fontFamily: fontFamily.medium,
+    fontSize: 15,
+    fontFamily: fontFamily.semiBold,
   },
   emptyStateCard: {
     borderRadius: 14,

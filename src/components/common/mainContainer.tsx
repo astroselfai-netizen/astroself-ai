@@ -6,24 +6,37 @@ import {
   ViewStyle,
 } from 'react-native';
 import React from 'react';
-import { color, responsiveHeight, responsiveWidth } from '../../constant/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { color, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { resolveBottomSafeInset } from '../../utils/safeAreaInsets';
 
 interface MainContainerProps extends ViewProps {
   containerStyle?: ViewStyle;
   subContainerStyle?: ViewStyle;
   childern?: React.ReactNode;
+  /** Use on full-screen stack routes without an in-app tab bar. */
+  safeBottom?: boolean;
 }
 
 const MainContainer: React.FC<MainContainerProps> = ({
   containerStyle,
   subContainerStyle,
   children,
+  safeBottom = false,
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomInset = safeBottom ? resolveBottomSafeInset(insets.bottom) : 0;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }, containerStyle]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingBottom: bottomInset },
+        containerStyle,
+      ]}
+    >
       <ImageBackground
         source={colors.backgroundImage}
         style={styles.background}

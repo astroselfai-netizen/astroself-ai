@@ -2152,7 +2152,7 @@ const styles = StyleSheet.create({
     minHeight: '100%',
     // backgroundColor: '#202945',
     // paddingTop: Platform.OS === 'android' ? 0 : 70, // Add padding for sticky header
-    paddingBottom: Platform.OS === 'android' ? 35 : 32,
+    paddingBottom: Platform.OS === 'android' ? 140 : 120,
   },
   headerContainer: {
     // position: 'absolute',

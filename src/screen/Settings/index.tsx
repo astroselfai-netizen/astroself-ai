@@ -47,6 +47,7 @@ export type RootStackParamList = {
   ResourcesScreen: undefined; // Resources screen
   PaidPlanScreen: undefined; // Paid Plan screen
   FaqsScreen: undefined; // Faqs screen
+  AstrodhaGuideScreen: undefined; // Astrodha Guide screen
   HelpCenterScreen: undefined; // Help Center screen
   ReportScreen: undefined; // Report screen
   PurchasedHistoryScreen: undefined; // Purchased History screen
@@ -101,15 +102,19 @@ const settingsList = [
         icon: require('../../assets/icons/Faqs.png'),
         label: 'Faqs',
       },
+      {
+        icon: require('../../assets/icons/info.png'),
+        label: 'Astrodha Guide',
+      },
       // {
       //   icon: require('../../assets/icons/document.png'),
       //   label: 'Privacy & Policy',
       // },
 
-      {
-        icon: require('../../assets/icons/Terms-of-Services.png'),
-        label: 'Terms of Services',
-      },
+      // {
+      //   icon: require('../../assets/icons/Terms-of-Services.png'),
+      //   label: 'Terms of Services',
+      // },
       { icon: require('../../assets/icons/About-us.png'), label: 'About us' },
     ],
   },
@@ -182,6 +187,10 @@ const SettingsScreen = () => {
 
   const handleFaqsPress = () => {
     navigation.navigate('FaqsScreen');
+  };
+
+  const handleAstrodhaGuidePress = () => {
+    navigation.navigate('AstrodhaGuideScreen');
   };
 
   return (
@@ -336,6 +345,8 @@ const SettingsScreen = () => {
                       ? handleAboutUsPress
                       : item.label === 'Faqs'
                       ? handleFaqsPress
+                      : item.label === 'Astrodha Guide'
+                      ? handleAstrodhaGuidePress
                       : undefined
                   }
                 >
@@ -417,7 +428,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minHeight: '100%',
     // backgroundColor: 'transparent',
-    paddingBottom: Platform.OS === 'android' ? 35 : 32,
+    paddingBottom: Platform.OS === 'android' ? 100 : 120,
   },
   container: {
     flex: 1,

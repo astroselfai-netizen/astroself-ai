@@ -21,8 +21,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useSelector } from 'react-redux';
+import { resolveBottomSafeInset } from '../utils/safeAreaInsets';
+
+const getTabBarBottomInset = bottomInset => resolveBottomSafeInset(bottomInset);
 import Login from '../screen/login';
 import SplashScreen from '../screen/splashscreen';
 import ContinueWithOtp from '../screen/ContinueWithOtp';
@@ -50,6 +54,7 @@ import PaidPlanScreen from '../screen/PaidPlan';
 import FaqsScreen from '../screen/Faqs';
 import ReportScreen from '../screen/Report';
 import HelpCenterScreen from '../screen/HelpCenter';
+import AstrodhaGuideScreen from '../screen/AstrodhaGuide';
 import DashboardTasksScreen from '../screen/DashboardTasks';
 import EditAllTaskSelectionScreen from '../screen/EditAllTaskSelection';
 import PurchasedHistoryScreen from '../screen/PurchasedHistory';
@@ -118,6 +123,10 @@ function createAppStack(initialRouteName) {
         <Stack.Screen name="FaqsScreen" component={FaqsScreen} />
         <Stack.Screen name="ReportScreen" component={ReportScreen} />
         <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
+        <Stack.Screen
+          name="AstrodhaGuideScreen"
+          component={AstrodhaGuideScreen}
+        />
         <Stack.Screen
           name="DashboardTasksScreen"
           component={DashboardTasksScreen}
@@ -202,6 +211,10 @@ function createAstrologerStack(initialRouteName) {
         <Stack.Screen name="FaqsScreen" component={FaqsScreen} />
         <Stack.Screen name="ReportScreen" component={ReportScreen} />
         <Stack.Screen name="HelpCenterScreen" component={HelpCenterScreen} />
+        <Stack.Screen
+          name="AstrodhaGuideScreen"
+          component={AstrodhaGuideScreen}
+        />
       </Stack.Navigator>
     );
   };
@@ -214,6 +227,9 @@ const AstrologerSettingsStack = createAstrologerStack('SettingsScreen');
 
 function AstrologerTabs() {
   const { colors, theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const tabBarBottomInset = getTabBarBottomInset(insets.bottom);
+  const tabBarHeight = responsiveWidth('20%') + tabBarBottomInset;
 
   return (
     <KeyboardAvoidingView
@@ -223,6 +239,7 @@ function AstrologerTabs() {
     >
       <Tab.Navigator
         initialRouteName="MyClientsTab"
+        safeAreaInsets={{ bottom: 0 }}
         screenOptions={{
           headerShown: false,
           tabBarHideOnKeyboard: true,
@@ -231,11 +248,11 @@ function AstrologerTabs() {
             position: 'absolute',
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
-            height: responsiveWidth('20%'),
+            height: tabBarHeight,
             borderWidth: 1,
             borderColor:
               theme === 'dark' ? colors.borderColor : colors.surfaceOpacity,
-            paddingBottom: 0,
+            paddingBottom: tabBarBottomInset,
             paddingTop: responsiveWidth('5%'),
           },
           tabBarBackground: () => (
@@ -282,7 +299,7 @@ function AstrologerTabs() {
                     },
                   ]}
                 >
-                  My Clients
+                  Charts
                 </Text>
               </View>
             ),
@@ -311,7 +328,9 @@ function AstrologerTabs() {
               <View style={styles.tabItemContainer}>
                 <Image
                   source={
-                    focused ? icons.icNakshatraActive : icons.icNakshatraInActive
+                    focused
+                      ? icons.icNakshatraActive
+                      : icons.icNakshatraInActive
                   }
                   style={[
                     styles.iconStyle,
@@ -514,6 +533,9 @@ function MainNavigator() {
 
 function MyTabs() {
   const { colors, theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const tabBarBottomInset = getTabBarBottomInset(insets.bottom);
+  const tabBarHeight = responsiveWidth('20%') + tabBarBottomInset;
   const user = useSelector((state) => state.app.user);
   const navigation = useNavigation();
   const tabNavigationRef = React.useRef(null);
@@ -540,6 +562,7 @@ function MyTabs() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
       <Tab.Navigator
+        safeAreaInsets={{ bottom: 0 }}
         screenOptions={{
           headerShown: false,
           tabBarHideOnKeyboard: true,
@@ -548,14 +571,11 @@ function MyTabs() {
             position: 'absolute',
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
-            height: responsiveWidth('20%'),
-            // marginLeft:responsiveWidth('2%'),
-            // marginRight:responsiveWidth('2%'),
-            // marginBottom:responsiveWidth('5%'),
+            height: tabBarHeight,
             borderWidth: 1,
             borderColor:
               theme === 'dark' ? colors.borderColor : colors.surfaceOpacity,
-            paddingBottom: 0,
+            paddingBottom: tabBarBottomInset,
             paddingTop: responsiveWidth('5%'),
           },
           tabBarBackground: () => (
@@ -566,8 +586,6 @@ function MyTabs() {
                 height: '100%',
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
-                // marginLeft:responsiveWidth('2%'),
-                // marginRight:responsiveWidth('2%'),
                 opacity: 10,
                 resizeMode: 'cover',
               }}

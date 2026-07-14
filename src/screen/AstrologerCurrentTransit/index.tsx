@@ -214,7 +214,7 @@ const AstrologerCurrentTransitScreen = () => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       enabled
     >
-      <MainContainer>
+      <MainContainer safeBottom>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}

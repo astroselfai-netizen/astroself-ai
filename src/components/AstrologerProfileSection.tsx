@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    maxWidth: '52%',
+    // maxWidth: '52%',
     gap: 4,
   },
   emailPillIcon: {

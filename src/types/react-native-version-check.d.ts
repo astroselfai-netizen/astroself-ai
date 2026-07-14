@@ -6,6 +6,7 @@ declare module 'react-native-version-check' {
     ignoreErrors?: boolean;
     packageName?: string;
     provider?: string;
+    country?: string;
   };
 
   export type NeedUpdateResult = {

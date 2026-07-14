@@ -8,6 +8,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
 import { isAstrologerUser } from '../../utils/userRole';
+import UserService from '../../services/user/user.service';
+import { resolveAstrologerPostAuthScreen } from '../../utils/resolveAstrologerPostAuthNavigation';
 // import Icon from '../../assets/svgs/icBall.svg';
 // import { useTranslation } from 'react-i18next';
 
@@ -35,7 +37,7 @@ const SplashScreen = () => {
         const userDataString = await AsyncStorage.getItem('USER_DATA');
         const storedUser = userDataString ? JSON.parse(userDataString) : null;
 
-        setTimeout(() => {
+        setTimeout(async () => {
           if (hasNavigatedRef.current) {
             return;
           }
@@ -53,9 +55,25 @@ const SplashScreen = () => {
               console.log('User data loaded, checking role and members...');
 
               if (isAstrologer) {
-                console.log('Astrologer user found, navigating to AstrologerHome');
+                console.log('Astrologer user found, resolving post-auth screen');
                 hasNavigatedRef.current = true;
-                navigation.dispatch(StackActions.replace('AstrologerHome'));
+
+                const userId =
+                  activeUser._id || activeUser.user_id || activeUser.id;
+                const userService = new UserService();
+                const { screen, params } = await resolveAstrologerPostAuthScreen(
+                  userService,
+                  String(userId),
+                  activeUser as Record<string, unknown>,
+                );
+
+                if (screen === 'AstrologerCreateClientScreen') {
+                  navigation.dispatch(
+                    StackActions.replace('AstrologerCreateClientScreen', params),
+                  );
+                } else {
+                  navigation.dispatch(StackActions.replace('AstrologerHome'));
+                }
                 return;
               }
 

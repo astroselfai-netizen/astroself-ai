@@ -1,6 +1,6 @@
 // HomeScreen.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -26,6 +26,10 @@ import AppleLoginButton from '../../components/AppleLoginButton';
 import UserService from '../../services/user/user.service';
 import notificationService from '../../services/notificationService';
 import { isAstrologerUser } from '../../utils/userRole';
+import {
+  AstrologerCreateClientNavParams,
+  resolveAstrologerPostAuthScreen,
+} from '../../utils/resolveAstrologerPostAuthNavigation';
 // import {InputBox} from '../../components/common/inputBox';
 import Toast from 'react-native-toast-message';
 
@@ -54,6 +58,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   HomeScreen: undefined;
   AstrologerHome: undefined;
+  AstrologerCreateClientScreen: AstrologerCreateClientNavParams | undefined;
   ContinueWithOtp: undefined;
   AddNewMember: undefined;
   BasicDeatil: undefined;
@@ -107,6 +112,22 @@ const Login = () => {
   const appleAuthService = serviceFactory.get<AppleAuthService>('AppleAuthService');
 
   const [showPasswordField, setShowPasswordField] = useState(false);
+  const [otpMode, setOtpMode] = useState(false);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [isOtpActive, setIsOtpActive] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [isOtpSending, setIsOtpSending] = useState(false);
+  const [isOtpVerifying, setIsOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const otpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const otpRefs = [
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+  ];
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
@@ -122,12 +143,34 @@ const Login = () => {
     });
   };
 
-  const navigateAfterAuth = (userData: any) => {
-    if (isAstrologerUser(userData)) {
+  const navigateAstrologerAfterAuth = async (userData: any) => {
+    if (!isAstrologerUser(userData)) {
+      showAstrologerOnlyError();
+      return;
+    }
+
+    const userId = userData?._id || userData?.user_id || userData?.id;
+    if (!userId) {
       navigation.replace('AstrologerHome');
       return;
     }
-    showAstrologerOnlyError();
+
+    const { screen, params } = await resolveAstrologerPostAuthScreen(
+      userService,
+      String(userId),
+      userData,
+    );
+
+    if (screen === 'AstrologerCreateClientScreen') {
+      navigation.replace('AstrologerCreateClientScreen', params);
+      return;
+    }
+
+    navigation.replace('AstrologerHome');
+  };
+
+  const navigateAfterAuth = (userData: any) => {
+    void navigateAstrologerAfterAuth(userData);
   };
 
   const completeLogin = async (data: {
@@ -161,7 +204,7 @@ const Login = () => {
     }
 
     setTimeout(() => {
-      navigation.replace('AstrologerHome');
+      void navigateAstrologerAfterAuth(data.data);
     }, 1000);
   };
 
@@ -265,6 +308,13 @@ const Login = () => {
   });
 
   const handleEmailChange = (text: string) => {
+    if (otpMode) {
+      setOtpMode(false);
+      setOtp(['', '', '', '', '', '']);
+      setIsOtpActive(false);
+      setOtpCountdown(0);
+      setOtpError('');
+    }
     if (showPasswordField) {
       setShowPasswordField(false);
       formik.setFieldValue('password', '');
@@ -272,6 +322,158 @@ const Login = () => {
     }
     formik.handleChange('email')(text);
   };
+
+  const resetOtpTimer = () => {
+    if (otpTimerRef.current) {
+      clearInterval(otpTimerRef.current);
+      otpTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (isOtpActive && otpCountdown > 0 && otpTimerRef.current === null) {
+      otpTimerRef.current = setInterval(() => {
+        setOtpCountdown(prev => {
+          if (prev <= 1) {
+            resetOtpTimer();
+            setIsOtpActive(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return resetOtpTimer;
+  }, [isOtpActive, otpCountdown]);
+
+  const handleOtpChange = (value: string, idx: number) => {
+    if (!/^[0-9]?$/.test(value)) {
+      return;
+    }
+
+    const nextOtp = [...otp];
+    nextOtp[idx] = value;
+    setOtp(nextOtp);
+    setOtpError('');
+
+    if (value && idx < 5) {
+      otpRefs[idx + 1].current?.focus();
+    }
+    if (!value && idx > 0) {
+      otpRefs[idx - 1].current?.focus();
+    }
+  };
+
+  const handleContinueWithOtp = async () => {
+    const errors = await formik.validateForm();
+    if (errors.email) {
+      formik.setTouched({ email: true });
+      return;
+    }
+
+    setIsOtpSending(true);
+    setOtpError('');
+
+    try {
+      const response = await userService.requestAstrologerOtp(formik.values.email.trim());
+
+      setOtpMode(true);
+      setShowPasswordField(false);
+      setOtp(['', '', '', '', '', '']);
+      setIsOtpActive(true);
+      setOtpCountdown(60);
+
+      Toast.show({
+        type: 'success',
+        text1: 'OTP Sent',
+        text2: response.message || 'OTP sent to your email.',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+
+      setTimeout(() => otpRefs[0].current?.focus(), 300);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to send OTP. Please try again.';
+      setOtpError(message);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: message,
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsOtpSending(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (isOtpActive) {
+      return;
+    }
+
+    await handleContinueWithOtp();
+  };
+
+  const handleVerifyOtp = async () => {
+    const otpString = otp.join('');
+    if (otpString.length !== 6) {
+      return;
+    }
+
+    setIsOtpVerifying(true);
+    setOtpError('');
+
+    try {
+      let fcmToken: string | null = null;
+      try {
+        fcmToken = await notificationService.getOrCreateFCMToken();
+      } catch (error) {
+        console.error('Error getting FCM token for verify OTP:', error);
+      }
+
+      const response = await userService.verifyAstrologerOtp(
+        formik.values.email.trim(),
+        otpString,
+        fcmToken || undefined,
+      );
+
+      if (response?.status && response?.data && response?.access_token) {
+        await completeLogin(response);
+        return;
+      }
+
+      throw new Error(response?.message || 'Invalid OTP. Please try again.');
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Invalid OTP. Please try again.';
+      setOtpError(message);
+      setOtp(['', '', '', '', '', '']);
+      otpRefs[0].current?.focus();
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: message,
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsOtpVerifying(false);
+    }
+  };
+
+  const isOtpComplete = otp.every(digit => digit !== '');
+  const isFormBusy =
+    isLoading || isGoogleLoading || isAppleLoading || isOtpSending || isOtpVerifying;
 
   const handleRegister = () => {
     navigation.navigate('AstrologerRegister');
@@ -345,9 +547,8 @@ const Login = () => {
           visibilityTime: 3000,
         });
 
-        // Astrologer login screen — Google sign-in goes directly to astrologer module
         setTimeout(() => {
-          navigation.replace('AstrologerHome');
+          void navigateAstrologerAfterAuth(userData);
         }, 1000);
       } else if (result.error) {
         Toast.show({
@@ -532,7 +733,7 @@ const Login = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!isLoading && !isGoogleLoading && !isAppleLoading}
-          pointerEvents={isLoading || isGoogleLoading || isAppleLoading ? 'none' : 'auto'}
+          pointerEvents={isFormBusy ? 'none' : 'auto'}
         >
           {/* Top Logo and Title */}
           <View style={styles.headerContainer}>
@@ -581,12 +782,43 @@ const Login = () => {
               value={formik.values.email}
               onChangeText={handleEmailChange}
               onBlur={formik.handleBlur('email')}
-              editable={!isLoading && !isGoogleLoading && !isAppleLoading}
+              editable={!isFormBusy}
             />
             {formik.touched.email && formik.errors.email && (
               <Text style={styles.errorText}>{formik.errors.email}</Text>
             )}
-            {showPasswordField && (
+            {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+            {otpMode ? (
+              <View style={styles.otpRow}>
+                {otp.map((digit, idx) => (
+                  <TextInput
+                    key={idx}
+                    ref={otpRefs[idx]}
+                    style={[
+                      styles.otpBox,
+                      {
+                        backgroundColor:
+                          theme === 'dark' ? colors.DarkNavy : colors.white,
+                        borderColor:
+                          theme === 'dark'
+                            ? colors.themeBorderDropdown
+                            : colors.Orangeaccentcolor,
+                        color:
+                          theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                      },
+                    ]}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    value={digit}
+                    onChangeText={value => handleOtpChange(value, idx)}
+                    returnKeyType="next"
+                    textAlign="center"
+                    editable={!isOtpVerifying}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {showPasswordField && !otpMode && (
             <>
             <View
               style={[
@@ -630,12 +862,12 @@ const Login = () => {
                 value={formik.values.password}
                 onChangeText={formik.handleChange('password')}
                 onBlur={formik.handleBlur('password')}
-                editable={!isLoading && !isGoogleLoading && !isAppleLoading}
+                editable={!isFormBusy}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIconContainer}
-                disabled={isLoading || isGoogleLoading || isAppleLoading}
+                disabled={isFormBusy}
               >
                 <View style={styles.eyeIconWrapper}>
                   <Image
@@ -662,7 +894,7 @@ const Login = () => {
             {formik.errors.general && (
               <Text style={styles.errorText}>{formik.errors.general}</Text>
             )}
-            {showPasswordField && (
+            {showPasswordField && !otpMode && (
             <TouchableOpacity 
               onPress={handleForgotPassword}
               disabled={isLoading || isGoogleLoading}
@@ -684,20 +916,17 @@ const Login = () => {
               </Text>
             </TouchableOpacity>
             )}
-            {/* Login Button */}
+            {!otpMode ? (
             <TouchableOpacity
               onPress={() => {
                 console.log('Login button pressed!');
-                // console.log('Formik values before submit:', formik.values);
-                // console.log('Formik errors before submit:', formik.errors);
                 formik.handleSubmit();
-                // navigation.navigate("HomeScreen")
               }}
               style={[
                 styles.loginButton,
-                (isLoading || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
+                isFormBusy && styles.loginButtonDisabled,
               ]}
-              disabled={isLoading || isGoogleLoading || isAppleLoading}
+              disabled={isFormBusy}
             >
               {isLoading ? (
                 <View style={styles.loaderContainer}>
@@ -712,8 +941,65 @@ const Login = () => {
                 </Text>
               )}
             </TouchableOpacity>
+            ) : (
             <TouchableOpacity
-              onPress={() => navigation.navigate('ContinueWithOtp')}
+              onPress={handleVerifyOtp}
+              style={[
+                styles.loginButton,
+                (!isOtpComplete || isOtpVerifying) && styles.loginButtonDisabled,
+              ]}
+              disabled={!isOtpComplete || isOtpVerifying}
+            >
+              {isOtpVerifying ? (
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator size="small" color={color.themeTextWhite} />
+                  <Text style={[styles.loginButtonText, styles.loadingText]}>
+                    Verifying...
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
+            </TouchableOpacity>
+            )}
+            {otpMode && isOtpActive ? (
+              <View style={styles.resendRow}>
+                <Text
+                  style={[
+                    styles.resendText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.themelightText,
+                    },
+                  ]}
+                >
+                  Resend OTP in {otpCountdown}s
+                </Text>
+              </View>
+            ) : null}
+            {otpMode && !isOtpActive ? (
+              <TouchableOpacity onPress={handleResendOtp} disabled={isOtpSending}>
+                <Text
+                  style={[
+                    styles.resendLink,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.Orangeaccentcolor
+                          : colors.primaryBlue,
+                    },
+                    isOtpSending && styles.resendLinkDisabled,
+                  ]}
+                >
+                  {isOtpSending ? 'Sending...' : 'Resend OTP'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {/* {!otpMode ? (
+            <TouchableOpacity
+              onPress={handleContinueWithOtp}
               style={[
                 styles.otpButton,
                 {
@@ -722,24 +1008,48 @@ const Login = () => {
                       ? colors.Orangeaccentcolor
                       : colors.primaryBlue,
                 },
-                (isLoading || isGoogleLoading || isAppleLoading) && styles.loginButtonDisabled,
+                isFormBusy && styles.loginButtonDisabled,
               ]}
-              disabled={isLoading || isGoogleLoading || isAppleLoading}
+              disabled={isFormBusy}
             >
-              <Text
-                style={[
-                  styles.otpButtonText,
-                  {
-                    color:
-                      theme === 'dark'
-                        ? colors.themeTextWhite
-                        : colors.primaryBlue,
-                  },
-                ]}
-              >
-                Continue with OTP
-              </Text>
+              {isOtpSending ? (
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator
+                    size="small"
+                    color={theme === 'dark' ? colors.themeTextWhite : colors.primaryBlue}
+                  />
+                  <Text
+                    style={[
+                      styles.otpButtonText,
+                      {
+                        color:
+                          theme === 'dark'
+                            ? colors.themeTextWhite
+                            : colors.primaryBlue,
+                      },
+                      styles.loadingText,
+                    ]}
+                  >
+                    Sending OTP...
+                  </Text>
+                </View>
+              ) : (
+                <Text
+                  style={[
+                    styles.otpButtonText,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.themeTextWhite
+                          : colors.primaryBlue,
+                    },
+                  ]}
+                >
+                  Continue with OTP
+                </Text>
+              )}
             </TouchableOpacity>
+            ) : null} */}
             <View style={styles.dividerRow}>
               <View
                 style={[
@@ -1083,6 +1393,35 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   disabledTouchable: {
+    opacity: 0.5,
+  },
+  otpRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: responsiveWidth('4%'),
+  },
+  otpBox: {
+    width: 48,
+    height: 56,
+    borderRadius: 10,
+    borderWidth: 1,
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  resendRow: {
+    alignItems: 'center',
+    marginBottom: responsiveWidth('3%'),
+  },
+  resendText: {
+    fontSize: 15,
+  },
+  resendLink: {
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: responsiveWidth('3%'),
+  },
+  resendLinkDisabled: {
     opacity: 0.5,
   },
 });

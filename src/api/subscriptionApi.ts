@@ -25,7 +25,7 @@ export type CreateAutopaySubscriptionRequest = {
   plan_type: 'eternal_path' | 'family_plan';
 };
 
-export type AstrologerAutopayPlanType = '2999_plan' | '4999_plan';
+export type AstrologerAutopayPlanType = string;
 
 export type CreateAstrologerAutopaySubscriptionRequest = {
   user_id: string;
@@ -35,7 +35,7 @@ export type CreateAstrologerAutopaySubscriptionRequest = {
 
 export type CreateAstrologerAutopaySubscriptionResponse = {
   status?: string | boolean;
-  plan_type?: AstrologerAutopayPlanType;
+  plan_type?: string;
   subscription_id?: string;
   razorpay_key?: string;
   payment_url?: string;

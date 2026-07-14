@@ -70,12 +70,58 @@ type AstrologerVedicChartsProps = {
 
 const getTabLabel = (tab: VedicChartTab) => (tab === 'chalit' ? 'CHALIT' : tab);
 
+const PLANET_SHORT_NAMES: Record<string, string> = {
+  sun: 'Su',
+  moon: 'Mo',
+  mars: 'Ma',
+  mercury: 'Me',
+  jupiter: 'Ju',
+  venus: 'Ve',
+  saturn: 'Sa',
+  rahu: 'Ra',
+  ketu: 'Ke',
+  ascendant: 'As',
+  lagna: 'As',
+};
+
+const SIGN_SHORT_NAMES: Record<string, string> = {
+  aries: 'Ari',
+  taurus: 'Tau',
+  gemini: 'Gem',
+  cancer: 'Can',
+  leo: 'Leo',
+  virgo: 'Vir',
+  libra: 'Lib',
+  scorpio: 'Sco',
+  sagittarius: 'Sag',
+  capricorn: 'Cap',
+  aquarius: 'Acq',
+  pisces: 'Pis',
+};
+
+const getPlanetShortName = (name?: string) => {
+  const normalized = (name || '').trim().toLowerCase();
+  if (!normalized) {
+    return '--';
+  }
+  return PLANET_SHORT_NAMES[normalized] || name!.slice(0, 2);
+};
+
+const getSignShortName = (sign?: string) => {
+  const normalized = (sign || '').trim().toLowerCase();
+  if (!normalized) {
+    return '--';
+  }
+  return SIGN_SHORT_NAMES[normalized] || sign!;
+};
+
 const formatPlanetName = (name?: string, isRetro?: string | boolean) => {
   if (!name) {
     return '--';
   }
+  const shortName = getPlanetShortName(name);
   const retro = isRetro === 'true' || isRetro === true;
-  return `${name}${retro ? ' (R)' : ''}`;
+  return `${shortName}${retro ? ' (R)' : ''}`;
 };
 
 const formatDegree = (value?: number) =>
@@ -222,7 +268,7 @@ const AstrologerVedicCharts = ({
                   {formatPlanetName(row.name, row.isRetro)}
                 </Text>
                 <Text style={[styles.tableCell, styles.signCol, { color: textPrimary }]}>
-                  {row.sign || '--'}
+                  {getSignShortName(row.sign)}
                 </Text>
                 <Text style={[styles.tableCell, styles.degreeCol, { color: textPrimary }]}>
                   {formatDegree(row.normDegree)}
@@ -254,13 +300,13 @@ const AstrologerVedicCharts = ({
                 ]}
               >
                 <Text style={[styles.tableCell, styles.planetCol, { color: textPrimary }]}>
-                  {row.name || '--'}
+                  {getPlanetShortName(row.name)}
                 </Text>
                 <Text style={[styles.tableCell, styles.dignityCol, { color: textPrimary }]}>
                   {row.d1_dignity || '--'}
                 </Text>
                 <Text style={[styles.tableCell, styles.signCol, { color: textPrimary }]}>
-                  {row.d9_sign || '--'}
+                  {getSignShortName(row.d9_sign)}
                 </Text>
                 <Text style={[styles.tableCell, styles.dignityCol, { color: textPrimary }]}>
                   {row.d9_dignity || '--'}

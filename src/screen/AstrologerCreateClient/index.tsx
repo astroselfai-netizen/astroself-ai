@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -15,7 +16,7 @@ import {
 } from 'react-native';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import DatePicker from 'react-native-date-picker';
 import Toast from 'react-native-toast-message';
 import { useSelector } from 'react-redux';
@@ -55,8 +56,22 @@ const validationSchema = Yup.object({
   aboutClient: Yup.string().trim(),
 });
 
+import {
+  AstrologerCreateClientNavParams,
+} from '../../utils/resolveAstrologerPostAuthNavigation';
+
+type RootStackParamList = {
+  AstrologerCreateClientScreen: AstrologerCreateClientNavParams | undefined;
+  AstrologerHome: undefined;
+};
+
 const AstrologerCreateClientScreen = () => {
   const navigation = useNavigation();
+  const route =
+    useRoute<RouteProp<RootStackParamList, 'AstrologerCreateClientScreen'>>();
+  const hideBackButton =
+    route.params?.fromRegistration === true ||
+    route.params?.fromLoginNoClients === true;
   const { theme, colors } = useTheme();
   const user = useSelector((state: RootState) => state.app.user);
   const userService = useMemo(() => new UserService(), []);
@@ -71,6 +86,15 @@ const AstrologerCreateClientScreen = () => {
   const [places, setPlaces] = useState<Place[]>([]);
 
   const astrologerUserId = String(user?._id || '');
+
+  useEffect(() => {
+    if (!hideBackButton) {
+      return undefined;
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => subscription.remove();
+  }, [hideBackButton]);
 
   const closeAllModals = () => {
     setShowGenderModal(false);
@@ -149,7 +173,7 @@ const AstrologerCreateClientScreen = () => {
           text1: 'Client Created',
           text2: 'New client has been added successfully.',
         });
-        navigation.goBack();
+        navigation.navigate('AstrologerHome' as never);
       } catch (error: unknown) {
         const err = error as { message?: string };
         Toast.show({
@@ -244,7 +268,7 @@ const AstrologerCreateClientScreen = () => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       enabled
     >
-      <MainContainer>
+      <MainContainer safeBottom>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -253,21 +277,25 @@ const AstrologerCreateClientScreen = () => {
           nestedScrollEnabled
         >
           <View style={styles.headerWrap}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backBtn}
-            >
-              <Image
-                source={require('../../assets/icons/back.png')}
-                style={[
-                  styles.backIcon,
-                  {
-                    tintColor:
-                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
-                ]}
-              />
-            </TouchableOpacity>
+            {hideBackButton ? (
+              <View style={styles.backBtnPlaceholder} />
+            ) : (
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={styles.backBtn}
+              >
+                <Image
+                  source={require('../../assets/icons/back.png')}
+                  style={[
+                    styles.backIcon,
+                    {
+                      tintColor:
+                        theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+            )}
             <View style={styles.backIconWrap}>
               <Text
                 style={[
@@ -772,6 +800,10 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     padding: 8,
+    marginRight: 16,
+  },
+  backBtnPlaceholder: {
+    width: responsiveWidth(5) + 16,
     marginRight: 16,
   },
   backIcon: {

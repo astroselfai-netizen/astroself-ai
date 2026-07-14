@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
     minHeight: '100%',
     // backgroundColor: '#202945',
     paddingTop: responsiveWidth('19'), // Add space for sticky header
-    paddingBottom: Platform.OS === 'android' ? 35 : 32,
+    paddingBottom: Platform.OS === 'android' ? 140 : 120,
   },
   loadingContainer: {
     flex: 1,

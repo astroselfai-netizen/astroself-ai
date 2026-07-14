@@ -116,7 +116,7 @@ const TermsAndConditions = () => {
 
   return (
     // <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
-    <MainContainer>
+    <MainContainer safeBottom>
       {/* Header */}
       <StatusBar
         barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}

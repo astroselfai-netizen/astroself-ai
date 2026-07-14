@@ -53,9 +53,13 @@ const StoreUpdateModal: React.FC<Props> = ({
       visible={visible}
       transparent
       animationType="fade"
+      // Vivo / FunTouch: overFullScreen + statusBarTranslucent avoid blank/hidden modals
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      hardwareAccelerated
       onRequestClose={forceUpdate ? () => {} : onDismissOptional}
     >
-      <View style={styles.overlay}>
+      <View style={styles.overlay} pointerEvents="box-none">
         <View style={styles.card}>
           <Text style={styles.title}>Update available</Text>
           <Text style={styles.body}>
@@ -71,14 +75,6 @@ const StoreUpdateModal: React.FC<Props> = ({
           <TouchableOpacity style={styles.primary} onPress={handleUpdate}>
             <Text style={styles.primaryText}>Update</Text>
           </TouchableOpacity>
-          {/* {!forceUpdate ? (
-            <TouchableOpacity
-              style={styles.secondary}
-              onPress={onDismissOptional}
-            >
-              <Text style={styles.secondaryText}>Later</Text>
-            </TouchableOpacity>
-          ) : null} */}
         </View>
       </View>
     </Modal>
@@ -87,11 +83,14 @@ const StoreUpdateModal: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   overlay: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    zIndex: 9999,
+    elevation: 9999,
   },
   card: {
     backgroundColor: '#fff',
@@ -99,6 +98,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxWidth: 400,
+    elevation: 8,
   },
   title: {
     fontSize: 20,

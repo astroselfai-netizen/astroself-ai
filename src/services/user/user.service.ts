@@ -166,8 +166,8 @@ export default class UserService extends Service {
     last_name: string;
     email: string;
     password: string;
-    experience: string;
-    bio: string;
+    experience?: string;
+    bio?: string;
   }): Promise<{
     status: boolean;
     message?: string;
@@ -183,8 +183,8 @@ export default class UserService extends Service {
           email: params.email,
           password: params.password,
           role: 'astrologer',
-          experience: params.experience,
-          bio: params.bio,
+          experience: params.experience ?? '',
+          bio: params.bio ?? '',
         },
         {
           headers: {
@@ -2148,7 +2148,7 @@ export default class UserService extends Service {
       }
 
       const axiosResponse = await http.delete(
-        `/members?admin_id=${adminId}&birth_id=${birthId}`,
+        `astrologer/members?admin_id=${adminId}&birth_id=${birthId}`,
         {
           headers: {
             accept: 'application/json, text/plain, */*',

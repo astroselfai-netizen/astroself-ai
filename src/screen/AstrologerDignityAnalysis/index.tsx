@@ -222,9 +222,73 @@ const parseDashaEntry = (
   return { label, planet, start, end, backgroundColor };
 };
 
+const PLANET_SHORT_NAMES: Record<string, string> = {
+  sun: 'Su',
+  moon: 'Mo',
+  mars: 'Ma',
+  mercury: 'Me',
+  jupiter: 'Ju',
+  venus: 'Ve',
+  saturn: 'Sa',
+  rahu: 'Ra',
+  ketu: 'Ke',
+  ascendant: 'As',
+  lagna: 'As',
+};
+
+const getPlanetShortName = (planetName?: string) => {
+  const normalized = (planetName || '').trim().toLowerCase();
+  if (!normalized) {
+    return '--';
+  }
+
+  return PLANET_SHORT_NAMES[normalized] || planetName!.slice(0, 2);
+};
+
 const getPlanetLabel = (planet: SummaryItem) => {
+  const shortName = getPlanetShortName(planet.name);
   const isRetro = planet.isRetro === true || planet.isRetro === 'true';
-  return `${planet.name}${isRetro ? ' (R)' : ''}`;
+  return `${shortName}${isRetro ? '(R)' : ''}`;
+};
+
+const SUMMARY_COLUMNS = [
+  { key: 'planet', label: 'Planet', width: 80 },
+  { key: 'house', label: 'House', width: 65 },
+  { key: 'sign', label: 'Sign', width: 100 },
+  { key: 'degree', label: 'Degree', width: 85 },
+  { key: 'nakshatra', label: 'Nakshatra', width: 150 },
+  { key: 'd1_dignity', label: 'Dignity-D1', width: 105 },
+  { key: 'd9_sign', label: 'D9 Sign', width: 90 },
+  { key: 'd9_dignity', label: 'D9 Dignity', width: 105 },
+  { key: 'd10_sign', label: 'D10 Sign', width: 90 },
+  { key: 'd10_dignity', label: 'D10 Dignity', width: 110 },
+] as const;
+
+const getSummaryCellValue = (item: SummaryItem, key: (typeof SUMMARY_COLUMNS)[number]['key']) => {
+  switch (key) {
+    case 'planet':
+      return getPlanetLabel(item);
+    case 'house':
+      return String(item.house ?? '--');
+    case 'sign':
+      return String(item.sign ?? '--');
+    case 'degree':
+      return item.normDegree.toFixed(3);
+    case 'nakshatra':
+      return `${item.nakshatra}-${item.nakshatra_pad}`;
+    case 'd1_dignity':
+      return String(item.d1_dignity ?? '--');
+    case 'd9_sign':
+      return String(item.d9_sign ?? '--');
+    case 'd9_dignity':
+      return String(item.d9_dignity ?? '--');
+    case 'd10_sign':
+      return String(item.d10_sign ?? '--');
+    case 'd10_dignity':
+      return String(item.d10_dignity ?? '--');
+    default:
+      return '--';
+  }
 };
 
 const getCardWidth = () => {
@@ -347,7 +411,7 @@ const AstrologerDignityAnalysisScreen = () => {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
-        <MainContainer>
+        <MainContainer safeBottom>
           <View style={styles.loaderWrap}>
             <ActivityIndicator size="large" color={NAVY} />
           </View>
@@ -362,7 +426,7 @@ const AstrologerDignityAnalysisScreen = () => {
       style={styles.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer>
+      <MainContainer safeBottom>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -419,20 +483,12 @@ const AstrologerDignityAnalysisScreen = () => {
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View>
                   <View style={styles.summaryHeaderRow}>
-                    {[
-                      'Planet',
-                      'House',
-                      'Sign',
-                      'Degree',
-                      'Nakshatra',
-                      'Dignity-D1',
-                      'D9 Sign',
-                      'D9 Dignity',
-                      'D10 Sign',
-                      'D10 Dignity',
-                    ].map(header => (
-                      <Text key={header} style={styles.summaryHeaderCell}>
-                        {header}
+                    {SUMMARY_COLUMNS.map(column => (
+                      <Text
+                        key={column.key}
+                        style={[styles.summaryHeaderCell, { width: column.width }]}
+                      >
+                        {column.label}
                       </Text>
                     ))}
                   </View>
@@ -442,18 +498,14 @@ const AstrologerDignityAnalysisScreen = () => {
                       key={`${item.name}-${index}`}
                       style={[styles.summaryRow, index % 2 === 1 && styles.summaryRowAlt]}
                     >
-                      <Text style={styles.summaryCell}>{getPlanetLabel(item)}</Text>
-                      <Text style={styles.summaryCell}>{item.house}</Text>
-                      <Text style={styles.summaryCell}>{item.sign}</Text>
-                      <Text style={styles.summaryCell}>{item.normDegree.toFixed(3)}</Text>
-                      <Text style={styles.summaryCell}>
-                        {item.nakshatra}-{item.nakshatra_pad}
-                      </Text>
-                      <Text style={styles.summaryCell}>{item.d1_dignity}</Text>
-                      <Text style={styles.summaryCell}>{item.d9_sign}</Text>
-                      <Text style={styles.summaryCell}>{item.d9_dignity}</Text>
-                      <Text style={styles.summaryCell}>{item.d10_sign}</Text>
-                      <Text style={styles.summaryCell}>{item.d10_dignity}</Text>
+                      {SUMMARY_COLUMNS.map(column => (
+                        <Text
+                          key={`${item.name}-${column.key}-${index}`}
+                          style={[styles.summaryCell, { width: column.width }]}
+                        >
+                          {getSummaryCellValue(item, column.key)}
+                        </Text>
+                      ))}
                     </View>
                   ))}
                 </View>
@@ -713,10 +765,12 @@ const styles = StyleSheet.create({
   summaryHeaderRow: {
     flexDirection: 'row',
     backgroundColor: NAVY,
+    gap: 10,
+    paddingHorizontal: 10,
   },
   summaryHeaderCell: {
-    width: 110,
-    paddingHorizontal: 12,
+    flexShrink: 0,
+    paddingHorizontal: 10,
     paddingVertical: 14,
     color: '#FFFFFF',
     fontSize: 13,
@@ -727,13 +781,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E9F0',
+    gap: 10,
+    paddingHorizontal: 10,
   },
   summaryRowAlt: {
     backgroundColor: '#FAFBFD',
   },
   summaryCell: {
-    width: 110,
-    paddingHorizontal: 12,
+    flexShrink: 0,
+    paddingHorizontal: 10,
     paddingVertical: 12,
     fontSize: 13,
     fontFamily: fontFamily.regular,
