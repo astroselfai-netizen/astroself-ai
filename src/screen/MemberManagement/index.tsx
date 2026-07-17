@@ -147,7 +147,7 @@ const MemberItem = React.memo(
     const birthDate = formatBirthDate(item.birth_data);
     const birthTime = formatBirthTime(item.birth_data);
     const location = item.birthplace || 'Location not specified';
-    const currentPlan = item.current_plan || 'Cosmic Foundation';
+    const currentPlan = item.current_plan || 'Free Plan';
     const whatDoYouDo = item.what_do_you_do || '';
 
     return (

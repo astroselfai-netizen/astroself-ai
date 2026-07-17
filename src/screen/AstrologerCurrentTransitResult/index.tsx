@@ -148,7 +148,7 @@ const AstrologerCurrentTransitResultScreen = () => {
                   },
                 ]}
               >
-                Current Transit
+                Transit Chart
               </Text>
             </View>
           </View>

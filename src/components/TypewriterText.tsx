@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, TextProps, TextStyle } from 'react-native';
 
-const MS_PER_TICK = 14;
-const CATCHUP_THRESHOLD = 60;
-const CATCHUP_BATCH = 4;
-const MID_BATCH = 2;
+const MS_PER_TICK = 12;
+const CATCHUP_THRESHOLD = 80;
+const CATCHUP_BATCH = 6;
+const MID_BATCH = 3;
 
 const getRevealBatch = (remaining: number) => {
   if (remaining > CATCHUP_THRESHOLD) {
     return CATCHUP_BATCH;
   }
-  if (remaining > 24) {
+  if (remaining > 28) {
     return MID_BATCH;
   }
   return 1;
@@ -36,11 +36,12 @@ const TypewriterText = ({
   renderContent,
   ...textProps
 }: TypewriterTextProps) => {
-  const chars = useMemo(() => Array.from(text), [text]);
+  const chars = useMemo(() => Array.from(text || ''), [text]);
   const [revealedCount, setRevealedCount] = useState(active ? 0 : chars.length);
   const completedRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   const onProgressRef = useRef(onProgress);
+  const revealedRef = useRef(revealedCount);
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -48,12 +49,17 @@ const TypewriterText = ({
   }, [onComplete, onProgress]);
 
   useEffect(() => {
+    revealedRef.current = revealedCount;
+  }, [revealedCount]);
+
+  useEffect(() => {
     completedRef.current = false;
     if (!active) {
       setRevealedCount(chars.length);
       return;
     }
-    setRevealedCount(prev => Math.min(prev, chars.length));
+    // Never jump backwards hard enough to blank the bubble — only clamp.
+    setRevealedCount(prev => Math.min(Math.max(prev, 0), chars.length));
   }, [active, chars.length]);
 
   useEffect(() => {

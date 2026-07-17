@@ -111,10 +111,10 @@ const settingsList = [
       //   label: 'Privacy & Policy',
       // },
 
-      // {
-      //   icon: require('../../assets/icons/Terms-of-Services.png'),
-      //   label: 'Terms of Services',
-      // },
+      {
+        icon: require('../../assets/icons/Terms-of-Services.png'),
+        label: 'Terms of Services',
+      },
       { icon: require('../../assets/icons/About-us.png'), label: 'About us' },
     ],
   },

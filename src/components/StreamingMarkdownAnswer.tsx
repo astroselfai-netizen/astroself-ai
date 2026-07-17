@@ -6,6 +6,7 @@ import {
   getStreamingDisplayText,
   parseMarkdownAnswer,
 } from '../utils/astrologerChatMarkdown';
+import FormattedMarkdownText from './FormattedMarkdownText';
 import TypewriterText from './TypewriterText';
 
 type StreamingMarkdownAnswerProps = {
@@ -27,15 +28,27 @@ const MarkdownSection = ({
 }) => (
   <View style={styles.sectionBlock}>
     {section.heading ? (
-      <Text style={[styles.sectionHeading, { color: textColor }]}>{section.heading}</Text>
+      <FormattedMarkdownText
+        text={section.heading}
+        color={textColor}
+        style={styles.sectionHeading}
+      />
     ) : null}
     {section.paragraph ? (
-      <Text style={[styles.paragraphText, { color: textColor }]}>{section.paragraph}</Text>
+      <FormattedMarkdownText
+        text={section.paragraph}
+        color={textColor}
+        style={styles.paragraphText}
+      />
     ) : null}
     {section.bullets?.map((bullet, bulletIndex) => (
       <View key={`${sectionKey}-bullet-${bulletIndex}`} style={styles.bulletRow}>
         <Text style={[styles.bulletDot, { color: textColor }]}>•</Text>
-        <Text style={[styles.bulletText, { color: textColor }]}>{bullet}</Text>
+        <FormattedMarkdownText
+          text={bullet}
+          color={textColor}
+          style={styles.bulletText}
+        />
       </View>
     ))}
   </View>
@@ -44,16 +57,11 @@ const MarkdownSection = ({
 const MarkdownAnswerBody = ({
   source,
   textColor,
-  forStreaming = false,
 }: {
   source: string;
   textColor: string;
-  forStreaming?: boolean;
 }) => {
-  const parsed = useMemo(
-    () => parseMarkdownAnswer(source, forStreaming),
-    [forStreaming, source],
-  );
+  const parsed = useMemo(() => parseMarkdownAnswer(source, false), [source]);
 
   if (!source.trim()) {
     return null;
@@ -61,9 +69,6 @@ const MarkdownAnswerBody = ({
 
   return (
     <View style={styles.bodyWrap}>
-      {parsed.title ? (
-        <Text style={[styles.answerTitle, { color: textColor }]}>{parsed.title}</Text>
-      ) : null}
       {parsed.sections.map((section, index) => (
         <MarkdownSection
           key={`section-${index}`}
@@ -76,6 +81,19 @@ const MarkdownAnswerBody = ({
   );
 };
 
+/** Static (non-streaming) markdown renderer for history / completed answers. */
+export const MarkdownAnswer = ({
+  text,
+  textColor,
+}: {
+  text: string;
+  textColor: string;
+}) => <MarkdownAnswerBody source={text} textColor={textColor} />;
+
+/**
+ * Smooth typewriter while streaming.
+ * Avoids full markdown re-parse on each tick (that caused blank/flicker).
+ */
 const StreamingMarkdownAnswer = ({
   text,
   active = true,
@@ -88,24 +106,30 @@ const StreamingMarkdownAnswer = ({
     active={active}
     onProgress={onProgress}
     onComplete={onComplete}
-    renderContent={visibleText => (
-      <MarkdownAnswerBody
-        source={getStreamingDisplayText(visibleText)}
-        textColor={textColor}
-        forStreaming
-      />
-    )}
+    renderContent={visibleText => {
+      const display = getStreamingDisplayText(visibleText);
+      const withCaret = active ? `${display}|` : display;
+      if (!withCaret.trim() || withCaret === '|') {
+        return (
+          <Text style={[styles.streamingText, { color: textColor, opacity: 0.55 }]}>
+            |
+          </Text>
+        );
+      }
+
+      return (
+        <FormattedMarkdownText
+          text={withCaret}
+          color={textColor}
+          style={styles.streamingText}
+        />
+      );
+    }}
   />
 );
 
 const styles = StyleSheet.create({
   bodyWrap: {
-    marginBottom: responsiveWidth('1.5'),
-  },
-  answerTitle: {
-    fontSize: 15,
-    fontFamily: fontFamily.bold,
-    lineHeight: 22,
     marginBottom: responsiveWidth('1.5'),
   },
   sectionBlock: {
@@ -122,6 +146,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     lineHeight: 20,
     marginBottom: responsiveWidth('0.5'),
+  },
+  streamingText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 21,
+    marginBottom: responsiveWidth('1.5'),
   },
   bulletRow: {
     flexDirection: 'row',

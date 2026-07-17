@@ -70,6 +70,8 @@ import AstrologerCreateClientScreen from '../screen/AstrologerCreateClient';
 import AstrologerCurrentTransitScreen from '../screen/AstrologerCurrentTransit';
 import AstrologerCurrentTransitResultScreen from '../screen/AstrologerCurrentTransitResult';
 import AstrologerClientChatScreen from '../screen/AstrologerClientChat';
+import AstrologerChatHistoryScreen from '../screen/AstrologerChatHistory';
+import AstrologerChatHistoryDetailsScreen from '../screen/AstrologerChatHistoryDetails';
 import AstrologerClientChartScreen from '../screen/AstrologerClientChart';
 import AstrologerDignityAnalysisScreen from '../screen/AstrologerDignityAnalysis';
 import AstrologerRegisterScreen from '../screen/AstrologerRegister';
@@ -517,6 +519,14 @@ function MainNavigator() {
         <Stack.Screen
           name="AstrologerClientChatScreen"
           component={AstrologerClientChatScreen}
+        />
+        <Stack.Screen
+          name="AstrologerChatHistoryScreen"
+          component={AstrologerChatHistoryScreen}
+        />
+        <Stack.Screen
+          name="AstrologerChatHistoryDetailsScreen"
+          component={AstrologerChatHistoryDetailsScreen}
         />
         <Stack.Screen
           name="AstrologerClientChartScreen"

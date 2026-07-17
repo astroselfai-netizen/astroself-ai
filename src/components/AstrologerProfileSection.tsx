@@ -82,7 +82,9 @@ const AstrologerProfileSection = () => {
 
   const astrologerUser = user as Record<string, unknown> | undefined;
   const astrologerUserId = String(user?._id || '');
-  const currentPlan = String(astrologerUser?.current_plan || 'cosmic_foundation');
+
+  console.log('astrologerUser', astrologerUser);
+  const currentPlan = String(astrologerUser?.current_plan || 'Free Plan');
   const astrologerInrBudget = useMemo(
     () => getAstrologerInrBudget(currentPlan),
     [currentPlan],
@@ -119,10 +121,13 @@ const AstrologerProfileSection = () => {
     return `${firstName} ${lastName}`.trim() || 'Astrologer';
   };
 
-  const planBadgeLabel = currentPlan
-    .split('_')
-    .map(word => word.toUpperCase())
-    .join(' ');
+  const planBadgeLabel =
+    currentPlan.toLowerCase() === 'cosmic_foundation'
+      ? 'Free Plan'
+      : currentPlan
+          .split('_')
+          .map(word => word.toUpperCase())
+          .join(' ');
 
   const handleUpgrade = useCallback(() => {
     navigation.getParent()?.navigate('PlanTab');

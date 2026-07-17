@@ -33,13 +33,16 @@ const MainContainer: React.FC<MainContainerProps> = ({
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingBottom: bottomInset },
+        { backgroundColor: colors.background },
         containerStyle,
       ]}
     >
       <ImageBackground
         source={colors.backgroundImage}
-        style={styles.background}
+        style={[
+          styles.background,
+          safeBottom ? { paddingBottom: bottomInset } : null,
+        ]}
         resizeMode="cover"
       >
         <View style={[styles.subContainer, subContainerStyle]}>

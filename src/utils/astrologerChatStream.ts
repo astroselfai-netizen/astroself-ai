@@ -10,7 +10,7 @@ export type AstrologerChatPayload = {
 };
 
 export const getAstrologerInrBudget = (currentPlan?: string | null): number => {
-  const normalized = String(currentPlan || 'cosmic_foundation').toLowerCase();
+  const normalized = String(currentPlan || 'Free Plan').toLowerCase();
 
   if (
     normalized === 'premium' ||
@@ -35,7 +35,7 @@ export const isAstrologerTokenLimitError = (message: string): boolean =>
   message.toLowerCase().includes('token limit');
 
 export const getAstrologerPlanDisplayName = (currentPlan?: string | null): string => {
-  const normalized = String(currentPlan || 'cosmic_foundation').toLowerCase();
+  const normalized = String(currentPlan || 'Free Plan').toLowerCase();
 
   if (
     normalized === 'premium' ||

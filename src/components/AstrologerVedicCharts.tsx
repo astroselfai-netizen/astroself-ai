@@ -403,11 +403,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.regular,
   },
-  planetCol: { flex: 1.1 },
+  planetCol: { flex: 0.8 },
   signCol: { flex: 1 },
-  degreeCol: { flex: 0.9 },
-  nakshatraCol: { flex: 1.4 },
-  dignityCol: { flex: 1 },
+  degreeCol: { flex: 1 },
+  nakshatraCol: { flex: 1.5 },
+  dignityCol: { flex: 1.1 },
 });
 
 export default AstrologerVedicCharts;

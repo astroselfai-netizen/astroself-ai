@@ -1,4 +1,5 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { beginExternalAuthSession } from '../utils/hardRefreshGate';
 import auth from '@react-native-firebase/auth';
 import { Platform } from 'react-native';
 import { Service } from './Service';
@@ -93,6 +94,7 @@ class GoogleAuthService extends Service {
   }
 
   public async signInWithGoogle(): Promise<any> {
+    const endExternalAuth = beginExternalAuthSession();
     try {
       // Check if your device supports Google Play
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -188,6 +190,8 @@ class GoogleAuthService extends Service {
           error: error.message || 'Something went wrong with Google Sign-In',
         };
       }
+    } finally {
+      endExternalAuth();
     }
   }
 

@@ -236,6 +236,21 @@ const PLANET_SHORT_NAMES: Record<string, string> = {
   lagna: 'As',
 };
 
+const SIGN_SHORT_NAMES: Record<string, string> = {
+  aries: 'Ari',
+  taurus: 'Tau',
+  gemini: 'Gem',
+  cancer: 'Can',
+  leo: 'Leo',
+  virgo: 'Vir',
+  libra: 'Lib',
+  scorpio: 'Sco',
+  sagittarius: 'Sag',
+  capricorn: 'Cap',
+  aquarius: 'Aqu',
+  pisces: 'Pis',
+};
+
 const getPlanetShortName = (planetName?: string) => {
   const normalized = (planetName || '').trim().toLowerCase();
   if (!normalized) {
@@ -243,6 +258,15 @@ const getPlanetShortName = (planetName?: string) => {
   }
 
   return PLANET_SHORT_NAMES[normalized] || planetName!.slice(0, 2);
+};
+
+const getSignShortName = (sign?: string) => {
+  const normalized = (sign || '').trim().toLowerCase();
+  if (!normalized) {
+    return '--';
+  }
+
+  return SIGN_SHORT_NAMES[normalized] || sign!;
 };
 
 const getPlanetLabel = (planet: SummaryItem) => {
@@ -253,7 +277,7 @@ const getPlanetLabel = (planet: SummaryItem) => {
 
 const SUMMARY_COLUMNS = [
   { key: 'planet', label: 'Planet', width: 80 },
-  { key: 'house', label: 'House', width: 65 },
+  { key: 'house', label: 'House', width: 75 },
   { key: 'sign', label: 'Sign', width: 100 },
   { key: 'degree', label: 'Degree', width: 85 },
   { key: 'nakshatra', label: 'Nakshatra', width: 150 },
@@ -271,7 +295,7 @@ const getSummaryCellValue = (item: SummaryItem, key: (typeof SUMMARY_COLUMNS)[nu
     case 'house':
       return String(item.house ?? '--');
     case 'sign':
-      return String(item.sign ?? '--');
+      return getSignShortName(item.sign);
     case 'degree':
       return item.normDegree.toFixed(3);
     case 'nakshatra':
@@ -279,11 +303,11 @@ const getSummaryCellValue = (item: SummaryItem, key: (typeof SUMMARY_COLUMNS)[nu
     case 'd1_dignity':
       return String(item.d1_dignity ?? '--');
     case 'd9_sign':
-      return String(item.d9_sign ?? '--');
+      return getSignShortName(item.d9_sign);
     case 'd9_dignity':
       return String(item.d9_dignity ?? '--');
     case 'd10_sign':
-      return String(item.d10_sign ?? '--');
+      return getSignShortName(item.d10_sign);
     case 'd10_dignity':
       return String(item.d10_dignity ?? '--');
     default:
@@ -454,10 +478,14 @@ const AstrologerDignityAnalysisScreen = () => {
             <View style={styles.dashaWrap}>
               {dashaPills.map(item => (
                 <View key={item.label} style={[styles.dashaPill, { backgroundColor: item.backgroundColor }]}>
-                  <Text style={styles.dashaLabel}>{item.label}:</Text>
-                  <Text style={styles.dashaPlanet}>{item.planet}</Text>
-                  <Text style={styles.dashaDate}>From: {item.start}</Text>
-                  <Text style={styles.dashaDate}>To: {item.end}</Text>
+                  <Text style={styles.dashaTitle}>
+                    <Text style={styles.dashaLabel}>{item.label}: </Text>
+                    <Text style={styles.dashaPlanet}>{item.planet}</Text>
+                  </Text>
+                  <View style={styles.dashaDatesRow}>
+                    <Text style={styles.dashaDate}>From: {item.start}</Text>
+                    <Text style={styles.dashaDate}>To: {item.end}</Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -710,9 +738,11 @@ const styles = StyleSheet.create({
     borderColor: '#E6DFD3',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 4,
+  },
+  dashaTitle: {
+    fontSize: 13,
+    color: '#374151',
   },
   dashaLabel: {
     fontSize: 13,
@@ -723,6 +753,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.regular,
     color: '#374151',
+  },
+  dashaDatesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
   },
   dashaDate: {
     fontSize: 13,

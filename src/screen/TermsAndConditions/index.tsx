@@ -104,10 +104,10 @@ const TermsAndConditions = () => {
 
   const htmlTagsStyles = useMemo(
     () => ({
-      p: { marginTop: 0, marginBottom: 10 },
-      ul: { marginTop: 0, marginBottom: 10, paddingLeft: 18 },
-      ol: { marginTop: 0, marginBottom: 10, paddingLeft: 18 },
-      li: { marginBottom: 6 },
+      p: { marginTop: 0, marginBottom: 2 },
+      ul: { marginTop: 0, marginBottom: 2, paddingLeft: 18 },
+      ol: { marginTop: 0, marginBottom: 2, paddingLeft: 18 },
+      li: { marginBottom: 1 },
       a: { color: colors.primary ?? colors.yellow },
       span: { color: htmlBaseStyle.color },
     }),
@@ -212,6 +212,26 @@ const TermsAndConditions = () => {
             </View>
           ) : (
             <>
+              <Text
+                style={[
+                  styles.introText,
+                  {
+                    color:
+                      theme === 'dark'
+                        ? colors.themeTextWhite
+                        : colors.DarkNavy,
+                  },
+                ]}
+              >
+                Welcome to{' '}
+                <Text style={styles.introBold}>Astrodha Ai</Text>.{'\n'}
+                By accessing or using our platform (the{' '}
+                <Text style={styles.introBold}>App</Text> or{' '}
+                <Text style={styles.introBold}>Website</Text>), you agree to be
+                bound by the following Terms and Conditions. Please read them
+                carefully.
+              </Text>
+
               {terms.map((section, idx) => (
                 <View key={`${section.heading}-${idx}`} style={styles.section}>
                   <Text
@@ -300,13 +320,23 @@ const styles = StyleSheet.create({
     marginTop: responsiveWidth('2%'),
     borderWidth: 0.2,
     borderColor: '#EEE5CA',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
     overflow: 'hidden',
     marginBottom: responsiveWidth('5%'),
     paddingVertical: Platform.OS === 'android' ? 10 : responsiveWidth('1'),
     paddingHorizontal: 20,
-    // boxShadow: '3px 3px 3px 0px rgba(0, 0, 0, 0.35)',
+  },
+  introText: {
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    lineHeight: 22,
+    marginTop: responsiveWidth('1%'),
+    marginBottom: 14,
+    textAlign: 'left',
+  },
+  introBold: {
+    fontFamily: fontFamily.bold,
   },
   section: {
     marginBottom: 12,
@@ -318,7 +348,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   sectionTitleFirst: {
-    marginTop: responsiveWidth('2%'),
+    marginTop: 0,
   },
   sectionText: {
     fontSize: 14,

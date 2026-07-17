@@ -81,6 +81,30 @@ export namespace Api {
         data: AstrologerChatHistoryItem[];
       }
 
+      export interface AstrologerChatHistoryMonth {
+        total_questions: number;
+        latest_created_at?: string;
+        year: number;
+        month: number;
+        month_name: string;
+        display: string;
+      }
+
+      export interface AstrologerChatHistoryMonthsResponse {
+        status: boolean;
+        user_id?: string;
+        count?: number;
+        data: AstrologerChatHistoryMonth[];
+      }
+
+      export interface AstrologerChatHistoryMonthDetailsResponse {
+        status: boolean;
+        user_id?: string;
+        month: number;
+        year: number;
+        data: AstrologerChatHistoryItem[];
+      }
+
       export interface AstrologerMemberDashaResult {
         Mahadasha?: Record<string, string[]>;
         Antardasha?: Record<string, string[]>;

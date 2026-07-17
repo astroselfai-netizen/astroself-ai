@@ -51,6 +51,29 @@ export const stripPartialTrailingMarkdown = (text: string) => {
   return cleaned.trimEnd();
 };
 
+/** Remove incomplete trailing `**` while streaming. */
+export const stripTrailingBoldMarkers = (text: string): string => {
+  if (!text) {
+    return '';
+  }
+
+  let cleaned = text;
+  const trailingOpen = cleaned.match(/\*\*[^*]*$/);
+  if (trailingOpen && trailingOpen.index != null) {
+    cleaned = cleaned.slice(0, trailingOpen.index);
+  }
+
+  const oddMarkers = (cleaned.match(/\*\*/g) || []).length % 2 === 1;
+  if (oddMarkers) {
+    const lastMarker = cleaned.lastIndexOf('**');
+    if (lastMarker >= 0) {
+      cleaned = cleaned.slice(0, lastMarker);
+    }
+  }
+
+  return cleaned;
+};
+
 export const parseMarkdownAnswer = (
   answer: string,
   forStreaming = false,
@@ -62,7 +85,6 @@ export const parseMarkdownAnswer = (
     .filter(Boolean);
 
   const sections: ChatSection[] = [];
-  let title = '';
   let currentSection: ChatSection | null = null;
 
   const pushCurrentSection = () => {
@@ -89,8 +111,10 @@ export const parseMarkdownAnswer = (
         return;
       }
 
-      if (!title) {
-        title = heading;
+      // Don't use the first H1 as a card "title" — keep it as body heading content.
+      // Skip generic labels like "Response".
+      const normalized = heading.toLowerCase();
+      if (normalized === 'response' || normalized === 'answer') {
         return;
       }
 
@@ -133,28 +157,33 @@ export const parseMarkdownAnswer = (
 
   pushCurrentSection();
 
-  if (!title && sections[0]?.heading) {
-    title = sections[0].heading;
-    sections[0] = {
-      ...sections[0],
-      heading: undefined,
-    };
-  }
-
   if (!sections.length && source.trim()) {
     return {
-      title: title || 'Response',
+      title: '',
       sections: [{ paragraph: sanitizeText(source) }],
     };
   }
 
   return {
-    title: title || 'Response',
+    title: '',
     sections,
   };
 };
 
-export const getStreamingDisplayText = (text: string) =>
-  stripPartialTrailingMarkdown(text)
+/**
+ * Soft cleanup for live typing — keeps text stable so the bubble doesn't blank.
+ * Full markdown structure is applied only after the answer finishes.
+ */
+export const getStreamingDisplayText = (text: string) => {
+  const cleaned = stripTrailingBoldMarkers(
+    stripPartialTrailingMarkdown(text),
+  );
+
+  return cleaned
+    .replace(/^#{1,6}\s+(Response|Answer)\s*$/gim, '')
     .replace(/^#{1,6}\s+/gm, '')
-    .replace(/#{1,6}/g, '');
+    .replace(/^[-*•]\s+/gm, '• ')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimStart();
+};

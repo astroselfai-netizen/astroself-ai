@@ -32,6 +32,7 @@ import { usePlayStoreUpdate } from './src/hooks/usePlayStoreUpdate';
 import StoreUpdateModal from './src/components/StoreUpdateModal';
 import OfflineNoticeModal from './src/components/OfflineNoticeModal';
 import { useNetworkStatus } from './src/hooks/useNetworkStatus';
+import { useHardRefreshOnResume } from './src/hooks/useHardRefreshOnResume';
 import { setHttpNetworkErrorHandler } from './src/utils/http';
 
 // import iOSDebugInfo from './src/components/iOSDebugInfo';
@@ -45,6 +46,10 @@ LogBox.ignoreAllLogs();
 function App() {
   // Initialize app with user data from AsyncStorage
   useAppInitialization();
+
+  // Hard refresh when returning from background (task manager / home).
+  // AsyncStorage is preserved — session/token reload via useAppInitialization.
+  useHardRefreshOnResume();
 
   const { isOffline } = useNetworkStatus();
   const [hasNetworkError, setHasNetworkError] = React.useState(false);

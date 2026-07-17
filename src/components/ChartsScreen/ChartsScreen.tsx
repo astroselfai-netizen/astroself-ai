@@ -569,6 +569,7 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
                           color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
                         },
                       ]}
+                      numberOfLines={1}
                     >
                       {getPlanetShortName(row.planet)}
                       {row.isRetro ? ' (R)' : ''}
@@ -581,6 +582,7 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
                             color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
                           },
                         ]}
+                        numberOfLines={1}
                       >
                         {row.signIcon}
                       </Text>
@@ -593,6 +595,7 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
                           color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
                         },
                       ]}
+                      numberOfLines={1}
                     >
                       {row.degree}
                     </Text>
@@ -603,6 +606,7 @@ export default function ChartsScreen({ chartDetails }: ChartsScreenProps) {
                           color: theme === 'dark' ? '#23304D' : colors.DarkNavy,
                         },
                       ]}
+                      numberOfLines={1}
                     >
                       {row.nakshatraPada}
                     </Text>
@@ -750,7 +754,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
     overflow: 'hidden',
-    width: '100%',
+    minWidth: 560,
   },
   tableBody: {
     // Table body container
@@ -775,7 +779,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dashaHeaderPlanet: {
-    width: responsiveWidth('13'),
+    width: 64,
     flexShrink: 0,
     color: '#23304D',
     fontWeight: 'bold',
@@ -784,7 +788,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderSign: {
-    width: responsiveWidth('9'),
+    width: 52,
     flexShrink: 0,
     color: '#23304D',
     fontWeight: 'bold',
@@ -793,7 +797,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderDegree: {
-    width: responsiveWidth('15'),
+    width: 72,
     flexShrink: 0,
     color: '#23304D',
     fontWeight: 'bold',
@@ -802,9 +806,8 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dashaHeaderNakshatra: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
+    width: 276,
+    flexShrink: 0,
     color: '#23304D',
     fontWeight: 'bold',
     fontSize: 14,
@@ -820,7 +823,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dashaCellPlanet: {
-    width: responsiveWidth('13'),
+    width: 64,
     flexShrink: 0,
     color: '#23304D',
     fontSize: 14,
@@ -829,7 +832,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellSign: {
-    width: responsiveWidth('9'),
+    width: 52,
     flexShrink: 0,
     alignItems: 'flex-start',
     justifyContent: 'center',
@@ -842,7 +845,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dashaCellDegree: {
-    width: responsiveWidth('15'),
+    width: 72,
     flexShrink: 0,
     color: '#23304D',
     fontSize: 14,
@@ -851,9 +854,8 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
   },
   dashaCellNakshatra: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
+    width: 276,
+    flexShrink: 0,
     color: '#23304D',
     fontSize: 14,
     textAlign: 'left',
@@ -896,7 +898,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   tableScrollContent: {
-    width: '100%',
+    minWidth: 560,
   },
 });
 

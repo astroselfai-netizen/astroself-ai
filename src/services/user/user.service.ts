@@ -806,6 +806,100 @@ export default class UserService extends Service {
     }
   }
 
+  async getAstrologerChatHistoryMonths(
+    userId: string,
+  ): Promise<Api.User.Res.AstrologerChatHistoryMonthsResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post(
+        '/astrologer/chat-history/months',
+        { user_id: userId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch chat history months',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer chat history months error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch chat history months. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async getAstrologerChatHistoryMonthDetails(
+    userId: string,
+    month: number,
+    year: number,
+  ): Promise<Api.User.Res.AstrologerChatHistoryMonthDetailsResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post(
+        '/astrologer/chat-history/months/details',
+        { user_id: userId, month, year },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch chat history details',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer chat history month details error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch chat history details. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
   async getAstrologerMemberBirthChart(
     userId: string,
     chartType: string,

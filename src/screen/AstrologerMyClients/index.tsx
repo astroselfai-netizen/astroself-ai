@@ -507,6 +507,9 @@ const AstrologerMyClientsScreen = () => {
     }, [refreshClients, astrologerUserId]),
   );
 
+  console.log('clients', astrologerUser);
+  console.log('clients', clients);
+
   const totalClients =
     Number(astrologerUser?.astrologer_current_members) || clients.length || 0;
 
@@ -922,7 +925,7 @@ const AstrologerMyClientsScreen = () => {
                       { color: palette.secondaryButtonText },
                     ]}
                   >
-                    Current Transit
+                    Transit Chart
                   </Text>
                 </TouchableOpacity>
               )}
@@ -940,7 +943,7 @@ const AstrologerMyClientsScreen = () => {
               <Text style={[styles.searchIcon, { color: palette.textMuted }]}>🔍</Text>
               <TextInput
                 style={[styles.searchInput, { color: palette.textPrimary }]}
-                placeholder="Search Client"
+                placeholder="Search Charts"
                 placeholderTextColor={palette.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -972,12 +975,12 @@ const AstrologerMyClientsScreen = () => {
                 ]}
               >
                 <Text style={[styles.emptyStateTitle, { color: palette.textPrimary }]}>
-                  {searchQuery ? 'No clients found' : 'No clients yet'}
+                  {searchQuery ? 'No charts found' : 'No charts yet'}
                 </Text>
                 <Text style={[styles.emptyStateText, { color: palette.textMuted }]}>
                   {searchQuery
                     ? 'Try a different search term.'
-                    : 'Your assigned clients will appear here.'}
+                    : 'Your assigned charts will appear here.'}
                 </Text>
               </View>
             )}

@@ -4,6 +4,7 @@ import { Service } from './Service';
 import UserService from './user/user.service';
 import serviceFactory from './serviceFactory';
 import notificationService from './notificationService';
+import { beginExternalAuthSession } from '../utils/hardRefreshGate';
 
 class AppleAuthService extends Service {
   private static instance: AppleAuthService;
@@ -105,6 +106,7 @@ class AppleAuthService extends Service {
    * Requests FULL_NAME and EMAIL scopes
    */
   public async signInWithApple(): Promise<any> {
+    const endExternalAuth = beginExternalAuthSession();
     try {
       // Check if Apple Sign In is available
       if (!(await this.isAvailable())) {
@@ -244,6 +246,8 @@ class AppleAuthService extends Service {
           error: error.message || 'Something went wrong with Apple Sign-In',
         };
       }
+    } finally {
+      endExternalAuth();
     }
   }
 

@@ -17,7 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { SvgXml } from 'react-native-svg';
@@ -26,6 +27,7 @@ import AstrologerCombos, { ComboTab } from '../../components/AstrologerCombos';
 import AstrologerChatMemberHeader from '../../components/AstrologerChatMemberHeader';
 import AstrologerVedicCharts from '../../components/AstrologerVedicCharts';
 import StreamingMarkdownAnswer from '../../components/StreamingMarkdownAnswer';
+import FormattedMarkdownText from '../../components/FormattedMarkdownText';
 import TransitEditModal, { TransitEditPayload } from '../../components/TransitEditModal';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -179,7 +181,6 @@ type ChatMessage =
       streamingText?: string;
       showThinking?: boolean;
       thinkingSteps?: ThinkingStep[];
-      followUpQuestions?: string[];
       isStreaming?: boolean;
       errorText?: string;
     };
@@ -278,19 +279,7 @@ const mapChatHistoryToMessages = (
   return messages;
 };
 
-const getActiveThinkingLabel = (steps?: ThinkingStep[]) => {
-  const runningStep = steps?.find(step => step.status === 'running');
-  if (runningStep) {
-    return runningStep.label;
-  }
-
-  const pendingStep = steps?.find(step => step.status === 'idle');
-  if (pendingStep) {
-    return pendingStep.label;
-  }
-
-  return 'Processing...';
-};
+const getActiveThinkingLabel = (_steps?: ThinkingStep[]) => 'thinking';
 
 type RootStackParamList = {
   AstrologerClientChatScreen: {
@@ -299,6 +288,10 @@ type RootStackParamList = {
     clients?: Api.User.Res.AstrologerClient[];
     initialView?: ClientView;
     initialComboTab?: ComboTab;
+  };
+  AstrologerChatHistoryScreen: {
+    clientId: string;
+    clientName: string;
   };
 };
 
@@ -316,7 +309,7 @@ const getClientDisplayName = (client: Api.User.Res.AstrologerClient) =>
   'Unknown Client';
 
 const AstrologerClientChatScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AstrologerClientChatScreen'>>();
   const insets = useSafeAreaInsets();
   const { theme, colors } = useTheme();
@@ -325,8 +318,6 @@ const AstrologerClientChatScreen = () => {
   const chatAbortRef = useRef<(() => void) | null>(null);
   const historyRequestIdRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
-  const shouldAutoScrollRef = useRef(false);
-  const lastScrollAtRef = useRef(0);
   const lastLayoutRevisionRef = useRef(0);
   const prevMessageCountRef = useRef(0);
   const streamStateRef = useRef<{
@@ -426,45 +417,14 @@ const AstrologerClientChatScreen = () => {
     };
   }, [scrollToBottom]);
 
-  const shouldAutoScroll = useMemo(
-    () =>
-      isSending ||
-      messages.some(
-        message =>
-          message.type === 'assistant' &&
-          (message.isStreaming || Boolean(message.streamingText)),
-      ),
-    [isSending, messages],
-  );
-
+  // Scroll once when a new message is added — do not follow streaming/typewriter growth.
   useEffect(() => {
-    shouldAutoScrollRef.current = shouldAutoScroll;
-  }, [shouldAutoScroll]);
-
-  useEffect(() => {
-    if (messages.length !== prevMessageCountRef.current) {
-      prevMessageCountRef.current = messages.length;
-      scrollToBottom(false);
+    if (messages.length === prevMessageCountRef.current) {
       return;
     }
-
-    if (isSending) {
-      scrollToBottom(false);
-    }
-  }, [messages.length, isSending, scrollToBottom]);
-
-  const handleListContentSizeChange = useCallback(() => {
-    if (!shouldAutoScrollRef.current) {
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastScrollAtRef.current < 100) {
-      return;
-    }
-    lastScrollAtRef.current = now;
+    prevMessageCountRef.current = messages.length;
     scrollToBottom(false);
-  }, [scrollToBottom]);
+  }, [messages.length, scrollToBottom]);
 
   const astrologerId = user?._id || '';
   const astrologerInrBudget = useMemo(
@@ -520,7 +480,8 @@ const AstrologerClientChatScreen = () => {
       const text = streamStateRef.current.buffers[messageId] || '';
       updateAssistantMessage(messageId, message => ({
         ...message,
-        showThinking: false,
+        // Keep thinking until first content arrives — avoids empty/blank card flash.
+        showThinking: text.trim().length === 0 ? message.showThinking !== false : false,
         isStreaming: true,
         streamingText: text,
       }));
@@ -600,12 +561,11 @@ const AstrologerClientChatScreen = () => {
 
       updateAssistantMessage(messageId, message => ({
         ...message,
-        title: finalData.title || parsed?.title || message.title || 'Response',
+        title: finalData.title || parsed?.title || message.title || '',
         streamingText: answer || undefined,
         showThinking: false,
         isStreaming: Boolean(answer),
         sections: parsed?.sections || message.sections,
-        followUpQuestions: finalData.follow_up_questions || [],
         thinkingSteps: message.thinkingSteps?.map(step => ({
           ...step,
           status: 'completed' as const,
@@ -626,12 +586,7 @@ const AstrologerClientChatScreen = () => {
       lastLayoutRevisionRef.current = now;
       setTypingRevision(revision => revision + 1);
     }
-
-    if (now - lastScrollAtRef.current >= 80) {
-      lastScrollAtRef.current = now;
-      scrollToBottom(false);
-    }
-  }, [scrollToBottom]);
+  }, []);
 
   const handleTypewriterComplete = useCallback(
     (messageId: string) => {
@@ -642,12 +597,12 @@ const AstrologerClientChatScreen = () => {
         return {
           ...message,
           isStreaming: false,
-          streamingText: undefined,
+          // Keep text visible until structured sections are ready — no blank gap.
+          streamingText: message.sections?.length ? undefined : message.streamingText,
         };
       });
-      setTimeout(() => scrollToBottom(true), 80);
     },
-    [scrollToBottom, updateAssistantMessage],
+    [updateAssistantMessage],
   );
 
   const activeClient = useMemo(
@@ -776,7 +731,8 @@ const AstrologerClientChatScreen = () => {
         if (response?.data?.length) {
           setMessages(mapChatHistoryToMessages(response.data));
           const latest = [...response.data].sort(
-            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+            (a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
           )[0];
           setConversationId(latest?.conversation_id || '');
         }
@@ -795,11 +751,23 @@ const AstrologerClientChatScreen = () => {
     [userService],
   );
 
-  useEffect(() => {
-    if (activeClientId) {
-      loadChatHistory(activeClientId);
+  useFocusEffect(
+    useCallback(() => {
+      if (activeClientId) {
+        loadChatHistory(activeClientId);
+      }
+    }, [activeClientId, loadChatHistory]),
+  );
+
+  const openChatHistory = useCallback(() => {
+    if (!activeClientId) {
+      return;
     }
-  }, [activeClientId, loadChatHistory]);
+    navigation.navigate('AstrologerChatHistoryScreen', {
+      clientId: activeClientId,
+      clientName: activeClientName,
+    });
+  }, [activeClientId, activeClientName, navigation]);
 
   const loadMemberDetails = useCallback(
     async (clientId: string) => {
@@ -1110,19 +1078,27 @@ const AstrologerClientChatScreen = () => {
   const renderSection = (section: ChatSection, index: number, messageId: string) => (
     <View key={`${messageId}-section-${index}`} style={styles.sectionBlock}>
       {section.heading ? (
-        <Text style={[styles.sectionHeading, { color: palette.textPrimary }]}>
-          {section.heading}
-        </Text>
+        <FormattedMarkdownText
+          text={section.heading}
+          color={palette.textPrimary}
+          style={styles.sectionHeading}
+        />
       ) : null}
       {section.paragraph ? (
-        <Text style={[styles.paragraphText, { color: palette.textPrimary }]}>
-          {section.paragraph}
-        </Text>
+        <FormattedMarkdownText
+          text={section.paragraph}
+          color={palette.textPrimary}
+          style={styles.paragraphText}
+        />
       ) : null}
       {section.bullets?.map((bullet, bulletIndex) => (
         <View key={`${messageId}-bullet-${bulletIndex}`} style={styles.bulletRow}>
           <Text style={[styles.bulletDot, { color: palette.textPrimary }]}>•</Text>
-          <Text style={[styles.bulletText, { color: palette.textPrimary }]}>{bullet}</Text>
+          <FormattedMarkdownText
+            text={bullet}
+            color={palette.textPrimary}
+            style={styles.bulletText}
+          />
         </View>
       ))}
     </View>
@@ -1141,19 +1117,25 @@ const AstrologerClientChatScreen = () => {
     }
 
     const hasStructuredSections = Boolean(item.sections?.length && !item.isStreaming);
-    const hasStreamingText = Boolean(item.isStreaming && item.streamingText);
-    const hasRichContent = hasStructuredSections || hasStreamingText;
+    // Keep streamed text on screen even after typing ends if sections aren't ready yet.
+    const showStreamingAnswer =
+      Boolean(item.streamingText) && !hasStructuredSections;
+    const isWaitingForStream =
+      Boolean(item.isStreaming) && !item.streamingText && !item.errorText;
+    const hasRichContent = hasStructuredSections || showStreamingAnswer;
     const isThinkingOnly =
-      Boolean(item.showThinking) && !hasRichContent && !item.errorText;
+      (Boolean(item.showThinking) || isWaitingForStream) &&
+      !hasRichContent &&
+      !item.errorText;
 
     if (isThinkingOnly) {
       return (
         <View style={styles.assistantMessageWrap}>
           <Text style={[styles.timeLabel, { color: palette.textMuted }]}>{item.timeLabel}</Text>
           <View style={styles.assistantRow}>
-            <View style={[styles.botAvatar, { backgroundColor: NAVY }]}>
+            <View style={styles.botAvatar}>
               <Image
-                source={require('../../assets/icons/Subtract-dark.png')}
+                source={require('../../assets/icons/ic_launcher.png')}
                 style={styles.botAvatarIcon}
               />
             </View>
@@ -1183,9 +1165,9 @@ const AstrologerClientChatScreen = () => {
         <View style={styles.assistantMessageWrap}>
           <Text style={[styles.timeLabel, { color: palette.textMuted }]}>{item.timeLabel}</Text>
           <View style={styles.assistantRow}>
-            <View style={[styles.botAvatar, { backgroundColor: NAVY }]}>
+            <View style={styles.botAvatar}>
               <Image
-                source={require('../../assets/icons/Subtract-dark.png')}
+                source={require('../../assets/icons/ic_launcher.png')}
                 style={styles.botAvatarIcon}
               />
             </View>
@@ -1209,9 +1191,9 @@ const AstrologerClientChatScreen = () => {
       <View style={styles.assistantMessageWrap}>
         <Text style={[styles.timeLabel, { color: palette.textMuted }]}>{item.timeLabel}</Text>
         <View style={styles.assistantRow}>
-          <View style={[styles.botAvatar, { backgroundColor: NAVY }]}>
+          <View style={styles.botAvatar}>
             <Image
-              source={require('../../assets/icons/Subtract-dark.png')}
+              source={require('../../assets/icons/ic_launcher.png')}
               style={styles.botAvatarIcon}
             />
           </View>
@@ -1226,17 +1208,11 @@ const AstrologerClientChatScreen = () => {
           >
             <View style={[styles.assistantAccent, { backgroundColor: GOLD }]} />
             <View style={styles.assistantContent}>
-              {item.title && !item.isStreaming ? (
-                <Text style={[styles.assistantTitle, { color: palette.textPrimary }]}>
-                  {item.title}
-                </Text>
-              ) : null}
-
               {item.errorText ? (
                 <Text style={[styles.errorText, { color: '#EF4444' }]}>{item.errorText}</Text>
               ) : null}
 
-              {hasStreamingText ? (
+              {showStreamingAnswer ? (
                 <StreamingMarkdownAnswer
                   text={item.streamingText || ''}
                   active={Boolean(item.isStreaming)}
@@ -1253,26 +1229,6 @@ const AstrologerClientChatScreen = () => {
               {hasStructuredSections
                 ? item.sections?.map((section, index) => renderSection(section, index, item.id))
                 : null}
-
-              {item.followUpQuestions?.length ? (
-                <View style={styles.followUpWrap}>
-                  <Text style={[styles.followUpTitle, { color: palette.textPrimary }]}>
-                    Follow-up questions
-                  </Text>
-                  {item.followUpQuestions.map((question, index) => (
-                    <TouchableOpacity
-                      key={`${item.id}-followup-${index}`}
-                      style={[styles.followUpChip, { borderColor: palette.toolbarBorder }]}
-                      onPress={() => setInputText(question)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={[styles.followUpChipText, { color: palette.textPrimary }]}>
-                        {question}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : null}
             </View>
           </View>
         </View>
@@ -1518,6 +1474,24 @@ const AstrologerClientChatScreen = () => {
             ☰
           </Text>,
         )}
+
+        <TouchableOpacity
+          style={[
+            styles.toolbarPill,
+            styles.toolbarPillInactive,
+            { borderColor: inactivePillBorder },
+          ]}
+          onPress={openChatHistory}
+          activeOpacity={0.85}
+        >
+          <Image
+            source={require('../../assets/icons/history.png')}
+            style={[styles.toolbarPillIconInactive, { tintColor: inactivePillColor }]}
+          />
+          <Text style={[styles.toolbarPillTextInactive, { color: inactivePillColor }]}>
+            History
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -1775,7 +1749,6 @@ const AstrologerClientChatScreen = () => {
                 initialNumToRender={12}
                 maxToRenderPerBatch={8}
                 windowSize={7}
-                onContentSizeChange={handleListContentSizeChange}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 ListFooterComponent={<View style={styles.messagesFooterSpacer} />}
@@ -2341,12 +2314,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
+    overflow: 'hidden',
   },
   botAvatarIcon: {
-    width: 18,
-    height: 18,
-    resizeMode: 'contain',
-    tintColor: '#FFFFFF',
+    width: 32,
+    height: 32,
+    resizeMode: 'cover',
   },
   compactAssistantBubble: {
     flex: 1,
@@ -2388,11 +2361,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: responsiveWidth('3'),
     paddingVertical: responsiveWidth('2.5'),
   },
-  assistantTitle: {
-    fontSize: 17,
-    fontFamily: fontFamily.bold,
-    marginBottom: responsiveWidth('1.5'),
-  },
   thinkingStepsWrap: {
     marginBottom: responsiveWidth('2'),
     gap: 8,
@@ -2425,26 +2393,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     lineHeight: 20,
     marginBottom: responsiveWidth('1.5'),
-  },
-  followUpWrap: {
-    marginTop: responsiveWidth('2'),
-    gap: 8,
-  },
-  followUpTitle: {
-    fontSize: 14,
-    fontFamily: fontFamily.semiBold,
-    marginBottom: 4,
-  },
-  followUpChip: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  followUpChipText: {
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
-    lineHeight: 18,
   },
   sectionBlock: {
     marginBottom: responsiveWidth('1.5'),
