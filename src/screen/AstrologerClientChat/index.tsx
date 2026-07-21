@@ -320,6 +320,7 @@ const AstrologerClientChatScreen = () => {
   const scrollRafRef = useRef<number | null>(null);
   const lastLayoutRevisionRef = useRef(0);
   const prevMessageCountRef = useRef(0);
+  const pendingChatScrollRef = useRef(false);
   const streamStateRef = useRef<{
     buffers: Record<string, string>;
     rafIds: Record<string, number | null>;
@@ -417,14 +418,48 @@ const AstrologerClientChatScreen = () => {
     };
   }, [scrollToBottom]);
 
-  // Scroll once when a new message is added — do not follow streaming/typewriter growth.
+  // Scroll when a new message is added — retry after layout so thinking stays in view.
   useEffect(() => {
     if (messages.length === prevMessageCountRef.current) {
       return;
     }
     prevMessageCountRef.current = messages.length;
+    pendingChatScrollRef.current = true;
     scrollToBottom(false);
+
+    const retryTimeoutId = setTimeout(() => {
+      scrollToBottom(true);
+    }, 120);
+    const clearPendingTimeoutId = setTimeout(() => {
+      pendingChatScrollRef.current = false;
+    }, 500);
+
+    return () => {
+      clearTimeout(retryTimeoutId);
+      clearTimeout(clearPendingTimeoutId);
+    };
   }, [messages.length, scrollToBottom]);
+
+  // Chat FlatList unmounts on other tabs — scroll to bottom when returning to Chat.
+  useEffect(() => {
+    if (activeView !== 'chat') {
+      pendingChatScrollRef.current = false;
+      return;
+    }
+
+    pendingChatScrollRef.current = true;
+    const scrollTimeoutId = setTimeout(() => {
+      scrollToBottom(false);
+    }, 150);
+    const clearPendingTimeoutId = setTimeout(() => {
+      pendingChatScrollRef.current = false;
+    }, 500);
+
+    return () => {
+      clearTimeout(scrollTimeoutId);
+      clearTimeout(clearPendingTimeoutId);
+    };
+  }, [activeView, scrollToBottom]);
 
   const astrologerId = user?._id || '';
   const astrologerInrBudget = useMemo(
@@ -1029,6 +1064,9 @@ const AstrologerClientChatScreen = () => {
     ]);
     setInputText('');
     setIsSending(true);
+    pendingChatScrollRef.current = true;
+    setTimeout(() => scrollToBottom(true), 90);
+    setTimeout(() => scrollToBottom(true), 230);
 
     chatAbortRef.current?.();
     chatAbortRef.current = await streamAstrologerChat(
@@ -1751,7 +1789,20 @@ const AstrologerClientChatScreen = () => {
                 windowSize={7}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                ListFooterComponent={<View style={styles.messagesFooterSpacer} />}
+                onContentSizeChange={() => {
+                  if (pendingChatScrollRef.current) {
+                    scrollToBottom(false);
+                    pendingChatScrollRef.current = false;
+                  }
+                }}
+                ListFooterComponent={
+                  <View
+                    style={[
+                      styles.messagesFooterSpacer,
+                      isSending ? styles.messagesFooterSpacerThinking : null,
+                    ]}
+                  />
+                }
                 ListEmptyComponent={
                   historyLoading ? (
                     <View style={styles.historyLoadingWrap}>
@@ -2264,7 +2315,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   messagesFooterSpacer: {
-    height: responsiveWidth('3'),
+    height: responsiveWidth('6'),
+  },
+  messagesFooterSpacerThinking: {
+    height: responsiveWidth('16'),
   },
   historyLoadingWrap: {
     flex: 1,

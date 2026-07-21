@@ -802,7 +802,7 @@ const AstrologerMyClientsScreen = () => {
               <View style={[styles.heroTitleUnderline, { backgroundColor: palette.gold }]} />
             </View>
 
-            <View
+            {/* <View
               style={[
                 styles.totalClientsBadge,
                 {
@@ -827,7 +827,7 @@ const AstrologerMyClientsScreen = () => {
                   <Text style={styles.totalClientsIconText}>👤+</Text>
                 </View>
               </View>
-            </View>
+            </View> */}
           </View>
         </View>
 

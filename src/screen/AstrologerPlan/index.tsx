@@ -1146,8 +1146,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
-    paddingTop: responsiveWidth('10'),
     alignItems: 'center',
+    marginTop:
+      Platform.OS === 'android'
+        ? 0
+        : responsiveWidth('13%'),
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
     justifyContent: 'center',
     overflow: 'hidden',
     minHeight: responsiveWidth('14'),

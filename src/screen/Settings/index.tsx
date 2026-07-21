@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     marginTop:
       Platform.OS === 'android'
         ? 0
-        : responsiveWidth('12%'),
+        : responsiveWidth('13%'),
     // marginBottom: responsiveWidth('5%'),
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,

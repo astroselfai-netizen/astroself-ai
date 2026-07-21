@@ -58,6 +58,39 @@ type PlanetSummary = {
   d1_dignity?: string;
   d9_sign?: string;
   d9_dignity?: string;
+  d10_sign?: string;
+  d10_dignity?: string;
+};
+
+const DIGNITY_SUMMARY_COLUMNS = [
+  { key: 'planet', label: 'PLANET', width: 56 },
+  { key: 'd1_dignity', label: 'DIGNITY-D1', width: 96 },
+  { key: 'd9_sign', label: 'D9 SIGN', width: 72 },
+  { key: 'd9_dignity', label: 'DIGNITY-D9', width: 96 },
+  { key: 'd10_sign', label: 'D10 SIGN', width: 72 },
+  { key: 'd10_dignity', label: 'DIGNITY-D10', width: 100 },
+] as const;
+
+const getDignitySummaryCellValue = (
+  row: PlanetSummary,
+  key: (typeof DIGNITY_SUMMARY_COLUMNS)[number]['key'],
+) => {
+  switch (key) {
+    case 'planet':
+      return getPlanetShortName(row.name);
+    case 'd1_dignity':
+      return row.d1_dignity || '--';
+    case 'd9_sign':
+      return getSignShortName(row.d9_sign);
+    case 'd9_dignity':
+      return row.d9_dignity || '--';
+    case 'd10_sign':
+      return getSignShortName(row.d10_sign);
+    case 'd10_dignity':
+      return row.d10_dignity || '--';
+    default:
+      return '--';
+  }
 };
 
 type AstrologerVedicChartsProps = {
@@ -284,35 +317,52 @@ const AstrologerVedicCharts = ({
           </View>
 
           <View style={[styles.tableCard, { borderColor: cardBorder }]}>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderCell, styles.planetCol]}>PLANET</Text>
-              <Text style={[styles.tableHeaderCell, styles.dignityCol]}>DIGNITY-D1</Text>
-              <Text style={[styles.tableHeaderCell, styles.signCol]}>D9 SIGN</Text>
-              <Text style={[styles.tableHeaderCell, styles.dignityCol]}>DIGNITY-D9</Text>
-            </View>
-            {summaryRows.map((row, index) => (
-              <View
-                key={`${row.name}-${index}`}
-                style={[
-                  styles.tableRow,
-                  { borderTopColor: cardBorder },
-                  index % 2 === 1 && styles.tableRowAlt,
-                ]}
-              >
-                <Text style={[styles.tableCell, styles.planetCol, { color: textPrimary }]}>
-                  {getPlanetShortName(row.name)}
-                </Text>
-                <Text style={[styles.tableCell, styles.dignityCol, { color: textPrimary }]}>
-                  {row.d1_dignity || '--'}
-                </Text>
-                <Text style={[styles.tableCell, styles.signCol, { color: textPrimary }]}>
-                  {getSignShortName(row.d9_sign)}
-                </Text>
-                <Text style={[styles.tableCell, styles.dignityCol, { color: textPrimary }]}>
-                  {row.d9_dignity || '--'}
-                </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator
+              nestedScrollEnabled
+            >
+              <View>
+                <View style={styles.tableHeader}>
+                  {DIGNITY_SUMMARY_COLUMNS.map(column => (
+                    <Text
+                      key={column.key}
+                      style={[
+                        styles.tableHeaderCell,
+                        styles.fixedCol,
+                        { width: column.width },
+                      ]}
+                    >
+                      {column.label}
+                    </Text>
+                  ))}
+                </View>
+                {summaryRows.map((row, index) => (
+                  <View
+                    key={`${row.name}-${index}`}
+                    style={[
+                      styles.tableRow,
+                      { borderTopColor: cardBorder },
+                      index % 2 === 1 && styles.tableRowAlt,
+                    ]}
+                  >
+                    {DIGNITY_SUMMARY_COLUMNS.map(column => (
+                      <Text
+                        key={`${row.name}-${column.key}-${index}`}
+                        style={[
+                          styles.tableCell,
+                          styles.fixedCol,
+                          { width: column.width, color: textPrimary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {getDignitySummaryCellValue(row, column.key)}
+                      </Text>
+                    ))}
+                  </View>
+                ))}
               </View>
-            ))}
+            </ScrollView>
           </View>
         </View>
       ) : null}
@@ -408,6 +458,10 @@ const styles = StyleSheet.create({
   degreeCol: { flex: 1 },
   nakshatraCol: { flex: 1.5 },
   dignityCol: { flex: 1.1 },
+  fixedCol: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
 });
 
 export default AstrologerVedicCharts;
