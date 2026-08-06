@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,12 +12,15 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import BuyQuestionsModal from './BuyQuestionsModal';
 import { fontFamily, responsiveWidth } from '../constant/theme';
 import { useTheme } from '../context/ThemeContext';
 import UserService from '../services/user/user.service';
+import { setUser } from '../state/slices/appSlice';
 import { RootState } from '../state/store';
-import { getAstrologerInrBudget } from '../utils/astrologerChatStream';
+import { Api } from '../types/api';
+import { mergeUserProfile } from '../utils/userRole';
 
 const GOLD = '#C5A370';
 const NAVY = '#223149';
@@ -72,47 +75,83 @@ const getGoldOutlinedButtonStyle = (palette: ThemePalette) => ({
 
 const AstrologerProfileSection = () => {
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
   const { colors, theme } = useTheme();
   const user = useSelector((state: RootState) => state.app.user);
   const userService = useMemo(() => new UserService(), []);
-  const [creditPercent, setCreditPercent] = useState('0.00');
-  const [usageLoading, setUsageLoading] = useState(false);
+  const userRef = useRef(user);
+  const isFetchingRef = useRef(false);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [showBuyQuestionsModal, setShowBuyQuestionsModal] = useState(false);
 
   const astrologerUser = user as Record<string, unknown> | undefined;
   const astrologerUserId = String(user?._id || '');
 
-  console.log('astrologerUser', astrologerUser);
   const currentPlan = String(astrologerUser?.current_plan || 'Free Plan');
-  const astrologerInrBudget = useMemo(
-    () => getAstrologerInrBudget(currentPlan),
-    [currentPlan],
+  const questionBalance = Math.max(
+    0,
+    Math.floor(Number(astrologerUser?.question_count ?? 0)),
   );
 
-  const fetchUsage = useCallback(async () => {
-    if (!astrologerUserId) {
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  const refreshUserDetails = useCallback(async (options?: { showLoader?: boolean }) => {
+    const userId = String(userRef.current?._id || '');
+    if (!userId || isFetchingRef.current) {
       return;
     }
 
-    setUsageLoading(true);
-    try {
-      const usage = await userService.getAstrologerUsage(
-        astrologerUserId,
-        astrologerInrBudget,
-      );
-      setCreditPercent(Number(usage.percent_remaining || 0).toFixed(2));
-    } catch {
-      setCreditPercent('0.00');
-    } finally {
-      setUsageLoading(false);
+    isFetchingRef.current = true;
+    const hasQuestionCount =
+      (userRef.current as Record<string, unknown> | null | undefined)?.question_count !=
+      null;
+    if (options?.showLoader || !hasQuestionCount) {
+      setProfileLoading(true);
     }
-  }, [astrologerUserId, astrologerInrBudget, userService]);
+
+    try {
+      const response = await userService.getAstrologerClients(userId, 0, 10);
+      const incoming = response?.data?.user_details as Record<string, unknown> | undefined;
+      if (!response.status || !incoming) {
+        return;
+      }
+
+      const current = (userRef.current || {}) as Record<string, unknown>;
+      const nextQuestionCount = Number(incoming.question_count ?? 0);
+      const currentQuestionCount = Number(current.question_count ?? 0);
+      const nextPlan = String(incoming.current_plan || '');
+      const currentPlanValue = String(current.current_plan || '');
+
+      // Avoid Redux updates that re-trigger focus refresh loops.
+      if (
+        nextQuestionCount === currentQuestionCount &&
+        nextPlan === currentPlanValue &&
+        String(incoming.email || '') === String(current.email || '') &&
+        String(incoming.first_name || '') === String(current.first_name || '') &&
+        String(incoming.last_name || '') === String(current.last_name || '')
+      ) {
+        return;
+      }
+
+      const mergedUser = mergeUserProfile(userRef.current, incoming);
+      dispatch(setUser(mergedUser as Api.User.Res.Detail));
+      await AsyncStorage.setItem('USER_DATA', JSON.stringify(mergedUser));
+    } catch {
+      // Keep existing user data if refresh fails.
+    } finally {
+      isFetchingRef.current = false;
+      setProfileLoading(false);
+    }
+  }, [dispatch, userService]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchUsage();
-    }, [fetchUsage]),
+      refreshUserDetails();
+    }, [refreshUserDetails]),
   );
 
   const getDisplayName = () => {
@@ -132,6 +171,10 @@ const AstrologerProfileSection = () => {
   const handleUpgrade = useCallback(() => {
     navigation.getParent()?.navigate('PlanTab');
   }, [navigation]);
+
+  const handleBuyQuestions = useCallback(() => {
+    setShowBuyQuestionsModal(true);
+  }, []);
 
   const handlePaymentHistory = useCallback(() => {
     navigation.navigate('PurchasedHistoryScreen');
@@ -223,24 +266,32 @@ const AstrologerProfileSection = () => {
           <View style={styles.creditBalanceTopRow}>
             <View style={styles.creditBalanceLeft}>
               <View style={[styles.crownIconBox, { backgroundColor: palette.gold }]}>
-                <Text style={styles.crownIcon}>👑</Text>
+                <Image
+                  source={require('../assets/icons/Mask-chat.png')}
+                  style={styles.questionCreditsIcon}
+                />
               </View>
-              <View>
+              <View style={styles.questionCreditsTextWrap}>
                 <Text style={[styles.creditBalanceLabel, { color: palette.textMuted }]}>
-                  CREDIT BALANCE
+                  QUESTION CREDITS
                 </Text>
                 <View style={styles.creditBalanceValueRow}>
-                  {usageLoading ? (
+                  {profileLoading ? (
                     <ActivityIndicator size="small" color={palette.gold} />
                   ) : (
-                    <Text style={[styles.creditBalancePercent, { color: palette.textPrimary }]}>
-                      {creditPercent}%
-                    </Text>
+                    <>
+                      <Text style={[styles.creditBalancePercent, { color: palette.textPrimary }]}>
+                        {questionBalance}
+                      </Text>
+                      <Text style={[styles.creditBalanceRemaining, { color: palette.textMuted }]}>
+                        question{questionBalance === 1 ? '' : 's'} left
+                      </Text>
+                    </>
                   )}
-                  <Text style={[styles.creditBalanceRemaining, { color: palette.textMuted }]}>
-                    Remaining
-                  </Text>
                 </View>
+                <Text style={[styles.perQuestionPrice, { color: palette.textMuted }]}>
+                  ₹100 per question
+                </Text>
               </View>
             </View>
             <View
@@ -258,18 +309,6 @@ const AstrologerProfileSection = () => {
             </View>
           </View>
 
-          <View style={[styles.creditProgressTrack, { backgroundColor: palette.creditTrackBg }]}>
-            <View
-              style={[
-                styles.creditProgressFill,
-                {
-                  width: `${Math.min(Number(creditPercent), 100)}%`,
-                  backgroundColor: palette.gold,
-                },
-              ]}
-            />
-          </View>
-
           <TouchableOpacity
             style={[styles.upgradeButton, getGoldOutlinedButtonStyle(palette)]}
             onPress={handleUpgrade}
@@ -277,6 +316,16 @@ const AstrologerProfileSection = () => {
           >
             <Text style={[styles.upgradeButtonIcon, { color: palette.gold }]}>👑</Text>
             <Text style={[styles.upgradeButtonText, { color: palette.gold }]}>Upgrade</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.buyQuestionsButton, getGoldOutlinedButtonStyle(palette)]}
+            onPress={handleBuyQuestions}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.buyQuestionsButtonText, { color: palette.gold }]}>
+              Buy questions
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -365,6 +414,13 @@ const AstrologerProfileSection = () => {
           </LinearGradient>
         </View>
       </Modal>
+
+      <BuyQuestionsModal
+        visible={showBuyQuestionsModal}
+        onClose={() => setShowBuyQuestionsModal(false)}
+        questionBalance={questionBalance}
+        onPurchaseSuccess={refreshUserDetails}
+      />
     </>
   );
 };
@@ -432,6 +488,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  questionCreditsIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+    tintColor: '#FFFFFF',
+  },
+  questionCreditsTextWrap: {
+    flex: 1,
   },
   crownIcon: {
     fontSize: 20,
@@ -452,7 +518,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
   },
   creditBalanceRemaining: {
-    fontSize: 10,
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+  },
+  perQuestionPrice: {
+    marginTop: 2,
+    fontSize: 11,
     fontFamily: fontFamily.regular,
   },
   planBadge: {
@@ -466,16 +537,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     letterSpacing: 0.4,
   },
-  creditProgressTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: responsiveWidth('3'),
-  },
-  creditProgressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
   upgradeButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -488,6 +549,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   upgradeButtonText: {
+    fontSize: 12,
+    fontFamily: fontFamily.medium,
+  },
+  buyQuestionsButton: {
+    marginTop: responsiveWidth('2'),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingVertical: responsiveWidth('2'),
+  },
+  buyQuestionsButtonText: {
     fontSize: 12,
     fontFamily: fontFamily.medium,
   },

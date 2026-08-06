@@ -19,6 +19,7 @@ export namespace Api {
         created_at: string;
         gender: string;
         user_id: string;
+        question_count?: number;
       }
 
       export interface BirthData {

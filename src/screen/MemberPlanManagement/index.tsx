@@ -40,6 +40,11 @@ import {
   type PlanType,
 } from '../../constant/subscriptionPlans';
 import {
+  getRazorpaySubscriptionPaymentFields,
+  getRazorpayUpiEnabledFields,
+  withUpiPrefill,
+} from '../../utils/razorpayUpiOptions';
+import {
   useIAP,
   ErrorCode,
   type PurchaseError,
@@ -1402,29 +1407,8 @@ const MemberPlanManagement = ({
         
         name: 'Astrodha',
         description: 'Upgrade to Family Plan',
-        method: {
-          card: true,
-          netbanking: false,
-          wallet: false,
-          upi: false,
-          emi: false,
-          paylater: false,
-        },
-        config: {
-          display: {
-            blocks: {
-              card: {
-                name: 'Pay with Card',
-                instruments: [{ method: 'card' }],
-              },
-            },
-            sequence: ['block.card'],
-            preferences: {
-              show_default_blocks: false,
-            },
-          },
-        },
-        prefill: {
+        ...getRazorpayUpiEnabledFields(),
+        prefill: withUpiPrefill({
           email:
             currentUserData.email || (user as any)?.email || 'user@example.com',
           contact:
@@ -1432,7 +1416,7 @@ const MemberPlanManagement = ({
           name:
             `${currentUserData.first_name || (user as any)?.first_name || ''} ${currentUserData.last_name || (user as any)?.last_name || ''
               }`.trim() || 'User',
-        },
+        }),
         theme: { color: '#DF8A5D' },
       };
 
@@ -2210,7 +2194,8 @@ const MemberPlanManagement = ({
         name: 'Astrodha',
         description: 'Premium Plan Subscription - Astrodha',
         currency: 'INR',
-        prefill: {
+        ...getRazorpaySubscriptionPaymentFields(),
+        prefill: withUpiPrefill({
           email:
             currentUserData.email || (user as any)?.email || 'user@example.com',
           contact:
@@ -2218,26 +2203,12 @@ const MemberPlanManagement = ({
           name:
             `${currentUserData.first_name || (user as any)?.first_name || ''} ${currentUserData.last_name || (user as any)?.last_name || ''
               }`.trim() || 'User',
-        },
+        }),
         notes: {
           source: 'react_native',
           user_id: userId,
           member_user_id: memberUserId,
           plan_id: planId,
-        },
-        config: {
-          display: {
-            blocks: {
-              card: {
-                name: 'Pay with Card',
-                instruments: [{ method: 'card' }],
-              },
-            },
-            sequence: ['block.card'],
-            preferences: {
-              show_default_blocks: false,
-            },
-          },
         },
         // theme: { color: '#DF8A5D' },
       };

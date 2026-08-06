@@ -536,7 +536,7 @@ const Login = () => {
 
         const message = result.isNewUser 
           ? 'Welcome! Your account has been created with Google.'
-          : 'Welcome back! You have successfully logged in with Google.';
+          : 'Welcome! Your account has been created with Google.';
 
         Toast.show({
           type: 'success',
@@ -618,7 +618,7 @@ const Login = () => {
 
         const message = result.isNewUser 
           ? 'Welcome! Your account has been created with Apple.'
-          : 'Welcome back! You have successfully logged in with Apple.';
+          : 'Welcome! Your account has been created with Apple.';
 
         Toast.show({
           type: 'success',

@@ -38,6 +38,10 @@ import serviceFactory from '../../services/serviceFactory';
 import RazorpayCheckout from 'react-native-razorpay';
 import Toast from 'react-native-toast-message';
 import {
+  getRazorpayUpiEnabledFields,
+  withUpiPrefill,
+} from '../../utils/razorpayUpiOptions';
+import {
   initConnection,
   endConnection,
   fetchProducts,
@@ -484,14 +488,15 @@ const ReportScreen = () => {
         amount: orderResponse.amount,
         order_id: orderResponse.order_id,
         name: 'Astrodha',
-        prefill: {
+        ...getRazorpayUpiEnabledFields(),
+        prefill: withUpiPrefill({
           email: currentUserData.email || 'user@example.com',
           contact: currentUserData.phone || '9999999999',
           name:
             `${currentUserData.first_name || ''} ${
               currentUserData.last_name || ''
             }`.trim() || 'User',
-        },
+        }),
         theme: { color: '#DF8A5D' },
       };
 

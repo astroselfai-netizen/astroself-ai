@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -59,10 +61,45 @@ const AstrologerMyProfileScreen = () => {
         subContainerStyle={astrologerContainerStyle}
       >
         <View style={styles.headerBackground}>
-          <Text style={[styles.heroTitle, { color: palette.textPrimary }]}>
-            My Profile
-          </Text>
-          <View style={[styles.heroTitleUnderline, { backgroundColor: palette.gold }]} />
+          <View style={styles.heroTopRow}>
+            <View>
+              <Text
+                style={[
+                  styles.heroTitle,
+                  {
+                    color: palette.isDark
+                      ? palette.textPrimary
+                      : colors.Orangeaccentcolor,
+                  },
+                ]}
+              >
+                My Profile
+              </Text>
+              <View
+                style={[
+                  styles.heroTitleUnderline,
+                  {
+                    backgroundColor: palette.isDark
+                      ? palette.gold
+                      : colors.Orangeaccentcolor,
+                  },
+                ]}
+              />
+            </View>
+
+            <Image
+              source={require('../../assets/icons/Subtract-dark.png')}
+              style={[
+                styles.headerLogo,
+                {
+                  tintColor: palette.isDark
+                    ? '#EEE5CA'
+                    : colors.Orangeaccentcolor,
+                },
+              ]}
+              resizeMode="contain"
+            />
+          </View>
         </View>
 
         <ScrollView
@@ -102,9 +139,16 @@ const styles = StyleSheet.create({
   },
   headerBackground: {
     width: '100%',
-    paddingTop: Platform.OS === 'ios' ? responsiveWidth('14') : responsiveWidth('10'),
-    paddingBottom: responsiveWidth('5'),
+    marginTop:
+      Platform.OS === 'android' ? 0 : responsiveWidth('13%'),
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+    paddingBottom: responsiveWidth('3'),
     paddingHorizontal: responsiveWidth('4'),
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   heroTitle: {
     fontSize: 24,
@@ -115,6 +159,14 @@ const styles = StyleSheet.create({
     height: 3,
     marginTop: 6,
     borderRadius: 2,
+  },
+  headerLogo: {
+    width: responsiveWidth('30'),
+    height: responsiveWidth('8'),
+    marginTop: 2,
+  },
+  headerLogoDark: {
+    tintColor: '#EEE5CA',
   },
   contentPadding: {
     paddingHorizontal: responsiveWidth('4'),

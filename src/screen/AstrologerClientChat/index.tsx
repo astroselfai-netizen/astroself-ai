@@ -20,22 +20,24 @@ import {
 import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useDispatch, useSelector } from 'react-redux';
 import { SvgXml } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import AstrologerCombos, { ComboTab } from '../../components/AstrologerCombos';
 import AstrologerChatMemberHeader from '../../components/AstrologerChatMemberHeader';
 import AstrologerVedicCharts from '../../components/AstrologerVedicCharts';
+import BuyQuestionsModal from '../../components/BuyQuestionsModal';
 import StreamingMarkdownAnswer from '../../components/StreamingMarkdownAnswer';
 import FormattedMarkdownText from '../../components/FormattedMarkdownText';
 import TransitEditModal, { TransitEditPayload } from '../../components/TransitEditModal';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { setUser } from '../../state/slices/appSlice';
 import { RootState } from '../../state/store';
 import UserService from '../../services/user/user.service';
 import {
   streamAstrologerChat,
-  getAstrologerInrBudget,
   getAstrologerPlanDisplayName,
   isAstrologerTokenLimitError,
   AstrologerChatFinalData,
@@ -45,9 +47,14 @@ import {
   getAstrologerCurrentTransitSession,
   saveAstrologerCurrentTransitSession,
 } from '../../utils/astrologerCurrentTransitSession';
+import {
+  setAstrologerFreshChatConversationId,
+  startAstrologerFreshChatSession,
+} from '../../utils/astrologerFreshChat';
 import { Api } from '../../types/api';
 import { icons } from '../../assets';
 import { resolveBottomSafeInset } from '../../utils/safeAreaInsets';
+import { mergeUserProfile } from '../../utils/userRole';
 
 const NAVY = '#1A3673';
 const GOLD = '#C5A370';
@@ -214,6 +221,14 @@ const CHAT_NODE_ORDER = [
 
 const getCurrentTimeLabel = () => 'Just now';
 
+const isNoQuestionsRemainingMessage = (text?: string) => {
+  const normalized = String(text || '').toLowerCase();
+  return (
+    normalized.includes('no questions remaining') ||
+    normalized.includes('purchase questions to continue chatting')
+  );
+};
+
 const formatHistoryTimeLabel = (createdAt: string) => {
   const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) {
@@ -313,6 +328,7 @@ const AstrologerClientChatScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'AstrologerClientChatScreen'>>();
   const insets = useSafeAreaInsets();
   const { theme, colors } = useTheme();
+  const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.app.user);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const chatAbortRef = useRef<(() => void) | null>(null);
@@ -321,6 +337,7 @@ const AstrologerClientChatScreen = () => {
   const lastLayoutRevisionRef = useRef(0);
   const prevMessageCountRef = useRef(0);
   const pendingChatScrollRef = useRef(false);
+  const isFreshChatActiveRef = useRef(false);
   const streamStateRef = useRef<{
     buffers: Record<string, string>;
     rafIds: Record<string, number | null>;
@@ -359,11 +376,17 @@ const AstrologerClientChatScreen = () => {
   const [transitTzone, setTransitTzone] = useState(5.5);
   const [showTransitEditModal, setShowTransitEditModal] = useState(false);
   const [showPlanLimitModal, setShowPlanLimitModal] = useState(false);
+  const [showQuestionLimitConfirmModal, setShowQuestionLimitConfirmModal] = useState(false);
+  const [showBuyQuestionsModal, setShowBuyQuestionsModal] = useState(false);
   const [memberDetails, setMemberDetails] =
     useState<Api.User.Res.AstrologerMemberDetailsResponse | null>(null);
   const [memberDetailsLoading, setMemberDetailsLoading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const isKeyboardVisibleRef = useRef(false);
+  const astrologerQuestionBalance = Math.max(
+    0,
+    Math.floor(Number((user as Record<string, unknown> | undefined)?.question_count ?? 0)),
+  );
 
   useEffect(() => {
     if (route.params?.initialView) {
@@ -462,13 +485,6 @@ const AstrologerClientChatScreen = () => {
   }, [activeView, scrollToBottom]);
 
   const astrologerId = user?._id || '';
-  const astrologerInrBudget = useMemo(
-    () =>
-      getAstrologerInrBudget(
-        (user as { current_plan?: string } | null)?.current_plan,
-      ),
-    [user],
-  );
   const astrologerPlanDisplayName = useMemo(
     () =>
       getAstrologerPlanDisplayName(
@@ -486,6 +502,49 @@ const AstrologerClientChatScreen = () => {
       params: { screen: 'AstrologerPlanScreen' },
     });
   }, [navigation]);
+
+  const refreshQuestionBalance = useCallback(async () => {
+    if (!astrologerUserId) {
+      return;
+    }
+
+    try {
+      const response = await userService.getAstrologerClients(astrologerUserId, 0, 10);
+      const incoming = response?.data?.user_details as Record<string, unknown> | undefined;
+      if (!response.status || !incoming) {
+        return;
+      }
+
+      const mergedUser = mergeUserProfile(
+        user,
+        incoming,
+      ) as unknown as Api.User.Res.Detail;
+      dispatch(setUser(mergedUser));
+      await AsyncStorage.setItem('USER_DATA', JSON.stringify(mergedUser));
+    } catch {
+      // Keep the current balance if refresh fails.
+    }
+  }, [astrologerUserId, dispatch, user, userService]);
+
+  const handleBuyQuestionsPress = useCallback(() => {
+    setShowQuestionLimitConfirmModal(true);
+  }, []);
+
+  const handleConfirmOpenBuyQuestions = useCallback(() => {
+    setShowQuestionLimitConfirmModal(false);
+    setShowBuyQuestionsModal(true);
+  }, []);
+
+  const handleBuyQuestionsSuccess = useCallback(async () => {
+    setMessages(prev =>
+      prev.filter(
+        message =>
+          message.type !== 'assistant' ||
+          !isNoQuestionsRemainingMessage(message.errorText),
+      ),
+    );
+    await refreshQuestionBalance();
+  }, [refreshQuestionBalance]);
 
   const updateAssistantMessage = useCallback(
     (messageId: string, updater: (message: Extract<ChatMessage, { type: 'assistant' }>) => Extract<ChatMessage, { type: 'assistant' }>) => {
@@ -609,9 +668,15 @@ const AstrologerClientChatScreen = () => {
 
       if (finalData.conversation_id) {
         setConversationId(finalData.conversation_id);
+        if (activeClientId) {
+          setAstrologerFreshChatConversationId(
+            activeClientId,
+            finalData.conversation_id,
+          );
+        }
       }
     },
-    [clearStreamingBuffer, updateAssistantMessage],
+    [activeClientId, clearStreamingBuffer, updateAssistantMessage],
   );
 
   const handleTypewriterProgress = useCallback(() => {
@@ -740,6 +805,12 @@ const AstrologerClientChatScreen = () => {
         return;
       }
 
+      // Keep the empty New Chat until user leaves this screen.
+      if (isFreshChatActiveRef.current) {
+        setHistoryLoading(false);
+        return;
+      }
+
       const requestId = ++historyRequestIdRef.current;
 
       chatAbortRef.current?.();
@@ -759,7 +830,7 @@ const AstrologerClientChatScreen = () => {
 
       try {
         const response = await userService.getAstrologerChatHistory(clientId);
-        if (requestId !== historyRequestIdRef.current) {
+        if (requestId !== historyRequestIdRef.current || isFreshChatActiveRef.current) {
           return;
         }
 
@@ -772,7 +843,7 @@ const AstrologerClientChatScreen = () => {
           setConversationId(latest?.conversation_id || '');
         }
       } catch {
-        if (requestId !== historyRequestIdRef.current) {
+        if (requestId !== historyRequestIdRef.current || isFreshChatActiveRef.current) {
           return;
         }
         setMessages([]);
@@ -788,11 +859,54 @@ const AstrologerClientChatScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
+      // Returning to this screen always restores old full history.
+      isFreshChatActiveRef.current = false;
       if (activeClientId) {
         loadChatHistory(activeClientId);
       }
+
+      return () => {
+        // Leaving the screen ends New Chat mode for the next visit.
+        isFreshChatActiveRef.current = false;
+      };
     }, [activeClientId, loadChatHistory]),
   );
+
+  const handleStartNewChat = useCallback(async () => {
+    if (!activeClientId || isSending) {
+      return;
+    }
+
+    // Invalidate any in-flight history fetch before starting fresh chat.
+    historyRequestIdRef.current += 1;
+    isFreshChatActiveRef.current = true;
+
+    await startAstrologerFreshChatSession(activeClientId);
+
+    chatAbortRef.current?.();
+    chatAbortRef.current = null;
+    streamStateRef.current.buffers = {};
+    Object.values(streamStateRef.current.rafIds).forEach(rafId => {
+      if (rafId != null) {
+        cancelAnimationFrame(rafId);
+      }
+    });
+    streamStateRef.current.rafIds = {};
+
+    setActiveView('chat');
+    setIsSending(false);
+    setHistoryLoading(false);
+    setInputText('');
+    setMessages([]);
+    setConversationId('');
+    setTypingRevision(prev => prev + 1);
+
+    Toast.show({
+      type: 'success',
+      text1: 'New Chat',
+      text2: 'Started a fresh chat for this client.',
+    });
+  }, [activeClientId, isSending]);
 
   const openChatHistory = useCallback(() => {
     if (!activeClientId) {
@@ -1073,7 +1187,7 @@ const AstrologerClientChatScreen = () => {
       {
         user_id: activeClientId,
         astrologer_id: astrologerId,
-        inr_budget: astrologerInrBudget,
+        // inr_budget: astrologerInrBudget,
         question: trimmed,
         conversation_id: conversationId,
       },
@@ -1198,6 +1312,8 @@ const AstrologerClientChatScreen = () => {
       );
     }
 
+    const showBuyQuestionsAction = isNoQuestionsRemainingMessage(item.errorText);
+
     if (item.errorText && !hasRichContent) {
       return (
         <View style={styles.assistantMessageWrap}>
@@ -1219,6 +1335,15 @@ const AstrologerClientChatScreen = () => {
               ]}
             >
               <Text style={[styles.errorText, { color: '#EF4444' }]}>{item.errorText}</Text>
+              {showBuyQuestionsAction ? (
+                <TouchableOpacity
+                  style={styles.buyQuestionsInlineBtn}
+                  onPress={handleBuyQuestionsPress}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.buyQuestionsInlineBtnText}>Buy Questions</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
         </View>
@@ -1247,7 +1372,18 @@ const AstrologerClientChatScreen = () => {
             <View style={[styles.assistantAccent, { backgroundColor: GOLD }]} />
             <View style={styles.assistantContent}>
               {item.errorText ? (
-                <Text style={[styles.errorText, { color: '#EF4444' }]}>{item.errorText}</Text>
+                <>
+                  <Text style={[styles.errorText, { color: '#EF4444' }]}>{item.errorText}</Text>
+                  {showBuyQuestionsAction ? (
+                    <TouchableOpacity
+                      style={styles.buyQuestionsInlineBtn}
+                      onPress={handleBuyQuestionsPress}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.buyQuestionsInlineBtnText}>Buy Questions</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </>
               ) : null}
 
               {showStreamingAnswer ? (
@@ -1323,7 +1459,7 @@ const AstrologerClientChatScreen = () => {
       ) : (
         <View style={[styles.panelCard, { backgroundColor: palette.toolbarBg, borderColor: palette.toolbarBorder }]}>
           <Text style={[styles.panelEmptyText, { color: palette.textMuted }]}>
-            Select a client to view Vedic charts
+            Select a chart to view Vedic charts
           </Text>
         </View>
       )}
@@ -1476,7 +1612,7 @@ const AstrologerClientChatScreen = () => {
 
         {renderViewPill(
           'vedic',
-          'Vedic',
+          'Charts',
           <Image
             source={require('../../assets/icons/home/Chart.png')}
             style={
@@ -1578,7 +1714,7 @@ const AstrologerClientChatScreen = () => {
             ]}
           >
             <Text style={[styles.panelEmptyText, { color: palette.textMuted }]}>
-              Select a client to view combinations
+              Select a chart to view combinations
             </Text>
           </View>
         )}
@@ -1610,18 +1746,38 @@ const AstrologerClientChatScreen = () => {
           },
         ]}
       >
-        <TouchableOpacity
-          onPress={handleBackPress}
-          style={styles.headerBackBtn}
-          activeOpacity={0.7}
-        >
-          <Image
-            source={require('../../assets/icons/back.png')}
-            style={[styles.headerBackIcon, { tintColor: palette.textPrimary }]}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerSideLeft}>
+          <TouchableOpacity
+            onPress={handleBackPress}
+            style={styles.headerBackBtn}
+            activeOpacity={0.7}
+          >
+            <Image
+              source={require('../../assets/icons/back.png')}
+              style={[styles.headerBackIcon, { tintColor: palette.textPrimary }]}
+            />
+          </TouchableOpacity>
+        </View>
         <Text style={[styles.headerTitle, { color: palette.textPrimary }]}>Chat</Text>
-        <View style={styles.headerBackBtnPlaceholder} />
+        <View style={styles.headerSideRight}>
+          <TouchableOpacity
+            onPress={handleStartNewChat}
+            style={[
+              styles.headerNewChatBtn,
+              {
+                borderColor: palette.textPrimary,
+                backgroundColor: palette.isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+                opacity: !activeClientId || isSending ? 0.45 : 1,
+              },
+            ]}
+            activeOpacity={0.75}
+            disabled={!activeClientId || isSending}
+          >
+            <Text style={[styles.headerNewChatText, { color: palette.textPrimary }]}>
+              + New Chat
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {activeView !== 'combos' ? renderMemberHeader() : null}
@@ -1685,7 +1841,7 @@ const AstrologerClientChatScreen = () => {
                 <Text style={[styles.sidebarSearchIcon, { color: palette.textMuted }]}>🔍</Text>
                 <TextInput
                   style={[styles.sidebarSearchInput, { color: palette.textPrimary }]}
-                  placeholder="Search Client..."
+                  placeholder="Search Chart..."
                   placeholderTextColor={palette.textMuted}
                   value={sidebarSearch}
                   onChangeText={setSidebarSearch}
@@ -1693,7 +1849,7 @@ const AstrologerClientChatScreen = () => {
               </View>
             </View>
 
-            <Text style={[styles.sidebarSectionLabel, { color: palette.textMuted }]}>CLIENTS</Text>
+            <Text style={[styles.sidebarSectionLabel, { color: palette.textMuted }]}>CHARTS</Text>
 
             <ScrollView
               style={styles.sidebarClientList}
@@ -1754,7 +1910,7 @@ const AstrologerClientChatScreen = () => {
                 })
               ) : (
                 <Text style={[styles.sidebarEmptyText, { color: palette.textMuted }]}>
-                  No clients found
+                  No charts found
                 </Text>
               )}
             </ScrollView>
@@ -1796,12 +1952,14 @@ const AstrologerClientChatScreen = () => {
                   }
                 }}
                 ListFooterComponent={
-                  <View
-                    style={[
-                      styles.messagesFooterSpacer,
-                      isSending ? styles.messagesFooterSpacerThinking : null,
-                    ]}
-                  />
+                  messages.length === 0 ? null : (
+                    <View
+                      style={[
+                        styles.messagesFooterSpacer,
+                        isSending ? styles.messagesFooterSpacerThinking : null,
+                      ]}
+                    />
+                  )
                 }
                 ListEmptyComponent={
                   historyLoading ? (
@@ -1811,7 +1969,18 @@ const AstrologerClientChatScreen = () => {
                         Loading chat history...
                       </Text>
                     </View>
-                  ) : null
+                  ) : (
+                    <View style={styles.emptyChatLogoWrap}>
+                      <Image
+                        source={require('../../assets/icons/Mask-chat.png')}
+                        style={[
+                          styles.emptyChatLogo,
+                          palette.isDark ? styles.emptyChatLogoDark : null,
+                        ]}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  )
                 }
               />
 
@@ -1890,6 +2059,64 @@ const AstrologerClientChatScreen = () => {
       />
 
       <Modal
+        visible={showQuestionLimitConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQuestionLimitConfirmModal(false)}
+      >
+        <View style={styles.planLimitOverlay}>
+          <ImageBackground
+            source={require('../../assets/image/LightBackground.png')}
+            style={[
+              styles.planLimitCard,
+              {
+                backgroundColor: palette.isDark ? palette.assistantCardBg : '#FFFFFF',
+                borderColor: palette.assistantCardBorder,
+              },
+            ]}
+            imageStyle={styles.planLimitCardBg}
+          >
+            <Text style={[styles.planLimitTitle, { color: palette.textPrimary }]}>
+              No Questions Left
+            </Text>
+            <Text style={[styles.planLimitMessage, { color: palette.textPrimary }]}>
+              You have no question credits left. Do you want to buy more questions now?
+            </Text>
+
+            <View style={styles.planLimitActions}>
+              <TouchableOpacity
+                style={[styles.planLimitUpgradeBtn, { backgroundColor: NAVY }]}
+                onPress={handleConfirmOpenBuyQuestions}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.planLimitUpgradeText}>Buy Questions</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.planLimitCancelBtn,
+                  { borderColor: palette.isDark ? palette.textPrimary : NAVY },
+                ]}
+                onPress={() => setShowQuestionLimitConfirmModal(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.planLimitCancelText, { color: palette.textPrimary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ImageBackground>
+        </View>
+      </Modal>
+
+      <BuyQuestionsModal
+        visible={showBuyQuestionsModal}
+        onClose={() => setShowBuyQuestionsModal(false)}
+        questionBalance={astrologerQuestionBalance}
+        onPurchaseSuccess={handleBuyQuestionsSuccess}
+      />
+
+      <Modal
         visible={showPlanLimitModal}
         transparent
         animationType="fade"
@@ -1956,6 +2183,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: responsiveWidth('4'),
     borderBottomWidth: 1,
   },
+  headerSideLeft: {
+    flex: 1,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerSideRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   headerBackBtn: {
     width: 36,
     height: 36,
@@ -1966,23 +2203,37 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
   },
+  headerNewChatBtn: {
+    minHeight: 32,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerNewChatText: {
+    fontSize: 12,
+    fontFamily: fontFamily.semiBold,
+  },
   headerBackIcon: {
     width: 18,
     height: 18,
     resizeMode: 'contain',
   },
   headerTitle: {
-    flex: 1,
+    flexShrink: 0,
     textAlign: 'center',
     fontSize: 18,
     fontFamily: fontFamily.semiBold,
+    paddingHorizontal: 8,
   },
   toolbarCard: {
     marginHorizontal: responsiveWidth('3'),
     marginBottom: responsiveWidth('2'),
     paddingHorizontal: responsiveWidth('2.5'),
     paddingVertical: responsiveWidth('2.5'),
-    marginTop: responsiveWidth('2'),
+    marginTop: responsiveWidth('3'),
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -2313,6 +2564,8 @@ const styles = StyleSheet.create({
   },
   messagesContentEmpty: {
     flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messagesFooterSpacer: {
     height: responsiveWidth('6'),
@@ -2320,11 +2573,23 @@ const styles = StyleSheet.create({
   messagesFooterSpacerThinking: {
     height: responsiveWidth('16'),
   },
-  historyLoadingWrap: {
-    flex: 1,
+  emptyChatLogoWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: responsiveWidth('20'),
+    // paddingHorizontal: responsiveWidth('8'),
+  },
+  emptyChatLogo: {
+    width: responsiveWidth('36'),
+    height: responsiveWidth('36'),
+    opacity: 0.4,
+  },
+  emptyChatLogoDark: {
+    tintColor: '#EEE5CA',
+    opacity: 0.28,
+  },
+  historyLoadingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
   },
   historyLoadingText: {
@@ -2447,6 +2712,19 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     lineHeight: 20,
     marginBottom: responsiveWidth('1.5'),
+  },
+  buyQuestionsInlineBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: GOLD,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginTop: 4,
+  },
+  buyQuestionsInlineBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: fontFamily.semiBold,
   },
   sectionBlock: {
     marginBottom: responsiveWidth('1.5'),

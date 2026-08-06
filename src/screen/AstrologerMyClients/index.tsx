@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  StatusBar,
   TouchableOpacity,
   TextInput,
   Modal,
@@ -267,6 +268,12 @@ const ClientCard = ({
       onPress: () => onComboShortcut(client, 'antar_dasha'),
     },
     {
+      key: 'transit',
+      label: 'Generic Predictions',
+      icon: '⬡',
+      onPress: () => onComboShortcut(client, 'transit'),
+    },
+    {
       key: 'transit_analysis',
       label: 'Transit Analysis',
       icon: '▦',
@@ -283,12 +290,6 @@ const ClientCard = ({
       label: 'Dignity Analysis',
       icon: '★',
       onPress: () => onDignityAnalysis(client),
-    },
-    {
-      key: 'transit',
-      label: 'Transit Combinations',
-      icon: '⬡',
-      onPress: () => onComboShortcut(client, 'transit'),
     },
     {
       key: 'combinations',
@@ -460,7 +461,7 @@ const ClientCard = ({
           style={[styles.chatButtonIcon, { tintColor: palette.secondaryButtonText }]}
         />
         <Text style={[styles.chatButtonText, { color: palette.secondaryButtonText }]}>
-          Chat
+          Ask Questions
         </Text>
       </TouchableOpacity>
     </View>
@@ -654,7 +655,7 @@ const AstrologerMyClientsScreen = () => {
       refreshClients();
       Toast.show({
         type: 'success',
-        text1: 'Client Deleted',
+        text1: 'Chart Deleted',
         text2: response?.message || 'User deleted successfully',
       });
     } catch (error: unknown) {
@@ -662,7 +663,7 @@ const AstrologerMyClientsScreen = () => {
       Toast.show({
         type: 'error',
         text1: 'Delete Failed',
-        text2: err.message || 'Failed to delete client',
+        text2: err.message || 'Failed to delete chart',
       });
     } finally {
       setIsDeletingClient(false);
@@ -724,10 +725,14 @@ const AstrologerMyClientsScreen = () => {
   const handleCreateClient = useCallback(() => {
     const rootNavigation = navigation.getParent()?.getParent();
     if (rootNavigation?.navigate) {
-      rootNavigation.navigate('AstrologerCreateClientScreen');
+      rootNavigation.navigate('AstrologerCreateClientScreen', {
+        fromYourCharts: true,
+      });
       return;
     }
-    navigation.navigate('AstrologerCreateClientScreen');
+    navigation.navigate('AstrologerCreateClientScreen', {
+      fromYourCharts: true,
+    });
   }, [navigation]);
 
   const navigateToTransitScreen = useCallback(
@@ -796,38 +801,42 @@ const AstrologerMyClientsScreen = () => {
         <View style={styles.headerBackground}>
           <View style={styles.heroTopRow}>
             <View>
-              <Text style={[styles.heroTitle, { color: palette.textPrimary }]}>
+              <Text
+                style={[
+                  styles.heroTitle,
+                  {
+                    color: palette.isDark
+                      ? palette.textPrimary
+                      : colors.Orangeaccentcolor,
+                  },
+                ]}
+              >
                 Your Charts
               </Text>
-              <View style={[styles.heroTitleUnderline, { backgroundColor: palette.gold }]} />
+              <View
+                style={[
+                  styles.heroTitleUnderline,
+                  {
+                    backgroundColor: palette.isDark
+                      ? palette.gold
+                      : colors.Orangeaccentcolor,
+                  },
+                ]}
+              />
             </View>
 
-            {/* <View
+            <Image
+              source={require('../../assets/icons/Subtract-dark.png')}
               style={[
-                styles.totalClientsBadge,
+                styles.headerLogo,
                 {
-                  backgroundColor: palette.heroBadgeBg,
-                  borderColor: palette.heroBadgeBorder,
+                  tintColor: palette.isDark
+                    ? '#EEE5CA'
+                    : colors.Orangeaccentcolor,
                 },
               ]}
-            >
-              <Text style={[styles.totalClientsLabel, { color: palette.textMuted }]}>
-                Total Clients
-              </Text>
-              <View style={styles.totalClientsValueRow}>
-                <Text style={[styles.totalClientsCount, { color: palette.textPrimary }]}>
-                  {totalClients}
-                </Text>
-                <View
-                  style={[
-                    styles.totalClientsIconBox,
-                    { backgroundColor: palette.primaryButtonBg },
-                  ]}
-                >
-                  <Text style={styles.totalClientsIconText}>👤+</Text>
-                </View>
-              </View>
-            </View> */}
+              resizeMode="contain"
+            />
           </View>
         </View>
 
@@ -1095,7 +1104,7 @@ const AstrologerMyClientsScreen = () => {
                     ]}
                     value={aboutClient}
                     onChangeText={setAboutClient}
-                    placeholder="Enter details about the client..."
+                    placeholder="Enter details about the chart..."
                     placeholderTextColor={palette.textMuted}
                     multiline
                     numberOfLines={5}
@@ -1157,9 +1166,9 @@ const AstrologerMyClientsScreen = () => {
             end={{ x: 1, y: 0.5 }}
             style={styles.deleteModalContainer}
           >
-            <Text style={styles.deleteModalTitle}>Delete Client & Chart Data?</Text>
+            <Text style={styles.deleteModalTitle}>Delete Chart & Chart Data?</Text>
             <Text style={styles.deleteModalMessage}>
-              All client information, charts, and related records will be permanently deleted.
+              All Chart information, charts, and related records will be permanently deleted.
               This action cannot be undone.
             </Text>
 
@@ -1232,8 +1241,10 @@ const styles = StyleSheet.create({
   },
   headerBackground: {
     width: '100%',
-    paddingTop: Platform.OS === 'ios' ? responsiveWidth('14') : responsiveWidth('10'),
-    paddingBottom: responsiveWidth('5'),
+    marginTop:
+      Platform.OS === 'android' ? 0 : responsiveWidth('13%'),
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+    paddingBottom: responsiveWidth('3'),
     paddingHorizontal: responsiveWidth('4'),
   },
   heroTopRow: {
@@ -1242,14 +1253,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heroTitle: {
-    fontSize: 28,
-    fontFamily: fontFamily.semiBold,
+    fontSize: 24,
+    fontFamily: fontFamily.bold,
   },
   heroTitleUnderline: {
     width: 42,
     height: 3,
     marginTop: 6,
     borderRadius: 2,
+  },
+  headerLogo: {
+    width: responsiveWidth('30'),
+    height: responsiveWidth('8'),
+    marginTop: 2,
+  },
+  headerLogoDark: {
+    tintColor: '#EEE5CA',
   },
   totalClientsBadge: {
     borderRadius: 12,

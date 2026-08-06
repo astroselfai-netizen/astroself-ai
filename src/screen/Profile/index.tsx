@@ -31,6 +31,10 @@ import Toast from 'react-native-toast-message';
 import LottieView from 'lottie-react-native';
 import MemberPlanManagement from '../MemberPlanManagement';
 import AddNewMemberCard from '../../components/AddNewMemberCard/AddNewMemberCard';
+import {
+  getRazorpayUpiEnabledFields,
+  withUpiPrefill,
+} from '../../utils/razorpayUpiOptions';
 // Removed BlurView to avoid external dependency for blur
 
 // Razorpay Configuration
@@ -341,11 +345,12 @@ const ProfileScreen = () => {
         amount: orderResponse.amount,
         order_id: orderResponse.order_id,
         name: 'Astrodha',
-        prefill: {
+        ...getRazorpayUpiEnabledFields(),
+        prefill: withUpiPrefill({
           email: currentUserData.email || 'user@example.com',
           contact: currentUserData.phone || '9999999999',
           name: `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'User',
-        },
+        }),
         theme: { color: '#DF8A5D' },
       };
 

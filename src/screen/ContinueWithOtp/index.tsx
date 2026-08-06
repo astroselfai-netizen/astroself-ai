@@ -333,7 +333,7 @@ const ContinueWithOtp = () => {
 
       const message = result.isNewUser
         ? 'Welcome! Your account has been created with Google.'
-        : 'Welcome back! You have successfully logged in with Google.';
+        : 'Welcome! Your account has been created with Google.';
 
       Toast.show({
         type: 'success',

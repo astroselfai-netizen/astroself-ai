@@ -28,6 +28,9 @@ import {
   subscriptionApi,
 } from '../../api/subscriptionApi';
 import { mergeUserProfile } from '../../utils/userRole';
+import {
+  getRazorpaySubscriptionPaymentFields,
+} from '../../utils/razorpayUpiOptions';
 
 type AstrologerRazorpayPaymentResponse = {
   razorpay_payment_id: string;
@@ -176,7 +179,7 @@ const resolveBillingPlanType = (
 
   const price = Number(plan.price || 0);
   if (price > 0) {
-    return `${price}_plan`;
+    return `${price}`;
   }
 
   return '';
@@ -629,6 +632,9 @@ const AstrologerPlanScreen = () => {
             plan_type: planType,
           });
 
+
+        console.log('subscriptionResponse---?>', subscriptionResponse);
+
         if (
           subscriptionResponse.status === false ||
           String(subscriptionResponse.status).toLowerCase() === 'false'
@@ -650,6 +656,14 @@ const AstrologerPlanScreen = () => {
           throw new Error('Subscription ID not received from server');
         }
 
+
+        console.log('Razorpay Key:', subscriptionResponse.razorpay_key);
+        console.log(
+          'Subscription ID:',
+          subscriptionResponse.subscription_id
+        );
+
+        
         const razorpayKey =
           subscriptionResponse.razorpay_key ||
           (RAZORPAY_CONFIG.IS_TEST_MODE
@@ -663,30 +677,16 @@ const AstrologerPlanScreen = () => {
         const options = {
           key: String(razorpayKey),
           subscription_id: subscriptionResponse.subscription_id,
-          // recurring: 1,
           name: 'Astrodha',
           description: `${plan.title} Subscription`,
           currency: 'INR',
+          ...getRazorpaySubscriptionPaymentFields(),
           prefill: {
             email: String(currentUserData.email || 'user@example.com'),
             contact: String(currentUserData.phone || '9999999999'),
             name:
               `${String(currentUserData.first_name || '')} ${String(currentUserData.last_name || '')}`.trim() ||
               'Astrologer',
-          },
-          config: {
-            display: {
-              blocks: {
-                card: {
-                  name: 'Pay with Card',
-                  instruments: [{ method: 'card' }],
-                },
-              },
-              sequence: ['block.card'],
-              preferences: {
-                show_default_blocks: false,
-              },
-            },
           },
           theme: { color: '#DF8A5D' },
         };
@@ -971,7 +971,39 @@ const AstrologerPlanScreen = () => {
         imageStyle={styles.stickyHeaderBgImage}
       >
         <View style={styles.stickyHeaderOverlay} />
-        <Text style={[styles.headerTitle, { color: textPrimary }]}>Plan</Text>
+        <View style={styles.stickyHeaderRow}>
+          <View>
+            <Text
+              style={[
+                styles.headerTitle,
+                {
+                  color: isDark ? textPrimary : colors.Orangeaccentcolor,
+                },
+              ]}
+            >
+              Plan
+            </Text>
+            <View
+              style={[
+                styles.headerTitleUnderline,
+                {
+                  backgroundColor: isDark ? '#C5A370' : colors.Orangeaccentcolor,
+                },
+              ]}
+            />
+          </View>
+
+          <Image
+            source={require('../../assets/icons/Subtract-dark.png')}
+            style={[
+              styles.headerLogo,
+              {
+                tintColor: isDark ? '#EEE5CA' : colors.Orangeaccentcolor,
+              },
+            ]}
+            resizeMode="contain"
+          />
+        </View>
       </ImageBackground>
 
       <ScrollView
@@ -980,11 +1012,6 @@ const AstrologerPlanScreen = () => {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.heroCard}>
-          <Image
-            source={require('../../assets/image/PaidPlanImage.png')}
-            resizeMode="cover"
-            style={styles.heroImage}
-          />
           <View style={styles.heroOverlay}>
             <Text style={styles.heroTitle}>Ask Technical Astrology Questions.</Text>
             <Text style={styles.heroSubtitle}>Get Answers Instantly.</Text>
@@ -1137,7 +1164,7 @@ const AstrologerPlanScreen = () => {
 const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
-    paddingTop: responsiveWidth('19'),
+    paddingTop: Platform.OS === 'ios' ? responsiveWidth('28') : responsiveWidth('24'),
     paddingBottom: Platform.OS === 'android' ? 140 : 120,
   },
   stickyHeaderContainer: {
@@ -1146,16 +1173,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
-    alignItems: 'center',
     marginTop:
       Platform.OS === 'android'
         ? 0
         : responsiveWidth('13%'),
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
-    justifyContent: 'center',
+    paddingBottom: responsiveWidth('3'),
     overflow: 'hidden',
-    minHeight: responsiveWidth('14'),
+    minHeight: responsiveWidth('18'),
   },
   stickyHeaderBgImage: {},
   stickyHeaderOverlay: {
@@ -1165,22 +1191,36 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  stickyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
   headerTitle: {
-    fontSize: 22,
-    fontFamily: fontFamily.semiBold,
-    textAlign: 'center',
+    fontSize: 24,
+    fontFamily: fontFamily.bold,
+    textAlign: 'left',
+  },
+  headerTitleUnderline: {
+    width: 42,
+    height: 3,
+    marginTop: 6,
+    borderRadius: 2,
+  },
+  headerLogo: {
+    width: responsiveWidth('30'),
+    height: responsiveWidth('8'),
+    marginTop: 2,
   },
   heroCard: {
     marginHorizontal: responsiveWidth(4),
+    marginTop: responsiveWidth('2'),
     marginBottom: responsiveWidth(3),
     borderRadius: 12,
     overflow: 'hidden',
     minHeight: 160,
-    backgroundColor: '#0F1A2E',
-  },
-  heroImage: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.45,
+    backgroundColor: '#1A2B44',
   },
   heroOverlay: {
     padding: 18,

@@ -663,7 +663,7 @@ export default class UserService extends Service {
       const errorMessage =
         error?.response?.data?.message ||
         error?.message ||
-        'Failed to create client. Please try again.';
+        'Failed to create chart. Please try again.';
       throw new Error(errorMessage);
     }
   }
@@ -1154,7 +1154,7 @@ export default class UserService extends Service {
       }
 
       const axiosResponse = await http.get(
-        `/astrologer/usage?astrologer_id=${encodeURIComponent(astrologerId)}&inr_budget=${encodeURIComponent(String(inrBudget))}`,
+        `/astrologer/usage?astrologer_id=${encodeURIComponent(astrologerId)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2257,6 +2257,115 @@ export default class UserService extends Service {
         error?.response?.data?.message ||
         error?.message ||
         'Failed to delete member. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async createAstrologerQuestionsOrder(payload: {
+    user_id: string;
+    question_count: number;
+    currency?: string;
+    receipt?: string;
+    notes?: Record<string, unknown>;
+  }): Promise<{
+    order_id: string;
+    amount: number;
+    currency: string;
+    receipt?: string;
+    status?: string;
+    razorpay_key?: string;
+    [key: string]: unknown;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post(
+        '/astrologer/questions/order',
+        {
+          user_id: payload.user_id,
+          question_count: payload.question_count,
+          currency: payload.currency || 'INR',
+          receipt: payload.receipt || `questions_${Date.now()}`,
+          notes: payload.notes || {},
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      const data = axiosResponse?.data?.data || axiosResponse?.data;
+      const orderId =
+        data?.order_id ||
+        data?.razorpay_order_id ||
+        data?.id ||
+        axiosResponse?.data?.order_id;
+
+      if (!orderId) {
+        throw new Error(
+          axiosResponse?.data?.message || 'Invalid order response from server',
+        );
+      }
+
+      return {
+        ...data,
+        order_id: String(orderId),
+        amount: Number(data?.amount ?? data?.amount_paise ?? 0),
+        currency: String(data?.currency || 'INR'),
+        razorpay_key:
+          data?.razorpay_key ||
+          axiosResponse?.data?.razorpay_key ||
+          undefined,
+      };
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to create questions order. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async verifyAstrologerQuestionsPayment(payload: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }): Promise<{
+    success: boolean;
+    message?: string;
+    status?: string;
+    data?: any;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.post(
+        '/astrologer/questions/verify',
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      return axiosResponse?.data || { success: true };
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to verify questions payment. Please try again.';
       throw new Error(errorMessage);
     }
   }

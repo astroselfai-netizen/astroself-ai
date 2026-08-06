@@ -219,13 +219,44 @@ const SettingsScreen = () => {
               >
                 <Image source={icons.Icback} style={styles.backIcon} />
               </TouchableOpacity> */}
-              <View style={styles.headerCenter}>
+              <View>
                 <Text
-                  style={[styles.headerTitle, { color: colors.textPrimary }]}
+                  style={[
+                    styles.headerTitle,
+                    {
+                      color:
+                        theme === 'dark'
+                          ? colors.textPrimary
+                          : colors.Orangeaccentcolor,
+                    },
+                  ]}
                 >
                   Settings
                 </Text>
+                <View
+                  style={[
+                    styles.headerTitleUnderline,
+                    {
+                      backgroundColor:
+                        theme === 'dark'
+                          ? '#C5A370'
+                          : colors.Orangeaccentcolor,
+                    },
+                  ]}
+                />
               </View>
+
+              <Image
+                source={require('../../assets/icons/Subtract-dark.png')}
+                style={[
+                  styles.headerLogo,
+                  {
+                    tintColor:
+                      theme === 'dark' ? '#EEE5CA' : colors.Orangeaccentcolor,
+                  },
+                ]}
+                resizeMode="contain"
+              />
             </View>
 
             <View style={styles.sectionContainer}>
@@ -435,13 +466,13 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    textAlign: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginTop:
       Platform.OS === 'android'
         ? 0
         : responsiveWidth('13%'),
-    // marginBottom: responsiveWidth('5%'),
+    marginBottom: responsiveWidth('5'),
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
   },
@@ -462,9 +493,20 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.bold,
     // fontWeight: '600',
     // marginLeft: 8,
+  },
+  headerTitleUnderline: {
+    width: 42,
+    height: 3,
+    marginTop: 6,
+    borderRadius: 2,
+  },
+  headerLogo: {
+    width: responsiveWidth('30'),
+    height: responsiveWidth('8'),
+    marginTop: 2,
   },
   sectionContainer: {
     marginHorizontal: 20,

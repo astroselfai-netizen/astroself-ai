@@ -1,0 +1,15 @@
+diff --git a/node_modules/@react-native-community/cli-server-api/build/statusPageMiddleware.js b/node_modules/@react-native-community/cli-server-api/build/statusPageMiddleware.js
+index 5951169..4fadb66 100644
+--- a/node_modules/@react-native-community/cli-server-api/build/statusPageMiddleware.js
++++ b/node_modules/@react-native-community/cli-server-api/build/statusPageMiddleware.js
+@@ -16,7 +16,9 @@ exports.default = statusPageMiddleware;
+  * running on 8081 and not another program / service.
+  */
+ function statusPageMiddleware(_req, res) {
+-  res.setHeader('X-React-Native-Project-Root', process.cwd());
++  // encodeURI: project paths with non-ASCII chars (e.g. curly apostrophe in folder names)
++  // are invalid in HTTP header values and throw ERR_INVALID_CHAR.
++  res.setHeader('X-React-Native-Project-Root', encodeURI(process.cwd()));
+   res.end('packager-status:running');
+ }
+ 

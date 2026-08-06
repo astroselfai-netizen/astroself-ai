@@ -227,7 +227,7 @@ const AstrologerClientChartScreen = () => {
                   activeOpacity={0.85}
                 >
                   <Text style={[styles.heroActionText, styles.clientsBtnText]}>
-                    👥 Clients List
+                    👥 Charts List
                   </Text>
                 </TouchableOpacity>
               </View>

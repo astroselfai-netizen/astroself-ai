@@ -64,7 +64,9 @@ const parseDashaEntry = (
 
   const [planet, ranges] = entries[0];
   const rawRange = ranges?.[0] || '';
-  const dateRange = rawRange.replace(/\s+to\s+/i, ' → ');
+  const dateRange = rawRange
+    .replace(/\s+to\s+/i, ' → ')
+    .replace(/\s*->\s*/g, ' → ');
 
   return { planet, dateRange };
 };
@@ -118,12 +120,14 @@ const DashaPill = ({
       <View style={labelStyle}>
         <Text style={labelTextStyle}>{label}</Text>
       </View>
-      <Text style={[styles.dashaPlanet, isDark && styles.dashaPlanetDark]} numberOfLines={1}>
-        {planet}
-      </Text>
-      <Text style={[styles.dashaDate, isDark && styles.dashaDateDark]} numberOfLines={1}>
-        {dateRange}
-      </Text>
+      <View style={styles.dashaTextWrap}>
+        <Text style={[styles.dashaPlanet, isDark && styles.dashaPlanetDark]} numberOfLines={1}>
+          {planet}
+        </Text>
+        <Text style={[styles.dashaDate, isDark && styles.dashaDateDark]} numberOfLines={1}>
+          {dateRange}
+        </Text>
+      </View>
     </View>
   );
 };
@@ -218,6 +222,7 @@ const AstrologerChatMemberHeader = ({
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.dashaRow}
+          style={styles.dashaScroll}
         >
           {dashaPills.map(pill => (
             <DashaPill key={pill.label} {...pill} isDark={isDark} />
@@ -256,8 +261,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingHorizontal: responsiveWidth('3'),
     paddingTop: responsiveWidth('2.5'),
-    paddingBottom: responsiveWidth('2'),
-    gap: 10,
+    paddingBottom: responsiveWidth('3'),
+    gap: 12,
   },
   topRow: {
     flexDirection: 'row',
@@ -368,9 +373,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignItems: 'flex-start',
   },
+  dashaScroll: {
+    flexGrow: 0,
+  },
   dashaRow: {
+    alignItems: 'center',
     gap: 8,
-    paddingRight: responsiveWidth('2'),
+    paddingRight: responsiveWidth('4'),
   },
   dashaCard: {
     flexDirection: 'row',
@@ -378,9 +387,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 8,
-    paddingVertical: 7,
+    height: 38,
     gap: 6,
-    maxWidth: responsiveWidth('78'),
+    maxWidth: responsiveWidth('72'),
   },
   dashaCardMd: {
     borderColor: GOLD,
@@ -425,10 +434,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: fontFamily.bold,
   },
+  dashaTextWrap: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
   dashaPlanet: {
     color: NAVY,
     fontSize: 13,
     fontFamily: fontFamily.bold,
+    flexShrink: 0,
   },
   dashaPlanetDark: {
     color: '#FFFFFF',

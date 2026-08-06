@@ -7,6 +7,7 @@ export type AstrologerPostAuthScreen =
 export type AstrologerCreateClientNavParams = {
   fromRegistration?: boolean;
   fromLoginNoClients?: boolean;
+  fromYourCharts?: boolean;
 };
 
 export async function resolveAstrologerPostAuthScreen(

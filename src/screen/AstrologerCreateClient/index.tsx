@@ -4,6 +4,7 @@ import {
   BackHandler,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -17,6 +18,7 @@ import {
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import DatePicker from 'react-native-date-picker';
 import Toast from 'react-native-toast-message';
 import { useSelector } from 'react-redux';
@@ -25,6 +27,7 @@ import { color, fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
 import { RootState } from '../../state/store';
+import { Api } from '../../types/api';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCRiOhv-8F7NUHE22gm9zres6rVFwlkXEE';
 
@@ -63,15 +66,23 @@ import {
 type RootStackParamList = {
   AstrologerCreateClientScreen: AstrologerCreateClientNavParams | undefined;
   AstrologerHome: undefined;
+  AstrologerClientChatScreen: {
+    clientId: string;
+    clientName: string;
+    clients?: Api.User.Res.AstrologerClient[];
+    initialView?: 'chat' | 'vedic' | 'transit' | 'combos';
+  };
 };
 
 const AstrologerCreateClientScreen = () => {
-  const navigation = useNavigation();
+  const navigation =
+    useNavigation<StackNavigationProp<RootStackParamList>>();
   const route =
     useRoute<RouteProp<RootStackParamList, 'AstrologerCreateClientScreen'>>();
   const hideBackButton =
     route.params?.fromRegistration === true ||
     route.params?.fromLoginNoClients === true;
+  const shouldOpenChatAfterCreate = route.params?.fromYourCharts === true;
   const { theme, colors } = useTheme();
   const user = useSelector((state: RootState) => state.app.user);
   const userService = useMemo(() => new UserService(), []);
@@ -166,19 +177,78 @@ const AstrologerCreateClientScreen = () => {
           userId: astrologerUserId,
         };
 
-        await userService.createAstrologerClient(astrologerUserId, payload);
+        const createResponse = await userService.createAstrologerClient(
+          astrologerUserId,
+          payload,
+        );
+
+        const createdData = (createResponse?.data || createResponse) as Record<
+          string,
+          unknown
+        >;
+        const nestedData =
+          (createdData?.data as Record<string, unknown> | undefined) || createdData;
+
+        let clientId = String(
+          nestedData?.id ||
+            nestedData?._id ||
+            nestedData?.birth_id ||
+            nestedData?.client_id ||
+            '',
+        );
+
+        let clients: Api.User.Res.AstrologerClient[] = [];
+        try {
+          const clientsResponse = await userService.getAstrologerClients(
+            astrologerUserId,
+            0,
+            50,
+          );
+          clients = clientsResponse?.data?.data || [];
+
+          if (!clientId) {
+            const firstName = values.firstName.trim().toLowerCase();
+            const lastName = values.lastName.trim().toLowerCase();
+            const newestFirst = [...clients].sort((a, b) => {
+              const aTime = new Date(a.created_at || 0).getTime();
+              const bTime = new Date(b.created_at || 0).getTime();
+              return bTime - aTime;
+            });
+            const matched = newestFirst.find(
+              client =>
+                String(client.first_name || '').trim().toLowerCase() === firstName &&
+                String(client.last_name || '').trim().toLowerCase() === lastName,
+            );
+            clientId = String(matched?.id || newestFirst[0]?.id || '');
+          }
+        } catch {
+          // Keep clientId from create response if clients fetch fails.
+        }
+
+        const clientName =
+          `${values.firstName.trim()} ${values.lastName.trim()}`.trim() || 'Client';
 
         Toast.show({
           type: 'success',
-          text1: 'Client Created',
-          text2: 'New client has been added successfully.',
+          text1: 'Chart Created',
+          text2: 'New chart has been added successfully.',
         });
-        navigation.navigate('AstrologerHome' as never);
+
+        if (clientId && shouldOpenChatAfterCreate) {
+          navigation.replace('AstrologerClientChatScreen', {
+            clientId,
+            clientName,
+            clients,
+            initialView: 'chat',
+          });
+        } else {
+          navigation.navigate('AstrologerHome');
+        }
       } catch (error: unknown) {
         const err = error as { message?: string };
         Toast.show({
           type: 'error',
-          text1: 'Failed to create client',
+          text1: 'Failed to create chart',
           text2: err.message || 'Please try again.',
         });
       }
@@ -272,8 +342,8 @@ const AstrologerCreateClientScreen = () => {
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="on-drag"
           nestedScrollEnabled
         >
           <View style={styles.headerWrap}>
@@ -306,7 +376,7 @@ const AstrologerCreateClientScreen = () => {
                   },
                 ]}
               >
-                Create Client
+                Create Chart
               </Text>
             </View>
           </View>
@@ -546,6 +616,13 @@ const AstrologerCreateClientScreen = () => {
                         }
                       }}
                       autoFocus
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                      autoComplete="off"
+                      importantForAutofill="no"
+                      spellCheck={false}
+                      returnKeyType="search"
+                      blurOnSubmit={false}
                     />
                   </View>
 
@@ -553,6 +630,8 @@ const AstrologerCreateClientScreen = () => {
                     style={styles.dropdownList}
                     showsVerticalScrollIndicator={false}
                     nestedScrollEnabled
+                    keyboardShouldPersistTaps="always"
+                    keyboardDismissMode="none"
                   >
                     {filteredPlaces.map((item, index) => (
                       <TouchableOpacity
@@ -569,7 +648,10 @@ const AstrologerCreateClientScreen = () => {
                             borderBottomWidth: 0,
                           },
                         ]}
-                        onPress={() => handlePlaceSelect(item)}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          handlePlaceSelect(item);
+                        }}
                         activeOpacity={0.7}
                       >
                         <Text
@@ -630,7 +712,7 @@ const AstrologerCreateClientScreen = () => {
                   },
                 ]}
               >
-                About client
+                About chart
               </Text>
               <TextInput
                 style={[
@@ -638,7 +720,7 @@ const AstrologerCreateClientScreen = () => {
                   styles.personalDetailsTextArea,
                   inputThemeStyle,
                 ]}
-                placeholder="Enter details about the client, their focus, or upcoming plans."
+                placeholder="Enter details about the chart, their focus, or upcoming plans."
                 placeholderTextColor={colors.grayText}
                 value={formik.values.aboutClient}
                 onChangeText={formik.handleChange('aboutClient')}

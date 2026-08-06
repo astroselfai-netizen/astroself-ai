@@ -19,8 +19,8 @@ type ComboTab = 'transit' | 'transit_analysis' | 'combinations' | 'antar_dasha';
 
 const COMBO_TAB_ORDER: ComboTab[] = [
   'antar_dasha',
-  'transit_analysis',
   'transit',
+  'transit_analysis',
   'combinations',
 ];
 
@@ -30,8 +30,8 @@ export const CLIENT_COMBO_SHORTCUTS: {
   icon: string;
 }[] = [
   { tab: 'antar_dasha', label: 'Antardasha Analysis/Report', icon: '⚡' },
+  { tab: 'transit', label: 'Generic Predictions', icon: '⬡' },
   { tab: 'transit_analysis', label: 'Transit Analysis', icon: '▦' },
-  { tab: 'transit', label: 'Transit Combinations', icon: '⬡' },
   { tab: 'combinations', label: 'Chart Combinations', icon: '◎' },
 ];
 

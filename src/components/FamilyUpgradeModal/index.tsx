@@ -23,6 +23,10 @@ import {
   getMemberUserId,
   resolveBillingMemberForFamilyUpgrade,
 } from '../../utils/resolveBillingMemberForUpgrade';
+import {
+  getRazorpayUpiEnabledFields,
+  withUpiPrefill,
+} from '../../utils/razorpayUpiOptions';
 
 const PREMIUM_FAMILY_FEATURES = [
   'Separate monthly updates for each member',
@@ -294,37 +298,16 @@ const FamilyUpgradeModal = ({
         order_id: orderId,
         amount: Number(amountPaise),
         currency: preview.currency || 'INR',
-        method: {
-          card: true,
-          netbanking: false,
-          wallet: false,
-          upi: false,
-          emi: false,
-          paylater: false,
-        },
-        config: {
-          display: {
-            blocks: {
-              card: {
-                name: 'Pay with Card',
-                instruments: [{ method: 'card' }],
-              },
-            },
-            sequence: ['block.card'],
-            preferences: {
-              show_default_blocks: false,
-            },
-          },
-        },
+        ...getRazorpayUpiEnabledFields(),
         name: 'Astrodha',
         description: 'Upgrade to Family Plan',
-        prefill: {
+        prefill: withUpiPrefill({
           email: currentUserData.email || (user as any)?.email || 'user@example.com',
           contact: currentUserData.phone || (user as any)?.phone || '9999999999',
           name:
             `${currentUserData.first_name || (user as any)?.first_name || ''} ${currentUserData.last_name || (user as any)?.last_name || ''}`.trim() ||
             'User',
-        },
+        }),
         theme: { color: '#DF8A5D' },
       };
 

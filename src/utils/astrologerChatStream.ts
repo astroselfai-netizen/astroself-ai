@@ -4,7 +4,7 @@ import { baseURL } from './http';
 export type AstrologerChatPayload = {
   user_id: string;
   astrologer_id: string;
-  inr_budget: number;
+  // inr_budget: number;
   question: string;
   conversation_id: string;
 };
@@ -26,6 +26,14 @@ export const getAstrologerInrBudget = (currentPlan?: string | null): number => {
     normalized.includes('2999')
   ) {
     return 2999;
+  }
+
+  if (
+    normalized === 'unlimited' ||
+    normalized === 'unlimited_plan' ||
+    normalized.includes('unlimited')
+  ) {
+    return 100000;
   }
 
   return 60;

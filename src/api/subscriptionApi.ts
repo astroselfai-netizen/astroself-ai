@@ -136,11 +136,16 @@ export const subscriptionApi = {
     payload: CreateAstrologerAutopaySubscriptionRequest,
   ): Promise<CreateAstrologerAutopaySubscriptionResponse> {
     const headers = await authHeaders();
+
+    console.log('payload---?>', payload);
+
+    
     const res = await http.post<CreateAstrologerAutopaySubscriptionResponse>(
       'astrologer/mobile/autopay/create-subscription',
       payload,
       { headers, timeout: 60000 },
     );
+    console.log('res---?>', res.data);
     return res.data;
   },
 

@@ -37,6 +37,10 @@ import { RootState } from '../../state/store';
 import { checkAndUpdateMemberCreationTimestamp } from '../../hooks/useMemberCreationTimestamp';
 import { useProfileData } from '../../hooks/useProfileData';
 import LottieView from 'lottie-react-native';
+import {
+  getRazorpayUpiEnabledFields,
+  withUpiPrefill,
+} from '../../utils/razorpayUpiOptions';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -474,11 +478,12 @@ const AddNewMember = () => {
         amount: orderResponse.amount,
         order_id: orderResponse.order_id,
         name: 'Astrodha',
-        prefill: {
+        ...getRazorpayUpiEnabledFields(),
+        prefill: withUpiPrefill({
           email: currentUserData.email || 'user@example.com',
           contact: currentUserData.phone || '9999999999',
           name: `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'User',
-        },
+        }),
         theme: { color: '#DF8A5D' },
       };
 
