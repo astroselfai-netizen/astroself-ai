@@ -18,10 +18,16 @@ import { MainContainer } from '../../components/common/mainContainer';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
+import {
+  getComboDetailCache,
+  getComboDetailCacheSync,
+  makeComboDetailCacheKey,
+  setComboDetailCache,
+} from '../../utils/astrologerCombosCache';
 
 const NAVY = '#1A3673';
 
-type ComboDetailKind = 'transit' | 'transit_analysis' | 'antar_dasha';
+type ComboDetailKind = 'transit' | 'transit_analysis' | 'antar_dasha' | 'dos_donts';
 
 type RootStackParamList = {
   AstrologerComboDetailScreen: {
@@ -49,12 +55,12 @@ const fullScreenSubContainerStyle = {
 
 const isHtmlContent = (value: string) => /<\/?[a-z][\s\S]*>/i.test(value);
 
-const preprocessTransitAnswer = (answer: string) =>
+const preprocessMarkdownAnswer = (answer: string) =>
   answer
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>');
 
 const normalizeDetails = (details: unknown): string => {
   if (details == null) {
@@ -135,8 +141,25 @@ const AstrologerComboDetailScreen = () => {
     pipeline,
   } = route.params || {};
 
-  const [loading, setLoading] = useState(kind !== 'transit');
-  const [content, setContent] = useState('');
+  const detailCacheKey = useMemo(
+    () =>
+      makeComboDetailCacheKey({
+        kind,
+        clientId,
+        heading,
+        title,
+        collection,
+        pipeline,
+      }),
+    [clientId, collection, heading, kind, pipeline, title],
+  );
+  const cachedDetail =
+    kind === 'transit' ? null : getComboDetailCacheSync(detailCacheKey);
+
+  const [loading, setLoading] = useState(
+    kind !== 'transit' && !cachedDetail?.content,
+  );
+  const [content, setContent] = useState(cachedDetail?.content || '');
   const [errorText, setErrorText] = useState('');
 
   const isDark = theme === 'dark';
@@ -199,50 +222,106 @@ const AstrologerComboDetailScreen = () => {
     [contentColor],
   );
 
-  const loadContent = useCallback(async () => {
-    if (kind === 'transit') {
-      setLoading(false);
+  const loadContent = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (kind === 'transit') {
+        setLoading(false);
+        setErrorText('');
+        setContent('');
+        return;
+      }
+
+      if (!options?.silent) {
+        setLoading(true);
+      }
       setErrorText('');
-      setContent('');
-      return;
-    }
+      try {
+        let nextContent = '';
 
-    setLoading(true);
-    setErrorText('');
-    try {
-      if (kind === 'transit_analysis') {
-        const response = await userService.getAstrologerTransitHeadingReport(
-          clientId,
-          heading || title,
-        );
-        setContent(response?.answer?.trim() || 'No details available.');
-        return;
+        if (kind === 'transit_analysis') {
+          const response = await userService.getAstrologerTransitHeadingReport(
+            clientId,
+            heading || title,
+          );
+          nextContent = response?.answer?.trim() || 'No details available.';
+        } else if (!collection || !pipeline?.length) {
+          nextContent = 'Details not available for this combination.';
+        } else {
+          const response = await userService.getAstrologerComboContent(
+            collection,
+            pipeline,
+          );
+          const extracted = extractComboContent(response);
+          nextContent = extracted || 'No details available.';
+        }
+
+        setContent(nextContent);
+        if (nextContent) {
+          await setComboDetailCache(detailCacheKey, nextContent);
+        }
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to load details.';
+        if (!options?.silent) {
+          setErrorText(message);
+          setContent('');
+        }
+      } finally {
+        setLoading(false);
       }
-
-      if (!collection || !pipeline?.length) {
-        setContent('Details not available for this combination.');
-        return;
-      }
-
-      const response = await userService.getAstrologerComboContent(
-        collection,
-        pipeline,
-      );
-      const extracted = extractComboContent(response);
-      setContent(extracted || 'No details available.');
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to load details.';
-      setErrorText(message);
-      setContent('');
-    } finally {
-      setLoading(false);
-    }
-  }, [clientId, collection, heading, kind, pipeline, title, userService]);
+    },
+    [
+      clientId,
+      collection,
+      detailCacheKey,
+      heading,
+      kind,
+      pipeline,
+      title,
+      userService,
+    ],
+  );
 
   useEffect(() => {
-    loadContent();
-  }, [loadContent]);
+    let cancelled = false;
+
+    const hydrateAndLoad = async () => {
+      if (kind === 'transit') {
+        setLoading(false);
+        setContent('');
+        setErrorText('');
+        return;
+      }
+
+      const memoryHit = getComboDetailCacheSync(detailCacheKey);
+      if (memoryHit?.content) {
+        setContent(memoryHit.content);
+        setLoading(false);
+        void loadContent({ silent: true });
+        return;
+      }
+
+      const stored = await getComboDetailCache(detailCacheKey);
+      if (cancelled) {
+        return;
+      }
+
+      if (stored?.content) {
+        setContent(stored.content);
+        setLoading(false);
+        void loadContent({ silent: true });
+        return;
+      }
+
+      await loadContent();
+    };
+
+    void hydrateAndLoad();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detailCacheKey, kind, loadContent]);
 
   const renderBody = () => {
     if (kind === 'transit') {
@@ -270,8 +349,7 @@ const AstrologerComboDetailScreen = () => {
       );
     }
 
-    const preparedContent =
-      kind === 'transit_analysis' ? preprocessTransitAnswer(content) : content;
+    const preparedContent = preprocessMarkdownAnswer(content);
 
     if (isHtmlContent(preparedContent) || kind === 'transit_analysis') {
       return (

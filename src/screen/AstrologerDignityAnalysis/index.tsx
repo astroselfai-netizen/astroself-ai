@@ -280,12 +280,12 @@ const SUMMARY_COLUMNS = [
   { key: 'house', label: 'House', width: 75 },
   { key: 'sign', label: 'Sign', width: 100 },
   { key: 'degree', label: 'Degree', width: 85 },
-  { key: 'nakshatra', label: 'Nakshatra', width: 150 },
-  { key: 'd1_dignity', label: 'Dignity-D1', width: 105 },
+  { key: 'nakshatra', label: 'Nakshatra', width: 190 },
+  { key: 'd1_dignity', label: 'Dignity-D1', width: 130 },
   { key: 'd9_sign', label: 'D9 Sign', width: 90 },
-  { key: 'd9_dignity', label: 'D9 Dignity', width: 105 },
+  { key: 'd9_dignity', label: 'D9 Dignity', width: 130 },
   { key: 'd10_sign', label: 'D10 Sign', width: 90 },
-  { key: 'd10_dignity', label: 'D10 Dignity', width: 110 },
+  { key: 'd10_dignity', label: 'D10 Dignity', width: 130 },
 ] as const;
 
 const getSummaryCellValue = (item: SummaryItem, key: (typeof SUMMARY_COLUMNS)[number]['key']) => {
@@ -514,6 +514,8 @@ const AstrologerDignityAnalysisScreen = () => {
                     {SUMMARY_COLUMNS.map(column => (
                       <Text
                         key={column.key}
+                        numberOfLines={1}
+                        ellipsizeMode="clip"
                         style={[styles.summaryHeaderCell, { width: column.width }]}
                       >
                         {column.label}
@@ -529,6 +531,8 @@ const AstrologerDignityAnalysisScreen = () => {
                       {SUMMARY_COLUMNS.map(column => (
                         <Text
                           key={`${item.name}-${column.key}-${index}`}
+                          numberOfLines={1}
+                          ellipsizeMode="clip"
                           style={[styles.summaryCell, { width: column.width }]}
                         >
                           {getSummaryCellValue(item, column.key)}
@@ -578,20 +582,24 @@ const AstrologerDignityAnalysisScreen = () => {
                           activeOpacity={0.8}
                         >
                           <View style={styles.planetMetaRow}>
-                            <Text style={[styles.planetMetaText, styles.planetName]}>
-                              {planet.planet}
-                            </Text>
-                            <Text style={styles.planetMetaText}>
-                              Lord:{' '}
-                              {(planet.ruling_house || []).length
-                                ? (planet.ruling_house || []).join(', ')
-                                : 'N/A'}
-                            </Text>
-                            <Text style={styles.planetMetaText}>
-                              House: {planet.sitting_in_house ?? planet.sitting_house ?? '--'}
-                            </Text>
-                            <Text style={styles.planetMetaText}>P: {positiveCount}</Text>
-                            <Text style={styles.planetMetaText}>N: {negativeCount}</Text>
+                            <View style={styles.planetMetaStack}>
+                              <Text style={[styles.planetMetaText, styles.planetName]}>
+                                {planet.planet}
+                              </Text>
+                              <View style={styles.planetMetaGrid}>
+                                <Text style={styles.planetMetaText}>
+                                  Lord:{' '}
+                                  {(planet.ruling_house || []).length
+                                    ? (planet.ruling_house || []).join(', ')
+                                    : 'N/A'}
+                                </Text>
+                                <Text style={styles.planetMetaText}>
+                                  House: {planet.sitting_in_house ?? planet.sitting_house ?? '--'}
+                                </Text>
+                                <Text style={styles.planetMetaText}>P: {positiveCount}</Text>
+                                <Text style={styles.planetMetaText}>N: {negativeCount}</Text>
+                              </View>
+                            </View>
                             <View style={styles.planetToggleCircle}>
                               <Image
                                 source={require('../../assets/icons/Dropdown.png')}
@@ -811,9 +819,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontFamily: fontFamily.semiBold,
+    lineHeight: 18,
   },
   summaryRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E9F0',
@@ -830,6 +840,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.regular,
     color: '#27364B',
+    lineHeight: 18,
   },
   cardsGrid: {
     flexDirection: 'row',
@@ -886,21 +897,30 @@ const styles = StyleSheet.create({
   },
   planetMetaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'nowrap',
-    gap: 14,
+    alignItems: 'flex-start',
+  },
+  planetMetaStack: {
+    flex: 1,
+    gap: 6,
+  },
+  planetMetaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 2,
+    columnGap: 8,
   },
   planetMetaText: {
     fontSize: 13,
     fontFamily: fontFamily.semiBold,
     color: '#243B6B',
+    width: '48%',
   },
   planetToggleCircle: {
-    marginLeft: 'auto',
+    position: 'absolute',
+    right: 0,
+    top: 10,
     width: 28,
     height: 28,
-    // borderRadius: 14,
-    // borderWidth: 2,
     borderColor: NAVY,
     alignItems: 'center',
     justifyContent: 'center',

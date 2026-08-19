@@ -80,6 +80,8 @@ const AstrologerChatHistoryScreen = () => {
     setErrorText('');
     try {
       const response = await userService.getAstrologerChatHistoryMonths(clientId);
+
+      console.log('response--->99', response);
       setMonths(Array.isArray(response.data) ? response.data : []);
     } catch (error: any) {
       setMonths([]);
@@ -96,12 +98,16 @@ const AstrologerChatHistoryScreen = () => {
   );
 
   const openMonth = (item: MonthItem) => {
+    if (!item.month || !item.year) {
+      return;
+    }
+
     navigation.navigate('AstrologerChatHistoryDetailsScreen', {
       clientId,
       clientName,
       month: item.month,
       year: item.year,
-      display: item.display || `${item.month_name} ${item.year}`,
+      display: item.display,
     });
   };
 
@@ -120,7 +126,7 @@ const AstrologerChatHistoryScreen = () => {
       >
         <View style={styles.monthCardText}>
           <Text style={[styles.monthTitle, { color: textPrimary }]}>
-            {item.display || `${item.month_name} ${item.year}`}
+            {item.display}
           </Text>
           <Text style={[styles.monthSubtitle, { color: textMuted }]}>{label}</Text>
         </View>

@@ -8,6 +8,7 @@ export namespace Api {
         last_name: string;
         role?: string;
         current_plan: string;
+        next_plan?: string;
         complete_profile: boolean;
         members_allow: number;
         current_members: number;

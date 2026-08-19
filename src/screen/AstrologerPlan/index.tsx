@@ -31,6 +31,13 @@ import { mergeUserProfile } from '../../utils/userRole';
 import {
   getRazorpaySubscriptionPaymentFields,
 } from '../../utils/razorpayUpiOptions';
+import {
+  applyQuestionPriceToText,
+  getPlanCurrencyTag,
+  getPlanDisplayPrice,
+  isUsdPlan,
+  resolveQuestionPrice,
+} from '../../utils/astrologerQuestionPrice';
 
 type AstrologerRazorpayPaymentResponse = {
   razorpay_payment_id: string;
@@ -100,6 +107,10 @@ type PlanApiItem = {
   featuresTitle?: string;
   footerText?: string;
   footerNote?: string;
+  currency?: string;
+  price_tag?: string;
+  usd_price?: string;
+  pricePerQuestion?: number;
   [key: string]: unknown;
 };
 
@@ -120,6 +131,42 @@ const isFreePlan = (plan: PlanApiItem) => {
 };
 
 const isPaidPlan = (plan: PlanApiItem) => !isFreePlan(plan);
+
+const getPlanNumericPrice = (plan: PlanApiItem | null | undefined) =>
+  Number(plan?.price || 0);
+
+const resolveCountryCode = (
+  userData: Record<string, unknown>,
+  plan: PlanApiItem,
+) => {
+  const fromUser = String(
+    userData.country_code ||
+      userData.countryCode ||
+      userData.country ||
+      '',
+  ).trim();
+
+  if (fromUser) {
+    return fromUser;
+  }
+
+  return isUsdPlan(plan) ? 'US' : 'IN';
+};
+
+const isDowngradeSuccess = (response: {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+}) => {
+  const status = String(response?.status ?? '').toLowerCase();
+  return (
+    response?.status === true ||
+    response?.success === true ||
+    status === 'true' ||
+    status === 'success' ||
+    status === 'completed'
+  );
+};
 
 const resolveBillingPlanId = (billingConfig: PlanApiItem | null) =>
   String(billingConfig?._id || billingConfig?.plan_id || RAZORPAY_CONFIG.PLAN_ID);
@@ -310,6 +357,8 @@ const decodeHtmlEntities = (text: string) =>
 const stripHtmlTags = (html: string) =>
   decodeHtmlEntities(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
 
+const htmlHasListItems = (html: string) => /<li[\s>]/i.test(html);
+
 const extractListItemsFromHtml = (html: string): string[] => {
   if (!html) {
     return [];
@@ -325,6 +374,26 @@ const extractListItemsFromHtml = (html: string): string[] => {
       items.push(text);
     }
     match = liRegex.exec(html);
+  }
+
+  return items;
+};
+
+const extractParagraphsFromHtml = (html: string): string[] => {
+  if (!html) {
+    return [];
+  }
+
+  const items: string[] = [];
+  const pRegex = /<p[^>]*>(.*?)<\/p>/gis;
+  let match = pRegex.exec(html);
+
+  while (match) {
+    const text = stripHtmlTags(match[1]);
+    if (text) {
+      items.push(text);
+    }
+    match = pRegex.exec(html);
   }
 
   if (items.length === 0) {
@@ -367,6 +436,7 @@ const getPlanFeatureItems = (
   }
 
   const items: string[] = [];
+  const questionPriceLabel = resolveQuestionPrice(plan).label;
 
   plan.features.forEach(feature => {
     const title = feature.title?.trim().toUpperCase() || '';
@@ -374,18 +444,57 @@ const getPlanFeatureItems = (
       return;
     }
 
-    const listItems = extractListItemsFromHtml(feature.richContent || '');
-    if (listItems.length > 0) {
-      items.push(...listItems);
+    const html = feature.richContent || '';
+    if (htmlHasListItems(html)) {
+      const listItems = extractListItemsFromHtml(html);
+      if (listItems.length > 0) {
+        items.push(
+          ...listItems.map(item =>
+            applyQuestionPriceToText(item, questionPriceLabel),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Paragraph-only richContent is shown in the Question Credits box.
+    if (html.trim()) {
       return;
     }
 
     if (feature.title?.trim()) {
-      items.push(feature.title.trim());
+      items.push(
+        applyQuestionPriceToText(feature.title.trim(), questionPriceLabel),
+      );
     }
   });
 
   return items.length > 0 ? items : fallback;
+};
+
+const getPlanCreditFeature = (plan: PlanApiItem | null) => {
+  const creditFeature = plan?.features?.find(feature => {
+    const html = feature.richContent || '';
+    return Boolean(html.trim()) && !htmlHasListItems(html);
+  });
+
+  if (!creditFeature) {
+    return null;
+  }
+
+  const questionPriceLabel = resolveQuestionPrice(plan).label;
+  const lines = extractParagraphsFromHtml(creditFeature.richContent || '').map(
+    line => applyQuestionPriceToText(line, questionPriceLabel),
+  );
+
+  if (!lines.length) {
+    return null;
+  }
+
+  return {
+    title: creditFeature.title?.trim() || 'Question Credits',
+    lines,
+  };
 };
 
 const getPlanExampleText = (plan: PlanApiItem | null): string | null => {
@@ -428,6 +537,16 @@ const AstrologerPlanScreen = () => {
   const isPollingRef = useRef(false);
 
   const currentPlan = String(astrologerUser?.current_plan || '').toLowerCase();
+  const nextPlan = String(astrologerUser?.next_plan || '').toLowerCase();
+
+  const hasPendingPlanChange = useMemo(() => {
+    const current = String(astrologerUser?.current_plan || '').trim();
+    const next = String(astrologerUser?.next_plan || '').trim();
+    if (!current || !next) {
+      return false;
+    }
+    return current.toLowerCase() !== next.toLowerCase();
+  }, [astrologerUser?.current_plan, astrologerUser?.next_plan]);
   const fetchPlans = useCallback(async () => {
 
     console.log('fetchPlans401');
@@ -459,16 +578,6 @@ const AstrologerPlanScreen = () => {
     }
   }, []);
 
-  useFocusEffect(
-
-    
-    useCallback(() => {
-
-      console.log('fetchPlans');
-      fetchPlans();
-    }, [fetchPlans]),
-  );
-
   const displayPlans = useMemo(() => {
     return [...plans].sort((a, b) => {
       const freeDiff = Number(isFreePlan(b)) - Number(isFreePlan(a));
@@ -489,7 +598,7 @@ const AstrologerPlanScreen = () => {
     const activePlan = displayPlans.find(plan =>
       isPlanItemActive(currentPlan, plan, billingConfig),
     );
-    return activePlan ? Number(activePlan.price || 0) : 0;
+    return getPlanNumericPrice(activePlan);
   }, [billingConfig, currentPlan, displayPlans]);
 
   const highestPaidPrice = useMemo(
@@ -523,6 +632,14 @@ const AstrologerPlanScreen = () => {
       // Keep existing user data if refresh fails.
     }
   }, [dispatch, astrologerUser?._id, user, userService]);
+
+  useFocusEffect(
+    useCallback(() => {
+      console.log('fetchPlans');
+      fetchPlans();
+      refreshAstrologerUser();
+    }, [fetchPlans, refreshAstrologerUser]),
+  );
 
   const pollSubscriptionVerification = useCallback(
     async (
@@ -625,6 +742,122 @@ const AstrologerPlanScreen = () => {
 
           console.log('planId---?>', planId);
 
+        const selectedPlanPrice = getPlanNumericPrice(plan);
+        const isDowngrade =
+          activePlanPrice > 0 && selectedPlanPrice < activePlanPrice;
+
+        if (isDowngrade) {
+          const countryCode = resolveCountryCode(currentUserData, plan);
+          const initiateResponse =
+            await subscriptionApi.astrologerDowngradeInitiate({
+              user_id: userId,
+              plan_id: planId,
+              plan_type: planType,
+              country_code: countryCode,
+            });
+
+          console.log('downgradeInitiateResponse---?>', initiateResponse);
+
+          if (
+            initiateResponse.status === false ||
+            String(initiateResponse.status).toLowerCase() === 'false'
+          ) {
+            throw new Error(
+              initiateResponse.message || 'Unable to start plan downgrade.',
+            );
+          }
+
+          const checkoutSubscriptionId = String(
+            initiateResponse.subscription_id ||
+              initiateResponse.razorpay_subscription_id ||
+              '',
+          ).trim();
+          const renewalSubscriptionId = String(
+            initiateResponse.renewal_subscription_id ||
+              checkoutSubscriptionId ||
+              '',
+          ).trim();
+
+          let paymentResponse: AstrologerRazorpayPaymentResponse | null = null;
+
+          if (checkoutSubscriptionId) {
+            const razorpayKey =
+              initiateResponse.razorpay_key ||
+              (RAZORPAY_CONFIG.IS_TEST_MODE
+                ? RAZORPAY_CONFIG.TEST_KEY
+                : RAZORPAY_CONFIG.LIVE_KEY);
+
+            if (!razorpayKey) {
+              throw new Error('Razorpay key not received from server');
+            }
+
+            const options = {
+              key: String(razorpayKey),
+              subscription_id: checkoutSubscriptionId,
+              name: 'Astrodha',
+              description: `Downgrade to ${plan.title}`,
+              currency: 'INR',
+              ...getRazorpaySubscriptionPaymentFields(),
+              prefill: {
+                email: String(currentUserData.email || 'user@example.com'),
+                contact: String(currentUserData.phone || '9999999999'),
+                name:
+                  `${String(currentUserData.first_name || '')} ${String(
+                    currentUserData.last_name || '',
+                  )}`.trim() || 'Astrologer',
+              },
+              theme: { color: '#DF8A5D' },
+            };
+
+            paymentResponse = await RazorpayCheckout.open(options);
+
+            if (
+              !paymentResponse?.razorpay_payment_id ||
+              !paymentResponse?.razorpay_signature
+            ) {
+              throw new Error('Invalid payment response from Razorpay');
+            }
+          }
+
+          if (renewalSubscriptionId) {
+            const confirmResponse =
+              await subscriptionApi.astrologerDowngradeConfirm({
+                user_id: userId,
+                renewal_subscription_id: renewalSubscriptionId,
+                razorpay_payment_id: String(
+                  paymentResponse?.razorpay_payment_id || '',
+                ),
+                razorpay_subscription_id: String(
+                  paymentResponse?.razorpay_subscription_id ||
+                    checkoutSubscriptionId ||
+                    '',
+                ),
+                razorpay_signature: String(
+                  paymentResponse?.razorpay_signature || '',
+                ),
+              });
+
+            console.log('downgradeConfirmResponse---?>', confirmResponse);
+
+            if (!isDowngradeSuccess(confirmResponse)) {
+              throw new Error(
+                confirmResponse.message || 'Unable to confirm plan downgrade.',
+              );
+            }
+          }
+
+          await refreshAstrologerUser();
+          Toast.show({
+            type: 'success',
+            text1: 'Plan Updated',
+            text2: `Your plan will switch to ${plan.title}.`,
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3000,
+          });
+          return;
+        }
+
         const subscriptionResponse =
           await subscriptionApi.createAstrologerAutopaySubscription({
             user_id: userId,
@@ -719,6 +952,7 @@ const AstrologerPlanScreen = () => {
           step?: string;
           details?: { error?: { reason?: string } };
           error?: { code?: string; reason?: string; step?: string };
+          response?: { data?: { message?: string } };
         };
 
         if (isRazorpayPaymentCancelled(err)) {
@@ -729,7 +963,10 @@ const AstrologerPlanScreen = () => {
         }
 
         const errorMessage =
-          err.description || err.message || 'Payment failed. Please try again.';
+          err.response?.data?.message ||
+          err.description ||
+          err.message ||
+          'Payment failed. Please try again.';
 
         if (
           errorMessage.toLowerCase().includes('verified successfully') ||
@@ -751,7 +988,12 @@ const AstrologerPlanScreen = () => {
         setSubscribingPlanId(null);
       }
     },
-    [billingConfig, pollSubscriptionVerification],
+    [
+      activePlanPrice,
+      billingConfig,
+      pollSubscriptionVerification,
+      refreshAstrologerUser,
+    ],
   );
 
   const isDark = theme === 'dark';
@@ -775,14 +1017,67 @@ const AstrologerPlanScreen = () => {
     priceMode: string | undefined,
     color: string,
     loading: boolean,
+    priceTag = '₹',
   ) => {
     if (loading) {
       return <ActivityIndicator size="small" color={color} style={styles.loader} />;
     }
     return (
       <View style={styles.priceRow}>
-        <Text style={[styles.priceAmount, { color }]}>₹ {price}</Text>
+        <Text style={[styles.priceAmount, { color }]}>
+          {priceTag} {price}
+        </Text>
         <Text style={[styles.priceUnit, { color }]}>{getPriceUnit(priceMode)}</Text>
+      </View>
+    );
+  };
+
+  const renderPlanCreditSection = (
+    credit: ReturnType<typeof getPlanCreditFeature>,
+    isLightCard: boolean,
+    variant: 'pro' | 'premium',
+  ) => {
+    if (!credit) {
+      return null;
+    }
+
+    const isPro = variant === 'pro';
+    const accent = isLightCard ? '#7C3AED' : isPro ? '#67E8F9' : '#F2994A';
+    const boxBg = isLightCard
+      ? 'rgba(124, 58, 237, 0.08)'
+      : isPro
+        ? 'rgba(103, 232, 249, 0.08)'
+        : 'rgba(242, 153, 74, 0.12)';
+
+    return (
+      <View
+        style={[
+          styles.creditBox,
+          {
+            borderColor: accent,
+            backgroundColor: boxBg,
+          },
+        ]}
+      >
+        <View style={styles.creditHeader}>
+          <View style={[styles.creditIcon, { backgroundColor: accent }]}>
+            <Text style={styles.creditIconText}>?</Text>
+          </View>
+          <Text style={[styles.creditTitle, { color: accent }]}>
+            {credit.title.toUpperCase()}
+          </Text>
+        </View>
+        {credit.lines.map((line, lineIndex) => (
+          <Text
+            key={`${credit.title}-${lineIndex}`}
+            style={[
+              lineIndex === 0 ? styles.creditHeadline : styles.creditBody,
+              { color: isLightCard ? textPrimary : '#FFFFFF' },
+            ]}
+          >
+            {line}
+          </Text>
+        ))}
       </View>
     );
   };
@@ -816,13 +1111,17 @@ const AstrologerPlanScreen = () => {
   const renderPlanButton = (plan: PlanApiItem) => {
     const planKey = getPlanSubscriptionKey(plan);
     const isActive = isPlanItemActive(currentPlan, plan, billingConfig);
+    const isNextPlan =
+      hasPendingPlanChange && isPlanItemActive(nextPlan, plan, billingConfig);
     const isLoading = subscribingPlanId === planKey;
-    const planPrice = Number(plan.price || 0);
+    const planPrice = getPlanNumericPrice(plan);
     const isUpgrade =
       isPaidPlan(plan) &&
       activePlanPrice > 0 &&
       planPrice > activePlanPrice &&
       !isActive;
+    const isDowngrade =
+      !isActive && activePlanPrice > 0 && planPrice < activePlanPrice;
 
     if (isFreePlan(plan) && isActive) {
       return (
@@ -840,10 +1139,43 @@ const AstrologerPlanScreen = () => {
       );
     }
 
-    if (isPaidPlan(plan)) {
+    if (isNextPlan) {
+      return (
+        <View style={styles.ctaNextPlan}>
+          <Text style={styles.ctaNextPlanText}>Your Next Plan</Text>
+        </View>
+      );
+    }
+
+    if (hasPendingPlanChange) {
+      if (isDowngrade) {
+        return (
+          <TouchableOpacity
+            style={styles.ctaPremium}
+            onPress={() => handleSubscribe(plan)}
+            disabled={isLoading || verifyingPayment}
+            activeOpacity={0.85}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.ctaPremiumText}>
+                {`Downgrade to ${plan.title}`}
+              </Text>
+            )}
+          </TouchableOpacity>
+        );
+      }
+
+      return null;
+    }
+
+    if (isPaidPlan(plan) || isDowngrade) {
       const buttonLabel = isUpgrade
         ? `Upgrade to ${plan.title}`
-        : `Get ${plan.title}`;
+        : isDowngrade
+          ? `Downgrade to ${plan.title}`
+          : `Get ${plan.title}`;
 
       return (
         <TouchableOpacity
@@ -872,6 +1204,7 @@ const AstrologerPlanScreen = () => {
       Number(plan.price || 0) === highestPaidPrice;
     const isLightCard = isFree;
     const features = getPlanFeatureItems(plan, []);
+    const credit = getPlanCreditFeature(plan);
     const example = getPlanExampleText(plan);
     const note = getPlanNoteText(plan);
     const titleColor = isLightCard ? textPrimary : '#FFFFFF';
@@ -892,10 +1225,11 @@ const AstrologerPlanScreen = () => {
           {getPlanLabel(plan, plan.title)}
         </Text>
         {renderPrice(
-          plan.price ?? '0',
+          getPlanDisplayPrice(plan),
           plan.priceMode,
           priceColor,
           plansLoading && !plan.price,
+          getPlanCurrencyTag(plan),
         )}
         {isFree ? (
           <View style={styles.alwaysFreePill}>
@@ -903,6 +1237,7 @@ const AstrologerPlanScreen = () => {
           </View>
         ) : null}
         {features.map(feature => renderCheckRow(feature, !isLightCard))}
+        {renderPlanCreditSection(credit, isLightCard, noteVariant)}
         {!isFree ? renderPlanNoteSection(note, noteVariant) : null}
         {example ? (
           <View
@@ -1449,6 +1784,49 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     lineHeight: 18,
   },
+  creditBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 8,
+    marginBottom: 14,
+  },
+  creditHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  creditIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  creditIconText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    lineHeight: 16,
+  },
+  creditTitle: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    letterSpacing: 0.6,
+  },
+  creditHeadline: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  creditBody: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    lineHeight: 18,
+  },
   planNoteBox: {
     borderWidth: 1,
     borderRadius: 12,
@@ -1534,6 +1912,18 @@ const styles = StyleSheet.create({
   },
   ctaActivePlanText: {
     color: '#22C55E',
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
+  },
+  ctaNextPlan: {
+    alignSelf: 'center',
+    backgroundColor: '#F2994A',
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  ctaNextPlanText: {
+    color: '#FFFFFF',
     fontSize: 14,
     fontFamily: fontFamily.semiBold,
   },

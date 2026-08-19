@@ -58,6 +58,12 @@ import { mergeUserProfile } from '../../utils/userRole';
 
 const NAVY = '#1A3673';
 const GOLD = '#C5A370';
+const NEW_CHAT_SUGGESTIONS = [
+  'When will I buy a house?',
+  'When will I see a job change?',
+  'When will I see an increase in my income?',
+  'Do I have a chance to settle abroad?',
+];
 const TRANSIT_CHART_SIZE = responsiveWidth('86');
 const TRANSIT_CHART_PADDING = responsiveWidth('3');
 const TRANSIT_CHART_RENDER_SIZE = TRANSIT_CHART_SIZE - TRANSIT_CHART_PADDING * 2;
@@ -331,12 +337,15 @@ const AstrologerClientChatScreen = () => {
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.app.user);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const inputRef = useRef<TextInput>(null);
   const chatAbortRef = useRef<(() => void) | null>(null);
   const historyRequestIdRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
   const lastLayoutRevisionRef = useRef(0);
   const prevMessageCountRef = useRef(0);
   const pendingChatScrollRef = useRef(false);
+  const toolbarScrollRef = useRef<ScrollView | null>(null);
+  const toolbarTabPositionsRef = useRef<Partial<Record<ClientView, number>>>({});
   const isFreshChatActiveRef = useRef(false);
   const streamStateRef = useRef<{
     buffers: Record<string, string>;
@@ -1137,6 +1146,16 @@ const AstrologerClientChatScreen = () => {
     };
   }, [theme, colors]);
 
+  const handleSelectSuggestion = useCallback((suggestion: string) => {
+    if (isSending || historyLoading) {
+      return;
+    }
+    setInputText(suggestion);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, [historyLoading, isSending]);
+
   const handleSend = async () => {
     const trimmed = inputText.trim();
     if (!trimmed || isSending) {
@@ -1413,6 +1432,21 @@ const AstrologerClientChatScreen = () => {
   const inactivePillBorder = palette.isDark ? 'rgba(255,255,255,0.35)' : NAVY;
   const inactivePillColor = palette.isDark ? '#FFFFFF' : NAVY;
 
+  const scrollActiveToolbarTabIntoView = useCallback((view: ClientView) => {
+    const tabX = toolbarTabPositionsRef.current[view];
+    if (tabX == null) {
+      return;
+    }
+    toolbarScrollRef.current?.scrollTo({
+      x: Math.max(0, tabX - 8),
+      animated: true,
+    });
+  }, []);
+
+  useEffect(() => {
+    scrollActiveToolbarTabIntoView(activeView);
+  }, [activeView, scrollActiveToolbarTabIntoView]);
+
   const renderViewPill = (
     view: ClientView,
     label: string,
@@ -1422,22 +1456,35 @@ const AstrologerClientChatScreen = () => {
 
     if (isActive) {
       return (
-        <View style={[styles.toolbarPill, styles.toolbarPillActive, { backgroundColor: NAVY }]}>
-          {icon}
-          <Text style={styles.toolbarPillTextActive}>{label}</Text>
+        <View
+          onLayout={event => {
+            toolbarTabPositionsRef.current[view] = event.nativeEvent.layout.x;
+            scrollActiveToolbarTabIntoView(view);
+          }}
+        >
+          <View style={[styles.toolbarPill, styles.toolbarPillActive, { backgroundColor: NAVY }]}>
+            {icon}
+            <Text style={styles.toolbarPillTextActive}>{label}</Text>
+          </View>
         </View>
       );
     }
 
     return (
-      <TouchableOpacity
-        style={[styles.toolbarPill, styles.toolbarPillInactive, { borderColor: inactivePillBorder }]}
-        onPress={() => setActiveView(view)}
-        activeOpacity={0.85}
+      <View
+        onLayout={event => {
+          toolbarTabPositionsRef.current[view] = event.nativeEvent.layout.x;
+        }}
       >
-        {icon}
-        <Text style={[styles.toolbarPillTextInactive, { color: inactivePillColor }]}>{label}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toolbarPill, styles.toolbarPillInactive, { borderColor: inactivePillBorder }]}
+          onPress={() => setActiveView(view)}
+          activeOpacity={0.85}
+        >
+          {icon}
+          <Text style={[styles.toolbarPillTextInactive, { color: inactivePillColor }]}>{label}</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -1593,6 +1640,7 @@ const AstrologerClientChatScreen = () => {
       ]}
     >
       <ScrollView
+        ref={toolbarScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.toolbarRight}
@@ -1611,16 +1659,16 @@ const AstrologerClientChatScreen = () => {
         )}
 
         {renderViewPill(
-          'vedic',
-          'Charts',
-          <Image
-            source={require('../../assets/icons/home/Chart.png')}
-            style={
-              activeView === 'vedic'
-                ? [styles.toolbarPillIconActive, { tintColor: '#FFFFFF' }]
-                : [styles.toolbarPillIconInactive, { tintColor: inactivePillColor }]
-            }
-          />,
+          'combos',
+          'Generic Prediction',
+          <Text
+            style={[
+              styles.combosListIcon,
+              { color: activeView === 'combos' ? '#FFFFFF' : inactivePillColor },
+            ]}
+          >
+            ☰
+          </Text>,
         )}
 
         {renderViewPill(
@@ -1637,16 +1685,16 @@ const AstrologerClientChatScreen = () => {
         )}
 
         {renderViewPill(
-          'combos',
-          'Combos',
-          <Text
-            style={[
-              styles.combosListIcon,
-              { color: activeView === 'combos' ? '#FFFFFF' : inactivePillColor },
-            ]}
-          >
-            ☰
-          </Text>,
+          'vedic',
+          'Charts',
+          <Image
+            source={require('../../assets/icons/home/Chart.png')}
+            style={
+              activeView === 'vedic'
+                ? [styles.toolbarPillIconActive, { tintColor: '#FFFFFF' }]
+                : [styles.toolbarPillIconInactive, { tintColor: inactivePillColor }]
+            }
+          />,
         )}
 
         <TouchableOpacity
@@ -1760,23 +1808,25 @@ const AstrologerClientChatScreen = () => {
         </View>
         <Text style={[styles.headerTitle, { color: palette.textPrimary }]}>Chat</Text>
         <View style={styles.headerSideRight}>
-          <TouchableOpacity
-            onPress={handleStartNewChat}
-            style={[
-              styles.headerNewChatBtn,
-              {
-                borderColor: palette.textPrimary,
-                backgroundColor: palette.isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
-                opacity: !activeClientId || isSending ? 0.45 : 1,
-              },
-            ]}
-            activeOpacity={0.75}
-            disabled={!activeClientId || isSending}
-          >
-            <Text style={[styles.headerNewChatText, { color: palette.textPrimary }]}>
-              + New Chat
-            </Text>
-          </TouchableOpacity>
+          {activeView === 'chat' ? (
+            <TouchableOpacity
+              onPress={handleStartNewChat}
+              style={[
+                styles.headerNewChatBtn,
+                {
+                  borderColor: palette.textPrimary,
+                  backgroundColor: palette.isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+                  opacity: !activeClientId || isSending ? 0.45 : 1,
+                },
+              ]}
+              activeOpacity={0.75}
+              disabled={!activeClientId || isSending}
+            >
+              <Text style={[styles.headerNewChatText, { color: palette.textPrimary }]}>
+                + New Chat
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
@@ -1994,6 +2044,44 @@ const AstrologerClientChatScreen = () => {
                   },
                 ]}
               >
+                {!historyLoading && messages.length === 0 ? (
+                  <View
+                    style={[
+                      styles.suggestionWrap,
+                      {
+                        backgroundColor: palette.isDark
+                          ? 'rgba(255,255,255,0.04)'
+                          : '#F7F4EE',
+                      },
+                    ]}
+                  >
+                    {NEW_CHAT_SUGGESTIONS.map(suggestion => (
+                      <TouchableOpacity
+                        key={suggestion}
+                        style={[
+                          styles.suggestionChip,
+                          {
+                            backgroundColor: palette.isDark ? '#2A3F58' : '#FFFFFF',
+                            borderColor: GOLD,
+                          },
+                        ]}
+                        onPress={() => handleSelectSuggestion(suggestion)}
+                        activeOpacity={0.8}
+                        disabled={isSending}
+                      >
+                        <Text style={[styles.suggestionStar, { color: GOLD }]}>✦</Text>
+                        <Text
+                          style={[
+                            styles.suggestionText,
+                            { color: palette.isDark ? '#EEE5CA' : NAVY },
+                          ]}
+                        >
+                          {suggestion}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : null}
                 <View
                   style={[
                     styles.inputWrapper,
@@ -2004,6 +2092,7 @@ const AstrologerClientChatScreen = () => {
                   ]}
                 >
                   <TextInput
+                    ref={inputRef}
                     style={[styles.textInput, { color: palette.textPrimary }]}
                     placeholder={isSending ? 'Waiting for response...' : 'Type your message...'}
                     placeholderTextColor={palette.textMuted}
@@ -2761,6 +2850,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: responsiveWidth('3'),
     paddingTop: responsiveWidth('2'),
     borderTopWidth: 1,
+  },
+  suggestionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 10,
+  },
+  suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    maxWidth: '100%',
+  },
+  suggestionStar: {
+    fontSize: 12,
+    marginRight: 6,
+  },
+  suggestionText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    lineHeight: 18,
+    flexShrink: 1,
   },
   inputWrapper: {
     flexDirection: 'row',

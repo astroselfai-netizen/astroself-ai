@@ -263,21 +263,21 @@ const ClientCard = ({
   }> = [
     {
       key: 'antar_dasha',
-      label: 'Antardasha Analysis/Report',
+      label: 'Current Dasha (Life Phase)',
       icon: '⚡',
       onPress: () => onComboShortcut(client, 'antar_dasha'),
     },
     {
-      key: 'transit',
-      label: 'Generic Predictions',
-      icon: '⬡',
-      onPress: () => onComboShortcut(client, 'transit'),
-    },
-    {
       key: 'transit_analysis',
-      label: 'Transit Analysis',
+      label: 'Transit Predictions',
       icon: '▦',
       onPress: () => onComboShortcut(client, 'transit_analysis'),
+    },
+    {
+      key: 'dos_donts',
+      label: "Do's and Don'ts",
+      icon: '✓',
+      onPress: () => onComboShortcut(client, 'dos_donts'),
     },
     {
       key: 'charts',
@@ -290,12 +290,6 @@ const ClientCard = ({
       label: 'Dignity Analysis',
       icon: '★',
       onPress: () => onDignityAnalysis(client),
-    },
-    {
-      key: 'combinations',
-      label: 'Chart Combinations',
-      icon: '◎',
-      onPress: () => onComboShortcut(client, 'combinations'),
     },
   ];
 
@@ -419,6 +413,20 @@ const ClientCard = ({
         </Text>
       ) : null}
 
+      <TouchableOpacity
+        style={[styles.chatButton, getOutlinedButtonStyle(palette)]}
+        onPress={() => onChat(client)}
+        activeOpacity={0.85}
+      >
+        <Image
+          source={require('../../assets/icons/Chat-inactive.png')}
+          style={[styles.chatButtonIcon, { tintColor: palette.secondaryButtonText }]}
+        />
+        <Text style={[styles.chatButtonText, { color: palette.secondaryButtonText }]}>
+          Ask Questions
+        </Text>
+      </TouchableOpacity>
+
       <View style={styles.comboShortcutsList}>
         {shortcutItems.map(shortcut => (
           <TouchableOpacity
@@ -450,20 +458,6 @@ const ClientCard = ({
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity
-        style={[styles.chatButton, getOutlinedButtonStyle(palette)]}
-        onPress={() => onChat(client)}
-        activeOpacity={0.85}
-      >
-        <Image
-          source={require('../../assets/icons/Chat-inactive.png')}
-          style={[styles.chatButtonIcon, { tintColor: palette.secondaryButtonText }]}
-        />
-        <Text style={[styles.chatButtonText, { color: palette.secondaryButtonText }]}>
-          Ask Questions
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 };
@@ -1525,6 +1519,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: responsiveWidth('2'),
     gap: 8,
+    marginBottom: responsiveWidth('3'),
   },
   chatButtonIcon: {
     width: 16,

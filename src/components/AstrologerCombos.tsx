@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,16 +11,27 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { fontFamily, responsiveWidth } from '../constant/theme';
 import UserService from '../services/user/user.service';
+import {
+  getCombosListCache,
+  getCombosListCacheSync,
+  setCombosListCache,
+} from '../utils/astrologerCombosCache';
 
 const NAVY = '#1A3673';
 const GOLD = '#C5A370';
 
-type ComboTab = 'transit' | 'transit_analysis' | 'combinations' | 'antar_dasha';
+type ComboTab =
+  | 'transit'
+  | 'transit_analysis'
+  | 'combinations'
+  | 'antar_dasha'
+  | 'dos_donts';
 
 const COMBO_TAB_ORDER: ComboTab[] = [
   'antar_dasha',
-  'transit',
   'transit_analysis',
+  'dos_donts',
+  'transit',
   'combinations',
 ];
 
@@ -29,10 +40,9 @@ export const CLIENT_COMBO_SHORTCUTS: {
   label: string;
   icon: string;
 }[] = [
-  { tab: 'antar_dasha', label: 'Antardasha Analysis/Report', icon: '⚡' },
-  { tab: 'transit', label: 'Generic Predictions', icon: '⬡' },
-  { tab: 'transit_analysis', label: 'Transit Analysis', icon: '▦' },
-  { tab: 'combinations', label: 'Chart Combinations', icon: '◎' },
+  { tab: 'antar_dasha', label: 'Current Dasha (Life Phase)', icon: '⚡' },
+  { tab: 'transit_analysis', label: 'Transit Predictions', icon: '▦' },
+  { tab: 'dos_donts', label: "Do's and Don'ts", icon: '✓' },
 ];
 
 type TransitComboItem = {
@@ -60,7 +70,7 @@ type AstrologerCombosProps = {
 
 type ComboDetailParams = {
   title: string;
-  kind: 'transit' | 'transit_analysis' | 'antar_dasha';
+  kind: 'transit' | 'transit_analysis' | 'antar_dasha' | 'dos_donts';
   clientId?: string;
   heading?: string;
   bullets?: string[];
@@ -134,28 +144,67 @@ const AstrologerCombos = ({
   cardBorder,
   textPrimary,
   textMuted,
-  initialTab = 'combinations',
+  initialTab = 'antar_dasha',
   useParentScroll = false,
 }: AstrologerCombosProps) => {
   const navigation =
     useNavigation<StackNavigationProp<RootStackParamList>>();
   const userService = useMemo(() => new UserService(), []);
+  const tabsScrollRef = useRef<ScrollView | null>(null);
+  const tabPositionsRef = useRef<Partial<Record<ComboTab, number>>>({});
+  const cachedList = clientId ? getCombosListCacheSync(clientId) : null;
   const [comboTab, setComboTab] = useState<ComboTab>(initialTab);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!cachedList);
   const [refreshing, setRefreshing] = useState(false);
-  const [transitItems, setTransitItems] = useState<TransitComboItem[]>([]);
-  const [combinationItems, setCombinationItems] = useState<CombinationListItem[]>([]);
-  const [activeComboItems, setActiveComboItems] = useState<CombinationListItem[]>([]);
-  const [combosAsOfDate, setCombosAsOfDate] = useState(new Date());
+  const [transitItems, setTransitItems] = useState<TransitComboItem[]>(
+    cachedList?.transitItems || [],
+  );
+  const [transitDetailItems, setTransitDetailItems] = useState<CombinationListItem[]>(
+    cachedList?.transitDetailItems || [],
+  );
+  const [combinationItems, setCombinationItems] = useState<CombinationListItem[]>(
+    cachedList?.combinationItems || [],
+  );
+  const [activeComboItems, setActiveComboItems] = useState<CombinationListItem[]>(
+    cachedList?.activeComboItems || [],
+  );
+  const [activityItems, setActivityItems] = useState<CombinationListItem[]>(
+    cachedList?.activityItems || [],
+  );
+  const [combosAsOfDate, setCombosAsOfDate] = useState(
+    cachedList?.combosAsOfDate ? new Date(cachedList.combosAsOfDate) : new Date(),
+  );
 
   const tabLabels = useMemo(
     () => ({
       combinations: `Combinations (${combinationItems.length})`,
-      antar_dasha: `Antardasha Analysis (${activeComboItems.length})`,
-      transit_analysis: `Transit Analysis (${transitItems.length})`,
-      transit: 'Transit combinations',
+      antar_dasha: `Current Dasha (Life Phase) (${activeComboItems.length})`,
+      dos_donts: `Do's and Don'ts (${activityItems.length})`,
+      transit_analysis: `Transit Predictions (${transitDetailItems.length})`,
+      transit: `Transit combinations (${transitItems.length})`,
     }),
-    [transitItems.length, combinationItems.length, activeComboItems.length],
+    [
+      transitItems.length,
+      transitDetailItems.length,
+      combinationItems.length,
+      activeComboItems.length,
+      activityItems.length,
+    ],
+  );
+
+  const applyListCache = useCallback(
+    (cache: NonNullable<ReturnType<typeof getCombosListCacheSync>>) => {
+      setTransitItems(cache.transitItems || []);
+      setTransitDetailItems(cache.transitDetailItems || []);
+      setCombinationItems(cache.combinationItems || []);
+      setActiveComboItems(cache.activeComboItems || []);
+      setActivityItems(cache.activityItems || []);
+      if (cache.combosAsOfDate) {
+        setCombosAsOfDate(new Date(cache.combosAsOfDate));
+      }
+      setLoading(false);
+    },
+    [],
   );
 
   const loadTransitCombos = useCallback(async (): Promise<TransitComboItem[]> => {
@@ -182,16 +231,34 @@ const AstrologerCombos = ({
     }
   }, [clientId, userService]);
 
-  const loadCombinations = useCallback(async () => {
+  const loadCombinations = useCallback(async (): Promise<CombinationListItem[]> => {
     try {
       const response = await userService.getAstrologerCombinations(clientId, 'combinations');
-      setCombinationItems(
-        extractComboListFromResponse(response).map((item, index) =>
-          mapComboListItem(item, index, 'combo'),
-        ),
+      const items = extractComboListFromResponse(response).map((item, index) =>
+        mapComboListItem(item, index, 'combo'),
       );
+      setCombinationItems(items);
+      return items;
     } catch {
       setCombinationItems([]);
+      return [];
+    }
+  }, [clientId, userService]);
+
+  const loadTransitDetailItems = useCallback(async (): Promise<CombinationListItem[]> => {
+    try {
+      const response = await userService.getAstrologerCombinations(
+        clientId,
+        'transit_details_list',
+      );
+      const items = extractComboListFromResponse(response).map((item, index) =>
+        mapComboListItem(item, index, 'transit-detail'),
+      );
+      setTransitDetailItems(items);
+      return items;
+    } catch {
+      setTransitDetailItems([]);
+      return [];
     }
   }, [clientId, userService]);
 
@@ -212,31 +279,99 @@ const AstrologerCombos = ({
     }
   }, [clientId, userService]);
 
+  const loadActivityCombinations = useCallback(async (): Promise<CombinationListItem[]> => {
+    try {
+      const response = await userService.getAstrologerCombinations(
+        clientId,
+        'current_activity',
+      );
+      const items = extractComboListFromResponse(response).map((item, index) =>
+        mapComboListItem(item, index, 'activity'),
+      );
+      setActivityItems(items);
+      return items;
+    } catch {
+      setActivityItems([]);
+      return [];
+    }
+  }, [clientId, userService]);
+
   const loadAllCombos = useCallback(
-    async (options?: { isRefresh?: boolean }) => {
+    async (options?: { isRefresh?: boolean; silent?: boolean }) => {
       if (!clientId) {
         return;
       }
 
       if (options?.isRefresh) {
         setRefreshing(true);
-      } else {
+      } else if (!options?.silent) {
         setLoading(true);
       }
 
       try {
-        await Promise.all([
-          loadTransitCombos(),
-          loadCombinations(),
-          loadActiveCombinations(),
-        ]);
-        setCombosAsOfDate(new Date());
+        const [
+          nextTransit,
+          nextTransitDetails,
+          nextCombinations,
+          nextActive,
+          nextActivity,
+        ] =
+          await Promise.all([
+            loadTransitCombos(),
+            loadTransitDetailItems(),
+            loadCombinations(),
+            loadActiveCombinations(),
+            loadActivityCombinations(),
+          ]);
+        const asOf = new Date();
+        setCombosAsOfDate(asOf);
+        await setCombosListCache(clientId, {
+          transitItems: nextTransit,
+          transitDetailItems: nextTransitDetails,
+          combinationItems: nextCombinations,
+          activeComboItems: nextActive,
+          activityItems: nextActivity,
+          combosAsOfDate: asOf.toISOString(),
+        });
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [clientId, loadActiveCombinations, loadCombinations, loadTransitCombos],
+    [
+      clientId,
+      loadActiveCombinations,
+      loadActivityCombinations,
+      loadCombinations,
+      loadTransitDetailItems,
+      loadTransitCombos,
+    ],
+  );
+
+  const persistCombosCache = useCallback(
+    async (overrides?: Partial<Awaited<ReturnType<typeof getCombosListCache>>>) => {
+      if (!clientId) {
+        return;
+      }
+
+      await setCombosListCache(clientId, {
+        transitItems: overrides?.transitItems || transitItems,
+        transitDetailItems: overrides?.transitDetailItems || transitDetailItems,
+        combinationItems: overrides?.combinationItems || combinationItems,
+        activeComboItems: overrides?.activeComboItems || activeComboItems,
+        activityItems: overrides?.activityItems || activityItems,
+        combosAsOfDate: overrides?.combosAsOfDate || combosAsOfDate.toISOString(),
+      });
+    },
+    [
+      activityItems,
+      clientId,
+      combinationItems,
+      combosAsOfDate,
+      transitDetailItems,
+      transitItems,
+      activeComboItems,
+    ],
   );
 
   useEffect(() => {
@@ -244,20 +379,134 @@ const AstrologerCombos = ({
   }, [clientId, initialTab]);
 
   useEffect(() => {
-    loadAllCombos();
-  }, [loadAllCombos]);
+    let cancelled = false;
+
+    const hydrateAndLoad = async () => {
+      if (!clientId) {
+        return;
+      }
+
+      const memoryHit = getCombosListCacheSync(clientId);
+      if (memoryHit) {
+        applyListCache(memoryHit);
+        // Keep data fresh in background without blocking UI.
+        void loadAllCombos({ silent: true });
+        return;
+      }
+
+      const stored = await getCombosListCache(clientId);
+      if (cancelled) {
+        return;
+      }
+
+      if (stored) {
+        applyListCache(stored);
+        void loadAllCombos({ silent: true });
+        return;
+      }
+
+      await loadAllCombos();
+    };
+
+    void hydrateAndLoad();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyListCache, clientId, loadAllCombos]);
 
   const handleTabChange = (tab: ComboTab) => {
     setComboTab(tab);
   };
+
+  const scrollSelectedTabIntoView = useCallback((tab: ComboTab) => {
+    const tabX = tabPositionsRef.current[tab];
+    if (tabX == null) {
+      return;
+    }
+    tabsScrollRef.current?.scrollTo({
+      x: Math.max(0, tabX - 8),
+      animated: true,
+    });
+  }, []);
+
+  useEffect(() => {
+    scrollSelectedTabIntoView(comboTab);
+  }, [comboTab, scrollSelectedTabIntoView]);
 
   const openDetail = (params: ComboDetailParams) => {
     navigation.navigate('AstrologerComboDetailScreen', params);
   };
 
   const handleRefresh = useCallback(async () => {
-    await loadAllCombos({ isRefresh: true });
-  }, [loadAllCombos]);
+    if (!clientId) {
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      if (comboTab === 'transit_analysis') {
+        const response = await userService.refreshAstrologerCombinations(
+          clientId,
+          'transit_details_list',
+        );
+        const items = extractComboListFromResponse(response).map((item, index) =>
+          mapComboListItem(item, index, 'transit-detail'),
+        );
+        setTransitDetailItems(items);
+        await persistCombosCache({
+          transitDetailItems: items,
+          combosAsOfDate: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (comboTab === 'dos_donts') {
+        const response = await userService.refreshAstrologerCombinations(
+          clientId,
+          'current_activity',
+        );
+        const items = extractComboListFromResponse(response).map((item, index) =>
+          mapComboListItem(item, index, 'activity'),
+        );
+        setActivityItems(items);
+        await persistCombosCache({
+          activityItems: items,
+          combosAsOfDate: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (comboTab === 'transit') {
+        const response = await userService.getAstrologerTransitConnectionList(clientId);
+        const items = extractComboListFromResponse(response).map((item, index) => ({
+          id: `transit-${index}`,
+          heading: getComboHeading(item),
+          subheading: Array.isArray(item.subheading)
+            ? (item.subheading as string[])
+            : [],
+        }));
+        setTransitItems(items);
+        const asOf = new Date();
+        setCombosAsOfDate(asOf);
+        await persistCombosCache({
+          transitItems: items,
+          combosAsOfDate: asOf.toISOString(),
+        });
+        return;
+      }
+
+      await loadAllCombos({ isRefresh: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [
+    clientId,
+    comboTab,
+    loadAllCombos,
+    persistCombosCache,
+    userService,
+  ]);
 
   const renderCombinationsList = () => {
     if (!combinationItems.length) {
@@ -326,21 +575,42 @@ const AstrologerCombos = ({
     }
 
     if (comboTab === 'transit_analysis') {
-      if (!transitItems.length) {
+      if (!transitDetailItems.length) {
         return (
           <Text style={[styles.emptyText, { color: textMuted }]}>
-            No transit analysis found
+            No transit predictions found
           </Text>
         );
       }
 
-      return transitItems.map(item =>
+      return transitDetailItems.map(item =>
         renderDetailRow(item.id, item.heading, () =>
           openDetail({
             title: item.heading,
             kind: 'transit_analysis',
             clientId,
             heading: item.heading,
+          }),
+        ),
+      );
+    }
+
+    if (comboTab === 'dos_donts') {
+      if (!activityItems.length) {
+        return (
+          <Text style={[styles.emptyText, { color: textMuted }]}>
+            No do's and don'ts found
+          </Text>
+        );
+      }
+
+      return activityItems.map(item =>
+        renderDetailRow(item.id, item.heading, () =>
+          openDetail({
+            title: item.heading,
+            kind: 'dos_donts',
+            collection: item.collection,
+            pipeline: item.pipeline,
           }),
         ),
       );
@@ -370,10 +640,14 @@ const AstrologerCombos = ({
     comboTab === 'transit'
       ? 'Combinations activated by Transit planets'
       : comboTab === 'transit_analysis'
-        ? 'Transit Analysis'
+        ? 'Transit Predictions'
         : comboTab === 'combinations'
           ? 'Combinations'
-          : 'Antardasha Analysis';
+          : comboTab === 'dos_donts'
+            ? "Do's and Don'ts"
+            : comboTab === 'antar_dasha'
+              ? 'Current Dasha (Life Phase)'
+              : 'Generic Prediction';
 
   const renderListContent = () => {
     if (loading) {
@@ -410,22 +684,27 @@ const AstrologerCombos = ({
             </Text>
           ) : null}
         </View>
-        <TouchableOpacity
-          style={styles.refreshBtn}
-          onPress={handleRefresh}
-          activeOpacity={0.85}
-          disabled={refreshing || loading}
-        >
-          {refreshing ? (
-            <ActivityIndicator size="small" color={NAVY} />
-          ) : (
-            <Text style={styles.refreshIcon}>↻</Text>
-          )}
-          <Text style={styles.refreshText}>{refreshing ? 'Refreshing' : 'Refresh'}</Text>
-        </TouchableOpacity>
+        {comboTab === 'transit' ||
+        comboTab === 'transit_analysis' ||
+        comboTab === 'dos_donts' ? (
+          <TouchableOpacity
+            style={styles.refreshBtn}
+            onPress={handleRefresh}
+            activeOpacity={0.85}
+            disabled={refreshing || loading}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color={NAVY} />
+            ) : (
+              <Text style={styles.refreshIcon}>↻</Text>
+            )}
+            <Text style={styles.refreshText}>{refreshing ? 'Refreshing' : 'Refresh'}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <ScrollView
+        ref={tabsScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.tabScroll}
@@ -436,6 +715,12 @@ const AstrologerCombos = ({
           return (
             <TouchableOpacity
               key={tab}
+              onLayout={event => {
+                tabPositionsRef.current[tab] = event.nativeEvent.layout.x;
+                if (tab === comboTab) {
+                  scrollSelectedTabIntoView(tab);
+                }
+              }}
               style={[
                 styles.tabBtn,
                 isActive

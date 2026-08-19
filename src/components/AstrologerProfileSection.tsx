@@ -21,6 +21,12 @@ import { setUser } from '../state/slices/appSlice';
 import { RootState } from '../state/store';
 import { Api } from '../types/api';
 import { mergeUserProfile } from '../utils/userRole';
+import http from '../utils/http';
+import {
+  pickPlanForQuestionPrice,
+  resolveQuestionPrice,
+  QuestionPriceInfo,
+} from '../utils/astrologerQuestionPrice';
 
 const GOLD = '#C5A370';
 const NAVY = '#223149';
@@ -85,6 +91,9 @@ const AstrologerProfileSection = () => {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [showBuyQuestionsModal, setShowBuyQuestionsModal] = useState(false);
+  const [questionPrice, setQuestionPrice] = useState<QuestionPriceInfo>(
+    resolveQuestionPrice(null),
+  );
 
   const astrologerUser = user as Record<string, unknown> | undefined;
   const astrologerUserId = String(user?._id || '');
@@ -153,6 +162,33 @@ const AstrologerProfileSection = () => {
       refreshUserDetails();
     }, [refreshUserDetails]),
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadQuestionPrice = async () => {
+      try {
+        const res = await http.get<{ data?: Array<Record<string, unknown>> }>(
+          '/astrologer/plans',
+        );
+        const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+        const matched = pickPlanForQuestionPrice(raw, currentPlan);
+        if (!cancelled) {
+          setQuestionPrice(resolveQuestionPrice(matched));
+        }
+      } catch {
+        if (!cancelled) {
+          setQuestionPrice(resolveQuestionPrice(null));
+        }
+      }
+    };
+
+    loadQuestionPrice();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPlan]);
 
   const getDisplayName = () => {
     const firstName = String(astrologerUser?.first_name || '');
@@ -290,7 +326,7 @@ const AstrologerProfileSection = () => {
                   )}
                 </View>
                 <Text style={[styles.perQuestionPrice, { color: palette.textMuted }]}>
-                  ₹100 per question
+                  {questionPrice.label} per question
                 </Text>
               </View>
             </View>

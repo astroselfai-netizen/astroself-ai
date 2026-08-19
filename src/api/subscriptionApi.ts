@@ -110,6 +110,74 @@ export type UpgradeConfirmResponse = {
   data?: any;
 };
 
+export type AstrologerDowngradeInitiateRequest = {
+  user_id: string;
+  plan_id: string;
+  plan_type: string;
+  country_code: string;
+};
+
+export type AstrologerDowngradeInitiateResponse = {
+  status?: boolean | string;
+  message?: string;
+  subscription_id?: string;
+  renewal_subscription_id?: string;
+  razorpay_subscription_id?: string;
+  razorpay_key?: string;
+  payment_url?: string;
+  short_url?: string;
+  amount?: number | string;
+  currency?: string;
+  data?: Record<string, unknown>;
+};
+
+export type AstrologerDowngradeConfirmRequest = {
+  user_id: string;
+  renewal_subscription_id: string;
+  razorpay_payment_id: string;
+  razorpay_subscription_id: string;
+  razorpay_signature: string;
+};
+
+export type AstrologerDowngradeConfirmResponse = {
+  status?: boolean | string;
+  success?: boolean;
+  message?: string;
+  data?: Record<string, unknown>;
+};
+
+const pickNestedValue = (
+  payload: Record<string, unknown> | undefined,
+  keys: string[],
+): string => {
+  if (!payload) {
+    return '';
+  }
+
+  for (const key of keys) {
+    const value = payload[key];
+    if (value != null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+
+  const nested =
+    payload.data && typeof payload.data === 'object'
+      ? (payload.data as Record<string, unknown>)
+      : null;
+
+  if (nested) {
+    for (const key of keys) {
+      const value = nested[key];
+      if (value != null && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+  }
+
+  return '';
+};
+
 export const subscriptionApi = {
   async getUserPlanDetails(userId: string): Promise<UserPlanDetailsResponse> {
     const headers = await authHeaders();
@@ -217,6 +285,62 @@ export const subscriptionApi = {
       headers,
       timeout: 60000,
     });
+    return res.data;
+  },
+
+  async astrologerDowngradeInitiate(
+    payload: AstrologerDowngradeInitiateRequest,
+  ): Promise<AstrologerDowngradeInitiateResponse> {
+    const headers = await authHeaders();
+    const res = await http.post<AstrologerDowngradeInitiateResponse>(
+      'astrologer/downgrade/user/initiate',
+      payload,
+      { headers, timeout: 60000 },
+    );
+    const data = (res.data || {}) as AstrologerDowngradeInitiateResponse;
+    const nested =
+      data.data && typeof data.data === 'object'
+        ? (data.data as Record<string, unknown>)
+        : undefined;
+
+    return {
+      ...data,
+      subscription_id:
+        pickNestedValue(data as Record<string, unknown>, [
+          'subscription_id',
+          'razorpay_subscription_id',
+        ]) || data.subscription_id,
+      renewal_subscription_id:
+        pickNestedValue(data as Record<string, unknown>, [
+          'renewal_subscription_id',
+          'renewalSubscriptionId',
+        ]) || data.renewal_subscription_id,
+      razorpay_subscription_id:
+        pickNestedValue(data as Record<string, unknown>, [
+          'razorpay_subscription_id',
+          'subscription_id',
+        ]) || data.razorpay_subscription_id,
+      razorpay_key:
+        pickNestedValue(data as Record<string, unknown>, [
+          'razorpay_key',
+          'key',
+        ]) || data.razorpay_key,
+      amount:
+        data.amount ??
+        (nested?.amount as number | string | undefined) ??
+        (nested?.amount_paise as number | string | undefined),
+    };
+  },
+
+  async astrologerDowngradeConfirm(
+    payload: AstrologerDowngradeConfirmRequest,
+  ): Promise<AstrologerDowngradeConfirmResponse> {
+    const headers = await authHeaders();
+    const res = await http.post<AstrologerDowngradeConfirmResponse>(
+      'astrologer/downgrade/user/confirm',
+      payload,
+      { headers, timeout: 60000 },
+    );
     return res.data;
   },
 };

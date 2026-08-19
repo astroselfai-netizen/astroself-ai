@@ -20,9 +20,9 @@ export enum HttpStatusCode {
 
 export const baseURL = __DEV__
   ? Platform.select({
-      android: 'https://astrodha.ai/api',
-      ios: 'https://astrodha.ai/api',
-      default: 'https://astrodha.ai/api',
+      android: 'https://astrouat.astroself.ai/api',
+      ios: 'https://astrouat.astroself.ai/api',
+      default: 'https://astrouat.astroself.ai/api',
     })
   : Platform.select({
       android: 'https://astrodha.ai/api',

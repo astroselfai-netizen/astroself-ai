@@ -1,4 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  filterChatHistoryByMonthYear,
+  groupChatHistoryIntoMonths,
+  normalizeChatHistoryMonthsList,
+} from '../../utils/astrologerChatHistory';
 import http from '../../utils/http';
 import { Service } from '../Service';
 import { Api, CurrentDashaTimeResponse } from '../../types/api';
@@ -806,6 +811,36 @@ export default class UserService extends Service {
     }
   }
 
+  private async fetchAstrologerChatHistoryMonthsFromApi(
+    userId: string,
+    token: string,
+  ): Promise<Api.User.Res.AstrologerChatHistoryMonthsResponse> {
+    const axiosResponse = await http.post(
+      '/astrologer/chat-history/months',
+      { user_id: userId },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    if (axiosResponse?.data?.status === true) {
+      const normalized = normalizeChatHistoryMonthsList(axiosResponse.data.data);
+      return {
+        ...axiosResponse.data,
+        data: normalized,
+        count: normalized.length,
+      };
+    }
+
+    throw new Error(
+      axiosResponse?.data?.message || 'Failed to fetch chat history months',
+    );
+  }
+
   async getAstrologerChatHistoryMonths(
     userId: string,
   ): Promise<Api.User.Res.AstrologerChatHistoryMonthsResponse> {
@@ -816,25 +851,41 @@ export default class UserService extends Service {
         throw new Error('No authentication token found');
       }
 
-      const axiosResponse = await http.post(
-        '/astrologer/chat-history/months',
-        { user_id: userId },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-        },
-      );
+      try {
+        const response = await this.fetchAstrologerChatHistoryMonthsFromApi(
+          userId,
+          token,
+        );
+        if (response.data.length > 0) {
+          return response;
+        }
 
-      if (axiosResponse?.data?.status === true) {
-        return axiosResponse.data;
+        const fullHistory = await this.getAstrologerChatHistory(userId);
+        const months = groupChatHistoryIntoMonths(fullHistory.data || []);
+        if (months.length > 0) {
+          return {
+            status: true,
+            user_id: userId,
+            count: months.length,
+            data: months,
+          };
+        }
+
+        return response;
+      } catch (error: any) {
+        if (error.response?.status !== 404) {
+          throw error;
+        }
+
+        const fullHistory = await this.getAstrologerChatHistory(userId);
+        const months = groupChatHistoryIntoMonths(fullHistory.data || []);
+        return {
+          status: true,
+          user_id: userId,
+          count: months.length,
+          data: months,
+        };
       }
-
-      throw new Error(
-        axiosResponse?.data?.message || 'Failed to fetch chat history months',
-      );
     } catch (error: any) {
       console.error('Get astrologer chat history months error:', error);
 
@@ -864,25 +915,46 @@ export default class UserService extends Service {
         throw new Error('No authentication token found');
       }
 
-      const axiosResponse = await http.post(
-        '/astrologer/chat-history/months/details',
-        { user_id: userId, month, year },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            accept: 'application/json',
-            'Content-Type': 'application/json',
+      try {
+        const axiosResponse = await http.post(
+          '/astrologer/chat-history/months/details',
+          { user_id: userId, month, year },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
           },
-        },
-      );
+        );
 
-      if (axiosResponse?.data?.status === true) {
-        return axiosResponse.data;
+        if (axiosResponse?.data?.status === true) {
+          return axiosResponse.data;
+        }
+
+        throw new Error(
+          axiosResponse?.data?.message || 'Failed to fetch chat history details',
+        );
+      } catch (error: any) {
+        if (error.response?.status !== 404) {
+          throw error;
+        }
+
+        const fullHistory = await this.getAstrologerChatHistory(userId);
+        const data = filterChatHistoryByMonthYear(
+          fullHistory.data || [],
+          month,
+          year,
+        );
+
+        return {
+          status: true,
+          user_id: userId,
+          month,
+          year,
+          data,
+        };
       }
-
-      throw new Error(
-        axiosResponse?.data?.message || 'Failed to fetch chat history details',
-      );
     } catch (error: any) {
       console.error('Get astrologer chat history month details error:', error);
 
@@ -1236,6 +1308,55 @@ export default class UserService extends Service {
     }
   }
 
+  async getAstrologerTransitConnectionList(userId: string): Promise<{
+    status: boolean;
+    current_date?: string;
+    data?: Array<{
+      heading?: string;
+      subheading?: string[];
+    }>;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/transit_connection_list?user_id=${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch transit combinations',
+      );
+    } catch (error: any) {
+      console.error('Get astrologer transit connection list error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch transit combinations. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
   async getAstrologerTransitHeadingReport(
     userId: string,
     heading: string,
@@ -1292,7 +1413,11 @@ export default class UserService extends Service {
 
   async getAstrologerCombinations(
     userId: string,
-    dataType: 'combinations' | 'active_combinations',
+    dataType:
+      | 'combinations'
+      | 'active_combinations'
+      | 'current_activity'
+      | 'transit_details_list',
   ): Promise<{
     status: boolean;
     data?: Array<{
@@ -1338,6 +1463,58 @@ export default class UserService extends Service {
         error?.response?.data?.message ||
         error?.message ||
         'Failed to fetch combinations. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async refreshAstrologerCombinations(
+    userId: string,
+    dataType: 'current_activity' | 'transit_details_list',
+  ): Promise<{
+    status: boolean;
+    data?: Array<{
+      heading?: string;
+      collection?: string;
+      pipeline?: Array<Record<string, unknown>>;
+    }>;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.get(
+        `/astrologer/combinations/refresh?user_id=${encodeURIComponent(userId)}&data_type=${encodeURIComponent(dataType)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to refresh combinations',
+      );
+    } catch (error: any) {
+      console.error('Refresh astrologer combinations error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to refresh combinations. Please try again.';
       throw new Error(errorMessage);
     }
   }

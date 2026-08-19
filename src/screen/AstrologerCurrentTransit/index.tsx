@@ -250,22 +250,11 @@ const AstrologerCurrentTransitScreen = () => {
               >
                 Transit Chart
               </Text>
-              <Text
-                style={[
-                  styles.subTitleText,
-                  {
-                    color:
-                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Enter Details
-              </Text>
             </View>
           </View>
 
           <View style={styles.formContainer}>
-            <Text
+            {/* <Text
               style={[
                 styles.sectionTitle,
                 {
@@ -275,7 +264,7 @@ const AstrologerCurrentTransitScreen = () => {
               ]}
             >
               Transit Details
-            </Text>
+            </Text> */}
 
             <View style={styles.inputContainer}>
               <TouchableOpacity
@@ -297,7 +286,7 @@ const AstrologerCurrentTransitScreen = () => {
                     },
                   ]}
                 >
-                  {formik.values.dateOfBirth || 'Date of Birth'}
+                  {formik.values.dateOfBirth || 'Date'}
                 </Text>
                 <Image
                   source={require('../../assets/icons/date-pikar.png')}
@@ -335,7 +324,7 @@ const AstrologerCurrentTransitScreen = () => {
                     },
                   ]}
                 >
-                  {formik.values.timeOfBirth || 'Time of Birth'}
+                  {formik.values.timeOfBirth || 'Time'}
                 </Text>
                 <Image
                   source={require('../../assets/icons/time_piker.png')}

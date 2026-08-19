@@ -19,10 +19,16 @@ import {
   getRazorpayUpiEnabledFields,
   withUpiPrefill,
 } from '../utils/razorpayUpiOptions';
+import http from '../utils/http';
+import {
+  formatMoneyAmount,
+  pickPlanForQuestionPrice,
+  resolveQuestionPrice,
+  QuestionPriceInfo,
+} from '../utils/astrologerQuestionPrice';
 
 const GOLD = '#C5A370';
 const NAVY = '#223149';
-const PRICE_PER_QUESTION = 100;
 const MAX_QUESTIONS = 20;
 const PRESET_PACKS = [1, 3, 5, 10] as const;
 const POPULAR_COUNT = 5;
@@ -66,6 +72,9 @@ const BuyQuestionsModal = ({
   const [selectedPack, setSelectedPack] = useState<PackSelection>(1);
   const [customCount, setCustomCount] = useState(2);
   const [paying, setPaying] = useState(false);
+  const [questionPrice, setQuestionPrice] = useState<QuestionPriceInfo>(
+    resolveQuestionPrice(null),
+  );
 
   useEffect(() => {
     if (visible) {
@@ -75,12 +84,46 @@ const BuyQuestionsModal = ({
     }
   }, [visible]);
 
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadQuestionPrice = async () => {
+      try {
+        const res = await http.get<{ data?: Array<Record<string, unknown>> }>(
+          '/astrologer/plans',
+        );
+        const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+        const currentPlan = String(
+          (user as Record<string, unknown> | null | undefined)?.current_plan || '',
+        );
+        const matched = pickPlanForQuestionPrice(raw, currentPlan);
+        if (!cancelled) {
+          setQuestionPrice(resolveQuestionPrice(matched));
+        }
+      } catch {
+        if (!cancelled) {
+          setQuestionPrice(resolveQuestionPrice(null));
+        }
+      }
+    };
+
+    loadQuestionPrice();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, visible]);
+
   const questionCount =
     selectedPack === 'custom'
       ? Math.min(MAX_QUESTIONS, Math.max(1, customCount))
       : selectedPack;
 
-  const totalAmount = questionCount * PRICE_PER_QUESTION;
+  const totalAmount = questionCount * questionPrice.amount;
 
   const adjustCustom = useCallback((delta: number) => {
     setCustomCount(prev => {
@@ -241,7 +284,10 @@ const BuyQuestionsModal = ({
             question{count > 1 ? 's' : ''}
           </Text>
         </Text>
-        <Text style={styles.packPrice}>₹{count * PRICE_PER_QUESTION}</Text>
+        <Text style={styles.packPrice}>
+          {questionPrice.tag}
+          {formatMoneyAmount(count * questionPrice.amount)}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -289,7 +335,7 @@ const BuyQuestionsModal = ({
 
           <View style={styles.body}>
             <Text style={styles.instruction}>
-              Pick a pack. Each question costs ₹{PRICE_PER_QUESTION}.
+              Pick a pack. Each question costs {questionPrice.label}.
             </Text>
 
             <View style={styles.packsGrid}>
@@ -354,7 +400,10 @@ const BuyQuestionsModal = ({
           <View style={styles.footer}>
             <View>
               <Text style={styles.totalLabel}>TOTAL</Text>
-              <Text style={styles.totalAmount}>₹{totalAmount}</Text>
+              <Text style={styles.totalAmount}>
+                {questionPrice.tag}
+                {formatMoneyAmount(totalAmount)}
+              </Text>
             </View>
             <TouchableOpacity
               style={[styles.payBtn, paying && styles.payBtnDisabled]}
@@ -365,7 +414,10 @@ const BuyQuestionsModal = ({
               {paying ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.payBtnText}>Pay ₹{totalAmount}</Text>
+                <Text style={styles.payBtnText}>
+                  Pay {questionPrice.tag}
+                  {formatMoneyAmount(totalAmount)}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
