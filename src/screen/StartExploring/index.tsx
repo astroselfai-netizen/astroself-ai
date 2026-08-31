@@ -35,7 +35,12 @@ const StartExploring = () => {
                 style.continueButton,
                 { borderColor: color.Orangeaccentcolor },
               ]}
-              onPress={() => navigation.navigate('AddNewMember')}
+              onPress={() =>
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'AddNewMember' }],
+                })
+              }
             >
               <Text
                 style={[

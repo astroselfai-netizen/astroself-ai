@@ -62,7 +62,6 @@ const NEW_CHAT_SUGGESTIONS = [
   'When will I buy a house?',
   'When will I see a job change?',
   'When will I see an increase in my income?',
-  'Do I have a chance to settle abroad?',
 ];
 const TRANSIT_CHART_SIZE = responsiveWidth('86');
 const TRANSIT_CHART_PADDING = responsiveWidth('3');
@@ -395,6 +394,35 @@ const AstrologerClientChatScreen = () => {
   const astrologerQuestionBalance = Math.max(
     0,
     Math.floor(Number((user as Record<string, unknown> | undefined)?.question_count ?? 0)),
+  );
+
+  const parseMemberDashaPeriod = useCallback(
+    (dashaObj?: Record<string, string[]>) => {
+      if (!dashaObj) {
+        return null;
+      }
+      const entries = Object.entries(dashaObj);
+      if (!entries.length) {
+        return null;
+      }
+      const [planet, ranges] = entries[0];
+      return {
+        planet,
+        dateRange: String(ranges?.[0] || '')
+          .replace(/\s+to\s+/i, ' → ')
+          .replace(/\s*->\s*/g, ' → '),
+      };
+    },
+    [],
+  );
+
+  const mahadashaPeriod = useMemo(
+    () => parseMemberDashaPeriod(memberDetails?.dasha_result?.Mahadasha),
+    [memberDetails?.dasha_result?.Mahadasha, parseMemberDashaPeriod],
+  );
+  const antardashaPeriod = useMemo(
+    () => parseMemberDashaPeriod(memberDetails?.dasha_result?.Antardasha),
+    [memberDetails?.dasha_result?.Antardasha, parseMemberDashaPeriod],
   );
 
   useEffect(() => {
@@ -1753,6 +1781,8 @@ const AstrologerClientChatScreen = () => {
             textMuted={palette.textMuted}
             initialTab={route.params?.initialComboTab}
             useParentScroll
+            mahadasha={mahadashaPeriod}
+            antardasha={antardashaPeriod}
           />
         ) : (
           <View
@@ -2094,7 +2124,7 @@ const AstrologerClientChatScreen = () => {
                   <TextInput
                     ref={inputRef}
                     style={[styles.textInput, { color: palette.textPrimary }]}
-                    placeholder={isSending ? 'Waiting for response...' : 'Type your message...'}
+                    placeholder={isSending ? 'Waiting for response...' : 'Ask your questions...'}
                     placeholderTextColor={palette.textMuted}
                     value={inputText}
                     onChangeText={setInputText}

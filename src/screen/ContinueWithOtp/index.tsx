@@ -152,7 +152,10 @@ const ContinueWithOtp = () => {
 
   const navigateAfterAuth = async (userData: any) => {
     if (isAstrologerUser(userData)) {
-      navigation.replace('AstrologerHome');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AstrologerHome' }],
+      });
       return;
     }
     Toast.show({
@@ -347,7 +350,10 @@ const ContinueWithOtp = () => {
       });
 
       setTimeout(() => {
-        navigation.replace('AstrologerHome');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AstrologerHome' }],
+        });
       }, 1000);
      } else {
        Toast.show({

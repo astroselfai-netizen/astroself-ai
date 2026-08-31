@@ -27,7 +27,12 @@ import {
 
 const NAVY = '#1A3673';
 
-type ComboDetailKind = 'transit' | 'transit_analysis' | 'antar_dasha' | 'dos_donts';
+type ComboDetailKind =
+  | 'transit'
+  | 'transit_analysis'
+  | 'antar_dasha'
+  | 'dos_donts'
+  | 'the_inner_you';
 
 type RootStackParamList = {
   AstrologerComboDetailScreen: {

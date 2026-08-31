@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const LIST_PREFIX = 'ASTROLOGER_COMBOS_LIST_V3';
+const LIST_PREFIX = 'ASTROLOGER_COMBOS_LIST_V4';
 const DETAIL_PREFIX = 'ASTROLOGER_COMBO_DETAIL_V1';
 
 export type CachedTransitComboItem = {
@@ -17,11 +17,12 @@ export type CachedCombinationListItem = {
 };
 
 export type AstrologerCombosListCache = {
-  transitItems: CachedTransitComboItem[];
+  transitItems?: CachedTransitComboItem[];
   transitDetailItems: CachedCombinationListItem[];
   combinationItems: CachedCombinationListItem[];
   activeComboItems: CachedCombinationListItem[];
   activityItems: CachedCombinationListItem[];
+  innerYouItems?: CachedCombinationListItem[];
   combosAsOfDate: string;
   savedAt: string;
 };
@@ -113,6 +114,7 @@ export const setCombosListCache = async (
     combinationItems: payload.combinationItems || [],
     activeComboItems: payload.activeComboItems || [],
     activityItems: payload.activityItems || [],
+    innerYouItems: payload.innerYouItems || [],
     combosAsOfDate: payload.combosAsOfDate || new Date().toISOString(),
     savedAt: payload.savedAt || new Date().toISOString(),
   };

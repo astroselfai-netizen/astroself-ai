@@ -242,7 +242,11 @@ const AstrologerCreateClientScreen = () => {
             initialView: 'chat',
           });
         } else {
-          navigation.navigate('AstrologerHome');
+          // Clear Create Account / OTP / Create Chart so device back cannot return
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'AstrologerHome' }],
+          });
         }
       } catch (error: unknown) {
         const err = error as { message?: string };

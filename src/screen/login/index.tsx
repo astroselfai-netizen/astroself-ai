@@ -151,7 +151,10 @@ const Login = () => {
 
     const userId = userData?._id || userData?.user_id || userData?.id;
     if (!userId) {
-      navigation.replace('AstrologerHome');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AstrologerHome' }],
+      });
       return;
     }
 
@@ -162,11 +165,17 @@ const Login = () => {
     );
 
     if (screen === 'AstrologerCreateClientScreen') {
-      navigation.replace('AstrologerCreateClientScreen', params);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AstrologerCreateClientScreen', params }],
+      });
       return;
     }
 
-    navigation.replace('AstrologerHome');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'AstrologerHome' }],
+    });
   };
 
   const navigateAfterAuth = (userData: any) => {

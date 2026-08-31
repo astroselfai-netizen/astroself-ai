@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,17 +22,17 @@ const NAVY = '#1A3673';
 const GOLD = '#C5A370';
 
 type ComboTab =
-  | 'transit'
   | 'transit_analysis'
   | 'combinations'
   | 'antar_dasha'
-  | 'dos_donts';
+  | 'dos_donts'
+  | 'the_inner_you';
 
 const COMBO_TAB_ORDER: ComboTab[] = [
   'antar_dasha',
   'transit_analysis',
   'dos_donts',
-  'transit',
+  'the_inner_you',
   'combinations',
 ];
 
@@ -40,22 +41,21 @@ export const CLIENT_COMBO_SHORTCUTS: {
   label: string;
   icon: string;
 }[] = [
-  { tab: 'antar_dasha', label: 'Current Dasha (Life Phase)', icon: '⚡' },
+  { tab: 'antar_dasha', label: 'Current Phase of Life', icon: '⚡' },
   { tab: 'transit_analysis', label: 'Transit Predictions', icon: '▦' },
   { tab: 'dos_donts', label: "Do's and Don'ts", icon: '✓' },
 ];
-
-type TransitComboItem = {
-  id: string;
-  heading: string;
-  subheading: string[];
-};
 
 type CombinationListItem = {
   id: string;
   heading: string;
   collection?: string;
   pipeline?: Array<Record<string, unknown>>;
+};
+
+type DashaPeriodInfo = {
+  planet: string;
+  dateRange: string;
 };
 
 type AstrologerCombosProps = {
@@ -66,11 +66,13 @@ type AstrologerCombosProps = {
   textMuted: string;
   initialTab?: ComboTab;
   useParentScroll?: boolean;
+  mahadasha?: DashaPeriodInfo | null;
+  antardasha?: DashaPeriodInfo | null;
 };
 
 type ComboDetailParams = {
   title: string;
-  kind: 'transit' | 'transit_analysis' | 'antar_dasha' | 'dos_donts';
+  kind: 'transit_analysis' | 'antar_dasha' | 'dos_donts' | 'the_inner_you';
   clientId?: string;
   heading?: string;
   bullets?: string[];
@@ -86,6 +88,44 @@ const formatAsOfDate = (date: Date) => {
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${day}-${month}-${date.getFullYear()}`;
+};
+
+const MONTH_LABELS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+const formatDashaDateToken = (raw: string) => {
+  const match = raw.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (!match) {
+    return raw.trim();
+  }
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = match[3];
+  const monthLabel = MONTH_LABELS[month - 1];
+  if (!monthLabel) {
+    return raw.trim();
+  }
+  return `${day} ${monthLabel} ${year}`;
+};
+
+const formatDashaRangeForIntro = (dateRange: string) => {
+  const parts = dateRange.split(/\s*(?:→|->|to)\s*/i).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${formatDashaDateToken(parts[0])} to ${formatDashaDateToken(parts[1])}`;
+  }
+  return dateRange.trim();
 };
 
 const getComboHeading = (item: Record<string, unknown>) =>
@@ -146,6 +186,8 @@ const AstrologerCombos = ({
   textMuted,
   initialTab = 'antar_dasha',
   useParentScroll = false,
+  mahadasha = null,
+  antardasha = null,
 }: AstrologerCombosProps) => {
   const navigation =
     useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -156,9 +198,6 @@ const AstrologerCombos = ({
   const [comboTab, setComboTab] = useState<ComboTab>(initialTab);
   const [loading, setLoading] = useState(!cachedList);
   const [refreshing, setRefreshing] = useState(false);
-  const [transitItems, setTransitItems] = useState<TransitComboItem[]>(
-    cachedList?.transitItems || [],
-  );
   const [transitDetailItems, setTransitDetailItems] = useState<CombinationListItem[]>(
     cachedList?.transitDetailItems || [],
   );
@@ -171,34 +210,38 @@ const AstrologerCombos = ({
   const [activityItems, setActivityItems] = useState<CombinationListItem[]>(
     cachedList?.activityItems || [],
   );
+  const [innerYouItems, setInnerYouItems] = useState<CombinationListItem[]>(
+    cachedList?.innerYouItems || [],
+  );
   const [combosAsOfDate, setCombosAsOfDate] = useState(
     cachedList?.combosAsOfDate ? new Date(cachedList.combosAsOfDate) : new Date(),
   );
+  const [showPhaseIntroModal, setShowPhaseIntroModal] = useState(false);
 
   const tabLabels = useMemo(
     () => ({
       combinations: `Combinations (${combinationItems.length})`,
-      antar_dasha: `Current Dasha (Life Phase) (${activeComboItems.length})`,
+      antar_dasha: `Current Phase of Life (${activeComboItems.length})`,
       dos_donts: `Do's and Don'ts (${activityItems.length})`,
       transit_analysis: `Transit Predictions (${transitDetailItems.length})`,
-      transit: `Transit combinations (${transitItems.length})`,
+      the_inner_you: `The Inner You (${innerYouItems.length})`,
     }),
     [
-      transitItems.length,
       transitDetailItems.length,
       combinationItems.length,
       activeComboItems.length,
       activityItems.length,
+      innerYouItems.length,
     ],
   );
 
   const applyListCache = useCallback(
     (cache: NonNullable<ReturnType<typeof getCombosListCacheSync>>) => {
-      setTransitItems(cache.transitItems || []);
       setTransitDetailItems(cache.transitDetailItems || []);
       setCombinationItems(cache.combinationItems || []);
       setActiveComboItems(cache.activeComboItems || []);
       setActivityItems(cache.activityItems || []);
+      setInnerYouItems(cache.innerYouItems || []);
       if (cache.combosAsOfDate) {
         setCombosAsOfDate(new Date(cache.combosAsOfDate));
       }
@@ -206,30 +249,6 @@ const AstrologerCombos = ({
     },
     [],
   );
-
-  const loadTransitCombos = useCallback(async (): Promise<TransitComboItem[]> => {
-    try {
-      const response = await userService.getAstrologerTransitResult(clientId);
-      const items = extractComboListFromResponse(response).map((item, index) => ({
-        id: `transit-${index}`,
-        heading: getComboHeading(item),
-        subheading: Array.isArray(item.subheading)
-          ? (item.subheading as string[])
-          : [],
-      }));
-      setTransitItems(items);
-      if (response?.current_date) {
-        const [day, month, year] = response.current_date.split('-').map(Number);
-        if (day && month && year) {
-          setCombosAsOfDate(new Date(year, month - 1, day));
-        }
-      }
-      return items;
-    } catch {
-      setTransitItems([]);
-      return [];
-    }
-  }, [clientId, userService]);
 
   const loadCombinations = useCallback(async (): Promise<CombinationListItem[]> => {
     try {
@@ -296,6 +315,23 @@ const AstrologerCombos = ({
     }
   }, [clientId, userService]);
 
+  const loadInnerYouCombinations = useCallback(async (): Promise<CombinationListItem[]> => {
+    try {
+      const response = await userService.getAstrologerCombinations(
+        clientId,
+        'the_inner_you',
+      );
+      const items = extractComboListFromResponse(response).map((item, index) =>
+        mapComboListItem(item, index, 'inner-you'),
+      );
+      setInnerYouItems(items);
+      return items;
+    } catch {
+      setInnerYouItems([]);
+      return [];
+    }
+  }, [clientId, userService]);
+
   const loadAllCombos = useCallback(
     async (options?: { isRefresh?: boolean; silent?: boolean }) => {
       if (!clientId) {
@@ -310,27 +346,28 @@ const AstrologerCombos = ({
 
       try {
         const [
-          nextTransit,
           nextTransitDetails,
           nextCombinations,
           nextActive,
           nextActivity,
+          nextInnerYou,
         ] =
           await Promise.all([
-            loadTransitCombos(),
             loadTransitDetailItems(),
             loadCombinations(),
             loadActiveCombinations(),
             loadActivityCombinations(),
+            loadInnerYouCombinations(),
           ]);
         const asOf = new Date();
         setCombosAsOfDate(asOf);
         await setCombosListCache(clientId, {
-          transitItems: nextTransit,
+          transitItems: [],
           transitDetailItems: nextTransitDetails,
           combinationItems: nextCombinations,
           activeComboItems: nextActive,
           activityItems: nextActivity,
+          innerYouItems: nextInnerYou,
           combosAsOfDate: asOf.toISOString(),
         });
       } finally {
@@ -343,8 +380,8 @@ const AstrologerCombos = ({
       loadActiveCombinations,
       loadActivityCombinations,
       loadCombinations,
+      loadInnerYouCombinations,
       loadTransitDetailItems,
-      loadTransitCombos,
     ],
   );
 
@@ -355,11 +392,12 @@ const AstrologerCombos = ({
       }
 
       await setCombosListCache(clientId, {
-        transitItems: overrides?.transitItems || transitItems,
+        transitItems: overrides?.transitItems || [],
         transitDetailItems: overrides?.transitDetailItems || transitDetailItems,
         combinationItems: overrides?.combinationItems || combinationItems,
         activeComboItems: overrides?.activeComboItems || activeComboItems,
         activityItems: overrides?.activityItems || activityItems,
+        innerYouItems: overrides?.innerYouItems || innerYouItems,
         combosAsOfDate: overrides?.combosAsOfDate || combosAsOfDate.toISOString(),
       });
     },
@@ -368,8 +406,8 @@ const AstrologerCombos = ({
       clientId,
       combinationItems,
       combosAsOfDate,
+      innerYouItems,
       transitDetailItems,
-      transitItems,
       activeComboItems,
     ],
   );
@@ -477,25 +515,6 @@ const AstrologerCombos = ({
         return;
       }
 
-      if (comboTab === 'transit') {
-        const response = await userService.getAstrologerTransitConnectionList(clientId);
-        const items = extractComboListFromResponse(response).map((item, index) => ({
-          id: `transit-${index}`,
-          heading: getComboHeading(item),
-          subheading: Array.isArray(item.subheading)
-            ? (item.subheading as string[])
-            : [],
-        }));
-        setTransitItems(items);
-        const asOf = new Date();
-        setCombosAsOfDate(asOf);
-        await persistCombosCache({
-          transitItems: items,
-          combosAsOfDate: asOf.toISOString(),
-        });
-        return;
-      }
-
       await loadAllCombos({ isRefresh: true });
     } finally {
       setRefreshing(false);
@@ -554,26 +573,6 @@ const AstrologerCombos = ({
   );
 
   const renderExpandableList = () => {
-    if (comboTab === 'transit') {
-      if (!transitItems.length) {
-        return (
-          <Text style={[styles.emptyText, { color: textMuted }]}>
-            No transit combinations found
-          </Text>
-        );
-      }
-
-      return transitItems.map(item =>
-        renderDetailRow(item.id, item.heading, () =>
-          openDetail({
-            title: item.heading,
-            kind: 'transit',
-            bullets: item.subheading,
-          }),
-        ),
-      );
-    }
-
     if (comboTab === 'transit_analysis') {
       if (!transitDetailItems.length) {
         return (
@@ -616,6 +615,27 @@ const AstrologerCombos = ({
       );
     }
 
+    if (comboTab === 'the_inner_you') {
+      if (!innerYouItems.length) {
+        return (
+          <Text style={[styles.emptyText, { color: textMuted }]}>
+            No Inner You insights found
+          </Text>
+        );
+      }
+
+      return innerYouItems.map(item =>
+        renderDetailRow(item.id, item.heading, () =>
+          openDetail({
+            title: item.heading,
+            kind: 'the_inner_you',
+            collection: item.collection,
+            pipeline: item.pipeline,
+          }),
+        ),
+      );
+    }
+
     if (!activeComboItems.length) {
       return (
         <Text style={[styles.emptyText, { color: textMuted }]}>
@@ -637,17 +657,38 @@ const AstrologerCombos = ({
   };
 
   const headerTitle =
-    comboTab === 'transit'
-      ? 'Combinations activated by Transit planets'
-      : comboTab === 'transit_analysis'
-        ? 'Transit Predictions'
-        : comboTab === 'combinations'
-          ? 'Combinations'
-          : comboTab === 'dos_donts'
-            ? "Do's and Don'ts"
+    comboTab === 'transit_analysis'
+      ? 'Transit Predictions'
+      : comboTab === 'combinations'
+        ? 'Combinations'
+        : comboTab === 'dos_donts'
+          ? "Do's and Don'ts"
+          : comboTab === 'the_inner_you'
+            ? 'The Inner You'
             : comboTab === 'antar_dasha'
-              ? 'Current Dasha (Life Phase)'
+              ? 'Current Phase of Life'
               : 'Generic Prediction';
+
+  const phaseOfLifeIntro = useMemo(() => {
+    if (!mahadasha?.planet || !antardasha?.planet) {
+      return null;
+    }
+
+    return {
+      mdPlanet: mahadasha.planet,
+      mdRange: formatDashaRangeForIntro(mahadasha.dateRange),
+      adPlanet: antardasha.planet,
+      adRange: formatDashaRangeForIntro(antardasha.dateRange),
+    };
+  }, [antardasha, mahadasha]);
+
+  useEffect(() => {
+    if (comboTab === 'antar_dasha' && phaseOfLifeIntro) {
+      setShowPhaseIntroModal(true);
+      return;
+    }
+    setShowPhaseIntroModal(false);
+  }, [comboTab, phaseOfLifeIntro, clientId]);
 
   const renderListContent = () => {
     if (loading) {
@@ -664,7 +705,9 @@ const AstrologerCombos = ({
       );
     }
 
-    return <View style={styles.listScrollContent}>{renderExpandableList()}</View>;
+    return (
+      <View style={styles.listScrollContent}>{renderExpandableList()}</View>
+    );
   };
 
   return (
@@ -678,15 +721,13 @@ const AstrologerCombos = ({
       <View style={styles.headerRow}>
         <View style={styles.headerTextWrap}>
           <Text style={[styles.title, { color: textPrimary }]}>{headerTitle}</Text>
-          {comboTab === 'transit' || comboTab === 'transit_analysis' ? (
+          {comboTab === 'transit_analysis' ? (
             <Text style={[styles.asOf, { color: textPrimary }]}>
               As of: {formatAsOfDate(combosAsOfDate)}
             </Text>
           ) : null}
         </View>
-        {comboTab === 'transit' ||
-        comboTab === 'transit_analysis' ||
-        comboTab === 'dos_donts' ? (
+        {comboTab === 'transit_analysis' || comboTab === 'dos_donts' ? (
           <TouchableOpacity
             style={styles.refreshBtn}
             onPress={handleRefresh}
@@ -756,11 +797,67 @@ const AstrologerCombos = ({
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
         >
-          {comboTab === 'combinations'
-            ? renderCombinationsList()
-            : renderExpandableList()}
+          {comboTab === 'combinations' ? (
+            renderCombinationsList()
+          ) : (
+            renderExpandableList()
+          )}
         </ScrollView>
       )}
+
+      <Modal
+        visible={showPhaseIntroModal && !!phaseOfLifeIntro}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPhaseIntroModal(false)}
+      >
+        <View style={styles.phaseModalOverlay}>
+          <View
+            style={[
+              styles.phaseModalCard,
+              {
+                backgroundColor: cardBg === '#FFFFFF' ? '#FFFFFF' : cardBg,
+                borderColor: cardBorder,
+              },
+            ]}
+          >
+            <Text style={[styles.phaseModalTitle, { color: textPrimary }]}>
+              Current Phase of Life
+            </Text>
+            {phaseOfLifeIntro ? (
+              <Text style={[styles.phaseIntroText, { color: textPrimary }]}>
+                The longer life direction is largely indicated by{' '}
+                <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                  {phaseOfLifeIntro.mdPlanet} Mahadasha
+                </Text>{' '}
+                from{' '}
+                <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                  {phaseOfLifeIntro.mdRange}
+                </Text>
+                , while your current phase of life is indicated by{' '}
+                <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                  {phaseOfLifeIntro.adPlanet}
+                </Text>{' '}
+                from{' '}
+                <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                  {phaseOfLifeIntro.adRange}
+                </Text>
+                . This planet makes some connections with other planets. Possible
+                experiences of such connections are listed below. You are
+                suggested to go through it to see how life is unfolding for you
+                and align your energies accordingly.
+              </Text>
+            ) : null}
+            <TouchableOpacity
+              style={styles.phaseModalBtn}
+              onPress={() => setShowPhaseIntroModal(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.phaseModalBtnText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -782,6 +879,47 @@ const styles = StyleSheet.create({
   },
   listScrollContent: {
     paddingBottom: responsiveWidth('4'),
+  },
+  phaseModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth('6'),
+  },
+  phaseModalCard: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  phaseModalTitle: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    marginBottom: 10,
+  },
+  phaseIntroText: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: fontFamily.regular,
+  },
+  phaseIntroHighlight: {
+    fontFamily: fontFamily.semiBold,
+  },
+  phaseModalBtn: {
+    marginTop: 16,
+    backgroundColor: NAVY,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  phaseModalBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
   },
   detailRow: {
     flexDirection: 'row',

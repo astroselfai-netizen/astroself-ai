@@ -41,7 +41,6 @@ import { RootState } from '../../state/store';
 // import Bg from '../../assets/svgs/bg.svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { StackActions } from '@react-navigation/native';
 import { AuthContainer } from '../../components/common/AuthContainer';
 import { icons } from '../../assets';
 import { useTheme } from '../../context/ThemeContext';
@@ -51,6 +50,7 @@ export type RootStackParamList = {
   Register: undefined; // Register screen
   ForgotPassword: undefined;
   HomeScreen: undefined;
+  StartExploring: undefined;
   ContinueWithOtp: undefined;
   AddNewMember: undefined;
   BasicDeatil: undefined;
@@ -108,37 +108,34 @@ const Register = () => {
   const countryCodes = COUNTRY_CODES;
 
   // Helper function to navigate based on members data
+  // Use reset so Login/Register are cleared from the stack (Android back won't return to auth)
   const navigateAfterAuth = async (current_members?: number) => {
     try {
       const membersCount = current_members ? current_members : 0;
       console.log('navigateAfterAuth called with current_members:', membersCount);
       console.log('Redux membersData:', membersData);
-      
+
       if (membersCount === 0 || membersCount === undefined) {
-        console.log('No members found, navigating to HomeScreen then AddNewMember');
-        // Set flag to navigate to AddNewMember after HomeScreen loads
+        console.log('No members found, navigating to StartExploring');
         await AsyncStorage.setItem('NAVIGATE_TO_ADD_MEMBER', 'true');
-        
-        // Navigate to StartExploring screen first
-        navigation.dispatch(
-          StackActions.replace('StartExploring')
-        );
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'StartExploring' }],
+        });
       } else {
         console.log('Members found, navigating to HomeScreen');
-        navigation.dispatch(
-          StackActions.replace('HomeScreen')
-        );
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'HomeScreen' }],
+        });
       }
     } catch (error) {
       console.error('Navigation error:', error);
-      // Fallback: Navigate to HomeScreen first, then AddNewMember
       try {
-        // navigation.dispatch(
-        //   StackActions.replace('HomeScreen')
-        // );
-        setTimeout(() => {
-          (navigation as any).navigate('StartExploring');
-        }, 200);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'StartExploring' }],
+        });
       } catch (fallbackError) {
         console.error('Fallback navigation error:', fallbackError);
       }

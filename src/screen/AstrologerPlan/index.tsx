@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  ImageBackground,
   Platform,
   ScrollView,
   StatusBar,
@@ -519,6 +518,18 @@ const getPlanNoteText = (plan: PlanApiItem | null): string | null => {
   }
 
   return stripHtmlTags(noteFeature.richContent) || null;
+};
+
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
+
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
 };
 
 const AstrologerPlanScreen = () => {
@@ -1286,26 +1297,17 @@ const AstrologerPlanScreen = () => {
   };
 
   return (
-    <MainContainer>
+    <MainContainer
+      containerStyle={astrologerMainContainerStyle}
+      subContainerStyle={astrologerContainerStyle}
+    >
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent
       />
 
-      <ImageBackground
-        source={
-          isDark
-            ? require('../../assets/image/DarkBackground.png')
-            : require('../../assets/image/LightBackground.png')
-        }
-        style={[
-          styles.stickyHeaderContainer,
-          { backgroundColor: isDark ? colors.cardBackground : colors.white },
-        ]}
-        imageStyle={styles.stickyHeaderBgImage}
-      >
-        <View style={styles.stickyHeaderOverlay} />
+      <View style={styles.stickyHeaderContainer}>
         <View style={styles.stickyHeaderRow}>
           <View>
             <Text
@@ -1339,7 +1341,7 @@ const AstrologerPlanScreen = () => {
             resizeMode="contain"
           />
         </View>
-      </ImageBackground>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
@@ -1499,32 +1501,15 @@ const AstrologerPlanScreen = () => {
 const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
-    paddingTop: Platform.OS === 'ios' ? responsiveWidth('28') : responsiveWidth('24'),
     paddingBottom: Platform.OS === 'android' ? 140 : 120,
   },
   stickyHeaderContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
+    width: '100%',
     marginTop:
-      Platform.OS === 'android'
-        ? 0
-        : responsiveWidth('13%'),
-    paddingHorizontal: 16,
+      Platform.OS === 'android' ? 0 : responsiveWidth('13%'),
+    paddingHorizontal: responsiveWidth('4'),
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
     paddingBottom: responsiveWidth('3'),
-    overflow: 'hidden',
-    minHeight: responsiveWidth('18'),
-  },
-  stickyHeaderBgImage: {},
-  stickyHeaderOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   stickyHeaderRow: {
     flexDirection: 'row',

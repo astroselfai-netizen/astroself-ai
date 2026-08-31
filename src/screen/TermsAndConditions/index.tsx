@@ -66,7 +66,7 @@ const TermsAndConditions = () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const res = await http.get<TermsApiResponse>('/terms');
+      const res = await http.get<TermsApiResponse>('/astrologer/terms');
       const apiTitle = res.data?.data?.title;
       const apiTerms = res.data?.data?.terms ?? [];
 

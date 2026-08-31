@@ -275,8 +275,14 @@ const AstrologerRegisterScreen = () => {
 
           setTimeout(() => {
             if (response.access_token) {
-              navigation.replace('AstrologerCreateClientScreen', {
-                fromRegistration: true,
+              navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: 'AstrologerCreateClientScreen',
+                    params: { fromRegistration: true },
+                  },
+                ],
               });
             } else {
               navigation.navigate('Login');

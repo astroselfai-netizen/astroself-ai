@@ -47,6 +47,36 @@ target 'Astroself' do
       :mac_catalyst_enabled => false,
     )
 
+    # Quote RN helper scripts so Archive works when the project path has spaces.
+    quote_rn_script_paths = lambda do |project|
+      project.targets.each do |target|
+        target.shell_script_build_phases.each do |phase|
+          script = phase.shell_script
+          next if script.nil?
+
+          updated = script
+            .gsub(
+              '/bin/sh -c "$WITH_ENVIRONMENT $SCRIPT_PHASES_SCRIPT"',
+              '/bin/sh -c "\"$WITH_ENVIRONMENT\" \"$SCRIPT_PHASES_SCRIPT\""',
+            )
+            .gsub(
+              '/bin/sh -c ""$WITH_ENVIRONMENT" "$SCRIPT_PHASES_SCRIPT""',
+              '/bin/sh -c "\"$WITH_ENVIRONMENT\" \"$SCRIPT_PHASES_SCRIPT\""',
+            )
+            .gsub(
+              '/bin/sh -c "$WITH_ENVIRONMENT $REACT_NATIVE_XCODE"',
+              '/bin/sh -c "\"$WITH_ENVIRONMENT\" \"$REACT_NATIVE_XCODE\""',
+            )
+          phase.shell_script = updated if updated != script
+        end
+      end
+    end
+
+    quote_rn_script_paths.call(installer.pods_project)
+    if installer.respond_to?(:generated_projects)
+      installer.generated_projects.each { |project| quote_rn_script_paths.call(project) }
+    end
+
     # Xcode 26+: fmt 11.0.2 consteval fails with Apple Clang 21 (RN #55601). Use C++17 for fmt only.
     pod_projects = [installer.pods_project]
     if installer.respond_to?(:generated_projects)

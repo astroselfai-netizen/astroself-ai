@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
-  StatusBar,
   TouchableOpacity,
   TextInput,
   Modal,
@@ -19,6 +18,7 @@ import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Toast from 'react-native-toast-message';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { ComboTab } from '../../components/AstrologerCombos';
 import { responsiveWidth, fontFamily } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -263,7 +263,7 @@ const ClientCard = ({
   }> = [
     {
       key: 'antar_dasha',
-      label: 'Current Dasha (Life Phase)',
+      label: 'Current Phase of Life',
       icon: '⚡',
       onPress: () => onComboShortcut(client, 'antar_dasha'),
     },
@@ -765,6 +765,7 @@ const AstrologerMyClientsScreen = () => {
         style={styles.flex}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
+        <AstrologerScreenHeader title="Your Charts" />
         <MainContainer
           containerStyle={astrologerMainContainerStyle}
           subContainerStyle={astrologerContainerStyle}
@@ -788,66 +789,25 @@ const AstrologerMyClientsScreen = () => {
       style={styles.flex}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
     >
-      <MainContainer
-        containerStyle={astrologerMainContainerStyle}
-        subContainerStyle={astrologerContainerStyle}
-      >
-        <View style={styles.headerBackground}>
-          <View style={styles.heroTopRow}>
-            <View>
-              <Text
-                style={[
-                  styles.heroTitle,
-                  {
-                    color: palette.isDark
-                      ? palette.textPrimary
-                      : colors.Orangeaccentcolor,
-                  },
-                ]}
-              >
-                Your Charts
-              </Text>
-              <View
-                style={[
-                  styles.heroTitleUnderline,
-                  {
-                    backgroundColor: palette.isDark
-                      ? palette.gold
-                      : colors.Orangeaccentcolor,
-                  },
-                ]}
-              />
-            </View>
-
-            <Image
-              source={require('../../assets/icons/Subtract-dark.png')}
-              style={[
-                styles.headerLogo,
-                {
-                  tintColor: palette.isDark
-                    ? '#EEE5CA'
-                    : colors.Orangeaccentcolor,
-                },
-              ]}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
-
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={refreshClients}
-              tintColor={palette.isDark ? colors.themeTextWhite : colors.DarkNavy}
-              colors={[palette.accent]}
-            />
-          }
+        <AstrologerScreenHeader title="Your Charts" />
+        <MainContainer
+          containerStyle={astrologerMainContainerStyle}
+          subContainerStyle={astrologerContainerStyle}
         >
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={refreshClients}
+                tintColor={palette.isDark ? colors.themeTextWhite : colors.DarkNavy}
+                colors={[palette.accent]}
+              />
+            }
+          >
           <View style={styles.contentPadding}>
             {/* <View style={styles.yourClientsHeader}>
               <View style={[styles.yourClientsMarker, { backgroundColor: palette.gold }]} />
@@ -1222,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   contentPadding: {
     paddingHorizontal: responsiveWidth('4'),
-    paddingTop: responsiveWidth('2'),
+    paddingTop: responsiveWidth('5'),
   },
   loadingContainer: {
     flex: 1,
@@ -1232,37 +1192,6 @@ const styles = StyleSheet.create({
   lottieAnimation: {
     width: 264,
     height: 264,
-  },
-  headerBackground: {
-    width: '100%',
-    marginTop:
-      Platform.OS === 'android' ? 0 : responsiveWidth('13%'),
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
-    paddingBottom: responsiveWidth('3'),
-    paddingHorizontal: responsiveWidth('4'),
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  heroTitle: {
-    fontSize: 24,
-    fontFamily: fontFamily.bold,
-  },
-  heroTitleUnderline: {
-    width: 42,
-    height: 3,
-    marginTop: 6,
-    borderRadius: 2,
-  },
-  headerLogo: {
-    width: responsiveWidth('30'),
-    height: responsiveWidth('8'),
-    marginTop: 2,
-  },
-  headerLogoDark: {
-    tintColor: '#EEE5CA',
   },
   totalClientsBadge: {
     borderRadius: 12,

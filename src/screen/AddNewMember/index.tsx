@@ -763,19 +763,18 @@ const AddNewMember = () => {
           });
           setShowMemberAddedModal(true);
         } else {
-          const rootNavigation = navigation.getParent();
-          if (rootNavigation) {
-            navigation.navigate('HomeScreen' as any);
+          // Clear auth/onboarding history so back cannot return to Login/Register
+          const tabNav = navigation.getParent();
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'HomeScreen' as never }],
+          });
+          if (tabNav) {
             setTimeout(() => {
-              (rootNavigation as any).navigate('ProfileTab', {
+              (tabNav as any).navigate('ProfileTab', {
                 screen: 'ProfileScreen',
               });
             }, 500);
-          } else {
-
-            navigation.navigate('HomeScreen' as any);
-            // Fallback to direct navigation if parent not available
-            navigation.navigate('ProfileScreen' as any);
           }
         }
       } catch (error: any) {
