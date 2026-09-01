@@ -1157,6 +1157,8 @@ const AstrologerClientChatScreen = () => {
           payload ?? getDefaultTransitPayload(),
         );
 
+        console.log('response--->1160', response);
+
         if (response?.data) {
           applyTransitResponse(response.data as TransitChartData);
           if (persistToSession && astrologerUserId) {

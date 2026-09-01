@@ -13,6 +13,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { MainContainer } from '../../components/common/mainContainer';
 import AstrologerProfileSection from '../../components/AstrologerProfileSection';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -56,51 +57,11 @@ const AstrologerMyProfileScreen = () => {
       style={styles.flex}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
+      <AstrologerScreenHeader title="My Profile" />
       <MainContainer
         containerStyle={astrologerMainContainerStyle}
         subContainerStyle={astrologerContainerStyle}
       >
-        <View style={styles.headerBackground}>
-          <View style={styles.heroTopRow}>
-            <View>
-              <Text
-                style={[
-                  styles.heroTitle,
-                  {
-                    color: palette.isDark
-                      ? palette.textPrimary
-                      : colors.Orangeaccentcolor,
-                  },
-                ]}
-              >
-                My Profile
-              </Text>
-              <View
-                style={[
-                  styles.heroTitleUnderline,
-                  {
-                    backgroundColor: palette.isDark
-                      ? palette.gold
-                      : colors.Orangeaccentcolor,
-                  },
-                ]}
-              />
-            </View>
-
-            <Image
-              source={require('../../assets/icons/Subtract-dark.png')}
-              style={[
-                styles.headerLogo,
-                {
-                  tintColor: palette.isDark
-                    ? '#EEE5CA'
-                    : colors.Orangeaccentcolor,
-                },
-              ]}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
 
         <ScrollView
           style={styles.scrollView}
@@ -170,7 +131,7 @@ const styles = StyleSheet.create({
   },
   contentPadding: {
     paddingHorizontal: responsiveWidth('4'),
-    paddingTop: responsiveWidth('2'),
+    paddingTop: responsiveWidth('3.5'),
   },
 });
 

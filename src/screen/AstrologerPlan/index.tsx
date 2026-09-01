@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StatusBar,
@@ -17,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import RazorpayCheckout from 'react-native-razorpay';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { RootState } from '../../state/store';
@@ -1297,51 +1299,16 @@ const AstrologerPlanScreen = () => {
   };
 
   return (
-    <MainContainer
-      containerStyle={astrologerMainContainerStyle}
-      subContainerStyle={astrologerContainerStyle}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      style={styles.flex}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent
-      />
-
-      <View style={styles.stickyHeaderContainer}>
-        <View style={styles.stickyHeaderRow}>
-          <View>
-            <Text
-              style={[
-                styles.headerTitle,
-                {
-                  color: isDark ? textPrimary : colors.Orangeaccentcolor,
-                },
-              ]}
-            >
-              Plan
-            </Text>
-            <View
-              style={[
-                styles.headerTitleUnderline,
-                {
-                  backgroundColor: isDark ? '#C5A370' : colors.Orangeaccentcolor,
-                },
-              ]}
-            />
-          </View>
-
-          <Image
-            source={require('../../assets/icons/Subtract-dark.png')}
-            style={[
-              styles.headerLogo,
-              {
-                tintColor: isDark ? '#EEE5CA' : colors.Orangeaccentcolor,
-              },
-            ]}
-            resizeMode="contain"
-          />
-        </View>
-      </View>
+      <AstrologerScreenHeader title="Plan" />
+      <MainContainer
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
 
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
@@ -1495,10 +1462,12 @@ const AstrologerPlanScreen = () => {
         </View>
       </ScrollView>
     </MainContainer>
+  </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   scrollViewContent: {
     flexGrow: 1,
     paddingBottom: Platform.OS === 'android' ? 140 : 120,
@@ -1535,7 +1504,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     marginHorizontal: responsiveWidth(4),
-    marginTop: responsiveWidth('2'),
+    marginTop: responsiveWidth('3.5'),
     marginBottom: responsiveWidth(3),
     borderRadius: 12,
     overflow: 'hidden',

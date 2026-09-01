@@ -69,6 +69,7 @@ const AstrologerClientChartScreen = () => {
     setLoading(true);
     try {
       const response = await userService.getAstrologerChartDetails(clientId);
+      console.log('response--->72', response);
       if (response?.data) {
         setChartData(response.data);
       }
@@ -129,6 +130,8 @@ const AstrologerClientChartScreen = () => {
           pd: selection.pd,
           sd: selection.sd,
         });
+
+        console.log('response--->134', response);
 
         const responseData = response?.data;
         if (responseData) {

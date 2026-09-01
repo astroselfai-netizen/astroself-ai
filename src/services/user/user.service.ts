@@ -746,6 +746,8 @@ export default class UserService extends Service {
         },
       });
 
+      console.log('axiosResponse--->748', axiosResponse?.data);
+
       if (axiosResponse?.data?.status === true) {
         return axiosResponse.data;
       }
@@ -1154,6 +1156,8 @@ export default class UserService extends Service {
         },
       );
 
+      console.log('axiosResponse--->1158', axiosResponse?.data);
+
       if (axiosResponse?.data?.status === true) {
         return axiosResponse.data;
       }
@@ -1417,14 +1421,24 @@ export default class UserService extends Service {
       | 'combinations'
       | 'active_combinations'
       | 'current_activity'
-      | 'transit_details_list',
+      | 'transit_details_list'
+      | 'the_inner_you'
+      | 'next_week'
+      | string,
   ): Promise<{
     status: boolean;
     data?: Array<{
       heading?: string;
       collection?: string;
       pipeline?: Array<Record<string, unknown>>;
+      insights?: string;
+      details?: unknown[];
+      week_start?: string;
+      week_end?: string;
     }>;
+    insights?: string;
+    week_start?: string;
+    week_end?: string;
   }> {
     try {
       const token = await AsyncStorage.getItem('USER_TOKEN');

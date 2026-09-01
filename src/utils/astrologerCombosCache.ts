@@ -14,6 +14,10 @@ export type CachedCombinationListItem = {
   heading: string;
   collection?: string;
   pipeline?: Array<Record<string, unknown>>;
+  insights?: string;
+  details?: unknown[];
+  week_start?: string;
+  week_end?: string;
 };
 
 export type AstrologerCombosListCache = {
@@ -53,9 +57,13 @@ export const makeComboDetailCacheKey = (params: {
   title?: string;
   collection?: string;
   pipeline?: Array<Record<string, unknown>>;
+  mode?: string;
+  dataType?: string;
 }) => {
   const parts = [
     params.kind,
+    params.mode || '',
+    params.dataType || '',
     params.clientId || '',
     params.heading || params.title || '',
     params.collection || '',

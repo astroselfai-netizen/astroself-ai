@@ -67,6 +67,10 @@ type CombinationListItem = {
   heading: string;
   collection?: string;
   pipeline?: Array<Record<string, unknown>>;
+  insights?: string;
+  details?: unknown[];
+  week_start?: string;
+  week_end?: string;
 };
 
 type DashaPeriodInfo = {
@@ -93,15 +97,20 @@ type ComboDetailParams = {
   title: string;
   kind:
     | 'next_week'
+    | 'transit'
     | 'transit_analysis'
     | 'antar_dasha'
     | 'dos_donts'
-    | 'the_inner_you';
+    | 'the_inner_you'
+    | 'combinations';
   clientId?: string;
   heading?: string;
   bullets?: string[];
   collection?: string;
   pipeline?: Array<Record<string, unknown>>;
+  mode?: PredictionMode;
+  insights?: string;
+  dataType?: string;
 };
 
 type RootStackParamList = {
@@ -199,6 +208,10 @@ const mapComboListItem = (
     pipeline: Array.isArray(record.pipeline)
       ? (JSON.parse(JSON.stringify(record.pipeline)) as Array<Record<string, unknown>>)
       : undefined,
+    insights: typeof record.insights === 'string' ? record.insights : undefined,
+    details: Array.isArray(record.details) ? record.details : undefined,
+    week_start: typeof record.week_start === 'string' ? record.week_start : undefined,
+    week_end: typeof record.week_end === 'string' ? record.week_end : undefined,
   };
 };
 
@@ -505,6 +518,7 @@ const AstrologerCombos = ({
         activeComboItems: overrides?.activeComboItems || activeComboItems,
         activityItems: overrides?.activityItems || activityItems,
         innerYouItems: overrides?.innerYouItems || innerYouItems,
+        nextWeekItems: overrides?.nextWeekItems || nextWeekItems,
         combosAsOfDate: overrides?.combosAsOfDate || combosAsOfDate.toISOString(),
       });
     },
@@ -514,6 +528,7 @@ const AstrologerCombos = ({
       combinationItems,
       combosAsOfDate,
       innerYouItems,
+      nextWeekItems,
       transitDetailItems,
       activeComboItems,
     ],
@@ -611,13 +626,55 @@ const AstrologerCombos = ({
       setRefreshingItemId(item.id);
       try {
         const dataType = getDataTypeForTab(tab);
-        const isPersonalized = predictionMode === 'personalized';
-        await userService.generateAstrologerCustomCombination(
+        const response = await userService.generateAstrologerCustomCombination(
           clientId,
           dataType,
           item.heading,
-          isPersonalized,
+          true,
         );
+
+        let newInsights: string | undefined;
+        if (response?.data && Array.isArray(response.data) && response.data[0]?.insights) {
+          newInsights = String(response.data[0].insights);
+        } else if (typeof response?.data === 'string') {
+          newInsights = response.data;
+        }
+
+        if (newInsights) {
+          if (tab === 'next_week') {
+            setNextWeekItems(prev =>
+              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
+            );
+          } else if (tab === 'antar_dasha') {
+            setActiveComboItems(prev =>
+              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
+            );
+          } else if (tab === 'transit_analysis') {
+            setTransitDetailItems(prev =>
+              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
+            );
+          } else if (tab === 'dos_donts') {
+            setActivityItems(prev =>
+              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
+            );
+          } else if (tab === 'the_inner_you') {
+            setInnerYouItems(prev =>
+              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
+            );
+          }
+
+          const cacheKey = makeComboDetailCacheKey({
+            kind: tab,
+            mode: predictionMode,
+            dataType,
+            clientId,
+            heading: item.heading,
+            title: item.heading,
+            collection: item.collection,
+            pipeline: item.pipeline,
+          });
+          await setComboDetailCache(cacheKey, newInsights);
+        }
 
         Toast.show({
           type: 'success',
@@ -788,6 +845,11 @@ const AstrologerCombos = ({
             openDetail({
               title: item.heading,
               kind: 'next_week',
+              clientId,
+              heading: item.heading,
+              mode: predictionMode,
+              insights: item.insights,
+              dataType: 'next_week',
               collection: item.collection,
               pipeline: item.pipeline,
             }),
@@ -816,6 +878,11 @@ const AstrologerCombos = ({
               kind: 'transit_analysis',
               clientId,
               heading: item.heading,
+              mode: predictionMode,
+              insights: item.insights,
+              dataType: 'transit_details_list',
+              collection: item.collection,
+              pipeline: item.pipeline,
             }),
           () => handleRefreshItem(item, 'transit_analysis'),
           refreshingItemId === item.id,
@@ -840,6 +907,11 @@ const AstrologerCombos = ({
             openDetail({
               title: item.heading,
               kind: 'dos_donts',
+              clientId,
+              heading: item.heading,
+              mode: predictionMode,
+              insights: item.insights,
+              dataType: 'current_activity',
               collection: item.collection,
               pipeline: item.pipeline,
             }),
@@ -866,6 +938,11 @@ const AstrologerCombos = ({
             openDetail({
               title: item.heading,
               kind: 'the_inner_you',
+              clientId,
+              heading: item.heading,
+              mode: predictionMode,
+              insights: item.insights,
+              dataType: 'the_inner_you',
               collection: item.collection,
               pipeline: item.pipeline,
             }),
@@ -891,6 +968,11 @@ const AstrologerCombos = ({
           openDetail({
             title: item.heading,
             kind: 'antar_dasha',
+            clientId,
+            heading: item.heading,
+            mode: predictionMode,
+            insights: item.insights,
+            dataType: 'active_combinations',
             collection: item.collection,
             pipeline: item.pipeline,
           }),
@@ -1144,7 +1226,7 @@ const styles = StyleSheet.create({
   },
   phaseModalTitle: {
     fontSize: 16,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
     marginBottom: 10,
   },
   phaseIntroText: {
@@ -1190,7 +1272,7 @@ const styles = StyleSheet.create({
   headerTextWrap: { flex: 1 },
   title: {
     fontSize: 15,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
     lineHeight: 20,
   },
   asOf: {
@@ -1254,7 +1336,7 @@ const styles = StyleSheet.create({
   },
   comboCardTitle: {
     fontSize: 13,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
     lineHeight: 18,
   },
   detailRowRight: {
@@ -1279,7 +1361,7 @@ const styles = StyleSheet.create({
   },
   comboChevron: {
     fontSize: 22,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.regular,
     lineHeight: 24,
   },
   numberedRow: {
@@ -1305,13 +1387,13 @@ const styles = StyleSheet.create({
   numberBadgeText: {
     color: NAVY,
     fontSize: 12,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
   },
   numberedTitle: {
     flex: 1,
     flexShrink: 1,
     fontSize: 13,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
     lineHeight: 18,
     color: NAVY,
   },
@@ -1324,4 +1406,3 @@ const styles = StyleSheet.create({
 });
 
 export default AstrologerCombos;
-export type { ComboTab };

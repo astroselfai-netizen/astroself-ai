@@ -22,6 +22,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { useTheme } from '../../context/ThemeContext';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../state/store';
@@ -60,7 +61,14 @@ type LoginScreenNavigationProp = StackNavigationProp<
   'Login'
 >;
 
-const settingsList = [
+type SettingsItem = {
+  icon: any;
+  label: string;
+  right?: string;
+  isSwitch?: boolean;
+};
+
+const settingsList: { section: string; data: SettingsItem[] }[] = [
   {
     section: 'General',
     data: [
@@ -119,6 +127,18 @@ const settingsList = [
     ],
   },
 ];
+
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
+
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
+};
 
 const SettingsScreen = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
@@ -205,59 +225,16 @@ const SettingsScreen = () => {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
-        <MainContainer>
+        <AstrologerScreenHeader title="Settings" />
+        <MainContainer
+          containerStyle={astrologerMainContainerStyle}
+          subContainerStyle={astrologerContainerStyle}
+        >
           <ScrollView
             contentContainerStyle={styles.scrollViewContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.headerRow}>
-              {/* <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={styles.backBtn}
-                activeOpacity={0.7}
-              >
-                <Image source={icons.Icback} style={styles.backIcon} />
-              </TouchableOpacity> */}
-              <View>
-                <Text
-                  style={[
-                    styles.headerTitle,
-                    {
-                      color:
-                        theme === 'dark'
-                          ? colors.textPrimary
-                          : colors.Orangeaccentcolor,
-                    },
-                  ]}
-                >
-                  Settings
-                </Text>
-                <View
-                  style={[
-                    styles.headerTitleUnderline,
-                    {
-                      backgroundColor:
-                        theme === 'dark'
-                          ? '#C5A370'
-                          : colors.Orangeaccentcolor,
-                    },
-                  ]}
-                />
-              </View>
-
-              <Image
-                source={require('../../assets/icons/Subtract-dark.png')}
-                style={[
-                  styles.headerLogo,
-                  {
-                    tintColor:
-                      theme === 'dark' ? '#EEE5CA' : colors.Orangeaccentcolor,
-                  },
-                ]}
-                resizeMode="contain"
-              />
-            </View>
 
             <View style={styles.sectionContainer}>
               <Text
@@ -458,7 +435,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     minHeight: '100%',
-    // backgroundColor: 'transparent',
+    paddingTop: responsiveWidth('3.5'),
     paddingBottom: Platform.OS === 'android' ? 100 : 120,
   },
   container: {

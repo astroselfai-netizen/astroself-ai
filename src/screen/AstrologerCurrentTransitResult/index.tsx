@@ -53,6 +53,8 @@ const AstrologerCurrentTransitResultScreen = () => {
   const astrologerUserId = String(user?._id || '');
   const userService = useMemo(() => new UserService(), []);
 
+ 
+
   const [chartData, setChartData] = useState<Record<string, unknown>>(
     route.params?.chartData || {},
   );
@@ -85,6 +87,8 @@ const AstrologerCurrentTransitResultScreen = () => {
       setIsUpdating(true);
       try {
         const response = await userService.createAstrologerCurrentTransit(payload);
+
+        console.log('response--->89', response);
         if (response?.data) {
           setChartData(response.data);
           if (astrologerUserId) {
@@ -205,6 +209,10 @@ const AstrologerCurrentTransitResultScreen = () => {
           />
 
           <View style={styles.dashaSection}>
+            {
+              console.log('all_dasha--->',chartData.all_dasha)
+              
+            }
             <DashaScreen
               dashaDetails={chartData.all_dasha as never}
               planets_icon={chartData.planets_icon as never}

@@ -14,6 +14,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import RenderHTML from 'react-native-render-html';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 import { MainContainer } from '../../components/common/mainContainer';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -33,7 +34,8 @@ type ComboDetailKind =
   | 'transit_analysis'
   | 'antar_dasha'
   | 'dos_donts'
-  | 'the_inner_you';
+  | 'the_inner_you'
+  | 'combinations';
 
 type RootStackParamList = {
   AstrologerComboDetailScreen: {
@@ -44,6 +46,9 @@ type RootStackParamList = {
     bullets?: string[];
     collection?: string;
     pipeline?: Array<Record<string, unknown>>;
+    mode?: 'general' | 'personalized';
+    insights?: string;
+    dataType?: string;
   };
 };
 
@@ -61,12 +66,63 @@ const fullScreenSubContainerStyle = {
 
 const isHtmlContent = (value: string) => /<\/?[a-z][\s\S]*>/i.test(value);
 
-const preprocessMarkdownAnswer = (answer: string) =>
-  answer
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>');
+const preprocessMarkdownAnswer = (raw: string): string => {
+  if (!raw) {
+    return '';
+  }
+
+  // If it's already structured HTML without raw markdown headings/bullets
+  if (
+    /<(p|div|ul|ol|h[1-6]|table|strong|span)[^>]*>/i.test(raw) &&
+    !raw.includes('## ') &&
+    !raw.includes('### ') &&
+    !/^[\s]*[-*•]\s+/m.test(raw)
+  ) {
+    return raw;
+  }
+
+  let text = raw;
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  text = text.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  text = text.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  const lines = text.split('\n');
+  const resultLines: string[] = [];
+  let inList = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const bulletMatch = line.match(/^[\s]*[-*•]\s+(.*)$/);
+
+    if (bulletMatch) {
+      if (!inList) {
+        resultLines.push('<ul>');
+        inList = true;
+      }
+      resultLines.push(`<li>${bulletMatch[1]}</li>`);
+    } else {
+      if (inList) {
+        resultLines.push('</ul>');
+        inList = false;
+      }
+      const trimmed = line.trim();
+      if (trimmed.length > 0) {
+        if (!/^<h[1-6]>.*<\/h[1-6]>$/.test(trimmed)) {
+          resultLines.push(`<p>${trimmed}</p>`);
+        } else {
+          resultLines.push(trimmed);
+        }
+      }
+    }
+  }
+
+  if (inList) {
+    resultLines.push('</ul>');
+  }
+
+  return resultLines.join('\n');
+};
 
 const normalizeDetails = (details: unknown): string => {
   if (details == null) {
@@ -101,8 +157,27 @@ const extractComboContent = (payload: unknown): string => {
     return payload.trim();
   }
 
-  const body = payload as { data?: unknown };
-  const data = body.data;
+  if (typeof payload !== 'object') {
+    return String(payload).trim();
+  }
+
+  const obj = payload as Record<string, unknown>;
+
+  if (typeof obj.insights === 'string' && obj.insights.trim()) {
+    return obj.insights.trim();
+  }
+  if (typeof obj.answer === 'string' && obj.answer.trim()) {
+    return obj.answer.trim();
+  }
+  if (typeof obj.content === 'string' && obj.content.trim()) {
+    return obj.content.trim();
+  }
+
+  const data = obj.data;
+
+  if (typeof data === 'string' && data.trim()) {
+    return data.trim();
+  }
 
   if (Array.isArray(data)) {
     const parts = data
@@ -110,18 +185,48 @@ const extractComboContent = (payload: unknown): string => {
         if (typeof item === 'string') {
           return item.trim();
         }
-        if (item && typeof item === 'object' && 'details' in item) {
-          return normalizeDetails((item as { details?: unknown }).details);
+        if (item && typeof item === 'object') {
+          const itemObj = item as Record<string, unknown>;
+          if (typeof itemObj.insights === 'string' && itemObj.insights.trim()) {
+            return itemObj.insights.trim();
+          }
+          if (typeof itemObj.answer === 'string' && itemObj.answer.trim()) {
+            return itemObj.answer.trim();
+          }
+          if (typeof itemObj.content === 'string' && itemObj.content.trim()) {
+            return itemObj.content.trim();
+          }
+          if ('details' in itemObj) {
+            return normalizeDetails(itemObj.details);
+          }
         }
         return '';
       })
       .filter(Boolean);
 
-    return parts.join('\n\n').trim();
+    if (parts.length > 0) {
+      return parts.join('\n\n').trim();
+    }
   }
 
-  if (data && typeof data === 'object' && 'details' in data) {
-    return normalizeDetails((data as { details?: unknown }).details);
+  if (data && typeof data === 'object') {
+    const dataObj = data as Record<string, unknown>;
+    if (typeof dataObj.insights === 'string' && dataObj.insights.trim()) {
+      return dataObj.insights.trim();
+    }
+    if (typeof dataObj.answer === 'string' && dataObj.answer.trim()) {
+      return dataObj.answer.trim();
+    }
+    if (typeof dataObj.content === 'string' && dataObj.content.trim()) {
+      return dataObj.content.trim();
+    }
+    if ('details' in dataObj) {
+      return normalizeDetails(dataObj.details);
+    }
+  }
+
+  if ('details' in obj) {
+    return normalizeDetails(obj.details);
   }
 
   return '';
@@ -145,6 +250,9 @@ const AstrologerComboDetailScreen = () => {
     bullets = [],
     collection,
     pipeline,
+    mode,
+    insights,
+    dataType,
   } = route.params || {};
 
   const detailCacheKey = useMemo(
@@ -156,16 +264,22 @@ const AstrologerComboDetailScreen = () => {
         title,
         collection,
         pipeline,
+        mode,
+        dataType,
       }),
-    [clientId, collection, heading, kind, pipeline, title],
+    [clientId, collection, dataType, heading, kind, mode, pipeline, title],
   );
+
   const cachedDetail =
     kind === 'transit' ? null : getComboDetailCacheSync(detailCacheKey);
 
+  const initialContent = insights || cachedDetail?.content || '';
+
   const [loading, setLoading] = useState(
-    kind !== 'transit' && !cachedDetail?.content,
+    kind !== 'transit' && !initialContent,
   );
-  const [content, setContent] = useState(cachedDetail?.content || '');
+  const [refreshing, setRefreshing] = useState(false);
+  const [content, setContent] = useState(initialContent);
   const [errorText, setErrorText] = useState('');
 
   const isDark = theme === 'dark';
@@ -181,7 +295,7 @@ const AstrologerComboDetailScreen = () => {
     () => ({
       color: contentColor,
       fontSize: 13,
-      lineHeight: 20,
+      lineHeight: 21,
       fontFamily: fontFamily.regular,
     }),
     [contentColor],
@@ -192,36 +306,43 @@ const AstrologerComboDetailScreen = () => {
       body: { color: contentColor },
       h1: {
         color: NAVY,
-        fontSize: 15,
-        fontFamily: fontFamily.bold,
-        marginBottom: 8,
+        fontSize: 16,
+        fontFamily: fontFamily.semiBold,
+        marginBottom: 10,
       },
       h2: {
         color: NAVY,
         fontSize: 14,
-        fontFamily: fontFamily.bold,
+        fontFamily: fontFamily.semiBold,
         marginTop: 10,
-        marginBottom: 2,
+        marginBottom: 6,
       },
       h3: {
         color: NAVY,
         fontSize: 13,
         fontFamily: fontFamily.semiBold,
-        marginTop: 4,
+        marginTop: 6,
         marginBottom: 4,
       },
-      ol: { marginTop: 0, marginBottom: 0, paddingLeft: 18 },
-      ul: { marginTop: 0, marginBottom: 0, paddingLeft: 18 },
-      li: { marginBottom: 8, color: contentColor },
-      p: {
-        marginTop: 0,
-        marginBottom: 3,
+      ol: { marginTop: 4, marginBottom: 6, paddingLeft: 18 },
+      ul: { marginTop: 4, marginBottom: 6, paddingLeft: 18 },
+      li: {
+        marginBottom: 8,
         color: contentColor,
         fontSize: 13,
         lineHeight: 20,
+        fontFamily: fontFamily.regular,
+      },
+      p: {
+        marginTop: 0,
+        marginBottom: 8,
+        color: contentColor,
+        fontSize: 13,
+        lineHeight: 20,
+        fontFamily: fontFamily.regular,
       },
       strong: {
-        fontFamily: fontFamily.bold,
+        fontFamily: fontFamily.semiBold,
         color: contentColor,
       },
     }),
@@ -229,7 +350,7 @@ const AstrologerComboDetailScreen = () => {
   );
 
   const loadContent = useCallback(
-    async (options?: { silent?: boolean }) => {
+    async (options?: { silent?: boolean; force?: boolean }) => {
       if (kind === 'transit') {
         setLoading(false);
         setErrorText('');
@@ -237,33 +358,85 @@ const AstrologerComboDetailScreen = () => {
         return;
       }
 
-      if (!options?.silent) {
+      if (options?.force) {
+        setRefreshing(true);
+      } else if (!options?.silent) {
         setLoading(true);
       }
       setErrorText('');
       try {
         let nextContent = '';
 
-        if (kind === 'transit_analysis') {
+        const isPersonalized = mode === 'personalized' || kind === 'next_week';
+
+        if (isPersonalized && clientId) {
+          const effectiveDataType =
+            dataType ||
+            (kind === 'next_week'
+              ? 'next_week'
+              : kind === 'antar_dasha'
+              ? 'active_combinations'
+              : kind === 'transit_analysis'
+              ? 'transit_details_list'
+              : kind === 'dos_donts'
+              ? 'current_activity'
+              : kind === 'the_inner_you'
+              ? 'the_inner_you'
+              : 'active_combinations');
+
+          const response = await userService.generateAstrologerCustomCombination(
+            clientId,
+            effectiveDataType,
+            heading || title,
+            options?.force || false,
+          );
+
+          const extracted = extractComboContent(response);
+          nextContent = extracted || 'No details available.';
+        } else if (kind === 'transit_analysis') {
           const response = await userService.getAstrologerTransitHeadingReport(
             clientId,
             heading || title,
           );
           nextContent = response?.answer?.trim() || 'No details available.';
-        } else if (!collection || !pipeline?.length) {
-          nextContent = 'Details not available for this combination.';
-        } else {
+        } else if (collection && pipeline?.length) {
           const response = await userService.getAstrologerComboContent(
             collection,
             pipeline,
           );
           const extracted = extractComboContent(response);
           nextContent = extracted || 'No details available.';
+        } else if (clientId && (heading || title)) {
+          const effectiveDataType =
+            dataType || (kind === 'next_week' ? 'next_week' : 'active_combinations');
+          const response = await userService.generateAstrologerCustomCombination(
+            clientId,
+            effectiveDataType,
+            heading || title,
+            options?.force || false,
+          );
+          const extracted = extractComboContent(response);
+          nextContent = extracted || 'No details available.';
+        } else {
+          nextContent = 'Details not available for this combination.';
         }
 
         setContent(nextContent);
-        if (nextContent) {
+        if (
+          nextContent &&
+          nextContent !== 'No details available.' &&
+          nextContent !== 'Details not available for this combination.'
+        ) {
           await setComboDetailCache(detailCacheKey, nextContent);
+        }
+        if (options?.force) {
+          Toast.show({
+            type: 'success',
+            text1: 'Prediction Refreshed',
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 2500,
+          });
         }
       } catch (error: unknown) {
         const message =
@@ -272,16 +445,29 @@ const AstrologerComboDetailScreen = () => {
           setErrorText(message);
           setContent('');
         }
+        if (options?.force) {
+          Toast.show({
+            type: 'error',
+            text1: 'Refresh Failed',
+            text2: message,
+            position: 'top',
+            topOffset: 60,
+            visibilityTime: 3000,
+          });
+        }
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     },
     [
       clientId,
       collection,
+      dataType,
       detailCacheKey,
       heading,
       kind,
+      mode,
       pipeline,
       title,
       userService,
@@ -296,6 +482,14 @@ const AstrologerComboDetailScreen = () => {
         setLoading(false);
         setContent('');
         setErrorText('');
+        return;
+      }
+
+      if (insights) {
+        setContent(insights);
+        setLoading(false);
+        void setComboDetailCache(detailCacheKey, insights);
+        void loadContent({ silent: true });
         return;
       }
 
@@ -327,7 +521,7 @@ const AstrologerComboDetailScreen = () => {
     return () => {
       cancelled = true;
     };
-  }, [detailCacheKey, kind, loadContent]);
+  }, [detailCacheKey, insights, kind, loadContent]);
 
   const renderBody = () => {
     if (kind === 'transit') {
@@ -357,7 +551,12 @@ const AstrologerComboDetailScreen = () => {
 
     const preparedContent = preprocessMarkdownAnswer(content);
 
-    if (isHtmlContent(preparedContent) || kind === 'transit_analysis') {
+    if (
+      isHtmlContent(preparedContent) ||
+      kind === 'transit_analysis' ||
+      kind === 'next_week' ||
+      mode === 'personalized'
+    ) {
       return (
         <RenderHTML
           contentWidth={contentWidth}
@@ -365,7 +564,7 @@ const AstrologerComboDetailScreen = () => {
           baseStyle={htmlBaseStyle}
           tagsStyles={htmlTagsStyles}
           defaultTextProps={{ selectable: false }}
-          systemFonts={[fontFamily.regular, fontFamily.bold]}
+          systemFonts={[fontFamily.regular, fontFamily.bold, fontFamily.semiBold]}
         />
       );
     }
@@ -374,6 +573,9 @@ const AstrologerComboDetailScreen = () => {
       <Text style={[styles.bodyText, { color: contentColor }]}>{content}</Text>
     );
   };
+
+  const showRefreshButton =
+    !!clientId && (mode === 'personalized' || kind === 'next_week');
 
   return (
     <MainContainer
@@ -403,6 +605,23 @@ const AstrologerComboDetailScreen = () => {
             {title || 'Details'}
           </Text>
         </View>
+        {showRefreshButton ? (
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: backBtnBg }]}
+            onPress={() => loadContent({ force: true })}
+            disabled={refreshing || loading}
+            activeOpacity={0.8}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color={textPrimary} />
+            ) : (
+              <Image
+                source={require('../../assets/icons/recycle.png')}
+                style={[styles.refreshIcon, { tintColor: textPrimary }]}
+              />
+            )}
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {loading ? (
@@ -412,7 +631,7 @@ const AstrologerComboDetailScreen = () => {
       ) : errorText ? (
         <View style={styles.centerState}>
           <Text style={[styles.emptyText, { color: textMuted }]}>{errorText}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={loadContent} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => loadContent()} activeOpacity={0.85}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -456,6 +675,11 @@ const styles = StyleSheet.create({
     height: 18,
     resizeMode: 'contain',
   },
+  refreshIcon: {
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
+  },
   headerTextWrap: {
     flex: 1,
     paddingRight: 8,
@@ -463,7 +687,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 16,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
     lineHeight: 22,
   },
   scroll: {

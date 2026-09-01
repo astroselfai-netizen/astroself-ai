@@ -638,17 +638,32 @@ const ClientCard = ({
         </View>
       ) : null}
 
-      {/* Buy Report Button (Golden Amber) */}
+      {/* Buy Report Button (Outlined) */}
       <TouchableOpacity
-        style={styles.buyReportButton}
+        style={[
+          styles.buyReportButton,
+          {
+            borderColor: palette.isDark ? palette.gold : '#C5A370',
+          },
+        ]}
         onPress={() => onBuyReport(client)}
         activeOpacity={0.85}
       >
         <Image
           source={require('../../assets/icons/document.png')}
-          style={styles.buyReportIcon}
+          style={[
+            styles.buyReportIcon,
+            { tintColor: palette.isDark ? palette.gold : '#C5A370' },
+          ]}
         />
-        <Text style={styles.buyReportText}>Buy Report</Text>
+        <Text
+          style={[
+            styles.buyReportText,
+            { color: palette.isDark ? palette.gold : '#C5A370' },
+          ]}
+        >
+          Buy Report
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -1575,7 +1590,7 @@ const AstrologerMyClientsScreen = () => {
                   <Text style={styles.infoLockedIconText}>🔒</Text>
                 </View>
                 <Text style={[styles.infoLockedText, { color: palette.textPrimary }]}>
-                  <Text style={{ fontFamily: fontFamily.bold }}>Personalized is locked. </Text>
+                  <Text style={{ fontFamily: fontFamily.semiBold }}>Personalized is locked. </Text>
                   It needs an active paid plan and this profile's personal details.
                 </Text>
               </View>
@@ -1669,8 +1684,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   totalClientsCount: {
-    fontSize: 28,
-    fontFamily: fontFamily.bold,
+    fontSize: 26,
+    fontFamily: fontFamily.semiBold,
   },
   totalClientsIconBox: {
     width: 34,
@@ -1695,8 +1710,8 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   yourClientsTitle: {
-    fontSize: 20,
-    fontFamily: fontFamily.bold,
+    fontSize: 18,
+    fontFamily: fontFamily.semiBold,
   },
   searchBar: {
     flexDirection: 'row',
@@ -1791,7 +1806,7 @@ const styles = StyleSheet.create({
   clientAvatarText: {
     color: '#F6EFD9',
     fontSize: 14,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
   },
   clientNameBlock: {
     flex: 1,
@@ -1880,18 +1895,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   birthInfoLabel: {
-    fontSize: 9,
-    fontFamily: fontFamily.bold,
-    letterSpacing: 0.5,
+    fontSize: 10.5,
+    fontFamily: fontFamily.medium,
+    letterSpacing: 0.4,
     marginBottom: 1,
   },
   birthInfoValue: {
-    fontSize: 13.5,
-    fontFamily: fontFamily.bold,
-    lineHeight: 17,
+    fontSize: 14.5,
+    fontFamily: fontFamily.semiBold,
+    lineHeight: 18,
   },
   birthInfoSub: {
-    fontSize: 10.5,
+    fontSize: 11.5,
     fontFamily: fontFamily.regular,
     marginTop: 1,
   },
@@ -1909,8 +1924,8 @@ const styles = StyleSheet.create({
     marginBottom: responsiveWidth('2'),
   },
   predictionModeHeaderTitle: {
-    fontSize: 13.5,
-    fontFamily: fontFamily.bold,
+    fontSize: 15,
+    fontFamily: fontFamily.semiBold,
   },
   howItWorksBtn: {
     flexDirection: 'row',
@@ -1922,7 +1937,7 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
   },
   howItWorksText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#3B82F6',
     fontFamily: fontFamily.medium,
   },
@@ -1934,37 +1949,37 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     borderWidth: 1,
-    padding: responsiveWidth('2'),
+    padding: responsiveWidth('2.5'),
     alignItems: 'center',
     position: 'relative',
-    minHeight: 165,
+    minHeight: 180,
   },
   modeCardPersonalized: {
     borderWidth: 1.2,
   },
   modeIconCircleGeneral: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#EEF2FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   modeIconTextGeneral: {
-    fontSize: 16,
+    fontSize: 17,
   },
   modeIconCirclePersonalized: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   modeIconTextPersonalized: {
-    fontSize: 16,
+    fontSize: 17,
   },
   lockBadgeWrap: {
     position: 'absolute',
@@ -1979,42 +1994,42 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   modeCardTitle: {
-    fontSize: 12,
-    fontFamily: fontFamily.bold,
+    fontSize: 13.5,
+    fontFamily: fontFamily.semiBold,
     textAlign: 'center',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   modeCardTitlePersonalized: {
-    fontSize: 12,
-    fontFamily: fontFamily.bold,
+    fontSize: 13.5,
+    fontFamily: fontFamily.semiBold,
     textAlign: 'center',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   modeCardDesc: {
-    fontSize: 9.5,
+    fontSize: 12,
     fontFamily: fontFamily.regular,
     textAlign: 'center',
-    lineHeight: 13.5,
+    lineHeight: 17,
     flex: 1,
   },
   modeCardDescPersonalized: {
-    fontSize: 9.5,
+    fontSize: 12,
     fontFamily: fontFamily.regular,
     textAlign: 'center',
-    lineHeight: 13.5,
+    lineHeight: 17,
     flex: 1,
   },
   modeCardLinkGeneral: {
-    fontSize: 11,
-    fontFamily: fontFamily.bold,
+    fontSize: 12.5,
+    fontFamily: fontFamily.semiBold,
     color: '#4F46E5',
-    marginTop: 6,
+    marginTop: 8,
   },
   modeCardLinkPersonalized: {
-    fontSize: 11,
-    fontFamily: fontFamily.bold,
+    fontSize: 12.5,
+    fontFamily: fontFamily.semiBold,
     color: '#B45309',
-    marginTop: 6,
+    marginTop: 8,
   },
   askQuestionsButton: {
     backgroundColor: 'transparent',
@@ -2037,7 +2052,7 @@ const styles = StyleSheet.create({
   askQuestionsText: {
     color: '#0B1B3D',
     fontSize: 14,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
   },
   createdDateRow: {
     flexDirection: 'row',
@@ -2053,11 +2068,13 @@ const styles = StyleSheet.create({
     tintColor: '#94A3B8',
   },
   createdDateText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontFamily: fontFamily.regular,
   },
   buyReportButton: {
-    backgroundColor: '#D4A85B',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#C5A370',
     borderRadius: 10,
     paddingVertical: responsiveWidth('2.8'),
     flexDirection: 'row',
@@ -2069,12 +2086,12 @@ const styles = StyleSheet.create({
     width: 15,
     height: 15,
     resizeMode: 'contain',
-    tintColor: '#0B1B3D',
+    tintColor: '#C5A370',
   },
   buyReportText: {
-    color: '#0B1B3D',
+    color: '#C5A370',
     fontSize: 14,
-    fontFamily: fontFamily.bold,
+    fontFamily: fontFamily.semiBold,
   },
   infoModalOverlay: {
     flex: 1,
@@ -2092,8 +2109,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   infoModalMainTitle: {
-    fontSize: 18,
-    fontFamily: fontFamily.bold,
+    fontSize: 17,
+    fontFamily: fontFamily.semiBold,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -2135,8 +2152,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoModeCardTitle: {
-    fontSize: 14,
-    fontFamily: fontFamily.bold,
+    fontSize: 13.5,
+    fontFamily: fontFamily.semiBold,
     marginBottom: 3,
   },
   infoModeCardDesc: {
@@ -2334,8 +2351,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteModalTitle: {
-    fontSize: 20,
-    fontFamily: fontFamily.bold,
+    fontSize: 18,
+    fontFamily: fontFamily.semiBold,
     color: NAVY,
     textAlign: 'center',
     marginBottom: responsiveWidth('3'),

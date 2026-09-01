@@ -1,33 +1,35 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  FlatList,
+  Image,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StatusBar,
-  Image,
-  ImageBackground,
-  Modal,
+  StyleSheet,
+  Text,
   TextInput,
-  FlatList,
+  TouchableOpacity,
   useWindowDimensions,
+  View,
 } from 'react-native';
 import {
   fontFamily,
-  responsiveWidth,
   responsiveHeight,
+  responsiveWidth,
 } from '../../constant/theme';
 import {
-  useNavigation,
-  useFocusEffect,
-  useRoute,
   RouteProp,
+  useFocusEffect,
+  useNavigation,
+  useRoute,
 } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfileData } from '../../hooks/useProfileData';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -211,6 +213,18 @@ type ReportScreenNavProp = StackNavigationProp<
   RootStackParamList,
   'ReportScreen'
 >;
+
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
+
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
+};
 
 const ReportScreen = () => {
   const { theme, colors } = useTheme();
@@ -926,45 +940,16 @@ const ReportScreen = () => {
   );
 
   return (
-    // <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
-    <MainContainer>
-      {/* Header */}
-      <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent={true}
-      />
-      <View style={styles.headerRow}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-          activeOpacity={0.7}
-        >
-          <Image
-            source={require('../../assets/icons/back.png')}
-            style={[
-              styles.backIcon,
-              {
-                tintColor:
-                  theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
-              },
-            ]}
-          />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text
-            style={[
-              styles.headerTitle,
-              {
-                color:
-                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              },
-            ]}
-          >
-            Reports
-          </Text>
-        </View>
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      style={styles.safeArea}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
+    >
+      <AstrologerScreenHeader title="Reports" />
+      <MainContainer
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
 
       {/* Profile member dropdown */}
       <View
@@ -1911,6 +1896,7 @@ const ReportScreen = () => {
         </TouchableOpacity>
       </Modal>
     </MainContainer>
+  </KeyboardAvoidingView>
   );
 };
 
@@ -2038,7 +2024,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     padding: responsiveWidth('2'),
-    marginTop: responsiveWidth('1.5'),
+    marginTop: responsiveWidth('3.5'),
     marginHorizontal: responsiveWidth('3'),
     marginBottom: 24,
     borderWidth: 2,
