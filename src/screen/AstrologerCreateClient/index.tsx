@@ -23,6 +23,7 @@ import DatePicker from 'react-native-date-picker';
 import Toast from 'react-native-toast-message';
 import { useSelector } from 'react-redux';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerPersonalDetailsForm from '../../components/AstrologerPersonalDetailsForm';
 import { color, fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
@@ -138,6 +139,12 @@ const AstrologerCreateClientScreen = () => {
       placeOfBirth: null as { lat: number; lng: number } | null,
       placeOfBirthDisplay: '',
       aboutClient: '',
+      whatDoYouDo: '',
+      maritalStatus: '',
+      children: '',
+      currentFuturePlans: '',
+      currentChallenges: '',
+      anyOtherDetails: '',
     },
     validationSchema,
     onSubmit: async values => {
@@ -156,6 +163,16 @@ const AstrologerCreateClientScreen = () => {
       }
 
       try {
+        const hasPersonalDetails = Boolean(
+          values.whatDoYouDo ||
+            values.maritalStatus ||
+            values.children ||
+            values.currentFuturePlans?.trim() ||
+            values.currentChallenges?.trim() ||
+            values.anyOtherDetails?.trim() ||
+            values.aboutClient?.trim(),
+        );
+
         const payload = {
           first_name: values.firstName.trim(),
           last_name: values.lastName.trim(),
@@ -170,8 +187,16 @@ const AstrologerCreateClientScreen = () => {
           lat: values.placeOfBirth.lat,
           lon: values.placeOfBirth.lng,
           tzone: 5.5,
-          personalizedDetails: false,
-          about_client: values.aboutClient.trim(),
+          personalizedDetails: hasPersonalDetails,
+          personal_details: hasPersonalDetails,
+          what_do_you_do: values.whatDoYouDo,
+          marital_status: values.maritalStatus,
+          children: values.children,
+          current_future_plans: values.currentFuturePlans.trim(),
+          current_challenges: values.currentChallenges.trim(),
+          about_client:
+            values.anyOtherDetails.trim() || values.aboutClient.trim(),
+          any_other_details: values.anyOtherDetails.trim(),
           isTransit: false,
           prediction_type: 'bullet',
           userId: astrologerUserId,
@@ -684,56 +709,26 @@ const AstrologerCreateClientScreen = () => {
               ) : null}
             </View>
 
-            <View
-              style={[
-                styles.personalDetailsCard,
-                {
-                  backgroundColor:
-                    theme === 'dark' ? colors.cardBackground : '#FFF9F1',
-                  borderColor:
-                    theme === 'dark' ? colors.themeBorderDropdown : '#F5E6D8',
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.personalDetailsSectionTitle,
-                  {
-                    color:
-                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Personal Details
-              </Text>
-
-              <Text
-                style={[
-                  styles.fieldLabel,
-                  {
-                    color:
-                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
-                ]}
-              >
-                About chart
-              </Text>
-              <TextInput
-                style={[
-                  styles.textAreaInput,
-                  styles.personalDetailsTextArea,
-                  inputThemeStyle,
-                ]}
-                placeholder="Enter details about the chart, their focus, or upcoming plans."
-                placeholderTextColor={colors.grayText}
-                value={formik.values.aboutClient}
-                onChangeText={formik.handleChange('aboutClient')}
-                onBlur={formik.handleBlur('aboutClient')}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
+            <AstrologerPersonalDetailsForm
+              values={{
+                whatDoYouDo: formik.values.whatDoYouDo,
+                maritalStatus: formik.values.maritalStatus,
+                children: formik.values.children,
+                currentFuturePlans: formik.values.currentFuturePlans,
+                currentChallenges: formik.values.currentChallenges,
+                anyOtherDetails: formik.values.anyOtherDetails,
+              }}
+              onChange={(field, val) => formik.setFieldValue(field, val)}
+              palette={{
+                isDark: theme === 'dark',
+                cardBg: colors.cardBackground,
+                textPrimary:
+                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
+                textMuted: colors.grayText,
+                gold: colors.Orangeaccentcolor,
+                borderColor: colors.borderColor,
+              } as any}
+            />
 
             <TouchableOpacity
               style={[

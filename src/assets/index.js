@@ -18,6 +18,7 @@ import icReportActive from './icons/Report-active.png';
 import icReport from './icons/Report-inactive.png';
 import icResourcesActive from './icons/Resources-active.png';
 import icResources from './icons/Resources-inactive.png';
+import icRecycle from './icons/recycle.png';
 // import splashLight from './image/SplashScreenLight.png';
 
 
@@ -45,5 +46,6 @@ export const icons = {
   Icclose: Icclose,
   icReportActive: icReportActive,
   icReport: icReport,
+  icRecycle: icRecycle,
 };
 

@@ -28,6 +28,7 @@ import {
 const NAVY = '#1A3673';
 
 type ComboDetailKind =
+  | 'next_week'
   | 'transit'
   | 'transit_analysis'
   | 'antar_dasha'

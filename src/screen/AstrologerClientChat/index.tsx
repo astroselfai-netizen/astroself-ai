@@ -28,6 +28,8 @@ import AstrologerCombos, { ComboTab } from '../../components/AstrologerCombos';
 import AstrologerChatMemberHeader from '../../components/AstrologerChatMemberHeader';
 import AstrologerVedicCharts from '../../components/AstrologerVedicCharts';
 import BuyQuestionsModal from '../../components/BuyQuestionsModal';
+import PersonalDetailsRequiredModal from '../../components/PersonalDetailsRequiredModal';
+import PaidPlanRequiredModal from '../../components/PaidPlanRequiredModal';
 import StreamingMarkdownAnswer from '../../components/StreamingMarkdownAnswer';
 import FormattedMarkdownText from '../../components/FormattedMarkdownText';
 import TransitEditModal, { TransitEditPayload } from '../../components/TransitEditModal';
@@ -112,7 +114,7 @@ const parseTransitDateFromApi = (birthplace?: TransitBirthplace) => {
   );
 };
 
-type ClientView = 'chat' | 'vedic' | 'transit' | 'combos';
+type ClientView = 'chat' | 'vedic' | 'transit' | 'combos' | 'personalized';
 
 type PlanetRow = {
   planet: string;
@@ -308,6 +310,7 @@ type RootStackParamList = {
     clients?: Api.User.Res.AstrologerClient[];
     initialView?: ClientView;
     initialComboTab?: ComboTab;
+    predictionMode?: 'general' | 'personalized';
   };
   AstrologerChatHistoryScreen: {
     clientId: string;
@@ -358,9 +361,18 @@ const AstrologerClientChatScreen = () => {
   const userService = useMemo(() => new UserService(), []);
   const astrologerUserId = String(user?._id || '');
 
-  const [activeView, setActiveView] = useState<ClientView>(
-    route.params?.initialView || 'chat',
-  );
+  const [activeView, setActiveView] = useState<ClientView>(() => {
+    if (route.params?.initialView) {
+      return route.params.initialView;
+    }
+    if (route.params?.predictionMode === 'personalized') {
+      return 'personalized';
+    }
+    if (route.params?.predictionMode === 'general') {
+      return 'combos';
+    }
+    return 'chat';
+  });
   const [activeClientId, setActiveClientId] = useState(route.params?.clientId || '');
   const [activeClientName, setActiveClientName] = useState(route.params?.clientName || 'Client');
   const [showSidebar, setShowSidebar] = useState(false);
@@ -386,6 +398,10 @@ const AstrologerClientChatScreen = () => {
   const [showPlanLimitModal, setShowPlanLimitModal] = useState(false);
   const [showQuestionLimitConfirmModal, setShowQuestionLimitConfirmModal] = useState(false);
   const [showBuyQuestionsModal, setShowBuyQuestionsModal] = useState(false);
+  const [showPersonalDetailsRequiredModal, setShowPersonalDetailsRequiredModal] =
+    useState(false);
+  const [showPaidPlanRequiredModal, setShowPaidPlanRequiredModal] =
+    useState(false);
   const [memberDetails, setMemberDetails] =
     useState<Api.User.Res.AstrologerMemberDetailsResponse | null>(null);
   const [memberDetailsLoading, setMemberDetailsLoading] = useState(false);
@@ -395,6 +411,63 @@ const AstrologerClientChatScreen = () => {
     0,
     Math.floor(Number((user as Record<string, unknown> | undefined)?.question_count ?? 0)),
   );
+
+  const activeClient = useMemo(
+    () => sidebarClients.find(c => String(c.id) === String(activeClientId)),
+    [sidebarClients, activeClientId],
+  );
+
+  const isPaidPlan = useMemo(() => {
+    const currentPlan = String(
+      (user as Record<string, unknown> | null)?.current_plan ||
+        (user as Record<string, unknown> | null)?.plan_name ||
+        (user as Record<string, unknown> | null)?.plan ||
+        '',
+    )
+      .toLowerCase()
+      .trim();
+
+    const isFree =
+      !currentPlan ||
+      currentPlan === 'free' ||
+      currentPlan === 'basic' ||
+      currentPlan.includes('free');
+
+    const isSubActive =
+      (user as Record<string, unknown> | null)?.is_paid === true ||
+      (user as Record<string, unknown> | null)?.plan_status === 'active' ||
+      (user as Record<string, unknown> | null)?.is_subscribed === true ||
+      (!isFree && Boolean(currentPlan));
+
+    return Boolean(isSubActive && !isFree);
+  }, [user]);
+
+  const handleViewPlans = useCallback(() => {
+    setShowPaidPlanRequiredModal(false);
+    (
+      navigation as { navigate: (screen: string, params?: object) => void }
+    ).navigate('AstrologerHome', {
+      screen: 'PlanTab',
+      params: { screen: 'AstrologerPlanScreen' },
+    });
+  }, [navigation]);
+
+  const isPersonalizedActive = useMemo(() => {
+    const clientRecord = (activeClient || memberDetails) as
+      | (Api.User.Res.AstrologerClient & Record<string, unknown>)
+      | (Api.User.Res.AstrologerMemberDetailsResponse & Record<string, unknown>)
+      | undefined;
+    if (!clientRecord) {
+      return false;
+    }
+    return Boolean(
+      clientRecord.personal_details ??
+      clientRecord.personalizedDetails ??
+      clientRecord.personalized_details ??
+      clientRecord.is_personalized ??
+      false,
+    );
+  }, [activeClient, memberDetails]);
 
   const parseMemberDashaPeriod = useCallback(
     (dashaObj?: Record<string, string[]>) => {
@@ -427,9 +500,37 @@ const AstrologerClientChatScreen = () => {
 
   useEffect(() => {
     if (route.params?.initialView) {
-      setActiveView(route.params.initialView);
+      if (route.params.initialView === 'personalized') {
+        if (!isPaidPlan) {
+          setActiveView('combos');
+          setShowPaidPlanRequiredModal(true);
+        } else if (!isPersonalizedActive) {
+          setActiveView('combos');
+          setShowPersonalDetailsRequiredModal(true);
+        } else {
+          setActiveView('personalized');
+        }
+      } else {
+        setActiveView(route.params.initialView);
+      }
+    } else if (route.params?.predictionMode) {
+      if (route.params.predictionMode === 'personalized') {
+        if (!isPersonalizedActive) {
+          setActiveView('combos');
+          setShowPersonalDetailsRequiredModal(true);
+        } else {
+          setActiveView('personalized');
+        }
+      } else {
+        setActiveView('combos');
+      }
     }
-  }, [route.params?.clientId, route.params?.initialView]);
+  }, [
+    route.params?.clientId,
+    route.params?.initialView,
+    route.params?.predictionMode,
+    isPersonalizedActive,
+  ]);
 
   useEffect(() => {
     const streamState = streamStateRef.current;
@@ -740,11 +841,6 @@ const AstrologerClientChatScreen = () => {
       });
     },
     [updateAssistantMessage],
-  );
-
-  const activeClient = useMemo(
-    () => sidebarClients.find(client => client.id === activeClientId),
-    [activeClientId, sidebarClients],
   );
 
   useEffect(() => {
@@ -1479,8 +1575,10 @@ const AstrologerClientChatScreen = () => {
     view: ClientView,
     label: string,
     icon?: React.ReactNode,
+    onCustomPress?: () => void,
   ) => {
     const isActive = activeView === view;
+    const activeBg = NAVY;
 
     if (isActive) {
       return (
@@ -1490,7 +1588,7 @@ const AstrologerClientChatScreen = () => {
             scrollActiveToolbarTabIntoView(view);
           }}
         >
-          <View style={[styles.toolbarPill, styles.toolbarPillActive, { backgroundColor: NAVY }]}>
+          <View style={[styles.toolbarPill, styles.toolbarPillActive, { backgroundColor: activeBg }]}>
             {icon}
             <Text style={styles.toolbarPillTextActive}>{label}</Text>
           </View>
@@ -1506,7 +1604,13 @@ const AstrologerClientChatScreen = () => {
       >
         <TouchableOpacity
           style={[styles.toolbarPill, styles.toolbarPillInactive, { borderColor: inactivePillBorder }]}
-          onPress={() => setActiveView(view)}
+          onPress={() => {
+            if (onCustomPress) {
+              onCustomPress();
+            } else {
+              setActiveView(view);
+            }
+          }}
           activeOpacity={0.85}
         >
           {icon}
@@ -1688,15 +1792,33 @@ const AstrologerClientChatScreen = () => {
 
         {renderViewPill(
           'combos',
-          'Generic Prediction',
+          'General Predictions',
           <Text
             style={[
               styles.combosListIcon,
               { color: activeView === 'combos' ? '#FFFFFF' : inactivePillColor },
             ]}
           >
-            ☰
+            🪐
           </Text>,
+        )}
+
+        {renderViewPill(
+          'personalized',
+          'Personalized Predictions',
+          <Text
+            style={[
+              styles.combosListIcon,
+              { color: activeView === 'personalized' ? '#FFFFFF' : inactivePillColor },
+            ]}
+          >
+            {!isPaidPlan || !isPersonalizedActive ? '🔒' : '👤'}
+          </Text>,
+          !isPaidPlan
+            ? () => setShowPaidPlanRequiredModal(true)
+            : !isPersonalizedActive
+            ? () => setShowPersonalDetailsRequiredModal(true)
+            : undefined,
         )}
 
         {renderViewPill(
@@ -1773,13 +1895,21 @@ const AstrologerClientChatScreen = () => {
       <View style={styles.combosPanelInner}>
         {activeClientId ? (
           <AstrologerCombos
-            key={activeClientId}
+            key={`${activeClientId}-${activeView}`}
             clientId={activeClientId}
             cardBg={palette.toolbarBg}
             cardBorder={palette.toolbarBorder}
             textPrimary={palette.textPrimary}
             textMuted={palette.textMuted}
-            initialTab={route.params?.initialComboTab}
+            mode={activeView === 'personalized' ? 'personalized' : 'general'}
+            onModeChange={mode =>
+              setActiveView(mode === 'personalized' ? 'personalized' : 'combos')
+            }
+            initialTab={
+              activeView === 'personalized'
+                ? route.params?.initialComboTab || 'next_week'
+                : route.params?.initialComboTab || 'antar_dasha'
+            }
             useParentScroll
             mahadasha={mahadashaPeriod}
             antardasha={antardashaPeriod}
@@ -1860,9 +1990,13 @@ const AstrologerClientChatScreen = () => {
         </View>
       </View>
 
-      {activeView !== 'combos' ? renderMemberHeader() : null}
+      {activeView !== 'combos' && activeView !== 'personalized'
+        ? renderMemberHeader()
+        : null}
 
-      {activeView !== 'combos' && !(activeView === 'chat' && isKeyboardVisible)
+      {activeView !== 'combos' &&
+      activeView !== 'personalized' &&
+      !(activeView === 'chat' && isKeyboardVisible)
         ? renderToolbarTabs()
         : null}
 
@@ -2159,7 +2293,9 @@ const AstrologerClientChatScreen = () => {
 
       {activeView === 'vedic' ? renderVedicContent() : null}
       {activeView === 'transit' ? renderTransitContent() : null}
-      {activeView === 'combos' ? renderCombosContent() : null}
+      {activeView === 'combos' || activeView === 'personalized'
+        ? renderCombosContent()
+        : null}
 
       <TransitEditModal
         visible={showTransitEditModal}
@@ -2287,6 +2423,19 @@ const AstrologerClientChatScreen = () => {
           </ImageBackground>
         </View>
       </Modal>
+
+      <PersonalDetailsRequiredModal
+        visible={showPersonalDetailsRequiredModal}
+        onClose={() => setShowPersonalDetailsRequiredModal(false)}
+        isDark={palette.isDark}
+      />
+
+      <PaidPlanRequiredModal
+        visible={showPaidPlanRequiredModal}
+        onClose={() => setShowPaidPlanRequiredModal(false)}
+        onViewPlans={handleViewPlans}
+        isDark={palette.isDark}
+      />
     </View>
   );
 };

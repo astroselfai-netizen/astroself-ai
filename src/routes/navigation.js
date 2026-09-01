@@ -225,6 +225,7 @@ function createAstrologerStack(initialRouteName) {
 
 const MyClientsStack = createAstrologerStack('AstrologerMyClientsScreen');
 const MyProfileStack = createAstrologerStack('AstrologerMyProfileScreen');
+const AstrologerReportStack = createAstrologerStack('ReportScreen');
 const PlanStack = createAstrologerStack('AstrologerPlanScreen');
 const AstrologerSettingsStack = createAstrologerStack('SettingsScreen');
 
@@ -370,6 +371,56 @@ function AstrologerTabs() {
                 e.preventDefault();
                 navigation.navigate('MyProfileTab', {
                   screen: 'AstrologerMyProfileScreen',
+                });
+              }
+            },
+          })}
+        />
+        <Tab.Screen
+          name="ReportTab"
+          component={AstrologerReportStack}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <View style={styles.tabItemContainer}>
+                <Image
+                  source={focused ? icons.icReportActive : icons.icReport}
+                  style={[
+                    styles.iconStyle,
+                    {
+                      tintColor: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                      width: responsiveWidth(6.5),
+                      height: responsiveWidth(6.5),
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    {
+                      color: focused
+                        ? colors.Orangeaccentcolor
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  Reports
+                </Text>
+              </View>
+            ),
+          }}
+          listeners={({ navigation, route }) => ({
+            tabPress: e => {
+              const state = navigation.getState();
+              const tabRoute = state.routes.find(r => r.key === route.key);
+              const nestedState = tabRoute?.state;
+              const currentRoute = nestedState?.routes[nestedState?.index];
+
+              if (currentRoute?.name !== 'ReportScreen') {
+                e.preventDefault();
+                navigation.navigate('ReportTab', {
+                  screen: 'ReportScreen',
                 });
               }
             },

@@ -20,6 +20,11 @@ import Toast from 'react-native-toast-message';
 import { MainContainer } from '../../components/common/mainContainer';
 import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { ComboTab } from '../../components/AstrologerCombos';
+import PersonalDetailsRequiredModal from '../../components/PersonalDetailsRequiredModal';
+import PaidPlanRequiredModal from '../../components/PaidPlanRequiredModal';
+import AstrologerPersonalDetailsForm, {
+  PersonalDetailsValues,
+} from '../../components/AstrologerPersonalDetailsForm';
 import { responsiveWidth, fontFamily } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { useAstrologerClients } from '../../hooks/useAstrologerClients';
@@ -151,6 +156,31 @@ const formatBirthTime = (birthData?: Api.User.Res.AstrologerClientBirthData) => 
   return `${String(birthData.hour).padStart(2, '0')}:${String(birthData.min).padStart(2, '0')}`;
 };
 
+const getBirthDayName = (birthData?: Api.User.Res.AstrologerClientBirthData) => {
+  if (!birthData || !birthData.year || !birthData.month || !birthData.day) return '';
+  try {
+    const d = new Date(Number(birthData.year), Number(birthData.month) - 1, Number(birthData.day));
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return dayNames[d.getDay()] || '';
+  } catch (e) {
+    return '';
+  }
+};
+
+const formatBirthTimeWithPeriod = (birthData?: Api.User.Res.AstrologerClientBirthData) => {
+  if (!birthData) return { timeStr: '—', tzone: '' };
+  const hour = Number(birthData.hour ?? 0);
+  const min = Number(birthData.min ?? 0);
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour % 12 || 12;
+  const timeStr = `${String(h12).padStart(2, '0')}:${String(min).padStart(2, '0')} ${period}`;
+  const tzone =
+    birthData.tzone === 5.5 || birthData.tzone === undefined || String(birthData.tzone) === '5.5'
+      ? 'IST'
+      : `UTC+${birthData.tzone}`;
+  return { timeStr, tzone };
+};
+
 const formatCreatedDate = (createdAt?: string) => {
   if (!createdAt) {
     return '';
@@ -170,12 +200,21 @@ const formatModalBirthDate = (birthData?: Api.User.Res.AstrologerClientBirthData
 
 const buildAstrologerClientUpdatePayload = (
   client: Api.User.Res.AstrologerClient,
-  aboutClient: string,
+  personalDetails: PersonalDetailsValues,
   astrologerUserId: string,
 ) => {
   const clientRecord = client as Api.User.Res.AstrologerClient & Record<string, unknown>;
   const birthData = client.birth_data || ({} as Api.User.Res.AstrologerClientBirthData);
   const notMentioned = 'Not Mentioned';
+
+  const hasPersonalDetails = Boolean(
+    personalDetails.whatDoYouDo ||
+      personalDetails.maritalStatus ||
+      personalDetails.children ||
+      personalDetails.currentFuturePlans?.trim() ||
+      personalDetails.currentChallenges?.trim() ||
+      personalDetails.anyOtherDetails?.trim(),
+  );
 
   return {
     id: client.id,
@@ -192,7 +231,15 @@ const buildAstrologerClientUpdatePayload = (
     planet_report_send: clientRecord.planet_report_send || notMentioned,
     lord_report_send: clientRecord.lord_report_send || notMentioned,
     nakshatra_report_send: clientRecord.nakshatra_report_send || notMentioned,
-    about_client: aboutClient,
+    about_client: personalDetails.anyOtherDetails.trim(),
+    what_do_you_do: personalDetails.whatDoYouDo,
+    marital_status: personalDetails.maritalStatus,
+    children: personalDetails.children,
+    current_future_plans: personalDetails.currentFuturePlans.trim(),
+    current_challenges: personalDetails.currentChallenges.trim(),
+    any_other_details: personalDetails.anyOtherDetails.trim(),
+    personalizedDetails: hasPersonalDetails,
+    personal_details: hasPersonalDetails,
     birth_data: {
       day: birthData.day,
       month: birthData.month,
@@ -231,67 +278,51 @@ const getInitials = (client: Api.User.Res.AstrologerClient) => {
 type ClientCardProps = {
   client: Api.User.Res.AstrologerClient;
   palette: ThemePalette;
+  isPaidPlan?: boolean;
   onEdit: (client: Api.User.Res.AstrologerClient) => void;
   onChart: (client: Api.User.Res.AstrologerClient) => void;
   onDelete: (client: Api.User.Res.AstrologerClient) => void;
   onChat: (client: Api.User.Res.AstrologerClient) => void;
-  onDignityAnalysis: (client: Api.User.Res.AstrologerClient) => void;
-  onComboShortcut: (client: Api.User.Res.AstrologerClient, comboTab: ComboTab) => void;
+  onGeneralPredictions?: (client: Api.User.Res.AstrologerClient) => void;
+  onPersonalizedPredictions?: (client: Api.User.Res.AstrologerClient) => void;
+  onShowPersonalDetailsRequired?: () => void;
+  onShowPaidPlanRequired?: () => void;
+  onBuyReport: (client: Api.User.Res.AstrologerClient) => void;
+  onHowItWorks: () => void;
 };
 
 const ClientCard = ({
   client,
   palette,
+  isPaidPlan = false,
   onEdit,
   onChart,
   onDelete,
   onChat,
-  onDignityAnalysis,
-  onComboShortcut,
+  onGeneralPredictions,
+  onPersonalizedPredictions,
+  onShowPersonalDetailsRequired,
+  onShowPaidPlanRequired,
+  onBuyReport,
+  onHowItWorks,
 }: ClientCardProps) => {
+  const clientRecord = client as Api.User.Res.AstrologerClient & Record<string, unknown>;
+  const isPersonalized = Boolean(
+    clientRecord.personal_details ??
+    clientRecord.personalizedDetails ??
+    clientRecord.personalized_details ??
+    clientRecord.is_personalized ??
+    false,
+  );
+  const isLocked = !isPaidPlan || !isPersonalized;
+
   const clientName =
     client.full_name ||
     `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
     'Unknown Client';
 
-  const shortcutItems: Array<{
-    key: string;
-    label: string;
-    icon?: string;
-    image?: number;
-    onPress: () => void;
-  }> = [
-    {
-      key: 'antar_dasha',
-      label: 'Current Phase of Life',
-      icon: '⚡',
-      onPress: () => onComboShortcut(client, 'antar_dasha'),
-    },
-    {
-      key: 'transit_analysis',
-      label: 'Transit Predictions',
-      icon: '▦',
-      onPress: () => onComboShortcut(client, 'transit_analysis'),
-    },
-    {
-      key: 'dos_donts',
-      label: "Do's and Don'ts",
-      icon: '✓',
-      onPress: () => onComboShortcut(client, 'dos_donts'),
-    },
-    {
-      key: 'charts',
-      label: 'Charts and Dashas',
-      image: require('../../assets/icons/ZodiacWheel.png'),
-      onPress: () => onChart(client),
-    },
-    {
-      key: 'dignity',
-      label: 'Dignity Analysis',
-      icon: '★',
-      onPress: () => onDignityAnalysis(client),
-    },
-  ];
+  const dayName = getBirthDayName(client.birth_data);
+  const { timeStr, tzone } = formatBirthTimeWithPeriod(client.birth_data);
 
   return (
     <View
@@ -299,19 +330,18 @@ const ClientCard = ({
         styles.clientCard,
         {
           backgroundColor: palette.cardBg,
-          borderColor: palette.isDark
-            ? palette.borderColor
-            : NAVY,
+          borderColor: palette.isDark ? palette.borderColor : '#E2E8F0',
         },
       ]}
     >
+      {/* Top Identity Row */}
       <View style={styles.clientCardTopRow}>
         <View style={styles.clientIdentityRow}>
           <View
             style={[
               styles.clientAvatar,
               {
-                backgroundColor: palette.isDark ? '#1E2F44' : NAVY,
+                backgroundColor: '#0B1B3D',
                 borderColor: palette.gold,
               },
             ]}
@@ -323,12 +353,10 @@ const ClientCard = ({
               {clientName}
             </Text>
             <View style={styles.locationRow}>
-              <Text style={[styles.locationPin, { color: palette.textMuted }]}>
-                📍
-              </Text>
+              <Text style={styles.locationPin}>📍</Text>
               <Text
                 style={[styles.locationText, { color: palette.textMuted }]}
-                numberOfLines={2}
+                numberOfLines={1}
               >
                 {client.birthplace || 'Location not specified'}
               </Text>
@@ -336,6 +364,7 @@ const ClientCard = ({
           </View>
         </View>
 
+        {/* Action Buttons: Edit & Delete */}
         <View style={styles.clientActionIcons}>
           <TouchableOpacity
             style={[
@@ -372,92 +401,255 @@ const ClientCard = ({
         </View>
       </View>
 
+      {/* Birth Info Row (2 side-by-side cards) */}
       <View style={styles.birthInfoRow}>
+        {/* Birth Date Box */}
         <View
           style={[
             styles.birthInfoBox,
             {
-              backgroundColor: palette.birthInfoBg,
-              borderColor: palette.birthInfoBorder,
+              backgroundColor: palette.isDark ? '#1E293B' : '#F4F7FB',
+              borderColor: palette.isDark ? 'rgba(255,255,255,0.1)' : '#E2E8F0',
             },
           ]}
         >
-          <Text style={[styles.birthInfoLabel, { color: palette.textMuted }]}>
-            BIRTH DATE
-          </Text>
-          <Text style={[styles.birthInfoValue, { color: palette.textPrimary }]}>
-            {formatBirthDate(client.birth_data)}
-          </Text>
+          <View style={styles.birthInfoIconWrapDate}>
+            <Image
+              source={require('../../assets/icons/date-pikar.png')}
+              style={styles.birthInfoIconImgDate}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.birthInfoCol}>
+            <Text style={[styles.birthInfoLabel, { color: palette.textMuted }]}>
+              BIRTH DATE
+            </Text>
+            <Text style={[styles.birthInfoValue, { color: palette.textPrimary }]}>
+              {formatBirthDate(client.birth_data)}
+            </Text>
+            {dayName ? (
+              <Text style={[styles.birthInfoSub, { color: palette.textMuted }]}>
+                {dayName}
+              </Text>
+            ) : null}
+          </View>
         </View>
+
+        {/* Birth Time Box */}
         <View
           style={[
             styles.birthInfoBox,
             {
-              backgroundColor: palette.birthInfoBg,
-              borderColor: palette.birthInfoBorder,
+              backgroundColor: palette.isDark ? '#2D2418' : '#FAF8F3',
+              borderColor: palette.isDark ? 'rgba(245,158,11,0.2)' : '#F3EEDB',
             },
           ]}
         >
-          <Text style={[styles.birthInfoLabel, { color: palette.textMuted }]}>
-            BIRTH TIME
-          </Text>
-          <Text style={[styles.birthInfoValue, { color: palette.textPrimary }]}>
-            {formatBirthTime(client.birth_data)}
-          </Text>
+          <View style={styles.birthInfoIconWrapTime}>
+            <Image
+              source={require('../../assets/icons/time_piker.png')}
+              style={styles.birthInfoIconImgTime}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.birthInfoCol}>
+            <Text style={[styles.birthInfoLabel, { color: palette.textMuted }]}>
+              BIRTH TIME
+            </Text>
+            <Text style={[styles.birthInfoValue, { color: palette.textPrimary }]}>
+              {timeStr}
+            </Text>
+            {tzone ? (
+              <Text style={[styles.birthInfoSub, { color: palette.textMuted }]}>
+                {tzone}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </View>
 
-      {client.created_at ? (
-        <Text style={[styles.createdDateText, { color: palette.textMuted }]}>
-          {formatCreatedDate(client.created_at)}
-        </Text>
-      ) : null}
+      {/* Choose Prediction Mode Section */}
+      <View
+        style={[
+          styles.predictionModeSection,
+          {
+            backgroundColor: palette.isDark ? '#1C2738' : '#FFFFFF',
+            borderColor: palette.isDark ? 'rgba(255,255,255,0.1)' : '#E2E8F0',
+          },
+        ]}
+      >
+        <View style={styles.predictionModeHeaderRow}>
+          <Text
+            style={[
+              styles.predictionModeHeaderTitle,
+              { color: palette.textPrimary },
+            ]}
+          >
+            Choose Prediction Mode
+          </Text>
+          <TouchableOpacity
+            style={styles.howItWorksBtn}
+            onPress={onHowItWorks}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.howItWorksIcon}>ⓘ</Text>
+            <Text style={styles.howItWorksText}>How it works</Text>
+          </TouchableOpacity>
+        </View>
 
+        <View style={styles.predictionModeCardsRow}>
+          {/* General Predictions Card */}
+          <TouchableOpacity
+            style={[
+              styles.modeCard,
+              {
+                backgroundColor: palette.isDark ? '#182233' : '#F8FAFD',
+                borderColor: palette.isDark ? 'rgba(99,102,241,0.3)' : '#E2E8F0',
+              },
+            ]}
+            onPress={() =>
+              onGeneralPredictions
+                ? onGeneralPredictions(client)
+                : onChart(client)
+            }
+            activeOpacity={0.85}
+          >
+            <View style={styles.modeIconCircleGeneral}>
+              <Text style={styles.modeIconTextGeneral}>🪐</Text>
+            </View>
+            <Text
+              style={[
+                styles.modeCardTitle,
+                { color: palette.textPrimary },
+              ]}
+            >
+              General Predictions
+            </Text>
+            <Text
+              style={[
+                styles.modeCardDesc,
+                { color: palette.textMuted },
+              ]}
+            >
+              Based on your birth chart and current planetary positions. No personal details considered.
+            </Text>
+            <Text style={styles.modeCardLinkGeneral}>
+              View predictions →
+            </Text>
+          </TouchableOpacity>
+
+          {/* Personalized Predictions Card */}
+          <TouchableOpacity
+            style={[
+              styles.modeCard,
+              styles.modeCardPersonalized,
+              {
+                backgroundColor: palette.isDark ? '#2B2214' : '#FFFDF5',
+                borderColor: palette.isDark ? '#D97706' : '#F6D8A8',
+              },
+            ]}
+            onPress={() => {
+              if (!isPaidPlan) {
+                onShowPaidPlanRequired?.();
+              } else if (!isPersonalized) {
+                onShowPersonalDetailsRequired?.();
+              } else if (onPersonalizedPredictions) {
+                onPersonalizedPredictions(client);
+              } else {
+                onChart(client);
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            {isLocked ? (
+              <View style={styles.lockBadgeWrap}>
+                <Text style={styles.lockBadgeIcon}>🔒</Text>
+              </View>
+            ) : null}
+            <View style={styles.modeIconCirclePersonalized}>
+              <Text style={styles.modeIconTextPersonalized}>👤</Text>
+            </View>
+            <Text
+              style={[
+                styles.modeCardTitlePersonalized,
+                { color: palette.isDark ? '#FCD34D' : '#92400E' },
+              ]}
+            >
+              Personalized Predictions
+            </Text>
+            <Text
+              style={[
+                styles.modeCardDescPersonalized,
+                { color: palette.isDark ? '#FDE68A' : '#A16207' },
+              ]}
+            >
+              Tailored using the personal details, current situation, plans and concerns you share with us.
+            </Text>
+            <Text
+              style={[
+                styles.modeCardLinkPersonalized,
+                { color: palette.isDark ? '#FBBF24' : '#B45309' },
+              ]}
+            >
+              View predictions →
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Ask Questions Button (Outlined) */}
       <TouchableOpacity
-        style={[styles.chatButton, getOutlinedButtonStyle(palette)]}
+        style={[
+          styles.askQuestionsButton,
+          {
+            borderColor: palette.isDark ? '#C5A370' : '#0B1B3D',
+          },
+        ]}
         onPress={() => onChat(client)}
         activeOpacity={0.85}
       >
         <Image
-          source={require('../../assets/icons/Chat-inactive.png')}
-          style={[styles.chatButtonIcon, { tintColor: palette.secondaryButtonText }]}
+          source={require('../../assets/icons/Chat-active.png')}
+          style={[
+            styles.askQuestionsIcon,
+            { tintColor: palette.isDark ? '#C5A370' : '#0B1B3D' },
+          ]}
         />
-        <Text style={[styles.chatButtonText, { color: palette.secondaryButtonText }]}>
+        <Text
+          style={[
+            styles.askQuestionsText,
+            { color: palette.isDark ? '#C5A370' : '#0B1B3D' },
+          ]}
+        >
           Ask Questions
         </Text>
       </TouchableOpacity>
 
-      <View style={styles.comboShortcutsList}>
-        {shortcutItems.map(shortcut => (
-          <TouchableOpacity
-            key={shortcut.key}
-            style={styles.comboShortcutRow}
-            onPress={shortcut.onPress}
-            activeOpacity={0.85}
-          >
-            <View
-              style={[
-                styles.comboShortcutIconBox,
-                {
-                  backgroundColor: palette.gold,
-                },
-              ]}
-            >
-              {shortcut.image ? (
-                <Image
-                  source={shortcut.image}
-                  style={styles.comboShortcutImageIcon}
-                />
-              ) : (
-                <Text style={styles.comboShortcutIcon}>{shortcut.icon}</Text>
-              )}
-            </View>
-            <Text style={[styles.comboShortcutLabel, { color: palette.textPrimary }]}>
-              {shortcut.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Created Date */}
+      {client.created_at ? (
+        <View style={styles.createdDateRow}>
+          <Image
+            source={require('../../assets/icons/date-pikar.png')}
+            style={styles.createdDateIcon}
+          />
+          <Text style={[styles.createdDateText, { color: palette.textMuted }]}>
+            {formatCreatedDate(client.created_at)}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Buy Report Button (Golden Amber) */}
+      <TouchableOpacity
+        style={styles.buyReportButton}
+        onPress={() => onBuyReport(client)}
+        activeOpacity={0.85}
+      >
+        <Image
+          source={require('../../assets/icons/document.png')}
+          style={styles.buyReportIcon}
+        />
+        <Text style={styles.buyReportText}>Buy Report</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -481,9 +673,89 @@ const AstrologerMyClientsScreen = () => {
   const [transitSession, setTransitSession] =
     useState<AstrologerCurrentTransitSession | null>(null);
 
-  const astrologerUserId = String(user?._id || '');
+  const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
+  const [showPersonalDetailsRequiredModal, setShowPersonalDetailsRequiredModal] =
+    useState(false);
+  const [showPaidPlanRequiredModal, setShowPaidPlanRequiredModal] =
+    useState(false);
+  const [personalDetailsForm, setPersonalDetailsForm] =
+    useState<PersonalDetailsValues>({
+      whatDoYouDo: '',
+      maritalStatus: '',
+      children: '',
+      currentFuturePlans: '',
+      currentChallenges: '',
+      anyOtherDetails: '',
+    });
 
+  const astrologerUserId = String(user?._id || '');
   const astrologerUser = (userDetails || user) as Record<string, unknown> | undefined;
+
+  const isPaidPlan = useMemo(() => {
+    const currentPlan = String(
+      astrologerUser?.current_plan ||
+        astrologerUser?.plan_name ||
+        astrologerUser?.plan ||
+        user?.plan ||
+        '',
+    )
+      .toLowerCase()
+      .trim();
+
+    const isFree =
+      !currentPlan ||
+      currentPlan === 'free' ||
+      currentPlan === 'basic' ||
+      currentPlan.includes('free');
+
+    const isSubActive =
+      astrologerUser?.is_paid === true ||
+      astrologerUser?.plan_status === 'active' ||
+      astrologerUser?.is_subscribed === true ||
+      (!isFree && Boolean(currentPlan));
+
+    return Boolean(isSubActive && !isFree);
+  }, [astrologerUser, user]);
+
+  const handleViewPlans = useCallback(() => {
+    setShowPaidPlanRequiredModal(false);
+    const rootNavigation = navigation.getParent()?.getParent();
+    if (rootNavigation?.navigate) {
+      rootNavigation.navigate('AstrologerHome', {
+        screen: 'PlanTab',
+        params: { screen: 'AstrologerPlanScreen' },
+      });
+      return;
+    }
+    navigation.navigate('AstrologerPlanScreen');
+  }, [navigation]);
+
+  const navigateFromRoot = useCallback(
+    (screen: string, params?: Record<string, unknown>) => {
+      const rootNavigation = navigation.getParent()?.getParent();
+      if (rootNavigation?.navigate) {
+        rootNavigation.navigate(screen, params);
+        return;
+      }
+      navigation.navigate(screen, params);
+    },
+    [navigation],
+  );
+
+  const handleBuyReport = useCallback(
+    (client: Api.User.Res.AstrologerClient) => {
+      const parentNav = navigation.getParent();
+      if (parentNav?.navigate) {
+        parentNav.navigate('ReportTab', {
+          screen: 'ReportScreen',
+          params: { userId: client.id },
+        });
+        return;
+      }
+      navigateFromRoot('ReportScreen', { userId: client.id });
+    },
+    [navigation, navigateFromRoot],
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -502,9 +774,6 @@ const AstrologerMyClientsScreen = () => {
     }, [refreshClients, astrologerUserId]),
   );
 
-  console.log('clients', astrologerUser);
-  console.log('clients', clients);
-
   const totalClients =
     Number(astrologerUser?.astrologer_current_members) || clients.length || 0;
 
@@ -520,21 +789,28 @@ const AstrologerMyClientsScreen = () => {
     });
   }, [clients, searchQuery]);
 
-  const navigateFromRoot = useCallback(
-    (screen: string, params?: Record<string, unknown>) => {
-      const rootNavigation = navigation.getParent()?.getParent();
-      if (rootNavigation?.navigate) {
-        rootNavigation.navigate(screen, params);
-        return;
-      }
-      navigation.navigate(screen, params);
-    },
-    [navigation],
-  );
-
   const handleEdit = useCallback((client: Api.User.Res.AstrologerClient) => {
+    const clientRecord = client as Api.User.Res.AstrologerClient & Record<string, unknown>;
     setSelectedClient(client);
     setAboutClient(client.about_client || '');
+    setPersonalDetailsForm({
+      whatDoYouDo: String(
+        clientRecord.what_do_you_do || clientRecord.whatDoYouDo || '',
+      ),
+      maritalStatus: String(
+        clientRecord.marital_status || clientRecord.maritalStatus || '',
+      ),
+      children: String(clientRecord.children || ''),
+      currentFuturePlans: String(
+        clientRecord.current_future_plans || clientRecord.currentFuturePlans || '',
+      ),
+      currentChallenges: String(
+        clientRecord.current_challenges || clientRecord.currentChallenges || '',
+      ),
+      anyOtherDetails: String(
+        clientRecord.any_other_details || client.about_client || '',
+      ),
+    });
     setShowEditModal(true);
   }, []);
 
@@ -542,6 +818,14 @@ const AstrologerMyClientsScreen = () => {
     setShowEditModal(false);
     setSelectedClient(null);
     setAboutClient('');
+    setPersonalDetailsForm({
+      whatDoYouDo: '',
+      maritalStatus: '',
+      children: '',
+      currentFuturePlans: '',
+      currentChallenges: '',
+      anyOtherDetails: '',
+    });
   }, []);
 
   const handleSaveClientChanges = useCallback(async () => {
@@ -563,7 +847,7 @@ const AstrologerMyClientsScreen = () => {
       setIsUpdatingClient(true);
       const payload = buildAstrologerClientUpdatePayload(
         selectedClient,
-        aboutClient.trim(),
+        personalDetailsForm,
         astrologerUserId,
       );
       const response = await userService.updateAstrologerClient(
@@ -680,6 +964,40 @@ const AstrologerMyClientsScreen = () => {
         clientId: client.id,
         clientName,
         clients,
+      });
+    },
+    [clients, navigateFromRoot],
+  );
+
+  const handleGeneralPredictions = useCallback(
+    (client: Api.User.Res.AstrologerClient) => {
+      const clientName =
+        client.full_name ||
+        `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
+        'Client';
+      navigateFromRoot('AstrologerClientChatScreen', {
+        clientId: client.id,
+        clientName,
+        clients,
+        initialView: 'combos',
+        predictionMode: 'general',
+      });
+    },
+    [clients, navigateFromRoot],
+  );
+
+  const handlePersonalizedPredictions = useCallback(
+    (client: Api.User.Res.AstrologerClient) => {
+      const clientName =
+        client.full_name ||
+        `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
+        'Client';
+      navigateFromRoot('AstrologerClientChatScreen', {
+        clientId: client.id,
+        clientName,
+        clients,
+        initialView: 'personalized',
+        predictionMode: 'personalized',
       });
     },
     [clients, navigateFromRoot],
@@ -919,12 +1237,21 @@ const AstrologerMyClientsScreen = () => {
                   key={client.id}
                   client={client}
                   palette={palette}
+                  isPaidPlan={isPaidPlan}
                   onEdit={handleEdit}
                   onChart={handleChart}
                   onDelete={handleDelete}
                   onChat={handleChat}
-                  onDignityAnalysis={handleDignityAnalysis}
-                  onComboShortcut={handleComboShortcut}
+                  onGeneralPredictions={handleGeneralPredictions}
+                  onPersonalizedPredictions={handlePersonalizedPredictions}
+                  onShowPersonalDetailsRequired={() =>
+                    setShowPersonalDetailsRequiredModal(true)
+                  }
+                  onShowPaidPlanRequired={() =>
+                    setShowPaidPlanRequiredModal(true)
+                  }
+                  onBuyReport={handleBuyReport}
+                  onHowItWorks={() => setShowHowItWorksModal(true)}
                 />
               ))
             ) : (
@@ -968,7 +1295,7 @@ const AstrologerMyClientsScreen = () => {
             ]}
           >
             <View style={styles.editModalHeader}>
-              <Text style={styles.editModalHeaderTitle}>Edit Member</Text>
+              <Text style={styles.editModalHeaderTitle}>Edit Chart</Text>
               <TouchableOpacity
                 onPress={handleCloseEditModal}
                 activeOpacity={0.7}
@@ -998,71 +1325,49 @@ const AstrologerMyClientsScreen = () => {
                     ]}
                   >
                     <EditDetailRow
-                      label="Name"
+                      label="NAME"
                       value={
                         selectedClient.full_name ||
-                        `${selectedClient.first_name || ''} ${selectedClient.last_name || ''}`.trim()
+                        `${selectedClient.first_name || ''} ${
+                          selectedClient.last_name || ''
+                        }`.trim() ||
+                        '—'
                       }
                       textPrimary={palette.textPrimary}
                       textMuted={palette.textMuted}
                     />
                     <EditDetailRow
-                      label="Gender"
+                      label="GENDER"
                       value={selectedClient.gender || '—'}
                       textPrimary={palette.textPrimary}
                       textMuted={palette.textMuted}
                     />
                     <EditDetailRow
-                      label="Birth Date"
+                      label="BIRTH DATE"
                       value={formatModalBirthDate(selectedClient.birth_data)}
                       textPrimary={palette.textPrimary}
                       textMuted={palette.textMuted}
                     />
                     <EditDetailRow
-                      label="Birth Time"
+                      label="BIRTH TIME"
                       value={formatBirthTime(selectedClient.birth_data)}
                       textPrimary={palette.textPrimary}
                       textMuted={palette.textMuted}
                     />
                     <EditDetailRow
-                      label="Location"
+                      label="LOCATION"
                       value={selectedClient.birthplace || '—'}
                       textPrimary={palette.textPrimary}
                       textMuted={palette.textMuted}
                     />
                   </View>
 
-                  <View style={styles.editPersonalDetailsHeader}>
-                    <Text
-                      style={[styles.editPersonalDetailsTitle, { color: palette.textPrimary }]}
-                    >
-                      Personal Details
-                    </Text>
-                    <Image
-                      source={require('../../assets/icons/edit-painel.png')}
-                      style={[styles.editPersonalDetailsIcon, { tintColor: palette.textMuted }]}
-                    />
-                  </View>
-
-                  <Text style={[styles.editAboutClientLabel, { color: palette.textPrimary }]}>
-                    About client
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.editAboutClientInput,
-                      {
-                        backgroundColor: palette.inputBg,
-                        borderColor: palette.inputBorder,
-                        color: palette.textPrimary,
-                      },
-                    ]}
-                    value={aboutClient}
-                    onChangeText={setAboutClient}
-                    placeholder="Enter details about the chart..."
-                    placeholderTextColor={palette.textMuted}
-                    multiline
-                    numberOfLines={5}
-                    textAlignVertical="top"
+                  <AstrologerPersonalDetailsForm
+                    values={personalDetailsForm}
+                    onChange={(field, val) =>
+                      setPersonalDetailsForm(prev => ({ ...prev, [field]: val }))
+                    }
+                    palette={palette}
                   />
                 </>
               ) : null}
@@ -1075,7 +1380,10 @@ const AstrologerMyClientsScreen = () => {
               ]}
             >
               <TouchableOpacity
-                style={[styles.editModalCancelButton, getOutlinedButtonStyle(palette)]}
+                style={[
+                  styles.editModalCancelButton,
+                  getOutlinedButtonStyle(palette),
+                ]}
                 onPress={handleCloseEditModal}
                 disabled={isUpdatingClient}
                 activeOpacity={0.85}
@@ -1097,7 +1405,7 @@ const AstrologerMyClientsScreen = () => {
                 activeOpacity={0.85}
               >
                 {isUpdatingClient ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.editModalSaveText}>Save Changes</Text>
                 )}
@@ -1107,6 +1415,7 @@ const AstrologerMyClientsScreen = () => {
         </View>
       </Modal>
 
+      {/* Delete Client Modal */}
       <Modal
         visible={showDeleteModal}
         transparent
@@ -1114,44 +1423,192 @@ const AstrologerMyClientsScreen = () => {
         onRequestClose={handleCloseDeleteModal}
       >
         <View style={styles.deleteModalOverlay}>
-          <LinearGradient
-            colors={['#E8F4FC', '#FDF3EA', '#FCE8D8']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.deleteModalContainer}
+          <View
+            style={[
+              styles.deleteModalContainer,
+              { backgroundColor: palette.isDark ? palette.cardBg : '#FFFFFF' },
+            ]}
           >
-            <Text style={styles.deleteModalTitle}>Delete Chart & Chart Data?</Text>
-            <Text style={styles.deleteModalMessage}>
-              All Chart information, charts, and related records will be permanently deleted.
-              This action cannot be undone.
+            <Text style={[styles.deleteModalTitle, { color: palette.textPrimary }]}>
+              Delete Chart
             </Text>
-
+            <Text
+              style={[
+                styles.deleteModalMessage,
+                { color: palette.textMuted },
+              ]}
+            >
+              {clientToDelete
+                ? `Are you sure you want to delete ${
+                    clientToDelete.full_name ||
+                    `${clientToDelete.first_name || ''} ${clientToDelete.last_name || ''}`.trim() ||
+                    'this chart'
+                  }?`
+                : 'Are you sure you want to delete this chart?'}
+            </Text>
             <View style={styles.deleteModalActions}>
               <TouchableOpacity
-                style={styles.deleteModalYesButton}
+                style={[
+                  styles.deleteModalNoButton,
+                  {
+                    borderColor: palette.isDark ? '#6B7280' : NAVY,
+                  },
+                ]}
+                onPress={handleCloseDeleteModal}
+                disabled={isDeletingClient}
+              >
+                <Text
+                  style={[
+                    styles.deleteModalNoText,
+                    { color: palette.textPrimary },
+                  ]}
+                >
+                  No
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.deleteModalYesButton,
+                  { backgroundColor: '#DC2626' },
+                ]}
                 onPress={handleConfirmDelete}
                 disabled={isDeletingClient}
-                activeOpacity={0.85}
               >
                 {isDeletingClient ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.deleteModalYesText}>Yes</Text>
                 )}
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.deleteModalNoButton}
-                onPress={handleCloseDeleteModal}
-                disabled={isDeletingClient}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.deleteModalNoText}>No</Text>
-              </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         </View>
       </Modal>
+
+      {/* How it works Info Modal */}
+      <Modal
+        visible={showHowItWorksModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHowItWorksModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.infoModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowHowItWorksModal(false)}
+        >
+          <View
+            style={[
+              styles.infoModalContainer,
+              { backgroundColor: palette.isDark ? palette.cardBg : '#FFFFFF' },
+            ]}
+          >
+            <Text
+              style={[
+                styles.infoModalMainTitle,
+                { color: palette.textPrimary },
+              ]}
+            >
+              How Prediction Modes Work
+            </Text>
+
+            <View style={styles.infoModalBody}>
+              {/* General Predictions Card */}
+              <View
+                style={[
+                  styles.infoModeCard,
+                  {
+                    backgroundColor: palette.isDark ? '#182233' : '#F9FBFE',
+                    borderColor: palette.isDark ? 'rgba(255,255,255,0.1)' : '#E5EDF7',
+                  },
+                ]}
+              >
+                <View style={styles.infoModeIconCircleGeneral}>
+                  <Text style={styles.infoModeIconText}>🪐</Text>
+                </View>
+                <View style={styles.infoModeContent}>
+                  <Text style={[styles.infoModeCardTitle, { color: palette.textPrimary }]}>
+                    General Predictions
+                  </Text>
+                  <Text style={[styles.infoModeCardDesc, { color: palette.textMuted }]}>
+                    Uses the birth chart and current planet positions only. No personal details are used.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Personalized Predictions Card */}
+              <View
+                style={[
+                  styles.infoModeCard,
+                  {
+                    backgroundColor: palette.isDark ? '#231F17' : '#FDFCF9',
+                    borderColor: palette.isDark ? 'rgba(217,119,6,0.3)' : '#F7E7CE',
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View style={styles.infoModeIconCirclePersonalized}>
+                  <Text style={styles.infoModeIconText}>👤</Text>
+                </View>
+                <View style={styles.infoModeContent}>
+                  <Text style={[styles.infoModeCardTitle, { color: palette.textPrimary }]}>
+                    Personalized Predictions
+                  </Text>
+                  <Text style={[styles.infoModeCardDesc, { color: palette.textMuted }]}>
+                    Uses the same chart, plus the personal details saved for this profile: current situation, plans and concerns.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Locked Notice Banner */}
+              <View
+                style={[
+                  styles.infoLockedBanner,
+                  {
+                    backgroundColor: palette.isDark ? '#2E2B3E' : '#F1EFF8',
+                    borderColor: palette.isDark ? 'rgba(255,255,255,0.08)' : '#E6E2F2',
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View style={styles.infoLockedIconCircle}>
+                  <Text style={styles.infoLockedIconText}>🔒</Text>
+                </View>
+                <Text style={[styles.infoLockedText, { color: palette.textPrimary }]}>
+                  <Text style={{ fontFamily: fontFamily.bold }}>Personalized is locked. </Text>
+                  It needs an active paid plan and this profile's personal details.
+                </Text>
+              </View>
+
+              {/* Got it button */}
+              <View style={styles.infoModalBtnWrap}>
+                <TouchableOpacity
+                  style={[styles.infoModalGotItBtn, { backgroundColor: NAVY }]}
+                  onPress={() => setShowHowItWorksModal(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.infoModalGotItBtnText}>Got it</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Personal Details Required Modal */}
+      <PersonalDetailsRequiredModal
+        visible={showPersonalDetailsRequiredModal}
+        onClose={() => setShowPersonalDetailsRequiredModal(false)}
+        isDark={palette.isDark}
+      />
+
+      {/* Paid Plan Required Modal */}
+      <PaidPlanRequiredModal
+        visible={showPaidPlanRequiredModal}
+        onClose={() => setShowPaidPlanRequiredModal(false)}
+        onViewPlans={handleViewPlans}
+        isDark={palette.isDark}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -1380,82 +1837,352 @@ const styles = StyleSheet.create({
   },
   birthInfoRow: {
     flexDirection: 'row',
-    gap: responsiveWidth('2.5'),
+    gap: responsiveWidth('2'),
     marginBottom: responsiveWidth('2.5'),
   },
   birthInfoBox: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    paddingVertical: responsiveWidth('2.5'),
-    paddingHorizontal: responsiveWidth('3'),
+    paddingVertical: responsiveWidth('2'),
+    paddingHorizontal: responsiveWidth('2.2'),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  birthInfoIconWrapDate: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  birthInfoIconImgDate: {
+    width: 17,
+    height: 17,
+    tintColor: '#6366F1',
+  },
+  birthInfoIconWrapTime: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  birthInfoIconImgTime: {
+    width: 17,
+    height: 17,
+    tintColor: '#D97706',
+  },
+  birthInfoCol: {
+    flex: 1,
   },
   birthInfoLabel: {
-    fontSize: 10,
-    fontFamily: fontFamily.medium,
-    marginBottom: 4,
+    fontSize: 9,
+    fontFamily: fontFamily.bold,
     letterSpacing: 0.5,
+    marginBottom: 1,
   },
   birthInfoValue: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontFamily: fontFamily.bold,
+    lineHeight: 17,
   },
-  createdDateText: {
-    fontSize: 12,
+  birthInfoSub: {
+    fontSize: 10.5,
     fontFamily: fontFamily.regular,
+    marginTop: 1,
+  },
+  predictionModeSection: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: responsiveWidth('2.5'),
+    marginTop: responsiveWidth('0.5'),
     marginBottom: responsiveWidth('2.5'),
   },
-  comboShortcutsList: {
-    gap: responsiveWidth('1'),
-    marginBottom: responsiveWidth('3'),
-  },
-  comboShortcutRow: {
+  predictionModeHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 0.2,
+    justifyContent: 'space-between',
+    marginBottom: responsiveWidth('2'),
+  },
+  predictionModeHeaderTitle: {
+    fontSize: 13.5,
+    fontFamily: fontFamily.bold,
+  },
+  howItWorksBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  howItWorksIcon: {
+    fontSize: 13,
+    color: '#3B82F6',
+  },
+  howItWorksText: {
+    fontSize: 12,
+    color: '#3B82F6',
+    fontFamily: fontFamily.medium,
+  },
+  predictionModeCardsRow: {
+    flexDirection: 'row',
+    gap: responsiveWidth('2'),
+  },
+  modeCard: {
+    flex: 1,
     borderRadius: 10,
-    paddingVertical: responsiveWidth('2'),
-    paddingHorizontal: responsiveWidth('2.5'),
+    borderWidth: 1,
+    padding: responsiveWidth('2'),
+    alignItems: 'center',
+    position: 'relative',
+    minHeight: 165,
+  },
+  modeCardPersonalized: {
+    borderWidth: 1.2,
+  },
+  modeIconCircleGeneral: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  modeIconTextGeneral: {
+    fontSize: 16,
+  },
+  modeIconCirclePersonalized: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  modeIconTextPersonalized: {
+    fontSize: 16,
+  },
+  lockBadgeWrap: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  lockBadgeIcon: {
+    fontSize: 9,
+  },
+  modeCardTitle: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    textAlign: 'center',
+    marginBottom: 3,
+  },
+  modeCardTitlePersonalized: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    textAlign: 'center',
+    marginBottom: 3,
+  },
+  modeCardDesc: {
+    fontSize: 9.5,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    lineHeight: 13.5,
+    flex: 1,
+  },
+  modeCardDescPersonalized: {
+    fontSize: 9.5,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    lineHeight: 13.5,
+    flex: 1,
+  },
+  modeCardLinkGeneral: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#4F46E5',
+    marginTop: 6,
+  },
+  modeCardLinkPersonalized: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#B45309',
+    marginTop: 6,
+  },
+  askQuestionsButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#0B1B3D',
+    borderRadius: 10,
+    paddingVertical: responsiveWidth('2.8'),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: responsiveWidth('1.5'),
+  },
+  askQuestionsIcon: {
+    width: 15,
+    height: 15,
+    resizeMode: 'contain',
+    tintColor: '#0B1B3D',
+  },
+  askQuestionsText: {
+    color: '#0B1B3D',
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+  },
+  createdDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: responsiveWidth('2'),
+    paddingHorizontal: 2,
+  },
+  createdDateIcon: {
+    width: 13,
+    height: 13,
+    resizeMode: 'contain',
+    tintColor: '#94A3B8',
+  },
+  createdDateText: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.regular,
+  },
+  buyReportButton: {
+    backgroundColor: '#D4A85B',
+    borderRadius: 10,
+    paddingVertical: responsiveWidth('2.8'),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  buyReportIcon: {
+    width: 15,
+    height: 15,
+    resizeMode: 'contain',
+    tintColor: '#0B1B3D',
+  },
+  buyReportText: {
+    color: '#0B1B3D',
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+  },
+  infoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: responsiveWidth('6'),
+  },
+  infoModalContainer: {
+    width: '100%',
+    borderRadius: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
+  },
+  infoModalMainTitle: {
+    fontSize: 18,
+    fontFamily: fontFamily.bold,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  infoModalBody: {
+    width: '100%',
+  },
+  infoModeCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
     gap: 12,
   },
-  comboShortcutIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+  infoModeIconCircleGeneral: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  comboShortcutIcon: {
-    fontSize: 13,
-    color: '#FFFFFF',
+  infoModeIconCirclePersonalized: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  comboShortcutImageIcon: {
-    width: 14,
-    height: 14,
-    resizeMode: 'contain',
-    tintColor: '#FFFFFF',
+  infoModeIconText: {
+    fontSize: 18,
   },
-  comboShortcutLabel: {
+  infoModeContent: {
     flex: 1,
-    fontSize: 14,
-    fontFamily: fontFamily.semiBold,
   },
-  chatButton: {
+  infoModeCardTitle: {
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+    marginBottom: 3,
+  },
+  infoModeCardDesc: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    lineHeight: 17,
+  },
+  infoLockedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: responsiveWidth('2'),
-    gap: 8,
-    marginBottom: responsiveWidth('3'),
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 10,
   },
-  chatButtonIcon: {
-    width: 16,
-    height: 16,
-    resizeMode: 'contain',
+  infoLockedIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  chatButtonText: {
+  infoLockedIconText: {
+    fontSize: 13,
+  },
+  infoLockedText: {
+    flex: 1,
+    fontSize: 11.5,
+    fontFamily: fontFamily.regular,
+    lineHeight: 16,
+  },
+  infoModalBtnWrap: {
+    alignItems: 'center',
+    marginTop: 18,
+  },
+  infoModalGotItBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 40,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoModalGotItBtnText: {
+    color: '#FFFFFF',
     fontSize: 15,
     fontFamily: fontFamily.semiBold,
   },
@@ -1509,7 +2236,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   editModalScroll: {
-    maxHeight: responsiveWidth('110'),
+    flexShrink: 1,
   },
   editModalScrollContent: {
     padding: responsiveWidth('3'),

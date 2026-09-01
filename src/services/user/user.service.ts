@@ -1519,6 +1519,59 @@ export default class UserService extends Service {
     }
   }
 
+  async generateAstrologerCustomCombination(
+    userId: string,
+    dataType: string,
+    heading: string,
+    force: boolean = false,
+  ): Promise<{
+    status: boolean;
+    data?: unknown;
+    message?: string;
+  }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      let url = `/astrologer/combinations/custom/generate/?user_id=${encodeURIComponent(userId)}&data_type=${encodeURIComponent(dataType)}&heading=${encodeURIComponent(heading)}`;
+      if (force) {
+        url += '&force=true';
+      }
+
+      const axiosResponse = await http.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accept: 'application/json, text/plain, */*',
+        },
+      });
+
+      if (axiosResponse?.data?.status === true || axiosResponse?.status === 200) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to generate combination',
+      );
+    } catch (error: any) {
+      console.error('Generate astrologer custom combination error:', error);
+
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to generate prediction. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
   async getAstrologerComboContent(
     collection: string,
     pipeline: Array<Record<string, unknown>>,

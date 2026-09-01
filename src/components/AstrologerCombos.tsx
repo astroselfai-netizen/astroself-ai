@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -10,6 +11,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import Toast from 'react-native-toast-message';
+import { icons } from '../assets';
 import { fontFamily, responsiveWidth } from '../constant/theme';
 import UserService from '../services/user/user.service';
 import {
@@ -21,14 +24,17 @@ import {
 const NAVY = '#1A3673';
 const GOLD = '#C5A370';
 
-type ComboTab =
+export type PredictionMode = 'general' | 'personalized';
+
+export type ComboTab =
+  | 'next_week'
   | 'transit_analysis'
   | 'combinations'
   | 'antar_dasha'
   | 'dos_donts'
   | 'the_inner_you';
 
-const COMBO_TAB_ORDER: ComboTab[] = [
+export const GENERAL_COMBO_TAB_ORDER: ComboTab[] = [
   'antar_dasha',
   'transit_analysis',
   'dos_donts',
@@ -36,11 +42,21 @@ const COMBO_TAB_ORDER: ComboTab[] = [
   'combinations',
 ];
 
+export const PERSONALIZED_COMBO_TAB_ORDER: ComboTab[] = [
+  'next_week',
+  'antar_dasha',
+  'transit_analysis',
+  'dos_donts',
+];
+
+const COMBO_TAB_ORDER = GENERAL_COMBO_TAB_ORDER;
+
 export const CLIENT_COMBO_SHORTCUTS: {
   tab: ComboTab;
   label: string;
   icon: string;
 }[] = [
+  { tab: 'next_week', label: 'Next Week', icon: '📅' },
   { tab: 'antar_dasha', label: 'Current Phase of Life', icon: '⚡' },
   { tab: 'transit_analysis', label: 'Transit Predictions', icon: '▦' },
   { tab: 'dos_donts', label: "Do's and Don'ts", icon: '✓' },
@@ -65,6 +81,9 @@ type AstrologerCombosProps = {
   textPrimary: string;
   textMuted: string;
   initialTab?: ComboTab;
+  initialMode?: PredictionMode;
+  mode?: PredictionMode;
+  onModeChange?: (mode: PredictionMode) => void;
   useParentScroll?: boolean;
   mahadasha?: DashaPeriodInfo | null;
   antardasha?: DashaPeriodInfo | null;
@@ -72,7 +91,12 @@ type AstrologerCombosProps = {
 
 type ComboDetailParams = {
   title: string;
-  kind: 'transit_analysis' | 'antar_dasha' | 'dos_donts' | 'the_inner_you';
+  kind:
+    | 'next_week'
+    | 'transit_analysis'
+    | 'antar_dasha'
+    | 'dos_donts'
+    | 'the_inner_you';
   clientId?: string;
   heading?: string;
   bullets?: string[];
@@ -185,6 +209,9 @@ const AstrologerCombos = ({
   textPrimary,
   textMuted,
   initialTab = 'antar_dasha',
+  initialMode = 'general',
+  mode,
+  onModeChange,
   useParentScroll = false,
   mahadasha = null,
   antardasha = null,
@@ -195,9 +222,65 @@ const AstrologerCombos = ({
   const tabsScrollRef = useRef<ScrollView | null>(null);
   const tabPositionsRef = useRef<Partial<Record<ComboTab, number>>>({});
   const cachedList = clientId ? getCombosListCacheSync(clientId) : null;
-  const [comboTab, setComboTab] = useState<ComboTab>(initialTab);
+  const internalCurrentMode = mode || initialMode;
+  const [internalMode, setInternalMode] = useState<PredictionMode>(
+    mode || initialMode || 'general',
+  );
+  const predictionMode = mode || internalMode || 'general';
+  const [comboTab, setComboTab] = useState<ComboTab>(
+    initialTab || (predictionMode === 'personalized' ? 'next_week' : 'antar_dasha'),
+  );
+
+  useEffect(() => {
+    if (initialTab) {
+      setComboTab(initialTab);
+    } else if (predictionMode === 'personalized') {
+      setComboTab('next_week');
+    }
+  }, [initialTab, predictionMode]);
+
+  useEffect(() => {
+    if (mode && mode !== internalMode) {
+      setInternalMode(mode);
+      if (mode === 'personalized') {
+        setComboTab('next_week');
+      } else if (mode === 'general' && comboTab === 'next_week') {
+        setComboTab('antar_dasha');
+      }
+    }
+  }, [mode, internalMode, comboTab]);
+
+  const activeTabOrder = useMemo(
+    () =>
+      (mode || internalMode) === 'personalized'
+        ? PERSONALIZED_COMBO_TAB_ORDER
+        : GENERAL_COMBO_TAB_ORDER,
+    [mode, internalMode],
+  );
+
+  const handleModeChange = useCallback(
+    (newMode: PredictionMode) => {
+      setInternalMode(newMode);
+      onModeChange?.(newMode);
+      if (newMode === 'personalized') {
+        if (comboTab === 'the_inner_you' || comboTab === 'combinations') {
+          setComboTab('next_week');
+        }
+      } else if (newMode === 'general') {
+        if (comboTab === 'next_week') {
+          setComboTab('antar_dasha');
+        }
+      }
+    },
+    [comboTab, onModeChange],
+  );
+
   const [loading, setLoading] = useState(!cachedList);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingItemId, setRefreshingItemId] = useState<string | null>(null);
+  const [nextWeekItems, setNextWeekItems] = useState<CombinationListItem[]>(
+    cachedList?.nextWeekItems || [],
+  );
   const [transitDetailItems, setTransitDetailItems] = useState<CombinationListItem[]>(
     cachedList?.transitDetailItems || [],
   );
@@ -220,6 +303,7 @@ const AstrologerCombos = ({
 
   const tabLabels = useMemo(
     () => ({
+      next_week: `Next Week (${nextWeekItems.length})`,
       combinations: `Combinations (${combinationItems.length})`,
       antar_dasha: `Current Phase of Life (${activeComboItems.length})`,
       dos_donts: `Do's and Don'ts (${activityItems.length})`,
@@ -227,6 +311,7 @@ const AstrologerCombos = ({
       the_inner_you: `The Inner You (${innerYouItems.length})`,
     }),
     [
+      nextWeekItems.length,
       transitDetailItems.length,
       combinationItems.length,
       activeComboItems.length,
@@ -237,6 +322,7 @@ const AstrologerCombos = ({
 
   const applyListCache = useCallback(
     (cache: NonNullable<ReturnType<typeof getCombosListCacheSync>>) => {
+      setNextWeekItems(cache.nextWeekItems || []);
       setTransitDetailItems(cache.transitDetailItems || []);
       setCombinationItems(cache.combinationItems || []);
       setActiveComboItems(cache.activeComboItems || []);
@@ -332,6 +418,23 @@ const AstrologerCombos = ({
     }
   }, [clientId, userService]);
 
+  const loadNextWeekCombinations = useCallback(async (): Promise<CombinationListItem[]> => {
+    try {
+      const response = await userService.getAstrologerCombinations(
+        clientId,
+        'next_week',
+      );
+      const items = extractComboListFromResponse(response).map((item, index) =>
+        mapComboListItem(item, index, 'next-week'),
+      );
+      setNextWeekItems(items);
+      return items;
+    } catch {
+      setNextWeekItems([]);
+      return [];
+    }
+  }, [clientId, userService]);
+
   const loadAllCombos = useCallback(
     async (options?: { isRefresh?: boolean; silent?: boolean }) => {
       if (!clientId) {
@@ -351,6 +454,7 @@ const AstrologerCombos = ({
           nextActive,
           nextActivity,
           nextInnerYou,
+          nextWeek,
         ] =
           await Promise.all([
             loadTransitDetailItems(),
@@ -358,6 +462,7 @@ const AstrologerCombos = ({
             loadActiveCombinations(),
             loadActivityCombinations(),
             loadInnerYouCombinations(),
+            loadNextWeekCombinations(),
           ]);
         const asOf = new Date();
         setCombosAsOfDate(asOf);
@@ -368,6 +473,7 @@ const AstrologerCombos = ({
           activeComboItems: nextActive,
           activityItems: nextActivity,
           innerYouItems: nextInnerYou,
+          nextWeekItems: nextWeek,
           combosAsOfDate: asOf.toISOString(),
         });
       } finally {
@@ -381,6 +487,7 @@ const AstrologerCombos = ({
       loadActivityCombinations,
       loadCombinations,
       loadInnerYouCombinations,
+      loadNextWeekCombinations,
       loadTransitDetailItems,
     ],
   );
@@ -476,6 +583,66 @@ const AstrologerCombos = ({
     navigation.navigate('AstrologerComboDetailScreen', params);
   };
 
+  const getDataTypeForTab = (tab: ComboTab): string => {
+    switch (tab) {
+      case 'next_week':
+        return 'next_week';
+      case 'antar_dasha':
+        return 'active_combinations';
+      case 'transit_analysis':
+        return 'transit_details_list';
+      case 'dos_donts':
+        return 'current_activity';
+      case 'the_inner_you':
+        return 'the_inner_you';
+      case 'combinations':
+        return 'combinations';
+      default:
+        return 'active_combinations';
+    }
+  };
+
+  const handleRefreshItem = useCallback(
+    async (item: CombinationListItem, tab: ComboTab) => {
+      if (!clientId || !item.heading) {
+        return;
+      }
+
+      setRefreshingItemId(item.id);
+      try {
+        const dataType = getDataTypeForTab(tab);
+        const isPersonalized = predictionMode === 'personalized';
+        await userService.generateAstrologerCustomCombination(
+          clientId,
+          dataType,
+          item.heading,
+          isPersonalized,
+        );
+
+        Toast.show({
+          type: 'success',
+          text1: 'Prediction Refreshed',
+          text2: `Refreshed "${item.heading}"`,
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 2500,
+        });
+      } catch (err: any) {
+        Toast.show({
+          type: 'error',
+          text1: 'Refresh Failed',
+          text2: err?.message || 'Could not refresh prediction',
+          position: 'top',
+          topOffset: 60,
+          visibilityTime: 3000,
+        });
+      } finally {
+        setRefreshingItemId(null);
+      }
+    },
+    [clientId, predictionMode, userService],
+  );
+
   const handleRefresh = useCallback(async () => {
     if (!clientId) {
       return;
@@ -551,28 +718,85 @@ const AstrologerCombos = ({
     ));
   };
 
-  const renderDetailRow = (key: string, title: string, onPress: () => void) => (
-    <TouchableOpacity
-      key={key}
-      style={[
-        styles.detailRow,
-        { backgroundColor: cardBg, borderColor: cardBorder },
-      ]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View style={styles.comboCardTitleWrap}>
-        <Text style={[styles.comboCardTitle, { color: textPrimary }]} numberOfLines={4}>
-          {title}
-        </Text>
-      </View>
-      <View style={styles.comboChevronBox}>
-        <Text style={[styles.comboChevron, { color: textPrimary }]}>›</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderDetailRow = (
+    key: string,
+    title: string,
+    onPress: () => void,
+    onRefresh?: () => void,
+    isRefreshingItem?: boolean,
+  ) => {
+    const isPersonalized = predictionMode === 'personalized';
+
+    return (
+      <TouchableOpacity
+        key={key}
+        style={[
+          styles.detailRow,
+          { backgroundColor: cardBg, borderColor: cardBorder },
+        ]}
+        onPress={onPress}
+        activeOpacity={0.85}
+      >
+        <View style={styles.comboCardTitleWrap}>
+          <Text style={[styles.comboCardTitle, { color: textPrimary }]} numberOfLines={4}>
+            {title}
+          </Text>
+        </View>
+        <View style={styles.detailRowRight}>
+          {isPersonalized && onRefresh ? (
+            <TouchableOpacity
+              style={styles.rowRefreshBtn}
+              onPress={onRefresh}
+              disabled={isRefreshingItem}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
+            >
+              {isRefreshingItem ? (
+                <ActivityIndicator size="small" color={NAVY} />
+              ) : (
+                <Image
+                  source={icons.icRecycle}
+                  style={[styles.rowRefreshIcon, { tintColor: NAVY }]}
+                  resizeMode="contain"
+                />
+              )}
+            </TouchableOpacity>
+          ) : null}
+          <View style={styles.comboChevronBox}>
+            <Text style={[styles.comboChevron, { color: textPrimary }]}>›</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderExpandableList = () => {
+    if (comboTab === 'next_week') {
+      if (!nextWeekItems.length) {
+        return (
+          <Text style={[styles.emptyText, { color: textMuted }]}>
+            No Next Week predictions found
+          </Text>
+        );
+      }
+
+      return nextWeekItems.map(item =>
+        renderDetailRow(
+          item.id,
+          item.heading,
+          () =>
+            openDetail({
+              title: item.heading,
+              kind: 'next_week',
+              collection: item.collection,
+              pipeline: item.pipeline,
+            }),
+          () => handleRefreshItem(item, 'next_week'),
+          refreshingItemId === item.id,
+        ),
+      );
+    }
+
     if (comboTab === 'transit_analysis') {
       if (!transitDetailItems.length) {
         return (
@@ -583,13 +807,18 @@ const AstrologerCombos = ({
       }
 
       return transitDetailItems.map(item =>
-        renderDetailRow(item.id, item.heading, () =>
-          openDetail({
-            title: item.heading,
-            kind: 'transit_analysis',
-            clientId,
-            heading: item.heading,
-          }),
+        renderDetailRow(
+          item.id,
+          item.heading,
+          () =>
+            openDetail({
+              title: item.heading,
+              kind: 'transit_analysis',
+              clientId,
+              heading: item.heading,
+            }),
+          () => handleRefreshItem(item, 'transit_analysis'),
+          refreshingItemId === item.id,
         ),
       );
     }
@@ -604,13 +833,18 @@ const AstrologerCombos = ({
       }
 
       return activityItems.map(item =>
-        renderDetailRow(item.id, item.heading, () =>
-          openDetail({
-            title: item.heading,
-            kind: 'dos_donts',
-            collection: item.collection,
-            pipeline: item.pipeline,
-          }),
+        renderDetailRow(
+          item.id,
+          item.heading,
+          () =>
+            openDetail({
+              title: item.heading,
+              kind: 'dos_donts',
+              collection: item.collection,
+              pipeline: item.pipeline,
+            }),
+          () => handleRefreshItem(item, 'dos_donts'),
+          refreshingItemId === item.id,
         ),
       );
     }
@@ -625,13 +859,18 @@ const AstrologerCombos = ({
       }
 
       return innerYouItems.map(item =>
-        renderDetailRow(item.id, item.heading, () =>
-          openDetail({
-            title: item.heading,
-            kind: 'the_inner_you',
-            collection: item.collection,
-            pipeline: item.pipeline,
-          }),
+        renderDetailRow(
+          item.id,
+          item.heading,
+          () =>
+            openDetail({
+              title: item.heading,
+              kind: 'the_inner_you',
+              collection: item.collection,
+              pipeline: item.pipeline,
+            }),
+          () => handleRefreshItem(item, 'the_inner_you'),
+          refreshingItemId === item.id,
         ),
       );
     }
@@ -645,19 +884,26 @@ const AstrologerCombos = ({
     }
 
     return activeComboItems.map(item =>
-      renderDetailRow(item.id, item.heading, () =>
-        openDetail({
-          title: item.heading,
-          kind: 'antar_dasha',
-          collection: item.collection,
-          pipeline: item.pipeline,
-        }),
+      renderDetailRow(
+        item.id,
+        item.heading,
+        () =>
+          openDetail({
+            title: item.heading,
+            kind: 'antar_dasha',
+            collection: item.collection,
+            pipeline: item.pipeline,
+          }),
+        () => handleRefreshItem(item, 'antar_dasha'),
+        refreshingItemId === item.id,
       ),
     );
   };
 
   const headerTitle =
-    comboTab === 'transit_analysis'
+    comboTab === 'next_week'
+      ? 'Next Week'
+      : comboTab === 'transit_analysis'
       ? 'Transit Predictions'
       : comboTab === 'combinations'
         ? 'Combinations'
@@ -751,8 +997,9 @@ const AstrologerCombos = ({
         style={styles.tabScroll}
         contentContainerStyle={styles.tabRow}
       >
-        {COMBO_TAB_ORDER.map(tab => {
+        {activeTabOrder.map(tab => {
           const isActive = comboTab === tab;
+          const activeBg = NAVY;
           return (
             <TouchableOpacity
               key={tab}
@@ -765,7 +1012,7 @@ const AstrologerCombos = ({
               style={[
                 styles.tabBtn,
                 isActive
-                  ? [styles.tabBtnActive, { backgroundColor: NAVY }]
+                  ? [styles.tabBtnActive, { backgroundColor: activeBg }]
                   : [styles.tabBtnInactive, { borderColor: cardBorder }],
               ]}
               onPress={() => handleTabChange(tab)}
@@ -956,17 +1203,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: GOLD,
+    borderColor: NAVY,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   refreshIcon: {
-    color: GOLD,
+    color: NAVY,
     fontSize: 14,
   },
   refreshText: {
-    color: GOLD,
+    color: NAVY,
     fontSize: 12,
     fontFamily: fontFamily.semiBold,
   },
@@ -1009,6 +1256,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.bold,
     lineHeight: 18,
+  },
+  detailRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  rowRefreshBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rowRefreshIcon: {
+    width: 17,
+    height: 17,
   },
   comboChevronBox: {
     width: 24,

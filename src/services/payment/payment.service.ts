@@ -113,6 +113,38 @@ export interface PurchasedReportsResponse {
   data: PurchasedReport[];
 }
 
+export interface CreateAstrologerReportOrderRequest {
+  report_type: string;
+  user_id: string;
+  receipt: string;
+  currency?: string;
+  notes?: Record<string, any>;
+  country_code?: string;
+}
+
+export interface CreateAstrologerReportOrderResponse {
+  order_id: string;
+  amount: number;
+  currency: string;
+  receipt: string;
+  status?: string;
+  created_at?: number;
+  [key: string]: any;
+}
+
+export interface AstrologerReportVerifyRequest {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+export interface AstrologerReportVerifyResponse {
+  success?: boolean;
+  status?: string;
+  message?: string;
+  data?: any;
+}
+
 export interface PaymentDetailsResponse {
   status: boolean;
   data: {
@@ -319,6 +351,150 @@ class PaymentService extends Service {
         throw new Error('Network error. Please check your connection.');
       } else {
         throw new Error('Something went wrong while verifying in-app purchase');
+      }
+    }
+  }
+
+  async createAstrologerReportOrder(reportData: CreateAstrologerReportOrderRequest): Promise<CreateAstrologerReportOrderResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Create astrologer report order request:--->', reportData);
+
+      const response = await http.post(`/astrologer/reports/order`, reportData, {
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('Create astrologer report order response:--->', response.data);
+
+      const data = response.data;
+      if (data && (data.order_id || data.data?.order_id || data.id)) {
+        return data.data || data;
+      } else if (data && data.status) {
+        return data.data || data;
+      } else {
+        throw new Error(data?.message || 'Invalid response from astrologer create report order API');
+      }
+    } catch (error: any) {
+      console.error('Error creating astrologer report order:', error);
+      if (error.response) {
+        throw new Error(error.response.data?.message || error.response.data?.detail || 'Failed to create astrologer report order');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error(error.message || 'Something went wrong while creating astrologer report order');
+      }
+    }
+  }
+
+  async verifyAstrologerReportPayment(verifyData: AstrologerReportVerifyRequest): Promise<AstrologerReportVerifyResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Astrologer report verify request:--->', verifyData);
+
+      const response = await http.post(`/astrologer/reports/verify`, verifyData, {
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('Astrologer report verify response:--->', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error verifying astrologer report payment:', error);
+      if (error.response) {
+        throw new Error(error.response.data?.message || error.response.data?.detail || 'Failed to verify astrologer report payment');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error(error.message || 'Something went wrong while verifying astrologer report payment');
+      }
+    }
+  }
+
+  async getAstrologerReportContent(reportType?: string): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      const headers: Record<string, string> = {
+        'accept': 'application/json',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const path = reportType
+        ? `/astrologer/report-content/${encodeURIComponent(reportType)}`
+        : `/astrologer/report-content`;
+
+      console.log('Fetching astrologer report content from:', path);
+      const response = await http.get(path, { headers });
+      console.log('Astrologer report content response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching astrologer report content:', error);
+      if (error.response) {
+        throw new Error(error.response.data?.message || error.response.data?.detail || 'Failed to fetch astrologer report content');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error(error.message || 'Something went wrong while fetching astrologer report content');
+      }
+    }
+  }
+
+  async getAstrologerPurchasedReports(userId: string): Promise<PurchasedReportsResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Fetching astrologer purchased reports for userId:', userId);
+
+      try {
+        const response = await http.get(`/astrologer/user/success-reports?user_id=${encodeURIComponent(userId)}`, {
+          headers: {
+            'accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (response.data && response.data.status) {
+          return response.data;
+        }
+      } catch (firstErr) {
+        console.log('Astrologer specific success-reports not found, falling back to /user/success-reports');
+      }
+
+      const response = await http.get(`/user/success-reports?user_id=${encodeURIComponent(userId)}`, {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('Purchased reports fallback response:--->', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching astrologer purchased reports:', error);
+      if (error.response) {
+        throw new Error(error.response.data?.message || 'Failed to fetch purchased reports');
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection.');
+      } else {
+        throw new Error('Something went wrong while fetching purchased reports');
       }
     }
   }
