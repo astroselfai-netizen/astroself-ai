@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ImageBackground,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -54,6 +55,7 @@ type RootStackParamList = {
 
 const fullScreenContainerStyle = {
   backgroundColor: 'transparent' as const,
+  overflow: 'hidden' as const,
 };
 
 const fullScreenSubContainerStyle = {
@@ -61,7 +63,7 @@ const fullScreenSubContainerStyle = {
   marginBottom: 0,
   borderBottomLeftRadius: 0,
   borderBottomRightRadius: 0,
-  overflow: 'visible' as const,
+  overflow: 'hidden' as const,
 };
 
 const isHtmlContent = (value: string) => /<\/?[a-z][\s\S]*>/i.test(value);
@@ -288,7 +290,7 @@ const AstrologerComboDetailScreen = () => {
   const cardBg = isDark ? colors.cardBackground : colors.white;
   const cardBorder = isDark ? 'rgba(255,255,255,0.18)' : '#C5D3EA';
   const contentColor = textPrimary;
-  const backBtnBg = isDark ? 'rgba(255,255,255,0.12)' : '#E8EEF7';
+  const headerControlBg = 'rgba(255, 255, 255, 0.12)';
   const contentWidth = Math.max(0, windowWidth - responsiveWidth('14'));
 
   const htmlBaseStyle = useMemo(
@@ -297,6 +299,7 @@ const AstrologerComboDetailScreen = () => {
       fontSize: 13,
       lineHeight: 21,
       fontFamily: fontFamily.regular,
+      maxWidth: '100%' as const,
     }),
     [contentColor],
   );
@@ -366,6 +369,7 @@ const AstrologerComboDetailScreen = () => {
       setErrorText('');
       try {
         let nextContent = '';
+        let refreshMessage = '';
 
         const isPersonalized = mode === 'personalized' || kind === 'next_week';
 
@@ -390,6 +394,7 @@ const AstrologerComboDetailScreen = () => {
             heading || title,
             options?.force || false,
           );
+          refreshMessage = String(response?.message || '').trim();
 
           const extracted = extractComboContent(response);
           nextContent = extracted || 'No details available.';
@@ -415,6 +420,7 @@ const AstrologerComboDetailScreen = () => {
             heading || title,
             options?.force || false,
           );
+          refreshMessage = String(response?.message || '').trim();
           const extracted = extractComboContent(response);
           nextContent = extracted || 'No details available.';
         } else {
@@ -432,10 +438,11 @@ const AstrologerComboDetailScreen = () => {
         if (options?.force) {
           Toast.show({
             type: 'success',
-            text1: 'Prediction Refreshed',
+            text1: refreshMessage || 'Prediction Refreshed',
             position: 'top',
             topOffset: 60,
-            visibilityTime: 2500,
+            visibilityTime: refreshMessage ? 3500 : 2500,
+            text1NumberOfLines: 3,
           });
         }
       } catch (error: unknown) {
@@ -584,45 +591,57 @@ const AstrologerComboDetailScreen = () => {
       subContainerStyle={fullScreenSubContainerStyle}
     >
       <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
+        barStyle="light-content"
         backgroundColor="transparent"
         translucent
       />
 
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 8 }]}>
+      <ImageBackground
+        source={require('../../assets/image/DarkBackground.png')}
+        style={[
+          styles.header,
+          {
+            paddingTop: Math.max(insets.top, 12) + 8,
+            width: windowWidth,
+          },
+        ]}
+        imageStyle={styles.headerImage}
+      >
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={[styles.backBtn, { backgroundColor: backBtnBg }]}
+          style={[styles.backBtn, { backgroundColor: headerControlBg }]}
           activeOpacity={0.8}
         >
           <Image
             source={require('../../assets/icons/back.png')}
-            style={[styles.backIcon, { tintColor: textPrimary }]}
+            style={styles.backIcon}
           />
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
-          <Text style={[styles.headerTitle, { color: textPrimary }]} numberOfLines={3}>
+          <Text style={styles.headerTitle} numberOfLines={3}>
             {title || 'Details'}
           </Text>
         </View>
         {showRefreshButton ? (
           <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: backBtnBg }]}
+            style={[styles.backBtn, { backgroundColor: headerControlBg }]}
             onPress={() => loadContent({ force: true })}
             disabled={refreshing || loading}
             activeOpacity={0.8}
           >
             {refreshing ? (
-              <ActivityIndicator size="small" color={textPrimary} />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <Image
                 source={require('../../assets/icons/recycle.png')}
-                style={[styles.refreshIcon, { tintColor: textPrimary }]}
+                style={styles.refreshIcon}
               />
             )}
           </TouchableOpacity>
-        ) : null}
-      </View>
+        ) : (
+          <View style={styles.headerRightSpacer} />
+        )}
+      </ImageBackground>
 
       {loading ? (
         <View style={styles.centerState}>
@@ -657,11 +676,16 @@ const AstrologerComboDetailScreen = () => {
 
 const styles = StyleSheet.create({
   header: {
+    alignSelf: 'stretch',
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: responsiveWidth('4'),
-    paddingBottom: responsiveWidth('3'),
+    paddingBottom: responsiveWidth('3.5'),
     gap: 12,
+  },
+  headerImage: {
+    resizeMode: 'cover',
   },
   backBtn: {
     width: 40,
@@ -669,19 +693,24 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   backIcon: {
     width: 18,
     height: 18,
     resizeMode: 'contain',
+    tintColor: '#FFFFFF',
   },
   refreshIcon: {
     width: 18,
     height: 18,
     resizeMode: 'contain',
+    tintColor: '#FFFFFF',
   },
   headerTextWrap: {
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
     paddingRight: 8,
     paddingTop: 6,
   },
@@ -689,15 +718,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.semiBold,
     lineHeight: 22,
+    color: '#FFFFFF',
+  },
+  headerRightSpacer: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
   },
   scroll: {
     flex: 1,
+    width: '100%',
   },
   scrollContent: {
     paddingHorizontal: responsiveWidth('4'),
+    paddingTop: responsiveWidth('4'),
     paddingBottom: responsiveWidth('6'),
   },
   contentCard: {
+    alignSelf: 'stretch',
+    width: '100%',
+    overflow: 'hidden',
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,

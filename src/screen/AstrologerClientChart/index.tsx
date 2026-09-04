@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import LottieView from 'lottie-react-native';
 import Toast from 'react-native-toast-message';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { MainContainer } from '../../components/common/mainContainer';
 import ChartsScreen from '../../components/ChartsScreen/ChartsScreen';
 import DashaScreen, {
@@ -22,8 +22,21 @@ import DashaScreen, {
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import UserService from '../../services/user/user.service';
 import { getCurrentTransitDashaOverview } from '../../utils/currentTransitDashaOverview';
+import { mergeDashaDetailsIntoAllDasha } from '../../utils/astrologerDashaDetails';
 
 const NAVY = '#1A3673';
+
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent' as const,
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
+
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent' as const,
+};
 
 type RootStackParamList = {
   AstrologerClientChartScreen: {
@@ -131,22 +144,15 @@ const AstrologerClientChartScreen = () => {
           sd: selection.sd,
         });
 
-        console.log('response--->134', response);
+        console.log('dasha/details response', response);
 
-        const responseData = response?.data;
-        if (responseData) {
-          const nextAllDasha =
-            responseData.all_dasha ||
-            (responseData.dasha as Record<string, unknown> | undefined);
-
-          setChartData(prev => ({
-            ...prev,
-            ...(nextAllDasha ? { all_dasha: nextAllDasha } : {}),
-            ...(responseData.planets_icon
-              ? { planets_icon: responseData.planets_icon }
-              : {}),
-          }));
-        }
+        setChartData(prev => ({
+          ...prev,
+          all_dasha: mergeDashaDetailsIntoAllDasha(
+            prev.all_dasha as Record<string, unknown> | undefined,
+            response,
+          ),
+        }));
       } catch (error: unknown) {
         const err = error as { message?: string };
         Toast.show({
@@ -169,7 +175,12 @@ const AstrologerClientChartScreen = () => {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
-        <MainContainer safeBottom>
+        <AstrologerScreenHeader title={clientName} showBack />
+        <MainContainer
+          safeBottom
+          containerStyle={astrologerMainContainerStyle}
+          subContainerStyle={astrologerContainerStyle}
+        >
           <View style={styles.loadingContainer}>
             <LottieView
               source={require('../../assets/lottie/loader-Animation-1.json')}
@@ -189,51 +200,41 @@ const AstrologerClientChartScreen = () => {
       style={styles.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer safeBottom>
+      <AstrologerScreenHeader title={clientName} showBack />
+      <MainContainer
+        safeBottom
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.heroHeader}>
-            <View style={styles.heroOverlay}>
-              <View style={styles.heroTopRow}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                  <Image
-                    source={require('../../assets/icons/back.png')}
-                    style={styles.backIcon}
-                  />
-                </TouchableOpacity>
-                <Text style={styles.heroTitle} numberOfLines={1}>
-                  {clientName}
+            <View style={styles.heroActionsRow}>
+              <TouchableOpacity
+                style={[styles.heroActionBtn, styles.chatBtn]}
+                onPress={handleChat}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.heroActionText}>💬 Chat</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.heroActionBtn, styles.dignityBtn]}
+                onPress={handleDignityAnalysis}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.heroActionText}>★ Dignity analysis</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.heroActionBtn, styles.clientsBtn]}
+                onPress={handleClientsList}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.heroActionText, styles.clientsBtnText]}>
+                  👥 Charts List
                 </Text>
-                <View style={styles.backBtnPlaceholder} />
-              </View>
-
-              <View style={styles.heroActionsRow}>
-                <TouchableOpacity
-                  style={[styles.heroActionBtn, styles.chatBtn]}
-                  onPress={handleChat}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.heroActionText}>💬 Chat</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.heroActionBtn, styles.dignityBtn]}
-                  onPress={handleDignityAnalysis}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.heroActionText}>★ Dignity analysis</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.heroActionBtn, styles.clientsBtn]}
-                  onPress={handleClientsList}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.heroActionText, styles.clientsBtnText]}>
-                    👥 Charts List
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -298,44 +299,9 @@ const styles = StyleSheet.create({
     height: 220,
   },
   heroHeader: {
-    marginTop: Platform.OS === 'ios' ? 50 : 36,
-    backgroundColor: 'transparent',
-    minHeight: 150,
-  },
-  heroOverlay: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 18,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtnPlaceholder: {
-    width: 36,
-    height: 36,
-  },
-  backIcon: {
-    width: responsiveWidth(5),
-    height: responsiveWidth(5),
-    resizeMode: 'contain',
-    tintColor: NAVY,
-  },
-  heroTitle: {
-    flex: 1,
-    textAlign: 'center',
-    color: NAVY,
-    fontSize: 22,
-    fontFamily: fontFamily.semiBold,
-    paddingHorizontal: 8,
+    paddingTop: 14,
+    paddingBottom: 8,
   },
   heroActionsRow: {
     flexDirection: 'row',

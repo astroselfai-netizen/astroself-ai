@@ -75,6 +75,7 @@ import AstrologerChatHistoryDetailsScreen from '../screen/AstrologerChatHistoryD
 import AstrologerClientChartScreen from '../screen/AstrologerClientChart';
 import AstrologerDignityAnalysisScreen from '../screen/AstrologerDignityAnalysis';
 import AstrologerComboDetailScreen from '../screen/AstrologerComboDetail';
+import AstrologerPredictionsScreen from '../screen/AstrologerPredictions';
 import AstrologerRegisterScreen from '../screen/AstrologerRegister';
 
 const Stack = createNativeStackNavigator();
@@ -591,6 +592,10 @@ function MainNavigator() {
         <Stack.Screen
           name="AstrologerComboDetailScreen"
           component={AstrologerComboDetailScreen}
+        />
+        <Stack.Screen
+          name="AstrologerPredictionsScreen"
+          component={AstrologerPredictionsScreen}
         />
       </Stack.Navigator>
     </NavigationContainer>

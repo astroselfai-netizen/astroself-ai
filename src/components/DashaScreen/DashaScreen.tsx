@@ -163,13 +163,15 @@ const DashaScreen = ({
 
   // Function to parse date string from dasha data
   const parseDashaDate = (dateStr: string): moment.Moment => {
-    // Parse date format like "22-4-1973  0:1" or "21-4-2016  18:1"
-    const [datePart, timePart] = dateStr.split('  ');
-    const [day, month, year] = datePart.split('-');
-    const [hour, minute] = timePart.split(':');
+    const trimmed = String(dateStr || '').trim();
+    const [datePart, timePart] = trimmed.split(/\s+/);
+    const [day, month, year] = (datePart || '').split('-');
+    const [hour, minute] = (timePart || '0:0').split(':');
 
-    // Create moment object (month is 0-indexed in moment)
-    return moment(`${year}-${month}-${day} ${hour}:${minute}`, 'YYYY-M-D H:m');
+    return moment(
+      `${year}-${month}-${day} ${hour || 0}:${minute || 0}`,
+      'YYYY-M-D H:m',
+    );
   };
 
   // Function to check if current time is within dasha period
@@ -179,15 +181,23 @@ const DashaScreen = ({
       const start = parseDashaDate(startDate);
       const end = parseDashaDate(endDate);
 
+      if (!start.isValid() || !end.isValid()) {
+        return false;
+      }
+
       return now.isBetween(start, end, null, '[]'); // '[]' includes the boundary dates
     },
     [],
   );
 
-  // Function to format date for display
+  // Show date only, never time
   const formatDateForDisplay = (dateStr: string): string => {
+    if (!dateStr || dateStr === '--') {
+      return '--';
+    }
+    const datePart = String(dateStr).trim().split(/\s+/)[0];
     const date = parseDashaDate(dateStr);
-    return date.format('DD-MM-YYYY');
+    return date.isValid() ? date.format('DD-MM-YYYY') : datePart;
   };
 
   // Function to get planet icon from planets_icon array
@@ -511,7 +521,25 @@ const DashaScreen = ({
                   <TouchableOpacity
                     key={dasha.id}
                     activeOpacity={0.85}
-                    onPress={() => setSelectedDashaType(dasha.key)}
+                    onPress={() => {
+                      setSelectedDashaType(dasha.key);
+                      if (astrologerClientMode && onAstrologerDashaRowPress) {
+                        const dashaType = dashaTypes.find(
+                          type => type.key === dasha.key,
+                        );
+                        if (!dashaType) {
+                          return;
+                        }
+                        void onAstrologerDashaRowPress({
+                          level: dashaType.level,
+                          md: selectedPlanets.md,
+                          ad: selectedPlanets.ad,
+                          pd: selectedPlanets.pd,
+                          sd: selectedPlanets.sd,
+                          clickedPlanet: dasha.planet,
+                        });
+                      }
+                    }}
                     style={[
                       styles.dashaCard,
                       {
@@ -565,9 +593,9 @@ const DashaScreen = ({
                         },
                       ]}
                     >
-                      {dasha.startDate}
+                      {formatDateForDisplay(dasha.startDate)}
                       {'\n'}
-                      {dasha.endDate}
+                      {formatDateForDisplay(dasha.endDate)}
                     </Text>
                   </TouchableOpacity>
                 );

@@ -1792,7 +1792,7 @@ const AstrologerClientChatScreen = () => {
           />,
         )}
 
-        {renderViewPill(
+        {/* {renderViewPill(
           'combos',
           'General Predictions',
           <Text
@@ -1821,7 +1821,7 @@ const AstrologerClientChatScreen = () => {
             : !isPersonalizedActive
             ? () => setShowPersonalDetailsRequiredModal(true)
             : undefined,
-        )}
+        )} */}
 
         {renderViewPill(
           'transit',

@@ -45,9 +45,9 @@ type AstrologerChatMemberHeaderProps = {
   isDark?: boolean;
   borderColor?: string;
   backgroundColor?: string;
-  onOpenSidebar: () => void;
-  onOpenCharts: () => void;
-  onCheckTransitCombo: () => void;
+  onOpenSidebar?: () => void;
+  onOpenCharts?: () => void;
+  onCheckTransitCombo?: () => void;
 };
 
 const parseDashaEntry = (
@@ -83,10 +83,20 @@ const formatBirthInfo = (birthData?: Api.User.Res.AstrologerClientBirthData) => 
   return `${birthData.day} ${monthLabel} ${birthData.year}, ${hour}:${min}`;
 };
 
-const getInitials = (firstName?: string, lastName?: string) => {
+const getInitials = (firstName?: string, lastName?: string, fallbackName?: string) => {
   const first = firstName?.charAt(0) || '';
   const last = lastName?.charAt(0) || '';
-  return `${first}${last}`.toUpperCase() || '?';
+  if (first || last) {
+    return `${first}${last}`.toUpperCase();
+  }
+  if (fallbackName) {
+    const parts = fallbackName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+    }
+    return fallbackName.slice(0, 2).toUpperCase();
+  }
+  return '?';
 };
 
 const DashaPill = ({
@@ -136,19 +146,21 @@ const AstrologerChatMemberHeader = ({
   loading = false,
   memberDetails,
   fallbackName = 'Client',
+  fallbackBirthData,
   isDark = false,
   borderColor = '#E5E7EB',
   backgroundColor = '#FFFFFF',
   onOpenSidebar,
   onOpenCharts,
   onCheckTransitCombo,
-}: AstrologerChatMemberHeaderProps) => {
+}: AstrologerChatMemberHeaderProps & { fallbackBirthData?: Api.User.Res.AstrologerClientBirthData }) => {
   const birthDetails = memberDetails?.birth_details;
   const displayName =
     `${birthDetails?.first_name || ''} ${birthDetails?.last_name || ''}`.trim() ||
     fallbackName;
-  const birthInfo = formatBirthInfo(birthDetails?.birth_data);
-  const initials = getInitials(birthDetails?.first_name, birthDetails?.last_name);
+  const birthData = birthDetails?.birth_data || fallbackBirthData;
+  const birthInfo = formatBirthInfo(birthData);
+  const initials = getInitials(birthDetails?.first_name, birthDetails?.last_name, displayName);
 
   const dashaPills = useMemo<DashaPillData[]>(() => {
     const dashaResult = memberDetails?.dasha_result;
@@ -183,13 +195,15 @@ const AstrologerChatMemberHeader = ({
       ]}
     >
       <View style={styles.topRow}>
-        <TouchableOpacity
-          style={[styles.menuBtn, { borderColor }]}
-          onPress={onOpenSidebar}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.menuIcon, isDark && styles.menuIconDark]}>☰</Text>
-        </TouchableOpacity>
+        {onOpenSidebar ? (
+          <TouchableOpacity
+            style={[styles.menuBtn, { borderColor }]}
+            onPress={onOpenSidebar}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.menuIcon, isDark && styles.menuIconDark]}>☰</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>

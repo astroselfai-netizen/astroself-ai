@@ -29,6 +29,9 @@ export type AstrologerCombosListCache = {
   innerYouItems?: CachedCombinationListItem[];
   nextWeekItems?: CachedCombinationListItem[];
   combosAsOfDate: string;
+  activityCurrentDate?: string;
+  transitCurrentDate?: string;
+  phaseCurrentDate?: string;
   savedAt: string;
 };
 
@@ -126,6 +129,9 @@ export const setCombosListCache = async (
     innerYouItems: payload.innerYouItems || [],
     nextWeekItems: payload.nextWeekItems || [],
     combosAsOfDate: payload.combosAsOfDate || new Date().toISOString(),
+    activityCurrentDate: payload.activityCurrentDate,
+    transitCurrentDate: payload.transitCurrentDate,
+    phaseCurrentDate: payload.phaseCurrentDate,
     savedAt: payload.savedAt || new Date().toISOString(),
   };
 

@@ -21,10 +21,14 @@ export type CurrentTransitDashaOverviewItem = {
 };
 
 const parseDashaDate = (dateStr: string) => {
-  const [datePart, timePart] = dateStr.split('  ');
-  const [day, month, year] = datePart.split('-');
+  const trimmed = String(dateStr || '').trim();
+  const [datePart, timePart] = trimmed.split(/\s+/);
+  const [day, month, year] = (datePart || '').split('-');
   const [hour, minute] = (timePart || '0:0').split(':');
-  return moment(`${year}-${month}-${day} ${hour}:${minute}`, 'YYYY-M-D H:m');
+  return moment(
+    `${year}-${month}-${day} ${hour || 0}:${minute || 0}`,
+    'YYYY-M-D H:m',
+  );
 };
 
 const isCurrentPeriod = (startDate: string, endDate: string) => {

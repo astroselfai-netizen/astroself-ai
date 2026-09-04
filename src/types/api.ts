@@ -90,6 +90,7 @@ export namespace Api {
         month: number;
         month_name: string;
         display: string;
+        conversations?: AstrologerChatHistoryItem[];
       }
 
       export interface AstrologerChatHistoryMonthsResponse {

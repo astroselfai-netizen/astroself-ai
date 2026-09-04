@@ -19,6 +19,8 @@ import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
 import { Api } from '../../types/api';
 
+type HistoryItem = Api.User.Res.AstrologerChatHistoryItem;
+
 type RootStackParamList = {
   AstrologerChatHistoryDetailsScreen: {
     clientId: string;
@@ -26,10 +28,9 @@ type RootStackParamList = {
     month: number;
     year: number;
     display: string;
+    conversations?: HistoryItem[];
   };
 };
-
-type HistoryItem = Api.User.Res.AstrologerChatHistoryItem;
 
 const NAVY = '#1A3673';
 
@@ -72,9 +73,12 @@ const AstrologerChatHistoryDetailsScreen = () => {
   const display = route.params?.display || 'Chat history';
   const month = route.params?.month;
   const year = route.params?.year;
+  const cachedConversations = route.params?.conversations;
 
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(!cachedConversations?.length);
+  const [items, setItems] = useState<HistoryItem[]>(
+    () => cachedConversations || [],
+  );
   const [errorText, setErrorText] = useState('');
 
   const isDark = theme === 'dark';
@@ -92,7 +96,9 @@ const AstrologerChatHistoryDetailsScreen = () => {
       return;
     }
 
-    setLoading(true);
+    if (!cachedConversations?.length) {
+      setLoading(true);
+    }
     setErrorText('');
     try {
       const response = await userService.getAstrologerChatHistoryMonthDetails(
@@ -100,17 +106,24 @@ const AstrologerChatHistoryDetailsScreen = () => {
         month,
         year,
       );
-      const sorted = [...(response.data || [])].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      const nextItems = [...(response.data || [])].sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       );
-      setItems(sorted);
+      setItems(
+        nextItems.length > 0 ? nextItems : cachedConversations || [],
+      );
     } catch (error: any) {
-      setItems([]);
-      setErrorText(error?.message || 'Failed to load chat details');
+      if (cachedConversations?.length) {
+        setItems(cachedConversations);
+      } else {
+        setItems([]);
+        setErrorText(error?.message || 'Failed to load chat details');
+      }
     } finally {
       setLoading(false);
     }
-  }, [clientId, month, year, userService]);
+  }, [cachedConversations, clientId, month, year, userService]);
 
   useFocusEffect(
     useCallback(() => {

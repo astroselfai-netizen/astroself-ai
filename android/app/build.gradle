@@ -118,8 +118,8 @@ android {
         applicationId "com.astrodha.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 48
-        versionName "1.47"
+        versionCode 49
+        versionName "1.48"
         
         // Enable bundle splitting for different architectures
         ndk {

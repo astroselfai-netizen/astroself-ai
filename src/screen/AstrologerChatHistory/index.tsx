@@ -29,6 +29,7 @@ type RootStackParamList = {
     month: number;
     year: number;
     display: string;
+    conversations?: Api.User.Res.AstrologerChatHistoryItem[];
   };
 };
 
@@ -80,8 +81,6 @@ const AstrologerChatHistoryScreen = () => {
     setErrorText('');
     try {
       const response = await userService.getAstrologerChatHistoryMonths(clientId);
-
-      console.log('response--->99', response);
       setMonths(Array.isArray(response.data) ? response.data : []);
     } catch (error: any) {
       setMonths([]);
@@ -108,6 +107,7 @@ const AstrologerChatHistoryScreen = () => {
       month: item.month,
       year: item.year,
       display: item.display,
+      conversations: item.conversations || [],
     });
   };
 

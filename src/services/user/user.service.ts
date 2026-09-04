@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  extractChatHistoryItems,
   filterChatHistoryByMonthYear,
   groupChatHistoryIntoMonths,
   normalizeChatHistoryMonthsList,
@@ -7,6 +8,7 @@ import {
 import http from '../../utils/http';
 import { Service } from '../Service';
 import { Api, CurrentDashaTimeResponse } from '../../types/api';
+import { AstrologerDashaDetailsResponse } from '../../utils/astrologerDashaDetails';
 
 // import i18next from 'i18next';
 
@@ -790,7 +792,12 @@ export default class UserService extends Service {
       });
 
       if (axiosResponse?.data?.status === true) {
-        return axiosResponse.data;
+        const data = extractChatHistoryItems(axiosResponse.data);
+        return {
+          ...axiosResponse.data,
+          data,
+          count: data.length,
+        };
       }
 
       throw new Error(
@@ -830,7 +837,7 @@ export default class UserService extends Service {
     );
 
     if (axiosResponse?.data?.status === true) {
-      const normalized = normalizeChatHistoryMonthsList(axiosResponse.data.data);
+      const normalized = normalizeChatHistoryMonthsList(axiosResponse.data);
       return {
         ...axiosResponse.data,
         data: normalized,
@@ -858,18 +865,65 @@ export default class UserService extends Service {
           userId,
           token,
         );
-        if (response.data.length > 0) {
+        const hasQuestionCounts = response.data.some(
+          month => (month.total_questions || 0) > 0,
+        );
+        const needsConversationFallback = response.data.some(
+          month =>
+            (month.total_questions || 0) > 0 &&
+            !(month.conversations && month.conversations.length),
+        );
+        if (
+          response.data.length > 0 &&
+          hasQuestionCounts &&
+          !needsConversationFallback
+        ) {
           return response;
         }
 
         const fullHistory = await this.getAstrologerChatHistory(userId);
         const months = groupChatHistoryIntoMonths(fullHistory.data || []);
         if (months.length > 0) {
+          const byKey = new Map(
+            months.map(month => [`${month.year}-${month.month}`, month]),
+          );
+          const merged =
+            response.data.length > 0
+              ? response.data.map(month => {
+                  const fallback = byKey.get(`${month.year}-${month.month}`);
+                  const conversations =
+                    month.conversations && month.conversations.length > 0
+                      ? month.conversations
+                      : fallback?.conversations || [];
+                  return {
+                    ...month,
+                    total_questions: Math.max(
+                      month.total_questions || 0,
+                      fallback?.total_questions || 0,
+                      conversations.length,
+                    ),
+                    conversations,
+                  };
+                })
+              : months;
+
+          const extraMonths = months.filter(
+            month =>
+              !response.data.some(
+                existing =>
+                  existing.year === month.year && existing.month === month.month,
+              ),
+          );
+
+          const data = [...merged, ...extraMonths].sort(
+            (a, b) => b.year - a.year || b.month - a.month,
+          );
+
           return {
             status: true,
             user_id: userId,
-            count: months.length,
-            data: months,
+            count: data.length,
+            data,
           };
         }
 
@@ -917,6 +971,16 @@ export default class UserService extends Service {
         throw new Error('No authentication token found');
       }
 
+      const buildResponse = (
+        data: Api.User.Res.AstrologerChatHistoryItem[],
+      ): Api.User.Res.AstrologerChatHistoryMonthDetailsResponse => ({
+        status: true,
+        user_id: userId,
+        month,
+        year,
+        data,
+      });
+
       try {
         const axiosResponse = await http.post(
           '/astrologer/chat-history/months/details',
@@ -930,33 +994,40 @@ export default class UserService extends Service {
           },
         );
 
-        if (axiosResponse?.data?.status === true) {
-          return axiosResponse.data;
+        const items = extractChatHistoryItems(axiosResponse?.data, {
+          month,
+          year,
+        });
+        if (items.length > 0) {
+          return buildResponse(items);
         }
-
-        throw new Error(
-          axiosResponse?.data?.message || 'Failed to fetch chat history details',
-        );
       } catch (error: any) {
-        if (error.response?.status !== 404) {
+        if (error.response?.status === 401) {
           throw error;
         }
-
-        const fullHistory = await this.getAstrologerChatHistory(userId);
-        const data = filterChatHistoryByMonthYear(
-          fullHistory.data || [],
-          month,
-          year,
-        );
-
-        return {
-          status: true,
-          user_id: userId,
-          month,
-          year,
-          data,
-        };
       }
+
+      try {
+        const monthsResponse = await this.fetchAstrologerChatHistoryMonthsFromApi(
+          userId,
+          token,
+        );
+        const match = monthsResponse.data.find(
+          item => item.month === month && item.year === year,
+        );
+        if (match?.conversations && match.conversations.length > 0) {
+          return buildResponse(match.conversations);
+        }
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          throw error;
+        }
+      }
+
+      const fullHistory = await this.getAstrologerChatHistory(userId);
+      return buildResponse(
+        filterChatHistoryByMonthYear(fullHistory.data || [], month, year),
+      );
     } catch (error: any) {
       console.error('Get astrologer chat history month details error:', error);
 
@@ -1121,15 +1192,11 @@ export default class UserService extends Service {
   async getAstrologerClientDashaDetails(params: {
     user_id: string;
     level: string;
-    md: string;
-    ad: string;
-    pd: string;
-    sd: string;
-  }): Promise<{
-    status: boolean;
-    message?: string;
-    data?: Record<string, unknown>;
-  }> {
+    md?: string;
+    ad?: string;
+    pd?: string;
+    sd?: string;
+  }): Promise<AstrologerDashaDetailsResponse> {
     try {
       const token = await AsyncStorage.getItem('USER_TOKEN');
 
@@ -1140,11 +1207,11 @@ export default class UserService extends Service {
       const query = new URLSearchParams({
         user_id: params.user_id,
         level: params.level,
-        md: params.md,
-        ad: params.ad,
-        pd: params.pd,
-        sd: params.sd,
       });
+      if (params.md) query.set('md', params.md);
+      if (params.ad) query.set('ad', params.ad);
+      if (params.pd) query.set('pd', params.pd);
+      if (params.sd) query.set('sd', params.sd);
 
       const axiosResponse = await http.get(
         `/astrologer/client/dasha/details?${query.toString()}`,
@@ -1439,6 +1506,8 @@ export default class UserService extends Service {
     insights?: string;
     week_start?: string;
     week_end?: string;
+    current_date?: string;
+    error?: unknown[];
   }> {
     try {
       const token = await AsyncStorage.getItem('USER_TOKEN');
@@ -1491,6 +1560,7 @@ export default class UserService extends Service {
       collection?: string;
       pipeline?: Array<Record<string, unknown>>;
     }>;
+    current_date?: string;
   }> {
     try {
       const token = await AsyncStorage.getItem('USER_TOKEN');
@@ -1542,6 +1612,7 @@ export default class UserService extends Service {
     status: boolean;
     data?: unknown;
     message?: string;
+    refresh_available_on?: string;
   }> {
     try {
       const token = await AsyncStorage.getItem('USER_TOKEN');

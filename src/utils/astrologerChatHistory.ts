@@ -57,6 +57,14 @@ const parseMonthYearFromDate = (value: unknown) => {
     return { month: null as number | null, year: null as number | null };
   }
 
+  const iso = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) {
+    return {
+      year: Number(iso[1]),
+      month: Number(iso[2]),
+    };
+  }
+
   const date = new Date(text);
   if (Number.isNaN(date.getTime())) {
     return { month: null, year: null };
@@ -79,6 +87,166 @@ const parseMonthYearFromKey = (value: unknown) => {
     year: Number(match[1]),
     month: Number(match[2]),
   };
+};
+
+const looksLikeHistoryItem = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const item = value as Record<string, unknown>;
+  return (
+    item.question != null ||
+    item.answer != null ||
+    item.conversation_id != null ||
+    item.conversationId != null ||
+    item.message != null
+  );
+};
+
+export const normalizeChatHistoryItem = (
+  raw: unknown,
+): ChatHistoryItem | null => {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const item = raw as Record<string, unknown>;
+  const question = String(
+    item.question ?? item.message ?? item.user_message ?? item.query ?? '',
+  ).trim();
+  const answer = String(
+    item.answer ?? item.response ?? item.bot_message ?? item.reply ?? '',
+  );
+  const conversation_id = String(
+    item.conversation_id ?? item.conversationId ?? item.id ?? '',
+  );
+  const created_at = String(
+    item.created_at ?? item.createdAt ?? item.timestamp ?? item.date ?? '',
+  );
+
+  if (!question && !answer) {
+    return null;
+  }
+
+  return {
+    created_at,
+    question,
+    answer,
+    conversation_id,
+  };
+};
+
+const pickConversationList = (item: Record<string, unknown>): unknown[] => {
+  for (const key of ['conversations', 'chats', 'questions', 'history', 'items']) {
+    const value = item[key];
+    if (Array.isArray(value) && value.length > 0) {
+      return value;
+    }
+  }
+
+  if (Array.isArray(item.data) && item.data.some(looksLikeHistoryItem)) {
+    return item.data;
+  }
+
+  return [];
+};
+
+const matchesMonthFilter = (
+  item: ChatHistoryItem,
+  filter?: { month: number; year: number },
+) => {
+  if (!filter) {
+    return true;
+  }
+
+  const parsed = parseMonthYearFromDate(item.created_at);
+  if (!parsed.month || !parsed.year) {
+    return true;
+  }
+
+  return parsed.month === filter.month && parsed.year === filter.year;
+};
+
+const collectChatHistoryItems = (
+  list: unknown[],
+  filter?: { month: number; year: number },
+): ChatHistoryItem[] => {
+  const items: ChatHistoryItem[] = [];
+
+  list.forEach(entry => {
+    if (!entry || typeof entry !== 'object') {
+      return;
+    }
+
+    const record = entry as Record<string, unknown>;
+    const nested = pickConversationList(record);
+    if (nested.length > 0 && !looksLikeHistoryItem(entry)) {
+      const nestedMonth =
+        toNumber(record.month) ??
+        toNumber(record.month_number) ??
+        toNumber(record.monthNumber);
+      const nestedYear =
+        toNumber(record.year) ??
+        toNumber(record.year_number) ??
+        toNumber(record.yearNumber);
+
+      if (
+        filter &&
+        nestedMonth &&
+        nestedYear &&
+        (nestedMonth !== filter.month || nestedYear !== filter.year)
+      ) {
+        return;
+      }
+
+      items.push(...collectChatHistoryItems(nested, filter));
+      return;
+    }
+
+    const item = normalizeChatHistoryItem(entry);
+    if (item && matchesMonthFilter(item, filter)) {
+      items.push(item);
+    }
+  });
+
+  return items;
+};
+
+export const extractChatHistoryItems = (
+  raw: unknown,
+  filter?: { month: number; year: number },
+): ChatHistoryItem[] => {
+  if (Array.isArray(raw)) {
+    return collectChatHistoryItems(raw, filter);
+  }
+
+  if (!raw || typeof raw !== 'object') {
+    return [];
+  }
+
+  const item = raw as Record<string, unknown>;
+
+  for (const key of ['conversations', 'chats', 'questions', 'history', 'items']) {
+    const value = item[key];
+    if (Array.isArray(value) && value.length > 0) {
+      const items = collectChatHistoryItems(value, filter);
+      if (items.length > 0) {
+        return items;
+      }
+    }
+  }
+
+  if (Array.isArray(item.data)) {
+    return collectChatHistoryItems(item.data, filter);
+  }
+
+  if (item.data && typeof item.data === 'object') {
+    return extractChatHistoryItems(item.data, filter);
+  }
+
+  const single = normalizeChatHistoryItem(item);
+  return single && matchesMonthFilter(single, filter) ? [single] : [];
 };
 
 export const normalizeChatHistoryMonth = (
@@ -123,12 +291,16 @@ export const normalizeChatHistoryMonth = (
   const display =
     String(item.display ?? item.label ?? '').trim() ||
     formatChatHistoryMonthDisplay(month, year, month_name);
-  const total_questions =
+  const conversations = extractChatHistoryItems(item, { month, year });
+
+  const reportedCount =
     toNumber(item.total_questions) ??
     toNumber(item.totalQuestions) ??
     toNumber(item.question_count) ??
-    toNumber(item.count) ??
-    0;
+    toNumber(item.questions_count) ??
+    toNumber(item.questionCount);
+
+  const total_questions = Math.max(reportedCount ?? 0, conversations.length);
 
   return {
     month,
@@ -136,9 +308,11 @@ export const normalizeChatHistoryMonth = (
     month_name,
     display,
     total_questions: Math.max(0, total_questions),
-    latest_created_at: String(
-      item.latest_created_at ?? item.latestCreatedAt ?? item.created_at ?? '',
-    ) || undefined,
+    latest_created_at:
+      String(
+        item.latest_created_at ?? item.latestCreatedAt ?? item.created_at ?? '',
+      ) || undefined,
+    conversations,
   };
 };
 
@@ -199,6 +373,7 @@ export const groupChatHistoryIntoMonths = (
         year: bucket.year,
         total_questions: bucket.items.length,
         latest_created_at: sorted[0]?.created_at,
+        conversations: sorted,
       });
     })
     .filter((item): item is ChatHistoryMonth => item != null)

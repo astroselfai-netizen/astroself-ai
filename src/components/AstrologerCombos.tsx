@@ -18,6 +18,8 @@ import UserService from '../services/user/user.service';
 import {
   getCombosListCache,
   getCombosListCacheSync,
+  makeComboDetailCacheKey,
+  setComboDetailCache,
   setCombosListCache,
 } from '../utils/astrologerCombosCache';
 
@@ -56,7 +58,7 @@ export const CLIENT_COMBO_SHORTCUTS: {
   label: string;
   icon: string;
 }[] = [
-  { tab: 'next_week', label: 'Next Week', icon: '📅' },
+  { tab: 'next_week', label: 'Next 7 Days', icon: '📅' },
   { tab: 'antar_dasha', label: 'Current Phase of Life', icon: '⚡' },
   { tab: 'transit_analysis', label: 'Transit Predictions', icon: '▦' },
   { tab: 'dos_donts', label: "Do's and Don'ts", icon: '✓' },
@@ -76,6 +78,8 @@ type CombinationListItem = {
 type DashaPeriodInfo = {
   planet: string;
   dateRange: string;
+  from?: string;
+  to?: string;
 };
 
 type AstrologerCombosProps = {
@@ -117,10 +121,20 @@ type RootStackParamList = {
   AstrologerComboDetailScreen: ComboDetailParams;
 };
 
-const formatAsOfDate = (date: Date) => {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `${day}-${month}-${date.getFullYear()}`;
+const formatLongDate = (raw?: string, fallback?: Date) => {
+  const datePart = String(raw || '')
+    .trim()
+    .split(/\s+/)[0];
+  if (datePart) {
+    const formatted = formatDashaDateToken(datePart);
+    if (formatted) {
+      return formatted;
+    }
+  }
+  if (fallback && !Number.isNaN(fallback.getTime())) {
+    return `${fallback.getDate()} ${MONTH_LABELS[fallback.getMonth()]} ${fallback.getFullYear()}`;
+  }
+  return '';
 };
 
 const MONTH_LABELS = [
@@ -153,7 +167,10 @@ const formatDashaDateToken = (raw: string) => {
   return `${day} ${monthLabel} ${year}`;
 };
 
-const formatDashaRangeForIntro = (dateRange: string) => {
+const formatDashaRangeForIntro = (dateRange?: string) => {
+  if (!dateRange || typeof dateRange !== 'string') {
+    return '';
+  }
   const parts = dateRange.split(/\s*(?:→|->|to)\s*/i).filter(Boolean);
   if (parts.length >= 2) {
     return `${formatDashaDateToken(parts[0])} to ${formatDashaDateToken(parts[1])}`;
@@ -185,6 +202,17 @@ const extractComboListFromResponse = (
   }
 
   return [];
+};
+
+const pickCurrentDate = (response: unknown): string | undefined => {
+  if (!response || typeof response !== 'object') {
+    return undefined;
+  }
+
+  const record = response as Record<string, unknown>;
+  const value = record.current_date ?? record.currentDate;
+  const text = String(value || '').trim();
+  return text || undefined;
 };
 
 const mapComboListItem = (
@@ -263,6 +291,21 @@ const AstrologerCombos = ({
     }
   }, [mode, internalMode, comboTab]);
 
+  const scrollSelectedTabIntoView = useCallback((tab: ComboTab) => {
+    const tabX = tabPositionsRef.current[tab];
+    if (tabX == null) {
+      return;
+    }
+    tabsScrollRef.current?.scrollTo({
+      x: Math.max(0, tabX - 8),
+      animated: true,
+    });
+  }, []);
+
+  useEffect(() => {
+    scrollSelectedTabIntoView(comboTab);
+  }, [comboTab, scrollSelectedTabIntoView]);
+
   const activeTabOrder = useMemo(
     () =>
       (mode || internalMode) === 'personalized'
@@ -312,11 +355,25 @@ const AstrologerCombos = ({
   const [combosAsOfDate, setCombosAsOfDate] = useState(
     cachedList?.combosAsOfDate ? new Date(cachedList.combosAsOfDate) : new Date(),
   );
+  const [activityCurrentDate, setActivityCurrentDate] = useState(
+    cachedList?.activityCurrentDate || '',
+  );
+  const [transitCurrentDate, setTransitCurrentDate] = useState(
+    cachedList?.transitCurrentDate || '',
+  );
+  const [phaseCurrentDate, setPhaseCurrentDate] = useState(
+    cachedList?.phaseCurrentDate || '',
+  );
+  const comboDatesRef = useRef({
+    activity: cachedList?.activityCurrentDate || '',
+    transit: cachedList?.transitCurrentDate || '',
+    phase: cachedList?.phaseCurrentDate || '',
+  });
   const [showPhaseIntroModal, setShowPhaseIntroModal] = useState(false);
 
   const tabLabels = useMemo(
     () => ({
-      next_week: `Next Week (${nextWeekItems.length})`,
+      next_week: `Next 7 Days (${nextWeekItems.length})`,
       combinations: `Combinations (${combinationItems.length})`,
       antar_dasha: `Current Phase of Life (${activeComboItems.length})`,
       dos_donts: `Do's and Don'ts (${activityItems.length})`,
@@ -344,6 +401,14 @@ const AstrologerCombos = ({
       if (cache.combosAsOfDate) {
         setCombosAsOfDate(new Date(cache.combosAsOfDate));
       }
+      setActivityCurrentDate(cache.activityCurrentDate || '');
+      setTransitCurrentDate(cache.transitCurrentDate || '');
+      setPhaseCurrentDate(cache.phaseCurrentDate || '');
+      comboDatesRef.current = {
+        activity: cache.activityCurrentDate || '',
+        transit: cache.transitCurrentDate || '',
+        phase: cache.phaseCurrentDate || '',
+      };
       setLoading(false);
     },
     [],
@@ -373,6 +438,9 @@ const AstrologerCombos = ({
         mapComboListItem(item, index, 'transit-detail'),
       );
       setTransitDetailItems(items);
+      const currentDate = pickCurrentDate(response) || '';
+      comboDatesRef.current.transit = currentDate;
+      setTransitCurrentDate(currentDate);
       return items;
     } catch {
       setTransitDetailItems([]);
@@ -390,6 +458,9 @@ const AstrologerCombos = ({
         mapComboListItem(item, index, 'active'),
       );
       setActiveComboItems(items);
+      const currentDate = pickCurrentDate(response) || '';
+      comboDatesRef.current.phase = currentDate;
+      setPhaseCurrentDate(currentDate);
       return items;
     } catch {
       setActiveComboItems([]);
@@ -407,6 +478,9 @@ const AstrologerCombos = ({
         mapComboListItem(item, index, 'activity'),
       );
       setActivityItems(items);
+      const currentDate = pickCurrentDate(response) || '';
+      comboDatesRef.current.activity = currentDate;
+      setActivityCurrentDate(currentDate);
       return items;
     } catch {
       setActivityItems([]);
@@ -488,6 +562,9 @@ const AstrologerCombos = ({
           innerYouItems: nextInnerYou,
           nextWeekItems: nextWeek,
           combosAsOfDate: asOf.toISOString(),
+          activityCurrentDate: comboDatesRef.current.activity,
+          transitCurrentDate: comboDatesRef.current.transit,
+          phaseCurrentDate: comboDatesRef.current.phase,
         });
       } finally {
         setLoading(false);
@@ -520,6 +597,12 @@ const AstrologerCombos = ({
         innerYouItems: overrides?.innerYouItems || innerYouItems,
         nextWeekItems: overrides?.nextWeekItems || nextWeekItems,
         combosAsOfDate: overrides?.combosAsOfDate || combosAsOfDate.toISOString(),
+        activityCurrentDate:
+          overrides?.activityCurrentDate ?? comboDatesRef.current.activity,
+        transitCurrentDate:
+          overrides?.transitCurrentDate ?? comboDatesRef.current.transit,
+        phaseCurrentDate:
+          overrides?.phaseCurrentDate ?? comboDatesRef.current.phase,
       });
     },
     [
@@ -579,21 +662,6 @@ const AstrologerCombos = ({
     setComboTab(tab);
   };
 
-  const scrollSelectedTabIntoView = useCallback((tab: ComboTab) => {
-    const tabX = tabPositionsRef.current[tab];
-    if (tabX == null) {
-      return;
-    }
-    tabsScrollRef.current?.scrollTo({
-      x: Math.max(0, tabX - 8),
-      animated: true,
-    });
-  }, []);
-
-  useEffect(() => {
-    scrollSelectedTabIntoView(comboTab);
-  }, [comboTab, scrollSelectedTabIntoView]);
-
   const openDetail = (params: ComboDetailParams) => {
     navigation.navigate('AstrologerComboDetailScreen', params);
   };
@@ -641,26 +709,47 @@ const AstrologerCombos = ({
         }
 
         if (newInsights) {
+          const nextNextWeekItems =
+            tab === 'next_week'
+              ? nextWeekItems.map(it =>
+                  it.id === item.id ? { ...it, insights: newInsights } : it,
+                )
+              : nextWeekItems;
+          const nextActiveComboItems =
+            tab === 'antar_dasha'
+              ? activeComboItems.map(it =>
+                  it.id === item.id ? { ...it, insights: newInsights } : it,
+                )
+              : activeComboItems;
+          const nextTransitDetailItems =
+            tab === 'transit_analysis'
+              ? transitDetailItems.map(it =>
+                  it.id === item.id ? { ...it, insights: newInsights } : it,
+                )
+              : transitDetailItems;
+          const nextActivityItems =
+            tab === 'dos_donts'
+              ? activityItems.map(it =>
+                  it.id === item.id ? { ...it, insights: newInsights } : it,
+                )
+              : activityItems;
+          const nextInnerYouItems =
+            tab === 'the_inner_you'
+              ? innerYouItems.map(it =>
+                  it.id === item.id ? { ...it, insights: newInsights } : it,
+                )
+              : innerYouItems;
+
           if (tab === 'next_week') {
-            setNextWeekItems(prev =>
-              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
-            );
+            setNextWeekItems(nextNextWeekItems);
           } else if (tab === 'antar_dasha') {
-            setActiveComboItems(prev =>
-              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
-            );
+            setActiveComboItems(nextActiveComboItems);
           } else if (tab === 'transit_analysis') {
-            setTransitDetailItems(prev =>
-              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
-            );
+            setTransitDetailItems(nextTransitDetailItems);
           } else if (tab === 'dos_donts') {
-            setActivityItems(prev =>
-              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
-            );
+            setActivityItems(nextActivityItems);
           } else if (tab === 'the_inner_you') {
-            setInnerYouItems(prev =>
-              prev.map(it => (it.id === item.id ? { ...it, insights: newInsights } : it)),
-            );
+            setInnerYouItems(nextInnerYouItems);
           }
 
           const cacheKey = makeComboDetailCacheKey({
@@ -674,15 +763,24 @@ const AstrologerCombos = ({
             pipeline: item.pipeline,
           });
           await setComboDetailCache(cacheKey, newInsights);
+          await persistCombosCache({
+            nextWeekItems: nextNextWeekItems,
+            activeComboItems: nextActiveComboItems,
+            transitDetailItems: nextTransitDetailItems,
+            activityItems: nextActivityItems,
+            innerYouItems: nextInnerYouItems,
+          });
         }
 
+        const apiMessage = String(response?.message || '').trim();
         Toast.show({
           type: 'success',
-          text1: 'Prediction Refreshed',
-          text2: `Refreshed "${item.heading}"`,
+          text1: apiMessage || 'Prediction Refreshed',
+          text2: apiMessage ? undefined : `Refreshed "${item.heading}"`,
           position: 'top',
           topOffset: 60,
-          visibilityTime: 2500,
+          visibilityTime: apiMessage ? 3500 : 2500,
+          text1NumberOfLines: 3,
         });
       } catch (err: any) {
         Toast.show({
@@ -697,7 +795,7 @@ const AstrologerCombos = ({
         setRefreshingItemId(null);
       }
     },
-    [clientId, predictionMode, userService],
+    [clientId, predictionMode, persistCombosCache, userService, nextWeekItems, activeComboItems, transitDetailItems, activityItems, innerYouItems],
   );
 
   const handleRefresh = useCallback(async () => {
@@ -715,10 +813,13 @@ const AstrologerCombos = ({
         const items = extractComboListFromResponse(response).map((item, index) =>
           mapComboListItem(item, index, 'transit-detail'),
         );
+        const currentDate = pickCurrentDate(response) || comboDatesRef.current.transit;
+        comboDatesRef.current.transit = currentDate;
+        setTransitCurrentDate(currentDate);
         setTransitDetailItems(items);
         await persistCombosCache({
           transitDetailItems: items,
-          combosAsOfDate: new Date().toISOString(),
+          transitCurrentDate: currentDate,
         });
         return;
       }
@@ -731,10 +832,13 @@ const AstrologerCombos = ({
         const items = extractComboListFromResponse(response).map((item, index) =>
           mapComboListItem(item, index, 'activity'),
         );
+        const currentDate = pickCurrentDate(response) || comboDatesRef.current.activity;
+        comboDatesRef.current.activity = currentDate;
+        setActivityCurrentDate(currentDate);
         setActivityItems(items);
         await persistCombosCache({
           activityItems: items,
-          combosAsOfDate: new Date().toISOString(),
+          activityCurrentDate: currentDate,
         });
         return;
       }
@@ -750,6 +854,43 @@ const AstrologerCombos = ({
     persistCombosCache,
     userService,
   ]);
+
+  const phaseOfLifeIntro = useMemo(() => {
+    if (!mahadasha?.planet || !antardasha?.planet) {
+      return null;
+    }
+
+    const mdRange =
+      mahadasha.dateRange ||
+      ((mahadasha as any).from && (mahadasha as any).to
+        ? `${(mahadasha as any).from} to ${(mahadasha as any).to}`
+        : (mahadasha as any).from || (mahadasha as any).to || '');
+
+    const adRange =
+      antardasha.dateRange ||
+      ((antardasha as any).from && (antardasha as any).to
+        ? `${(antardasha as any).from} to ${(antardasha as any).to}`
+        : (antardasha as any).from || (antardasha as any).to || '');
+
+    return {
+      mdPlanet: mahadasha.planet,
+      mdRange: formatDashaRangeForIntro(mdRange),
+      adPlanet: antardasha.planet,
+      adRange: formatDashaRangeForIntro(adRange),
+    };
+  }, [antardasha, mahadasha]);
+
+  useEffect(() => {
+    if (comboTab === 'antar_dasha' && phaseOfLifeIntro) {
+      setShowPhaseIntroModal(true);
+      return;
+    }
+    if (comboTab === 'transit_analysis' && phaseOfLifeIntro) {
+      setShowPhaseIntroModal(true);
+      return;
+    }
+    setShowPhaseIntroModal(false);
+  }, [comboTab, phaseOfLifeIntro, clientId]);
 
   const renderCombinationsList = () => {
     if (!combinationItems.length) {
@@ -832,7 +973,7 @@ const AstrologerCombos = ({
       if (!nextWeekItems.length) {
         return (
           <Text style={[styles.emptyText, { color: textMuted }]}>
-            No Next Week predictions found
+            No Next 7 Days predictions found
           </Text>
         );
       }
@@ -984,7 +1125,7 @@ const AstrologerCombos = ({
 
   const headerTitle =
     comboTab === 'next_week'
-      ? 'Next Week'
+      ? 'Next 7 Days'
       : comboTab === 'transit_analysis'
       ? 'Transit Predictions'
       : comboTab === 'combinations'
@@ -997,26 +1138,16 @@ const AstrologerCombos = ({
               ? 'Current Phase of Life'
               : 'Generic Prediction';
 
-  const phaseOfLifeIntro = useMemo(() => {
-    if (!mahadasha?.planet || !antardasha?.planet) {
-      return null;
-    }
-
-    return {
-      mdPlanet: mahadasha.planet,
-      mdRange: formatDashaRangeForIntro(mahadasha.dateRange),
-      adPlanet: antardasha.planet,
-      adRange: formatDashaRangeForIntro(antardasha.dateRange),
-    };
-  }, [antardasha, mahadasha]);
-
-  useEffect(() => {
-    if (comboTab === 'antar_dasha' && phaseOfLifeIntro) {
-      setShowPhaseIntroModal(true);
-      return;
-    }
-    setShowPhaseIntroModal(false);
-  }, [comboTab, phaseOfLifeIntro, clientId]);
+  const phaseDateLabel = formatLongDate(
+    phaseCurrentDate ||
+      activityCurrentDate ||
+      antardasha?.from ||
+      antardasha?.dateRange?.split(/\s*(?:→|->|to)\s*/i)[0],
+  );
+  const transitDateLabel = formatLongDate(
+    transitCurrentDate || activityCurrentDate,
+  );
+  const activityDateLabel = formatLongDate(activityCurrentDate);
 
   const renderListContent = () => {
     if (loading) {
@@ -1049,9 +1180,17 @@ const AstrologerCombos = ({
       <View style={styles.headerRow}>
         <View style={styles.headerTextWrap}>
           <Text style={[styles.title, { color: textPrimary }]}>{headerTitle}</Text>
-          {comboTab === 'transit_analysis' ? (
+          {comboTab === 'antar_dasha' && phaseDateLabel ? (
+            <Text style={[styles.asOf, { color: textMuted }]}>
+              Predictions from {phaseDateLabel}
+            </Text>
+          ) : comboTab === 'transit_analysis' && transitDateLabel ? (
             <Text style={[styles.asOf, { color: textPrimary }]}>
-              As of: {formatAsOfDate(combosAsOfDate)}
+              Predictions As On {transitDateLabel}
+            </Text>
+          ) : comboTab === 'dos_donts' && activityDateLabel ? (
+            <Text style={[styles.asOf, { color: textMuted }]}>
+              Predictions As On {activityDateLabel}
             </Text>
           ) : null}
         </View>
@@ -1105,6 +1244,7 @@ const AstrologerCombos = ({
                   styles.tabText,
                   { color: isActive ? '#FFFFFF' : textPrimary },
                 ]}
+                numberOfLines={1}
               >
                 {tabLabels[tab]}
               </Text>
@@ -1151,31 +1291,72 @@ const AstrologerCombos = ({
             ]}
           >
             <Text style={[styles.phaseModalTitle, { color: textPrimary }]}>
-              Current Phase of Life
+              {comboTab === 'transit_analysis'
+                ? 'Transit Predictions'
+                : 'Current Phase of Life'}
             </Text>
             {phaseOfLifeIntro ? (
-              <Text style={[styles.phaseIntroText, { color: textPrimary }]}>
-                The longer life direction is largely indicated by{' '}
-                <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
-                  {phaseOfLifeIntro.mdPlanet} Mahadasha
-                </Text>{' '}
-                from{' '}
-                <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
-                  {phaseOfLifeIntro.mdRange}
-                </Text>
-                , while your current phase of life is indicated by{' '}
-                <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
-                  {phaseOfLifeIntro.adPlanet}
-                </Text>{' '}
-                from{' '}
-                <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
-                  {phaseOfLifeIntro.adRange}
-                </Text>
-                . This planet makes some connections with other planets. Possible
-                experiences of such connections are listed below. You are
-                suggested to go through it to see how life is unfolding for you
-                and align your energies accordingly.
-              </Text>
+              <ScrollView
+                style={styles.phaseIntroScroll}
+                showsVerticalScrollIndicator={false}
+              >
+                {comboTab === 'transit_analysis' ? (
+                  <Text style={[styles.phaseIntroText, { color: textPrimary }]}>
+                    Pay close attention to: A. Connections made by{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.adPlanet}
+                    </Text>{' '}
+                    in transit and connections made by other planets in transit
+                    with Natal chart{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.adPlanet}
+                    </Text>
+                    . Combinations marked as Natal, as they exist in your birth
+                    chart as well. You may experience them more vividly. B.
+                    Connections made by{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.mdPlanet}
+                    </Text>{' '}
+                    in transit and connections made by other planets in transit
+                    with Natal chart{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.mdPlanet}
+                    </Text>
+                    . C. Connections made between{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.mdPlanet}
+                    </Text>{' '}
+                    and{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.adPlanet}
+                    </Text>{' '}
+                    as they both are active for you.
+                  </Text>
+                ) : (
+                  <Text style={[styles.phaseIntroText, { color: textPrimary }]}>
+                    The longer life direction is largely indicated by{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.mdPlanet} Mahadasha
+                    </Text>{' '}
+                    from{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.mdRange}
+                    </Text>
+                    , while your current phase of life is indicated by{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.adPlanet}
+                    </Text>{' '}
+                    from{' '}
+                    <Text style={[styles.phaseIntroHighlight, { color: GOLD }]}>
+                      {phaseOfLifeIntro.adRange}
+                    </Text>
+                    . This planet makes some connections with other planets. Possible
+                    experiences of such connections are listed below. You are
+                    suggested to go through it to see how life is unfolding for you
+                    and align your energies accordingly.
+                  </Text>
+                )}
+              </ScrollView>
             ) : null}
             <TouchableOpacity
               style={styles.phaseModalBtn}
@@ -1228,6 +1409,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.semiBold,
     marginBottom: 10,
+  },
+  phaseIntroScroll: {
+    maxHeight: 280,
   },
   phaseIntroText: {
     fontSize: 13,

@@ -364,7 +364,7 @@ const ClientCard = ({
           </View>
         </View>
 
-        {/* Action Buttons: Edit & Delete */}
+        {/* Action Buttons: Edit, Chart, Delete */}
         <View style={styles.clientActionIcons}>
           <TouchableOpacity
             style={[
@@ -379,6 +379,22 @@ const ClientCard = ({
           >
             <Image
               source={require('../../assets/icons/edit-painel.png')}
+              style={[styles.clientActionIcon, { tintColor: palette.textPrimary }]}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.clientActionBtn,
+              {
+                backgroundColor: palette.clientActionBtnBg,
+                borderColor: palette.clientActionBtnBorder,
+              },
+            ]}
+            onPress={() => onChart(client)}
+            activeOpacity={0.85}
+          >
+            <Image
+              source={require('../../assets/icons/home/Chart.png')}
               style={[styles.clientActionIcon, { tintColor: palette.textPrimary }]}
             />
           </TouchableOpacity>
@@ -990,15 +1006,16 @@ const AstrologerMyClientsScreen = () => {
         client.full_name ||
         `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
         'Client';
-      navigateFromRoot('AstrologerClientChatScreen', {
+      navigateFromRoot('AstrologerPredictionsScreen', {
         clientId: client.id,
         clientName,
         clients,
-        initialView: 'combos',
+        client,
+        isPaidPlan,
         predictionMode: 'general',
       });
     },
-    [clients, navigateFromRoot],
+    [clients, isPaidPlan, navigateFromRoot],
   );
 
   const handlePersonalizedPredictions = useCallback(
@@ -1007,15 +1024,16 @@ const AstrologerMyClientsScreen = () => {
         client.full_name ||
         `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
         'Client';
-      navigateFromRoot('AstrologerClientChatScreen', {
+      navigateFromRoot('AstrologerPredictionsScreen', {
         clientId: client.id,
         clientName,
         clients,
-        initialView: 'personalized',
+        client,
+        isPaidPlan,
         predictionMode: 'personalized',
       });
     },
-    [clients, navigateFromRoot],
+    [clients, isPaidPlan, navigateFromRoot],
   );
 
   const handleComboShortcut = useCallback(
@@ -1024,15 +1042,17 @@ const AstrologerMyClientsScreen = () => {
         client.full_name ||
         `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
         'Client';
-      navigateFromRoot('AstrologerClientChatScreen', {
+      navigateFromRoot('AstrologerPredictionsScreen', {
         clientId: client.id,
         clientName,
         clients,
-        initialView: 'combos',
+        client,
+        isPaidPlan,
+        predictionMode: 'general',
         initialComboTab: comboTab,
       });
     },
-    [clients, navigateFromRoot],
+    [clients, isPaidPlan, navigateFromRoot],
   );
 
   const handleDignityAnalysis = useCallback(
