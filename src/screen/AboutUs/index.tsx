@@ -4,41 +4,30 @@ import React from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   Platform,
   ScrollView,
-  StatusBar,
   Image,
-  ImageBackground,
 } from 'react-native';
-import {
-  fontFamily,
-  responsiveWidth,
-  responsiveHeight,
-} from '../../constant/theme';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { useTheme } from '../../context/ThemeContext';
 
-export type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  ForgotPassword: undefined;
-  HomeScreen: undefined;
-  ContinueWithOtp: undefined;
-  ForgotPasswordOtp: undefined;
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
 };
 
-type AboutUsScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  'Login'
->;
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
 
 const AboutUsScreen = () => {
   const { theme, colors } = useTheme();
-  const navigation = useNavigation<AboutUsScreenNavigationProp>();
 
   const features = [
     'Vedic Astrology',
@@ -68,55 +57,13 @@ const AboutUsScreen = () => {
   ];
 
   return (
-    <ImageBackground
-      source={
-        theme === 'dark'
-          ? require('../../assets/image/DarkBackground.png')
-          : require('../../assets/image/LightBackground.png')
-      }
-      style={styles.backgroundImage}
-      resizeMode="cover"
-    >
-      <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent={true}
-      />
-
-      <MainContainer safeBottom>
-        {/* Header */}
-        <View style={styles.headerWrap}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backBtn}
-          >
-            <Image
-              source={require('../../assets/icons/back.png')}
-              style={[
-                styles.backIcon,
-                {
-                  tintColor:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            />
-          </TouchableOpacity>
-          <View style={styles.backIconWrap}>
-            <Text
-              style={[
-                styles.topBarText,
-                {
-                  color:
-                    theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                },
-              ]}
-            >
-              About Astrodha.Ai
-            </Text>
-          </View>
-        </View>
-
-        {/* Main Content */}
+    <View style={styles.flex}>
+      <AstrologerScreenHeader title="About us" showBack />
+      <MainContainer
+        safeBottom
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -599,81 +546,20 @@ const AboutUsScreen = () => {
           </View>
         </ScrollView>
       </MainContainer>
-    </ImageBackground>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  backgroundImage: {
+  flex: {
     flex: 1,
-    width: '100%',
-    height: '100%',
   },
   scrollViewContent: {
     flexGrow: 1,
+    paddingTop: responsiveWidth(4),
     paddingBottom: Platform.OS === 'android' ? 70 : 70,
     paddingHorizontal: responsiveWidth(4),
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop:
-      Platform.OS === 'android'
-        ? responsiveHeight('0.5%')
-        : responsiveWidth('12%'),
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
-    paddingHorizontal: responsiveWidth(5),
-    marginBottom: responsiveWidth(2),
-    position: 'relative',
-    minHeight: 50,
-  },
-  backIconWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topBarText: {
-    fontSize: 24,
-    fontFamily: fontFamily.regular,
-    // fontWeight: '600',
-    color: '#F6EFD9',
-  },
-  backBtn: {
-    padding: responsiveWidth(2),
-    marginRight: responsiveWidth(4),
-    zIndex: 10,
-  },
-  backIcon: {
-    width: responsiveWidth(5),
-    height: responsiveWidth(5),
-    resizeMode: 'contain',
-    tintColor: '#FFFFFF',
-  },
-  headerWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 60,
-    paddingHorizontal: 20,
-    // marginBottom: 20,
-    position: 'relative',
-  },
-  headerCenter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-    pointerEvents: 'none',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: fontFamily.semiBold,
-    textAlign: 'center',
-  },
-  // Why we built this app Section
   whyWeBuiltSection: {
     marginTop: responsiveWidth(4),
     marginBottom: responsiveWidth(4),

@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 import {
-  Image,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import {
   fontFamily,
   responsiveHeight,
@@ -19,12 +16,17 @@ import {
 } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 
-type RootStackParamList = {
-  Login: undefined;
-  SettingsScreen: undefined;
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
 };
 
-type NavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
 
 type GuideBlock =
   | { type: 'text'; value: string }
@@ -444,7 +446,6 @@ const guideData: GuideItem[] = [
 
 const AstrodhaGuideScreen = () => {
   const { theme, colors } = useTheme();
-  const navigation = useNavigation<NavigationProp>();
   const [expandedId, setExpandedId] = useState<string | null>('guide1');
 
   const textPrimary =
@@ -593,37 +594,13 @@ const AstrodhaGuideScreen = () => {
     });
 
   return (
-    <MainContainer safeBottom>
-      <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent
-      />
-
-      <View style={styles.headerRow}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-          activeOpacity={0.7}
-        >
-          <Image
-            source={require('../../assets/icons/back.png')}
-            style={[
-              styles.backIcon,
-              {
-                tintColor:
-                  theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
-              },
-            ]}
-          />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: textPrimary }]}>
-            Astrodha Guide
-          </Text>
-        </View>
-      </View>
-
+    <View style={styles.flex}>
+      <AstrologerScreenHeader title="Astrodha Guide" showBack />
+      <MainContainer
+        safeBottom
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -680,44 +657,18 @@ const AstrodhaGuideScreen = () => {
           })}
         </View>
       </ScrollView>
-    </MainContainer>
+      </MainContainer>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop:
-      Platform.OS === 'android'
-        ? responsiveHeight('0.5%')
-        : responsiveWidth('12%'),
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
-    minHeight: 50,
-  },
-  backBtn: {
-    left: responsiveWidth('2'),
-  },
-  backIcon: {
-    width: responsiveWidth(5),
-    height: responsiveWidth(5),
-    resizeMode: 'contain',
-  },
-  headerCenter: {
+  flex: {
     flex: 1,
-    alignItems: 'center',
-    marginRight: responsiveWidth('4'),
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontFamily: fontFamily.regular,
-    textAlign: 'center',
   },
   scrollContent: {
     flexGrow: 1,
+    paddingTop: responsiveWidth('4'),
     paddingBottom: Platform.OS === 'android' ? 90 : 90,
   },
   heroCard: {

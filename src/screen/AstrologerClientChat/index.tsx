@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   BackHandler,
+  Easing,
   FlatList,
   Image,
   ImageBackground,
@@ -30,6 +32,7 @@ import AstrologerVedicCharts from '../../components/AstrologerVedicCharts';
 import BuyQuestionsModal from '../../components/BuyQuestionsModal';
 import PersonalDetailsRequiredModal from '../../components/PersonalDetailsRequiredModal';
 import PaidPlanRequiredModal from '../../components/PaidPlanRequiredModal';
+import ChatAnswerActions from '../../components/ChatAnswerActions';
 import StreamingMarkdownAnswer from '../../components/StreamingMarkdownAnswer';
 import FormattedMarkdownText from '../../components/FormattedMarkdownText';
 import TransitEditModal, { TransitEditPayload } from '../../components/TransitEditModal';
@@ -38,13 +41,20 @@ import { useTheme } from '../../context/ThemeContext';
 import { setUser } from '../../state/slices/appSlice';
 import { RootState } from '../../state/store';
 import UserService from '../../services/user/user.service';
+import { hasAstrologerPersonalDetails } from '../../utils/astrologerPersonalDetails';
+import { isAstrologerPaidPlan } from '../../utils/astrologerPaidPlan';
 import {
   streamAstrologerChat,
+  streamAstrologerGetContent,
   getAstrologerPlanDisplayName,
   isAstrologerTokenLimitError,
   AstrologerChatFinalData,
 } from '../../utils/astrologerChatStream';
-import { parseMarkdownAnswer } from '../../utils/astrologerChatMarkdown';
+import {
+  parseMarkdownAnswer,
+  sanitizeAnswerText,
+} from '../../utils/astrologerChatMarkdown';
+import { isHtmlContent } from '../../utils/astrologerHtmlContent';
 import {
   getAstrologerCurrentTransitSession,
   saveAstrologerCurrentTransitSession,
@@ -57,14 +67,16 @@ import { Api } from '../../types/api';
 import { icons } from '../../assets';
 import { resolveBottomSafeInset } from '../../utils/safeAreaInsets';
 import { mergeUserProfile } from '../../utils/userRole';
+import {
+  buildPreQuestionStreamPayload,
+  extractGetContentAnswer,
+  extractPreQuestionItems,
+  PreQuestionItem,
+} from '../../utils/astrologerPreQuestions';
+import { getAssistantShareText } from '../../utils/astrologerChatShare';
 
 const NAVY = '#1A3673';
 const GOLD = '#C5A370';
-const NEW_CHAT_SUGGESTIONS = [
-  'When will I buy a house?',
-  'When will I see a job change?',
-  'When will I see an increase in my income?',
-];
 const TRANSIT_CHART_SIZE = responsiveWidth('86');
 const TRANSIT_CHART_PADDING = responsiveWidth('3');
 const TRANSIT_CHART_RENDER_SIZE = TRANSIT_CHART_SIZE - TRANSIT_CHART_PADDING * 2;
@@ -193,6 +205,7 @@ type ChatMessage =
       title: string;
       sections?: ChatSection[];
       streamingText?: string;
+      rawText?: string;
       showThinking?: boolean;
       thinkingSteps?: ThinkingStep[];
       isStreaming?: boolean;
@@ -294,6 +307,7 @@ const mapChatHistoryToMessages = (
       timeLabel,
       title: parsed.title,
       sections: parsed.sections,
+      rawText: item.answer,
       isStreaming: false,
     });
   });
@@ -302,6 +316,20 @@ const mapChatHistoryToMessages = (
 };
 
 const getActiveThinkingLabel = (_steps?: ThinkingStep[]) => 'thinking';
+
+const ThinkingCountdown = ({ color }: { color: string }) => {
+  const [seconds, setSeconds] = useState(45);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setSeconds(prev => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  return <Text style={[styles.thinkingCountdown, { color }]}>{seconds}s</Text>;
+};
 
 type RootStackParamList = {
   AstrologerClientChatScreen: {
@@ -331,6 +359,230 @@ const getClientDisplayName = (client: Api.User.Res.AstrologerClient) =>
   `${client.first_name || ''} ${client.last_name || ''}`.trim() ||
   'Unknown Client';
 
+const SUGGESTION_CHIP_HEIGHT = 36;
+const SUGGESTION_ROW_GAP = 8;
+
+type SuggestionItem = { id: string; heading: string };
+
+type SuggestionMarqueeRowProps = {
+  items: SuggestionItem[];
+  direction: 'rtl' | 'ltr';
+  paused: boolean;
+  disabled?: boolean;
+  onSelect: (id: string) => void;
+  chipBg: string;
+  chipBorder: string;
+  textColor: string;
+  starColor: string;
+};
+
+const SuggestionMarqueeRow = ({
+  items,
+  direction,
+  paused,
+  disabled = false,
+  onSelect,
+  chipBg,
+  chipBorder,
+  textColor,
+  starColor,
+}: SuggestionMarqueeRowProps) => {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const loopWidthRef = useRef(0);
+  const [rowWidth, setRowWidth] = useState(0);
+
+  const stopMarquee = useCallback(() => {
+    animationRef.current?.stop();
+    animationRef.current = null;
+  }, []);
+
+  const startMarquee = useCallback(
+    (width: number) => {
+      if (width <= 8) {
+        return;
+      }
+      if (Math.abs(width - loopWidthRef.current) < 1 && animationRef.current) {
+        return;
+      }
+
+      loopWidthRef.current = width;
+      stopMarquee();
+      const isRtl = direction === 'rtl';
+      translateX.setValue(isRtl ? 0 : -width);
+      const animation = Animated.loop(
+        Animated.timing(translateX, {
+          toValue: isRtl ? -width : 0,
+          duration: Math.max(16000, width * 22),
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      );
+      animationRef.current = animation;
+      animation.start();
+    },
+    [direction, stopMarquee, translateX],
+  );
+
+  useEffect(() => {
+    if (paused || rowWidth <= 8) {
+      stopMarquee();
+      if (rowWidth <= 8) {
+        translateX.setValue(0);
+      }
+      loopWidthRef.current = 0;
+      return;
+    }
+    startMarquee(rowWidth);
+  }, [paused, rowWidth, startMarquee, stopMarquee, translateX]);
+
+  useEffect(() => {
+    return () => {
+      stopMarquee();
+    };
+  }, [stopMarquee]);
+
+  const renderChips = (keyPrefix: string) =>
+    items.map((suggestion, index) => (
+      <TouchableOpacity
+        key={`${keyPrefix}-${suggestion.id}-${index}`}
+        style={[
+          styles.suggestionChip,
+          {
+            backgroundColor: chipBg,
+            borderColor: chipBorder,
+          },
+        ]}
+        onPress={() => onSelect(suggestion.id)}
+        activeOpacity={0.8}
+        disabled={disabled}
+      >
+        <Text style={[styles.suggestionStar, { color: starColor }]}>✦</Text>
+        <Text
+          style={[styles.suggestionText, { color: textColor }]}
+          numberOfLines={1}
+        >
+          {suggestion.heading}
+        </Text>
+      </TouchableOpacity>
+    ));
+
+  return (
+    <View style={styles.suggestionRowViewport}>
+      <View style={styles.suggestionMeasureHost} pointerEvents="none">
+        <View
+          style={styles.suggestionMeasureRow}
+          onLayout={event => {
+            const width = event.nativeEvent.layout.width;
+            setRowWidth(prev => (Math.abs(prev - width) < 1 ? prev : width));
+          }}
+        >
+          {renderChips('measure')}
+        </View>
+      </View>
+      {rowWidth > 8 ? (
+        <Animated.View
+          style={[styles.suggestionTrack, { transform: [{ translateX }] }]}
+        >
+          <View style={styles.suggestionSingleRow}>{renderChips('a')}</View>
+          <View style={styles.suggestionSingleRow} pointerEvents="none">
+            {renderChips('b')}
+          </View>
+        </Animated.View>
+      ) : (
+        <View style={styles.suggestionSingleRow}>{renderChips('static')}</View>
+      )}
+    </View>
+  );
+};
+
+type SuggestionMarqueeProps = {
+  items: SuggestionItem[];
+  onSelect: (id: string) => void;
+  disabled?: boolean;
+  chipBg: string;
+  chipBorder: string;
+  textColor: string;
+  starColor: string;
+  wrapBg: string;
+};
+
+const SuggestionMarquee = ({
+  items,
+  onSelect,
+  disabled = false,
+  chipBg,
+  chipBorder,
+  textColor,
+  starColor,
+  wrapBg,
+}: SuggestionMarqueeProps) => {
+  const [hidden, setHidden] = useState(false);
+  const [paused, setPaused] = useState(false);
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={[styles.suggestionBoard, { backgroundColor: wrapBg }]}>
+      <View style={styles.suggestionHeader}>
+        <View style={styles.suggestionHeaderLeft}>
+          <Text style={[styles.suggestionHeaderStar, { color: starColor }]}>✦</Text>
+          <Text style={[styles.suggestionHeaderTitle, { color: starColor }]}>
+            TRY ASKING
+          </Text>
+        </View>
+        <View style={styles.suggestionHeaderActions}>
+          {hidden ? null : (
+            <TouchableOpacity
+              onPress={() => setPaused(value => !value)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={paused ? 'Play suggestions' : 'Pause suggestions'}
+            >
+              {paused ? (
+                <Text style={[styles.suggestionHeaderAction, { color: textColor }]}>
+                  ▶
+                </Text>
+              ) : (
+                <View style={styles.suggestionPauseIcon}>
+                  <View style={[styles.suggestionPauseBar, { backgroundColor: textColor }]} />
+                  <View style={[styles.suggestionPauseBar, { backgroundColor: textColor }]} />
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => setHidden(value => !value)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={hidden ? 'Show suggestions' : 'Hide suggestions'}
+          >
+            <Text style={[styles.suggestionHeaderAction, { color: textColor }]}>
+              {hidden ? 'Show ▾' : 'Hide ▾'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {hidden ? null : (
+        <SuggestionMarqueeRow
+          items={items}
+          direction="rtl"
+          paused={paused}
+          disabled={disabled}
+          onSelect={onSelect}
+          chipBg={chipBg}
+          chipBorder={chipBorder}
+          textColor={textColor}
+          starColor={starColor}
+        />
+      )}
+    </View>
+  );
+};
+
 const AstrologerClientChatScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AstrologerClientChatScreen'>>();
@@ -346,6 +598,10 @@ const AstrologerClientChatScreen = () => {
   const lastLayoutRevisionRef = useRef(0);
   const prevMessageCountRef = useRef(0);
   const pendingChatScrollRef = useRef(false);
+  const isChatNearBottomRef = useRef(true);
+  const chatListOffsetRef = useRef(0);
+  const chatListContentHeightRef = useRef(0);
+  const chatListLayoutHeightRef = useRef(0);
   const toolbarScrollRef = useRef<ScrollView | null>(null);
   const toolbarTabPositionsRef = useRef<Partial<Record<ClientView, number>>>({});
   const isFreshChatActiveRef = useRef(false);
@@ -382,6 +638,8 @@ const AstrologerClientChatScreen = () => {
   const [conversationId, setConversationId] = useState('');
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isChatNearBottom, setIsChatNearBottom] = useState(true);
+  const [canJumpChatScroll, setCanJumpChatScroll] = useState(false);
   const [typingRevision, setTypingRevision] = useState(0);
   const [sidebarClients, setSidebarClients] = useState<Api.User.Res.AstrologerClient[]>(
     route.params?.clients ?? [],
@@ -407,6 +665,7 @@ const AstrologerClientChatScreen = () => {
   const [memberDetailsLoading, setMemberDetailsLoading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const isKeyboardVisibleRef = useRef(false);
+  const [preQuestions, setPreQuestions] = useState<PreQuestionItem[]>([]);
   const astrologerQuestionBalance = Math.max(
     0,
     Math.floor(Number((user as Record<string, unknown> | undefined)?.question_count ?? 0)),
@@ -417,30 +676,10 @@ const AstrologerClientChatScreen = () => {
     [sidebarClients, activeClientId],
   );
 
-  const isPaidPlan = useMemo(() => {
-    const currentPlan = String(
-      (user as Record<string, unknown> | null)?.current_plan ||
-        (user as Record<string, unknown> | null)?.plan_name ||
-        (user as Record<string, unknown> | null)?.plan ||
-        '',
-    )
-      .toLowerCase()
-      .trim();
-
-    const isFree =
-      !currentPlan ||
-      currentPlan === 'free' ||
-      currentPlan === 'basic' ||
-      currentPlan.includes('free');
-
-    const isSubActive =
-      (user as Record<string, unknown> | null)?.is_paid === true ||
-      (user as Record<string, unknown> | null)?.plan_status === 'active' ||
-      (user as Record<string, unknown> | null)?.is_subscribed === true ||
-      (!isFree && Boolean(currentPlan));
-
-    return Boolean(isSubActive && !isFree);
-  }, [user]);
+  const isPaidPlan = useMemo(
+    () => isAstrologerPaidPlan(user),
+    [user],
+  );
 
   const handleViewPlans = useCallback(() => {
     setShowPaidPlanRequiredModal(false);
@@ -453,19 +692,12 @@ const AstrologerClientChatScreen = () => {
   }, [navigation]);
 
   const isPersonalizedActive = useMemo(() => {
-    const clientRecord = (activeClient || memberDetails) as
-      | (Api.User.Res.AstrologerClient & Record<string, unknown>)
-      | (Api.User.Res.AstrologerMemberDetailsResponse & Record<string, unknown>)
-      | undefined;
-    if (!clientRecord) {
-      return false;
-    }
-    return Boolean(
-      clientRecord.personal_details ??
-      clientRecord.personalizedDetails ??
-      clientRecord.personalized_details ??
-      clientRecord.is_personalized ??
-      false,
+    return (
+      hasAstrologerPersonalDetails(activeClient) ||
+      hasAstrologerPersonalDetails(memberDetails) ||
+      hasAstrologerPersonalDetails(
+        (memberDetails as { birth_details?: unknown } | undefined)?.birth_details,
+      )
     );
   }, [activeClient, memberDetails]);
 
@@ -552,11 +784,44 @@ const AstrologerClientChatScreen = () => {
       cancelAnimationFrame(scrollRafRef.current);
     }
 
+    isChatNearBottomRef.current = true;
+    setIsChatNearBottom(true);
     scrollRafRef.current = requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated });
       scrollRafRef.current = null;
     });
   }, []);
+
+  const scrollToTop = useCallback((animated = true) => {
+    isChatNearBottomRef.current = false;
+    setIsChatNearBottom(false);
+    listRef.current?.scrollToOffset({ offset: 0, animated });
+  }, []);
+
+  const updateChatScrollJump = useCallback(
+    (offsetY: number, contentHeight: number, layoutHeight: number) => {
+      if (layoutHeight <= 0 || contentHeight <= 0) {
+        setCanJumpChatScroll(false);
+        return;
+      }
+      const canScroll = contentHeight > layoutHeight + 24;
+      const nearBottom = contentHeight - layoutHeight - offsetY <= 80;
+      setCanJumpChatScroll(canScroll);
+      if (nearBottom !== isChatNearBottomRef.current) {
+        isChatNearBottomRef.current = nearBottom;
+        setIsChatNearBottom(nearBottom);
+      }
+    },
+    [],
+  );
+
+  const handleChatScrollJump = useCallback(() => {
+    if (isChatNearBottomRef.current) {
+      scrollToTop(true);
+      return;
+    }
+    scrollToBottom(true);
+  }, [scrollToBottom, scrollToTop]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -686,14 +951,21 @@ const AstrologerClientChatScreen = () => {
 
   const updateAssistantMessage = useCallback(
     (messageId: string, updater: (message: Extract<ChatMessage, { type: 'assistant' }>) => Extract<ChatMessage, { type: 'assistant' }>) => {
-      setMessages(prev =>
-        prev.map(item => {
+      setMessages(prev => {
+        let changed = false;
+        const next = prev.map(item => {
           if (item.id !== messageId || item.type !== 'assistant') {
             return item;
           }
-          return updater(item);
-        }),
-      );
+          const updated = updater(item);
+          if (updated === item) {
+            return item;
+          }
+          changed = true;
+          return updated;
+        });
+        return changed ? next : prev;
+      });
     },
     [],
   );
@@ -709,7 +981,9 @@ const AstrologerClientChatScreen = () => {
 
   const flushStreamingText = useCallback(
     (messageId: string) => {
-      const text = streamStateRef.current.buffers[messageId] || '';
+      const text = sanitizeAnswerText(
+        streamStateRef.current.buffers[messageId] || '',
+      );
       updateAssistantMessage(messageId, message => ({
         ...message,
         // Keep thinking until first content arrives — avoids empty/blank card flash.
@@ -786,18 +1060,21 @@ const AstrologerClientChatScreen = () => {
 
   const finalizeAssistantMessage = useCallback(
     (messageId: string, finalData: AstrologerChatFinalData) => {
-      const answer =
-        finalData.answer || streamStateRef.current.buffers[messageId] || '';
+      const answer = sanitizeAnswerText(
+        finalData.answer || streamStateRef.current.buffers[messageId] || '',
+      );
       clearStreamingBuffer(messageId);
-      const parsed = answer ? parseMarkdownAnswer(answer) : null;
+      const htmlAnswer = isHtmlContent(answer);
+      const parsed = answer && !htmlAnswer ? parseMarkdownAnswer(answer) : null;
 
       updateAssistantMessage(messageId, message => ({
         ...message,
         title: finalData.title || parsed?.title || message.title || '',
         streamingText: answer || undefined,
+        rawText: answer || message.rawText,
         showThinking: false,
-        isStreaming: Boolean(answer),
-        sections: parsed?.sections || message.sections,
+        isStreaming: htmlAnswer ? false : Boolean(answer),
+        sections: htmlAnswer ? [] : parsed?.sections || message.sections,
         thinkingSteps: message.thinkingSteps?.map(step => ({
           ...step,
           status: 'completed' as const,
@@ -891,15 +1168,35 @@ const AstrologerClientChatScreen = () => {
   };
 
   const handleBackPress = useCallback(() => {
+    if (isSending) {
+      return;
+    }
     if (showSidebar) {
       closeSidebar();
       return;
     }
     navigation.goBack();
-  }, [showSidebar, navigation]);
+  }, [isSending, showSidebar, navigation]);
+
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !isSending });
+  }, [isSending, navigation]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', event => {
+      if (!isSending) {
+        return;
+      }
+      event.preventDefault();
+    });
+    return unsubscribe;
+  }, [isSending, navigation]);
 
   useEffect(() => {
     const onHardwareBackPress = () => {
+      if (isSending) {
+        return true;
+      }
       if (showSidebar) {
         closeSidebar();
         return true;
@@ -912,7 +1209,7 @@ const AstrologerClientChatScreen = () => {
       onHardwareBackPress,
     );
     return () => subscription.remove();
-  }, [showSidebar]);
+  }, [isSending, showSidebar]);
 
   const handleSelectClient = (client: Api.User.Res.AstrologerClient) => {
     chatAbortRef.current?.();
@@ -1005,6 +1302,35 @@ const AstrologerClientChatScreen = () => {
     }, [activeClientId, loadChatHistory]),
   );
 
+  useEffect(() => {
+    if (!activeClientId) {
+      setPreQuestions([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadPreQuestions = async () => {
+      try {
+        const response = await userService.getAstrologerCombinations(
+          activeClientId,
+          'pre_question',
+        );
+        if (!cancelled) {
+          setPreQuestions(extractPreQuestionItems(response));
+        }
+      } catch {
+        if (!cancelled) {
+          setPreQuestions([]);
+        }
+      }
+    };
+
+    loadPreQuestions();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeClientId, userService]);
+
   const handleStartNewChat = useCallback(async () => {
     if (!activeClientId || isSending) {
       return;
@@ -1042,14 +1368,14 @@ const AstrologerClientChatScreen = () => {
   }, [activeClientId, isSending]);
 
   const openChatHistory = useCallback(() => {
-    if (!activeClientId) {
+    if (!activeClientId || isSending) {
       return;
     }
     navigation.navigate('AstrologerChatHistoryScreen', {
       clientId: activeClientId,
       clientName: activeClientName,
     });
-  }, [activeClientId, activeClientName, navigation]);
+  }, [activeClientId, activeClientName, isSending, navigation]);
 
   const loadMemberDetails = useCallback(
     async (clientId: string) => {
@@ -1272,19 +1598,9 @@ const AstrologerClientChatScreen = () => {
     };
   }, [theme, colors]);
 
-  const handleSelectSuggestion = useCallback((suggestion: string) => {
-    if (isSending || historyLoading) {
-      return;
-    }
-    setInputText(suggestion);
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-  }, [historyLoading, isSending]);
-
-  const handleSend = async () => {
-    const trimmed = inputText.trim();
-    if (!trimmed || isSending) {
+  const handleSend = async (rawText?: string) => {
+    const trimmed = (typeof rawText === 'string' ? rawText : inputText).trim();
+    if (!trimmed || isSending || historyLoading) {
       return;
     }
 
@@ -1361,12 +1677,148 @@ const AstrologerClientChatScreen = () => {
             showThinking: false,
             isStreaming: false,
             title: '',
-            errorText: error.message,
+            errorText: sanitizeAnswerText(error.message),
           }));
         },
         onDone: () => {
           setIsSending(false);
           chatAbortRef.current = null;
+        },
+      },
+    );
+  };
+
+  const handleSelectPreQuestion = async (questionId: string) => {
+    const item = preQuestions.find(question => question.id === questionId);
+    if (!item || isSending || historyLoading) {
+      return;
+    }
+
+    const userMessageId = `${Date.now()}-user`;
+    const assistantMessageId = `${Date.now()}-assistant`;
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: userMessageId,
+        type: 'user',
+        text: item.heading,
+        timeLabel: getCurrentTimeLabel(),
+      },
+      {
+        id: assistantMessageId,
+        type: 'assistant',
+        timeLabel: getCurrentTimeLabel(),
+        title: '',
+        showThinking: true,
+        thinkingSteps: INITIAL_THINKING_STEPS.map((step, index) => ({
+          ...step,
+          status: index === 0 ? 'running' : 'idle',
+        })),
+        isStreaming: true,
+        streamingText: '',
+      },
+    ]);
+    setIsSending(true);
+    pendingChatScrollRef.current = true;
+    setTimeout(() => scrollToBottom(true), 90);
+    setTimeout(() => scrollToBottom(true), 230);
+
+    let didFinalize = false;
+    chatAbortRef.current?.();
+    chatAbortRef.current = await streamAstrologerGetContent(
+      buildPreQuestionStreamPayload(item, activeClientId),
+      {
+        onNodeUpdate: (node, status) => {
+          const now = Date.now();
+          if (status !== 'completed' && now - streamStateRef.current.lastNodeUpdateAt < 150) {
+            return;
+          }
+          streamStateRef.current.lastNodeUpdateAt = now;
+          applyNodeUpdate(assistantMessageId, node, status);
+        },
+        onAnswerToken: delta => {
+          appendStreamingDelta(assistantMessageId, delta);
+        },
+        onFinal: finalData => {
+          const answer =
+            finalData.answer ||
+            streamStateRef.current.buffers[assistantMessageId] ||
+            '';
+          if (!answer.trim()) {
+            return;
+          }
+          didFinalize = true;
+          finalizeAssistantMessage(assistantMessageId, {
+            ...finalData,
+            title: finalData.title || item.heading,
+            answer,
+          });
+        },
+        onError: error => {
+          clearStreamingBuffer(assistantMessageId);
+          updateAssistantMessage(assistantMessageId, message => ({
+            ...message,
+            showThinking: false,
+            isStreaming: false,
+            title: '',
+            errorText: sanitizeAnswerText(error.message),
+          }));
+        },
+        onDone: () => {
+          const finishRequest = () => {
+            setIsSending(false);
+            chatAbortRef.current = null;
+          };
+
+          if (didFinalize) {
+            finishRequest();
+            return;
+          }
+
+          const buffered =
+            streamStateRef.current.buffers[assistantMessageId] || '';
+          if (buffered.trim()) {
+            finalizeAssistantMessage(assistantMessageId, {
+              title: item.heading,
+              answer: buffered,
+            });
+            finishRequest();
+            return;
+          }
+
+          const payload = buildPreQuestionStreamPayload(item, activeClientId);
+          userService
+            .getAstrologerComboContent(payload.collection, payload.pipeline)
+            .then(response => {
+              const answer = extractGetContentAnswer(response);
+              if (answer.trim()) {
+                finalizeAssistantMessage(assistantMessageId, {
+                  title: item.heading,
+                  answer,
+                });
+                return;
+              }
+              updateAssistantMessage(assistantMessageId, message => ({
+                ...message,
+                showThinking: false,
+                isStreaming: false,
+                title: '',
+                errorText: 'No details available.',
+              }));
+            })
+            .catch((error: unknown) => {
+              const message =
+                error instanceof Error ? error.message : 'Failed to load this question.';
+              updateAssistantMessage(assistantMessageId, itemMessage => ({
+                ...itemMessage,
+                showThinking: false,
+                isStreaming: false,
+                title: '',
+                errorText: sanitizeAnswerText(message),
+              }));
+            })
+            .finally(finishRequest);
         },
       },
     );
@@ -1450,6 +1902,7 @@ const AstrologerClientChatScreen = () => {
                 <Text style={[styles.thinkingBubbleText, { color: palette.textMuted }]}>
                   {getActiveThinkingLabel(item.thinkingSteps)}
                 </Text>
+                <ThinkingCountdown color={palette.textMuted} />
               </View>
             </View>
           </View>
@@ -1458,6 +1911,9 @@ const AstrologerClientChatScreen = () => {
     }
 
     const showBuyQuestionsAction = isNoQuestionsRemainingMessage(item.errorText);
+    const shareText = getAssistantShareText(item);
+    const showAnswerActions =
+      !item.isStreaming && hasRichContent && Boolean(shareText);
 
     if (item.errorText && !hasRichContent) {
       return (
@@ -1538,7 +1994,7 @@ const AstrologerClientChatScreen = () => {
                   textColor={palette.textPrimary}
                   onProgress={handleTypewriterProgress}
                   onComplete={
-                    item.sections?.length
+                    item.isStreaming
                       ? () => handleTypewriterComplete(item.id)
                       : undefined
                   }
@@ -1551,6 +2007,14 @@ const AstrologerClientChatScreen = () => {
             </View>
           </View>
         </View>
+        {showAnswerActions ? (
+          <ChatAnswerActions
+            text={shareText}
+            color={palette.textPrimary}
+            borderColor={palette.assistantCardBorder}
+            backgroundColor={palette.assistantCardBg}
+          />
+        ) : null}
       </View>
     );
   };
@@ -1605,8 +2069,15 @@ const AstrologerClientChatScreen = () => {
         }}
       >
         <TouchableOpacity
-          style={[styles.toolbarPill, styles.toolbarPillInactive, { borderColor: inactivePillBorder }]}
+          style={[
+            styles.toolbarPill,
+            styles.toolbarPillInactive,
+            { borderColor: inactivePillBorder, opacity: isSending ? 0.45 : 1 },
+          ]}
           onPress={() => {
+            if (isSending) {
+              return;
+            }
             if (onCustomPress) {
               onCustomPress();
             } else {
@@ -1614,6 +2085,7 @@ const AstrologerClientChatScreen = () => {
             }
           }}
           activeOpacity={0.85}
+          disabled={isSending}
         >
           {icon}
           <Text style={[styles.toolbarPillTextInactive, { color: inactivePillColor }]}>{label}</Text>
@@ -1853,10 +2325,11 @@ const AstrologerClientChatScreen = () => {
           style={[
             styles.toolbarPill,
             styles.toolbarPillInactive,
-            { borderColor: inactivePillBorder },
+            { borderColor: inactivePillBorder, opacity: isSending ? 0.45 : 1 },
           ]}
           onPress={openChatHistory}
           activeOpacity={0.85}
+          disabled={isSending}
         >
           <Image
             source={require('../../assets/icons/history.png')}
@@ -1878,7 +2351,11 @@ const AstrologerClientChatScreen = () => {
       isDark={palette.isDark}
       borderColor={palette.topHeaderBorder}
       backgroundColor={palette.topHeaderBg}
-      onOpenSidebar={openSidebar}
+      onOpenSidebar={() => {
+        if (!isSending) {
+          openSidebar();
+        }
+      }}
       onOpenCharts={handleOpenCharts}
       onCheckTransitCombo={handleCheckTransitCombo}
     />
@@ -1959,8 +2436,9 @@ const AstrologerClientChatScreen = () => {
         <View style={styles.headerSideLeft}>
           <TouchableOpacity
             onPress={handleBackPress}
-            style={styles.headerBackBtn}
+            style={[styles.headerBackBtn, isSending ? { opacity: 0.4 } : null]}
             activeOpacity={0.7}
+            disabled={isSending}
           >
             <Image
               source={require('../../assets/icons/back.png')}
@@ -2143,6 +2621,7 @@ const AstrologerClientChatScreen = () => {
 
           return (
             <ChatWrapper {...chatWrapperProps}>
+              <View style={styles.messagesListWrap}>
               <FlatList
                 ref={listRef}
                 data={messages}
@@ -2161,11 +2640,38 @@ const AstrologerClientChatScreen = () => {
                 windowSize={7}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                onContentSizeChange={() => {
+                scrollEventThrottle={16}
+                onLayout={event => {
+                  chatListLayoutHeightRef.current = event.nativeEvent.layout.height;
+                  updateChatScrollJump(
+                    chatListOffsetRef.current,
+                    chatListContentHeightRef.current,
+                    chatListLayoutHeightRef.current,
+                  );
+                }}
+                onScroll={event => {
+                  const { contentOffset, contentSize, layoutMeasurement } =
+                    event.nativeEvent;
+                  chatListOffsetRef.current = contentOffset.y;
+                  chatListContentHeightRef.current = contentSize.height;
+                  chatListLayoutHeightRef.current = layoutMeasurement.height;
+                  updateChatScrollJump(
+                    contentOffset.y,
+                    contentSize.height,
+                    layoutMeasurement.height,
+                  );
+                }}
+                onContentSizeChange={(_width, height) => {
+                  chatListContentHeightRef.current = height;
                   if (pendingChatScrollRef.current) {
                     scrollToBottom(false);
                     pendingChatScrollRef.current = false;
                   }
+                  updateChatScrollJump(
+                    chatListOffsetRef.current,
+                    height,
+                    chatListLayoutHeightRef.current,
+                  );
                 }}
                 ListFooterComponent={
                   messages.length === 0 ? null : (
@@ -2199,6 +2705,31 @@ const AstrologerClientChatScreen = () => {
                   )
                 }
               />
+              {messages.length > 0 && canJumpChatScroll ? (
+                <View style={styles.scrollJumpWrap} pointerEvents="box-none">
+                  <TouchableOpacity
+                    style={[
+                      styles.scrollJumpBtn,
+                      {
+                        backgroundColor: palette.isDark ? '#2A3F58' : '#FFFFFF',
+                        borderColor: palette.isDark
+                          ? 'rgba(255,255,255,0.18)'
+                          : '#D1D5DB',
+                      },
+                    ]}
+                    onPress={handleChatScrollJump}
+                    activeOpacity={0.85}
+                    accessibilityLabel={
+                      isChatNearBottom ? 'Move to top' : 'Move to bottom'
+                    }
+                  >
+                    <Text style={[styles.scrollJumpIcon, { color: palette.textPrimary }]}>
+                      {isChatNearBottom ? '↑' : '↓'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              </View>
 
               <View
                 style={[
@@ -2210,44 +2741,18 @@ const AstrologerClientChatScreen = () => {
                   },
                 ]}
               >
-                {!historyLoading && messages.length === 0 ? (
-                  <View
-                    style={[
-                      styles.suggestionWrap,
-                      {
-                        backgroundColor: palette.isDark
-                          ? 'rgba(255,255,255,0.04)'
-                          : '#F7F4EE',
-                      },
-                    ]}
-                  >
-                    {NEW_CHAT_SUGGESTIONS.map(suggestion => (
-                      <TouchableOpacity
-                        key={suggestion}
-                        style={[
-                          styles.suggestionChip,
-                          {
-                            backgroundColor: palette.isDark ? '#2A3F58' : '#FFFFFF',
-                            borderColor: GOLD,
-                          },
-                        ]}
-                        onPress={() => handleSelectSuggestion(suggestion)}
-                        activeOpacity={0.8}
-                        disabled={isSending}
-                      >
-                        <Text style={[styles.suggestionStar, { color: GOLD }]}>✦</Text>
-                        <Text
-                          style={[
-                            styles.suggestionText,
-                            { color: palette.isDark ? '#EEE5CA' : NAVY },
-                          ]}
-                        >
-                          {suggestion}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ) : null}
+                <SuggestionMarquee
+                  items={preQuestions}
+                  onSelect={handleSelectPreQuestion}
+                  disabled={isSending || historyLoading}
+                  chipBg={palette.isDark ? '#2A3F58' : '#FFFDF8'}
+                  chipBorder={palette.isDark ? 'rgba(197, 163, 112, 0.45)' : '#E6D5B0'}
+                  textColor={palette.isDark ? '#EEE5CA' : NAVY}
+                  starColor={GOLD}
+                  wrapBg={
+                    palette.isDark ? 'rgba(255,255,255,0.04)' : '#F6F0E4'
+                  }
+                />
                 <View
                   style={[
                     styles.inputWrapper,
@@ -2280,7 +2785,9 @@ const AstrologerClientChatScreen = () => {
                         opacity: isSending || historyLoading ? 0.6 : inputText.trim() ? 1 : 0.55,
                       },
                     ]}
-                    onPress={handleSend}
+                    onPress={() => {
+                      handleSend();
+                    }}
                     disabled={isSending || historyLoading || !inputText.trim()}
                     activeOpacity={0.85}
                   >
@@ -2820,8 +3327,36 @@ const styles = StyleSheet.create({
   iconGroupEmoji: {
     fontSize: 15,
   },
+  messagesListWrap: {
+    flex: 1,
+    minHeight: 0,
+  },
   messagesList: {
     flex: 1,
+  },
+  scrollJumpWrap: {
+    position: 'absolute',
+    right: 10,
+    bottom: 12,
+    alignItems: 'center',
+  },
+  scrollJumpBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  scrollJumpIcon: {
+    fontSize: 16,
+    fontFamily: fontFamily.semiBold,
+    lineHeight: 18,
   },
   chatContent: {
     flex: 1,
@@ -2925,9 +3460,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   thinkingBubbleText: {
-    flex: 1,
     fontSize: 14,
     fontFamily: fontFamily.regular,
+    lineHeight: 20,
+  },
+  thinkingCountdown: {
+    fontSize: 14,
+    fontFamily: fontFamily.semiBold,
     lineHeight: 20,
   },
   compactAssistantText: {
@@ -3029,35 +3568,110 @@ const styles = StyleSheet.create({
   },
   inputBar: {
     paddingHorizontal: responsiveWidth('3'),
-    paddingTop: responsiveWidth('2'),
+    paddingTop: 0,
     borderTopWidth: 1,
   },
-  suggestionWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    borderRadius: 14,
-    padding: 10,
+  suggestionBoard: {
+    marginHorizontal: -responsiveWidth('3'),
+    paddingHorizontal: responsiveWidth('3'),
+    paddingTop: 10,
+    paddingBottom: 10,
     marginBottom: 10,
+  },
+  suggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  suggestionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  suggestionHeaderStar: {
+    fontSize: 11,
+    marginRight: 6,
+  },
+  suggestionHeaderTitle: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+    fontFamily: fontFamily.semiBold,
+  },
+  suggestionHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  suggestionHeaderAction: {
+    fontSize: 12,
+    fontFamily: fontFamily.medium,
+    lineHeight: 16,
+  },
+  suggestionPauseIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 14,
+  },
+  suggestionPauseBar: {
+    width: 2,
+    height: 12,
+    borderRadius: 1,
+  },
+  suggestionRows: {
+    gap: SUGGESTION_ROW_GAP,
+  },
+  suggestionRowViewport: {
+    height: SUGGESTION_CHIP_HEIGHT,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  suggestionTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  suggestionSingleRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    flexShrink: 0,
+    gap: SUGGESTION_ROW_GAP,
+    paddingRight: SUGGESTION_ROW_GAP,
+  },
+  suggestionMeasureHost: {
+    position: 'absolute',
+    opacity: 0,
+    left: 0,
+    top: 0,
+    width: 10000,
+    zIndex: -1,
+  },
+  suggestionMeasureRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: SUGGESTION_ROW_GAP,
+    paddingRight: SUGGESTION_ROW_GAP,
   },
   suggestionChip: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: 20,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    maxWidth: '100%',
+    paddingVertical: 7,
+    flexShrink: 0,
+    height: SUGGESTION_CHIP_HEIGHT,
   },
   suggestionStar: {
-    fontSize: 12,
+    fontSize: 11,
     marginRight: 6,
   },
   suggestionText: {
     fontSize: 13,
     fontFamily: fontFamily.regular,
     lineHeight: 18,
-    flexShrink: 1,
   },
   inputWrapper: {
     flexDirection: 'row',

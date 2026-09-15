@@ -127,8 +127,8 @@ const ResourcesDetailsScreen = () => {
   // Function to check if a line is a numbered list item
   const isNumberedListItem = (text: string): boolean => {
     const trimmed = text.trim();
-    // Check for numbered lists (1., 2., etc.) at the start
-    return /^\d+\.\s/.test(trimmed);
+    // Check for numbered lists (1., 2., 20., etc.) at the start
+    return /^\d+\./.test(trimmed);
   };
 
   // Function to parse numbered list item
@@ -357,7 +357,7 @@ const ResourcesDetailsScreen = () => {
                             },
                           ]}
                         >
-                          {number}
+                          {number}{' '}
                         </Text>
                         <View style={styles.listContentContainer}>
                           <Text
@@ -1001,18 +1001,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.regular,
     lineHeight: 22,
-    minWidth: responsiveWidth(4),
+    minWidth: 28,
+    flexShrink: 0,
   },
   bulletPoint: {
     fontSize: 10,
     fontFamily: fontFamily.regular,
     lineHeight: 22,
     minWidth: responsiveWidth(2),
+    flexShrink: 0,
     // marginTop: 2,
   },
   listContentContainer: {
     flex: 1,
-    // paddingLeft: responsiveWidth(1),
+    minWidth: 0,
+    paddingLeft: 4,
   },
 });
 

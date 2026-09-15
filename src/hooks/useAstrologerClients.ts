@@ -7,6 +7,7 @@ import { setUser } from '../state/slices/appSlice';
 import UserService from '../services/user/user.service';
 import { Api } from '../types/api';
 import { mergeUserProfile } from '../utils/userRole';
+import { mergeAstrologerClientsWithPersonalDetails } from '../utils/astrologerPersonalDetails';
 
 const PAGE_SIZE = 10;
 
@@ -56,7 +57,10 @@ export const useAstrologerClients = () => {
         console.log('====================================');
 
         if (response.status && response.data) {
-          setClients(response.data.data || []);
+          const incomingClients = response.data.data || [];
+          setClients(prev =>
+            mergeAstrologerClientsWithPersonalDetails(incomingClients, prev),
+          );
           setUserDetails(response.data.user_details || null);
           if (response.data.user_details) {
             const mergedUser = mergeUserProfile(
@@ -86,11 +90,25 @@ export const useAstrologerClients = () => {
 
   const refreshClients = useCallback(() => fetchClients(true), [fetchClients]);
 
+  const patchClient = useCallback(
+    (clientId: string, patch: Record<string, unknown>) => {
+      setClients(prev =>
+        prev.map(client =>
+          client.id === clientId
+            ? ({ ...client, ...patch } as Api.User.Res.AstrologerClient)
+            : client,
+        ),
+      );
+    },
+    [],
+  );
+
   return {
     clients,
     userDetails,
     loading,
     error,
     refreshClients,
+    patchClient,
   };
 };

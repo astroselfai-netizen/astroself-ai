@@ -8,32 +8,28 @@ import {
   View,
   Platform,
   ScrollView,
-  StatusBar,
   Image,
 } from 'react-native';
 import {
   fontFamily,
-  responsiveWidth,
   responsiveHeight,
+  responsiveWidth,
 } from '../../constant/theme';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { useTheme } from '../../context/ThemeContext';
 
-export type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  ForgotPassword: undefined;
-  HomeScreen: undefined;
-  ContinueWithOtp: undefined;
-  ForgotPasswordOtp: undefined;
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
 };
 
-type FaqsScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  'Login'
->;
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
 
 type FaqBlock =
   | { type: 'text'; value: string }
@@ -575,7 +571,6 @@ const faqData: FaqItem[] = [
 
 const FaqsScreen = () => {
   const { theme, colors } = useTheme();
-  const navigation = useNavigation<FaqsScreenNavigationProp>();
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
   const toggleExpanded = (faqId: string) => {
@@ -632,44 +627,13 @@ const FaqsScreen = () => {
     });
 
   return (
-    <MainContainer safeBottom>
-      <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent={true}
-      />
-      <View style={styles.headerRow}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-          activeOpacity={0.7}
-        >
-          <Image
-            source={require('../../assets/icons/back.png')}
-            style={[
-              styles.backIcon,
-              {
-                tintColor:
-                  theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
-              },
-            ]}
-          />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text
-            style={[
-              styles.headerTitle,
-              {
-                color:
-                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              },
-            ]}
-          >
-            FAQ'S
-          </Text>
-        </View>
-      </View>
-
+    <View style={styles.flex}>
+      <AstrologerScreenHeader title="Faqs" showBack />
+      <MainContainer
+        safeBottom
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
@@ -746,50 +710,20 @@ const FaqsScreen = () => {
           })}
         </View>
       </ScrollView>
-    </MainContainer>
+      </MainContainer>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  flex: {
     flex: 1,
   },
   scrollViewContent: {
     flexGrow: 1,
     minHeight: '100%',
+    paddingTop: responsiveWidth('4'),
     paddingBottom: Platform.OS === 'android' ? 60 : 60,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop:
-      Platform.OS === 'android'
-        ? responsiveHeight('0.5%')
-        : responsiveWidth('12%'),
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
-    position: 'relative',
-    minHeight: 50,
-  },
-  backBtn: {
-    left: responsiveWidth('2'),
-  },
-  backIcon: {
-    width: responsiveWidth(5),
-    height: responsiveWidth(5),
-    resizeMode: 'contain',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    marginRight: responsiveWidth('4'),
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontFamily: fontFamily.regular,
-    textAlign: 'center',
   },
   contentCard: {
     borderRadius: 8,

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -48,6 +48,7 @@ import {
   getRazorpayUpiEnabledFields,
   withUpiPrefill,
 } from '../../utils/razorpayUpiOptions';
+import { resolveRazorpayKey } from '../../utils/razorpayKey';
 import {
   initConnection,
   endConnection,
@@ -62,6 +63,13 @@ import {
 import type { Purchase } from 'react-native-iap';
 import RenderHTML from 'react-native-render-html';
 import http, { baseURL } from '../../utils/http';
+import ReportPurchaseConfirmModal from '../../components/ReportPurchaseConfirmModal';
+import AstrologerClientPersonalDetailsModal from '../../components/AstrologerClientPersonalDetailsModal';
+import {
+  PersonalDetailsValues,
+} from '../../components/AstrologerPersonalDetailsForm';
+import { pickAstrologerPersonalDetails } from '../../utils/astrologerPersonalDetails';
+import { Api } from '../../types/api';
 
 type ReportFeatureApi = {
   text: string;
@@ -107,14 +115,6 @@ const IAP_REPORT_PRODUCT_IDS: Record<string, string> = {
   adl: 'com.astroself.report.adl',
   lord: 'com.astroself.report.lord',
   planet: 'com.astroself.report.planet',
-};
-
-// Razorpay Configuration
-const RAZORPAY_CONFIG = {
-  TEST_KEY: 'rzp_test_Rueu06YDULsQCD',
-  LIVE_KEY: 'rzp_live_t11y7Cds0JWo47',
-  PLAN_ID: 'd461266c-574b-4312-994a-ebd2b5cf6dc3',
-  IS_TEST_MODE: true, // Set to false for production
 };
 
 const getReportCardTheme = (reportId: string, currentTheme: string) => {
@@ -224,6 +224,15 @@ const astrologerContainerStyle = {
 
 const astrologerMainContainerStyle = {
   backgroundColor: 'transparent',
+};
+
+const EMPTY_PERSONAL_DETAILS: PersonalDetailsValues = {
+  whatDoYouDo: '',
+  maritalStatus: '',
+  children: '',
+  currentFuturePlans: '',
+  currentChallenges: '',
+  anyOtherDetails: '',
 };
 
 const ReportScreen = () => {
@@ -398,7 +407,11 @@ const ReportScreen = () => {
         100,
       );
       if (response?.status && Array.isArray(response?.data?.data)) {
-        const mapped = response.data.data.map((c: any) => ({
+        const list = response.data.data as Array<
+          Api.User.Res.AstrologerClient & Record<string, unknown>
+        >;
+        setAstrologerClientRecords(list);
+        const mapped = list.map(c => ({
           id: String(c.id || c._id),
           full_name:
             `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Client',
@@ -446,6 +459,29 @@ const ReportScreen = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const profileFieldRef = useRef<View>(null);
+  const [dropdownLayout, setDropdownLayout] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const closeMemberDropdown = useCallback(() => {
+    setIsMemberDropdownOpen(false);
+    setSearchQuery('');
+  }, []);
+
+  const toggleMemberDropdown = useCallback(() => {
+    if (isMemberDropdownOpen) {
+      closeMemberDropdown();
+      return;
+    }
+    profileFieldRef.current?.measureInWindow((x, y, width, height) => {
+      setDropdownLayout({ x, y, width, height });
+      setIsMemberDropdownOpen(true);
+    });
+  }, [closeMemberDropdown, isMemberDropdownOpen]);
 
   // Set selectedMemberId when members/clients are loaded and userId exists or default
   useEffect(() => {
@@ -508,6 +544,19 @@ const ReportScreen = () => {
   const [successModalTitle, setSuccessModalTitle] = useState('');
   const [successModalMessage, setSuccessModalMessage] = useState('');
   const [showMemberRequiredModal, setShowMemberRequiredModal] = useState(false);
+  const [astrologerClientRecords, setAstrologerClientRecords] = useState<
+    Array<Api.User.Res.AstrologerClient & Record<string, unknown>>
+  >([]);
+  const [pendingReportId, setPendingReportId] = useState<string | null>(null);
+  const [showPurchaseConfirmModal, setShowPurchaseConfirmModal] = useState(false);
+  const [showPersonalDetailsEditModal, setShowPersonalDetailsEditModal] =
+    useState(false);
+  const [editingClient, setEditingClient] = useState<
+    (Api.User.Res.AstrologerClient & Record<string, unknown>) | null
+  >(null);
+  const [personalDetailsForm, setPersonalDetailsForm] =
+    useState<PersonalDetailsValues>(EMPTY_PERSONAL_DETAILS);
+  const [isSavingPersonalDetails, setIsSavingPersonalDetails] = useState(false);
 
   // Toggle expanded state for reports
   const toggleReportExpanded = (reportId: string) => {
@@ -705,7 +754,7 @@ const ReportScreen = () => {
             reportsData.find(r => r.id === reportId)?.title || 'Report'
           } for ${selectedMember.full_name}`,
           currency: 'INR',
-          key: RAZORPAY_CONFIG.IS_TEST_MODE ? RAZORPAY_CONFIG.TEST_KEY : RAZORPAY_CONFIG.LIVE_KEY,
+          key: resolveRazorpayKey(orderResponse),
           amount: orderAmount,
           order_id: orderId,
           name: 'Astrodha',
@@ -783,7 +832,7 @@ const ReportScreen = () => {
           reportsData.find(r => r.id === reportId)?.title || 'Report'
         } for ${selectedMember.full_name}`,
         currency: 'INR',
-        key: RAZORPAY_CONFIG.TEST_KEY,
+        key: resolveRazorpayKey(orderResponse),
         amount: orderResponse.amount,
         order_id: orderResponse.order_id,
         name: 'Astrodha',
@@ -929,6 +978,219 @@ const ReportScreen = () => {
     }
   };
 
+  const closePurchaseConfirmModal = () => {
+    setShowPurchaseConfirmModal(false);
+  };
+
+  const handleBuyNowPress = (reportId: string) => {
+    if (!selectedMemberId) {
+      setShowMemberRequiredModal(true);
+      return;
+    }
+    setPendingReportId(reportId);
+    setShowPurchaseConfirmModal(true);
+  };
+
+  const handleConfirmBuy = () => {
+    const reportId = pendingReportId;
+    setShowPurchaseConfirmModal(false);
+    if (reportId) {
+      handleReportPayment(reportId);
+    }
+  };
+
+  const handleWishToChange = async () => {
+    setShowPurchaseConfirmModal(false);
+
+    let selectedClient =
+      astrologerClientRecords.find(
+        client => String(client.id || client._id) === String(selectedMemberId),
+      ) || null;
+
+    if (!selectedClient) {
+      try {
+        const userDataString = await AsyncStorage.getItem('USER_DATA');
+        const currentUser = userDataString ? JSON.parse(userDataString) : user;
+        const astrologerId = currentUser?._id || currentUser?.id;
+        if (astrologerId) {
+          const userService = new UserService();
+          const response = await userService.getAstrologerClients(
+            astrologerId,
+            0,
+            100,
+          );
+          const list = Array.isArray(response?.data?.data)
+            ? (response.data.data as Array<
+                Api.User.Res.AstrologerClient & Record<string, unknown>
+              >)
+            : [];
+          setAstrologerClientRecords(list);
+          selectedClient =
+            list.find(
+              client =>
+                String(client.id || client._id) === String(selectedMemberId),
+            ) || null;
+        }
+      } catch {
+        selectedClient = null;
+      }
+    }
+
+    if (!selectedClient) {
+      Toast.show({
+        type: 'error',
+        text1: 'Client not found',
+        text2: 'Please select a client and try again.',
+      });
+      return;
+    }
+
+    const picked = pickAstrologerPersonalDetails(selectedClient);
+    setPersonalDetailsForm({
+      whatDoYouDo: String(picked.what_do_you_do || picked.whatDoYouDo || ''),
+      maritalStatus: String(picked.marital_status || picked.maritalStatus || ''),
+      children: String(picked.children || ''),
+      currentFuturePlans: String(
+        picked.current_future_plans || picked.currentFuturePlans || '',
+      ),
+      currentChallenges: String(
+        picked.current_challenges || picked.currentChallenges || '',
+      ),
+      anyOtherDetails: String(
+        picked.any_other_details ||
+          picked.anyOtherDetails ||
+          selectedClient.about_client ||
+          '',
+      ),
+    });
+    setEditingClient(selectedClient);
+    setShowPersonalDetailsEditModal(true);
+  };
+
+  const handleClosePersonalDetailsEdit = () => {
+    setShowPersonalDetailsEditModal(false);
+    setEditingClient(null);
+    setPersonalDetailsForm(EMPTY_PERSONAL_DETAILS);
+  };
+
+  const handleSavePersonalDetails = async () => {
+    if (!editingClient) {
+      return;
+    }
+
+    const astrologerUserId = String(user?._id || '');
+    if (!astrologerUserId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'User ID not found.',
+      });
+      return;
+    }
+
+    try {
+      setIsSavingPersonalDetails(true);
+      const userService = new UserService();
+      const birthData =
+        editingClient.birth_data ||
+        ({} as Api.User.Res.AstrologerClientBirthData);
+      const notMentioned = 'Not Mentioned';
+      const hasPersonalDetails = Boolean(
+        personalDetailsForm.whatDoYouDo ||
+          personalDetailsForm.maritalStatus ||
+          personalDetailsForm.children ||
+          personalDetailsForm.currentFuturePlans?.trim() ||
+          personalDetailsForm.currentChallenges?.trim() ||
+          personalDetailsForm.anyOtherDetails?.trim(),
+      );
+      const payload = {
+        id: editingClient.id,
+        userId: astrologerUserId,
+        first_name: editingClient.first_name,
+        last_name: editingClient.last_name,
+        gender: editingClient.gender,
+        birthplace: editingClient.birthplace,
+        adl_report: editingClient.adl_report || notMentioned,
+        planet_report: editingClient.planet_report || notMentioned,
+        lord_report: editingClient.lord_report || notMentioned,
+        nakshatra_report: editingClient.nakshatra_report || notMentioned,
+        adl_report_send: editingClient.adl_report_send || notMentioned,
+        planet_report_send: editingClient.planet_report_send || notMentioned,
+        lord_report_send: editingClient.lord_report_send || notMentioned,
+        nakshatra_report_send: editingClient.nakshatra_report_send || notMentioned,
+        about_client: personalDetailsForm.anyOtherDetails.trim(),
+        what_do_you_do: personalDetailsForm.whatDoYouDo,
+        marital_status: personalDetailsForm.maritalStatus,
+        children: personalDetailsForm.children,
+        current_future_plans: personalDetailsForm.currentFuturePlans.trim(),
+        current_challenges: personalDetailsForm.currentChallenges.trim(),
+        any_other_details: personalDetailsForm.anyOtherDetails.trim(),
+        personalizedDetails: hasPersonalDetails,
+        personal_details: hasPersonalDetails,
+        birth_data: {
+          day: birthData.day,
+          month: birthData.month,
+          year: birthData.year,
+          hour: birthData.hour,
+          min: birthData.min,
+          lat: birthData.lat,
+          lon: birthData.lon,
+          tzone: birthData.tzone ?? 5.5,
+          full_date:
+            birthData.full_date ||
+            `${birthData.day}-${birthData.month}-${birthData.year}`,
+        },
+        full_name:
+          editingClient.full_name ||
+          `${editingClient.first_name || ''} ${editingClient.last_name || ''}`.trim(),
+        created_at: editingClient.created_at,
+        day: birthData.day,
+        month: birthData.month,
+        year: birthData.year,
+        hour: birthData.hour,
+        min: birthData.min,
+        lat: editingClient.lat ?? birthData.lat ?? '',
+        lon: editingClient.lon ?? birthData.lon ?? '',
+        tzone: birthData.tzone ?? 5.5,
+        isUpdate: true,
+        isTransit: false,
+        prediction_type: editingClient.prediction_type || 'bullet',
+      };
+      const response = await userService.updateAstrologerClient(
+        String(editingClient.id),
+        payload,
+      );
+
+      setAstrologerClientRecords(prev =>
+        prev.map(client =>
+          String(client.id || client._id) === String(editingClient.id)
+            ? ({
+                ...client,
+                ...payload,
+                about_client: personalDetailsForm.anyOtherDetails.trim(),
+              } as Api.User.Res.AstrologerClient & Record<string, unknown>)
+            : client,
+        ),
+      );
+
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: response.message || 'Personal details updated successfully',
+      });
+      handleClosePersonalDetailsEdit();
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: err.message || 'Failed to update personal details.',
+      });
+    } finally {
+      setIsSavingPersonalDetails(false);
+    }
+  };
+
   // Refresh profile data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
@@ -953,6 +1215,8 @@ const ReportScreen = () => {
 
       {/* Profile member dropdown */}
       <View
+        ref={profileFieldRef}
+        collapsable={false}
         style={[
           styles.profileCard,
           {
@@ -970,15 +1234,10 @@ const ReportScreen = () => {
           source={require('../../assets/icons/profile-icons.png')}
           style={styles.profileIcon}
         />
-        <View style={{ zIndex: 999, flex: 1 }}>
+        <View style={{ zIndex: 999, flex: 1, minWidth: 0 }}>
           <TouchableOpacity
-            style={[
-              styles.input,
-              {
-                paddingVertical: 5,
-              },
-            ]}
-            onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
+            style={styles.input}
+            onPress={toggleMemberDropdown}
           >
             <Text
               style={[
@@ -988,6 +1247,7 @@ const ReportScreen = () => {
                     theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
                 },
               ]}
+              numberOfLines={1}
             >
               {selectedMemberId
                 ? currentMembersList.find((m: any) => String(m.id) === String(selectedMemberId))
@@ -999,32 +1259,28 @@ const ReportScreen = () => {
           <Modal
             visible={isMemberDropdownOpen}
             transparent={true}
-            style={{ overflow: 'hidden' }}
             animationType="none"
-            onRequestClose={() => {
-              setIsMemberDropdownOpen(false);
-              setSearchQuery('');
-            }}
+            onRequestClose={closeMemberDropdown}
           >
             <TouchableOpacity
               style={styles.modalOverlay}
-              // activeOpacity={1}
-              onPress={() => {
-                setIsMemberDropdownOpen(false);
-                setSearchQuery('');
-              }}
+              activeOpacity={1}
+              onPress={closeMemberDropdown}
             >
               <View
                 style={[
                   styles.modalDropdownContainer,
+                  dropdownLayout && {
+                    top: dropdownLayout.y + dropdownLayout.height + 6,
+                    left: dropdownLayout.x,
+                    width: dropdownLayout.width,
+                  },
                   {
-                    // overflow: 'hidden',
-                    // borderWidth:theme === 'dark'  ? 0.2 : 1,
                     backgroundColor:
                       theme === 'dark' ? colors.DarkNavy : colors.transparent,
-                    // borderColor: theme === 'dark' ? colors.themeBorderDropdown : colors.yellow,
                   },
                 ]}
+                onStartShouldSetResponder={() => true}
               >
                 <View
                   style={[
@@ -1116,7 +1372,7 @@ const ReportScreen = () => {
         </View>
         <TouchableOpacity
           style={styles.arrowIconContainer}
-          onPress={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
+          onPress={toggleMemberDropdown}
         >
           <Image
             source={require('../../assets/icons/Dropdown.png')}
@@ -1542,7 +1798,7 @@ const ReportScreen = () => {
                         },
                       ]}
                       disabled={processingReportId === report.id}
-                      onPress={() => handleReportPayment(report.id)}
+                      onPress={() => handleBuyNowPress(report.id)}
                       activeOpacity={0.85}
                     >
                       <Text style={styles.buyNowButtonText}>
@@ -1769,6 +2025,27 @@ const ReportScreen = () => {
           </View>
         )}
       </ScrollView>
+
+      <ReportPurchaseConfirmModal
+        visible={showPurchaseConfirmModal}
+        isDark={theme === 'dark'}
+        onConfirmBuy={handleConfirmBuy}
+        onWishToChange={handleWishToChange}
+        onClose={closePurchaseConfirmModal}
+      />
+
+      <AstrologerClientPersonalDetailsModal
+        visible={showPersonalDetailsEditModal}
+        client={editingClient}
+        values={personalDetailsForm}
+        onChange={(field, val) =>
+          setPersonalDetailsForm(prev => ({ ...prev, [field]: val }))
+        }
+        onSave={handleSavePersonalDetails}
+        onClose={handleClosePersonalDetailsEdit}
+        saving={isSavingPersonalDetails}
+        isDark={theme === 'dark'}
+      />
 
       {/* Payment Success Modal */}
       <Modal
@@ -2022,12 +2299,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 10,
-    overflow: 'hidden',
-    padding: responsiveWidth('2'),
+    paddingVertical: 10,
+    paddingHorizontal: responsiveWidth('2'),
     marginTop: responsiveWidth('3.5'),
     marginHorizontal: responsiveWidth('3'),
     marginBottom: 24,
     borderWidth: 2,
+    minHeight: 48,
   },
   profileIcon: {
     width: responsiveWidth(6),
@@ -2036,12 +2314,17 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    // paddingVertical: 12,
+    justifyContent: 'center',
+    paddingVertical: 4,
     paddingHorizontal: 8,
   },
   selectedMemberText: {
     fontSize: 14,
+    lineHeight: 20,
     fontFamily: fontFamily.regular,
+    ...Platform.select({
+      android: { includeFontPadding: false as const },
+    }),
   },
   arrowIconContainer: {
     alignSelf: 'center',
@@ -2056,17 +2339,10 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    // backgroundColor: 'transparent',
-    justifyContent: 'flex-start',
-    overflow: 'hidden',
-    alignItems: 'center',
-    paddingTop:
-      Platform.OS === 'ios' ? responsiveWidth('40') : responsiveHeight('12'),
+    backgroundColor: 'transparent',
   },
   modalDropdownContainer: {
-    width: '92%',
-    maxWidth: responsiveWidth('92'),
-    alignSelf: 'center',
+    position: 'absolute',
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: {
@@ -2077,6 +2353,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   dropdownContainer: {
+    width: '100%',
     borderRadius: 10,
     borderWidth: Platform.OS === 'ios' ? 0.2 : 1,
     maxHeight: 230,

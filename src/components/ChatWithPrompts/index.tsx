@@ -1086,8 +1086,13 @@ const ChatWithPrompts: React.FC<ChatWithPromptsProps> = ({
         const { bullet, lines: bulletLines } = currentBulletItem;
         elements.push(
           <View key={`bullet-group-${elements.length}`} style={styles.bulletItemContainer}>
-            <Text style={[styles.bulletPoint, { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy }]}>
-              {bullet}
+            <Text
+              style={[
+                styles.bulletPoint,
+                { color: theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy },
+              ]}
+            >
+              {bullet}{' '}
             </Text>
             <View style={styles.bulletContentContainer}>
               {bulletLines.map((line, lineIndex) => {
@@ -2296,10 +2301,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     lineHeight: 26,
     opacity: 0.9,
-    minWidth: responsiveWidth(2),
+    minWidth: 28,
+    flexShrink: 0,
   },
   bulletContentContainer: {
     flex: 1,
+    minWidth: 0,
     paddingLeft: responsiveWidth(1),
   },
   bulletText: {

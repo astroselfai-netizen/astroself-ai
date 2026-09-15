@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
-  Modal,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -20,36 +19,16 @@ import { MainContainer } from '../../components/common/mainContainer';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
-import {
-  getComboDetailCache,
-  getComboDetailCacheSync,
-  makeComboDetailCacheKey,
-  setComboDetailCache,
-} from '../../utils/astrologerCombosCache';
+import { goToAstrologerHome } from '../../utils/navigationRef';
 
 const NAVY = '#1A3673';
 
-type ComboDetailKind =
-  | 'next_week'
-  | 'transit'
-  | 'transit_analysis'
-  | 'antar_dasha'
-  | 'dos_donts'
-  | 'the_inner_you'
-  | 'managing_relationships';
-
 type RootStackParamList = {
-  AstrologerComboDetailScreen: {
+  AstrologerNotificationDetailScreen: {
     title: string;
-    kind: ComboDetailKind;
-    clientId?: string;
     heading?: string;
-    bullets?: string[];
-    collection?: string;
-    pipeline?: Array<Record<string, unknown>>;
-    mode?: 'general' | 'personalized';
-    insights?: string;
-    dataType?: string;
+    collection: string;
+    pipeline: Array<Record<string, unknown>>;
   };
 };
 
@@ -128,7 +107,6 @@ const preprocessMarkdownAnswer = (raw: string): string => {
     return '';
   }
 
-  // If it's already structured HTML without raw markdown headings/bullets
   if (
     /<(p|div|ul|ol|h[1-6]|table|strong|span)[^>]*>/i.test(raw) &&
     !raw.includes('## ') &&
@@ -187,25 +165,53 @@ const normalizeDetails = (details: unknown): string => {
   }
 
   if (typeof details === 'string') {
-    return details.trim();
+    const trimmed = details.trim();
+    if (!trimmed) {
+      return '';
+    }
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        return normalizeDetails(JSON.parse(trimmed));
+      } catch {
+        return trimmed;
+      }
+    }
+    return trimmed;
   }
 
   if (Array.isArray(details)) {
-    return details
+    const items = details
       .map(entry => normalizeDetails(entry))
-      .filter(Boolean)
-      .join('\n\n')
-      .trim();
+      .filter(Boolean);
+    if (!items.length) {
+      return '';
+    }
+    const alreadyHtml = items.some(item => /<\/?[a-z][\s\S]*>/i.test(item));
+    if (alreadyHtml) {
+      return `<ol>${items
+        .map(item => (item.includes('<li') ? item : `<li>${item}</li>`))
+        .join('')}</ol>`;
+    }
+    return `<ol>${items.map(item => `<li>${item}</li>`).join('')}</ol>`;
   }
 
-  if (typeof details === 'object' && 'details' in details) {
-    return normalizeDetails((details as { details?: unknown }).details);
+  if (typeof details === 'object') {
+    const obj = details as Record<string, unknown>;
+    if ('details' in obj) {
+      return normalizeDetails(obj.details);
+    }
+    if (typeof obj.text === 'string' && obj.text.trim()) {
+      return obj.text.trim();
+    }
+    if (typeof obj.content === 'string' && obj.content.trim()) {
+      return obj.content.trim();
+    }
   }
 
   return String(details).trim();
 };
 
-const extractComboContent = (payload: unknown): string => {
+const extractNotificationContent = (payload: unknown): string => {
   if (!payload) {
     return '';
   }
@@ -219,19 +225,14 @@ const extractComboContent = (payload: unknown): string => {
   }
 
   const obj = payload as Record<string, unknown>;
-
-  if (typeof obj.insights === 'string' && obj.insights.trim()) {
-    return obj.insights.trim();
-  }
-  if (typeof obj.answer === 'string' && obj.answer.trim()) {
-    return obj.answer.trim();
-  }
-  if (typeof obj.content === 'string' && obj.content.trim()) {
-    return obj.content.trim();
+  if ('details' in obj) {
+    const fromDetails = normalizeDetails(obj.details);
+    if (fromDetails) {
+      return fromDetails;
+    }
   }
 
   const data = obj.data;
-
   if (typeof data === 'string' && data.trim()) {
     return data.trim();
   }
@@ -244,6 +245,9 @@ const extractComboContent = (payload: unknown): string => {
         }
         if (item && typeof item === 'object') {
           const itemObj = item as Record<string, unknown>;
+          if ('details' in itemObj) {
+            return normalizeDetails(itemObj.details);
+          }
           if (typeof itemObj.insights === 'string' && itemObj.insights.trim()) {
             return itemObj.insights.trim();
           }
@@ -252,9 +256,6 @@ const extractComboContent = (payload: unknown): string => {
           }
           if (typeof itemObj.content === 'string' && itemObj.content.trim()) {
             return itemObj.content.trim();
-          }
-          if ('details' in itemObj) {
-            return normalizeDetails(itemObj.details);
           }
         }
         return '';
@@ -268,6 +269,12 @@ const extractComboContent = (payload: unknown): string => {
 
   if (data && typeof data === 'object') {
     const dataObj = data as Record<string, unknown>;
+    if ('details' in dataObj) {
+      const nestedDetails = normalizeDetails(dataObj.details);
+      if (nestedDetails) {
+        return nestedDetails;
+      }
+    }
     if (typeof dataObj.insights === 'string' && dataObj.insights.trim()) {
       return dataObj.insights.trim();
     }
@@ -277,23 +284,26 @@ const extractComboContent = (payload: unknown): string => {
     if (typeof dataObj.content === 'string' && dataObj.content.trim()) {
       return dataObj.content.trim();
     }
-    if ('details' in dataObj) {
-      return normalizeDetails(dataObj.details);
-    }
   }
 
-  if ('details' in obj) {
-    return normalizeDetails(obj.details);
+  if (typeof obj.insights === 'string' && obj.insights.trim()) {
+    return obj.insights.trim();
+  }
+  if (typeof obj.answer === 'string' && obj.answer.trim()) {
+    return obj.answer.trim();
+  }
+  if (typeof obj.content === 'string' && obj.content.trim()) {
+    return obj.content.trim();
   }
 
   return '';
 };
 
-const AstrologerComboDetailScreen = () => {
+const AstrologerNotificationDetailScreen = () => {
   const navigation =
     useNavigation<StackNavigationProp<RootStackParamList>>();
   const route =
-    useRoute<RouteProp<RootStackParamList, 'AstrologerComboDetailScreen'>>();
+    useRoute<RouteProp<RootStackParamList, 'AstrologerNotificationDetailScreen'>>();
   const { colors, theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -301,74 +311,37 @@ const AstrologerComboDetailScreen = () => {
 
   const {
     title,
-    kind,
-    clientId = '',
     heading = '',
-    bullets = [],
     collection,
     pipeline,
-    mode,
-    insights,
-    dataType,
   } = route.params || {};
 
-  const detailCacheKey = useMemo(
-    () =>
-      makeComboDetailCacheKey({
-        kind,
-        clientId,
-        heading,
-        title,
-        collection,
-        pipeline,
-        mode,
-        dataType,
-      }),
-    [clientId, collection, dataType, heading, kind, mode, pipeline, title],
-  );
-
-  const cachedDetail =
-    kind === 'transit' ? null : getComboDetailCacheSync(detailCacheKey);
-
-  const initialContent = insights || cachedDetail?.content || '';
-
-  const [loading, setLoading] = useState(
-    kind !== 'transit' && !initialContent,
-  );
-  const [refreshing, setRefreshing] = useState(false);
-  const [content, setContent] = useState(initialContent);
+  const [loading, setLoading] = useState(true);
+  const [content, setContent] = useState('');
   const [errorText, setErrorText] = useState('');
-  const [refreshModal, setRefreshModal] = useState({
-    visible: false,
-    title: '',
-    message: '',
-    isError: false,
-  });
-  const [countdown, setCountdown] = useState(30);
 
   const isDark = theme === 'dark';
   const textPrimary = isDark ? colors.themeTextWhite : NAVY;
   const textMuted = isDark ? 'rgba(255,255,255,0.65)' : '#6B7280';
   const cardBg = isDark ? colors.cardBackground : colors.white;
   const cardBorder = isDark ? 'rgba(255,255,255,0.18)' : '#C5D3EA';
-  const contentColor = textPrimary;
   const headerControlBg = 'rgba(255, 255, 255, 0.12)';
   const contentWidth = Math.max(0, windowWidth - responsiveWidth('14'));
 
   const htmlBaseStyle = useMemo(
     () => ({
-      color: contentColor,
+      color: textPrimary,
       fontSize: 13,
       lineHeight: 21,
       fontFamily: fontFamily.regular,
       maxWidth: '100%' as const,
     }),
-    [contentColor],
+    [textPrimary],
   );
 
   const htmlTagsStyles = useMemo(
     () => ({
-      body: { color: contentColor },
+      body: { color: textPrimary },
       h1: {
         color: NAVY,
         fontSize: 16,
@@ -393,7 +366,7 @@ const AstrologerComboDetailScreen = () => {
       ul: { marginTop: 4, marginBottom: 6, paddingLeft: 22 },
       li: {
         marginBottom: 8,
-        color: contentColor,
+        color: textPrimary,
         fontSize: 13,
         lineHeight: 20,
         fontFamily: fontFamily.regular,
@@ -401,17 +374,17 @@ const AstrologerComboDetailScreen = () => {
       p: {
         marginTop: 0,
         marginBottom: 8,
-        color: contentColor,
+        color: textPrimary,
         fontSize: 13,
         lineHeight: 20,
         fontFamily: fontFamily.regular,
       },
       strong: {
         fontFamily: fontFamily.semiBold,
-        color: contentColor,
+        color: textPrimary,
       },
     }),
-    [contentColor],
+    [textPrimary],
   );
 
   const htmlListItemTagsStyles = useMemo(
@@ -422,14 +395,8 @@ const AstrologerComboDetailScreen = () => {
         marginTop: 0,
         marginBottom: 0,
       },
-      span: {
-        color: contentColor,
-        fontSize: 13,
-        lineHeight: 20,
-        fontFamily: fontFamily.regular,
-      },
     }),
-    [contentColor, htmlTagsStyles],
+    [htmlTagsStyles],
   );
 
   const htmlRenderersProps = useMemo(
@@ -444,224 +411,66 @@ const AstrologerComboDetailScreen = () => {
           fontSize: 13,
           lineHeight: 20,
           fontFamily: fontFamily.regular,
-          color: contentColor,
+          color: textPrimary,
         },
       },
       ul: {
         enableDynamicMarkerBoxWidth: true,
       },
     }),
-    [contentColor],
+    [textPrimary],
   );
 
-  const loadContent = useCallback(
-    async (options?: { silent?: boolean; force?: boolean }) => {
-      if (kind === 'transit') {
-        setLoading(false);
-        setErrorText('');
-        setContent('');
-        return;
-      }
-
-      if (options?.force) {
-        setRefreshing(true);
-      } else if (!options?.silent) {
-        setLoading(true);
-      }
-      setErrorText('');
-      try {
-        let nextContent = '';
-        let refreshMessage = '';
-
-        const isPersonalized = mode === 'personalized' || kind === 'next_week';
-
-        if (isPersonalized && clientId) {
-          const effectiveDataType =
-            dataType ||
-            (kind === 'next_week'
-              ? 'next_week'
-              : kind === 'antar_dasha'
-              ? 'active_combinations'
-              : kind === 'transit_analysis'
-              ? 'transit_details_list'
-              : kind === 'dos_donts'
-              ? 'current_activity'
-              : kind === 'the_inner_you'
-              ? 'the_inner_you'
-              : kind === 'managing_relationships'
-              ? 'managing_relationships'
-              : 'active_combinations');
-
-          const response = await userService.generateAstrologerCustomCombination(
-            clientId,
-            effectiveDataType,
-            heading || title,
-            options?.force || false,
-          );
-          refreshMessage = String(response?.message || '').trim();
-
-          const extracted = extractComboContent(response);
-          nextContent = extracted || 'No details available.';
-        } else if (kind === 'transit_analysis') {
-          const response = await userService.getAstrologerTransitHeadingReport(
-            clientId,
-            heading || title,
-          );
-          nextContent = response?.answer?.trim() || 'No details available.';
-        } else if (collection && pipeline?.length) {
-          const response = await userService.getAstrologerComboContent(
-            collection,
-            pipeline,
-          );
-          const extracted = extractComboContent(response);
-          nextContent = extracted || 'No details available.';
-        } else if (clientId && (heading || title)) {
-          const effectiveDataType =
-            dataType || (kind === 'next_week' ? 'next_week' : 'active_combinations');
-          const response = await userService.generateAstrologerCustomCombination(
-            clientId,
-            effectiveDataType,
-            heading || title,
-            options?.force || false,
-          );
-          refreshMessage = String(response?.message || '').trim();
-          const extracted = extractComboContent(response);
-          nextContent = extracted || 'No details available.';
-        } else {
-          nextContent = 'Details not available for this combination.';
-        }
-
-        setContent(nextContent);
-        if (
-          nextContent &&
-          nextContent !== 'No details available.' &&
-          nextContent !== 'Details not available for this combination.'
-        ) {
-          await setComboDetailCache(detailCacheKey, nextContent);
-        }
-        if (options?.force) {
-          setRefreshModal({
-            visible: true,
-            title: 'Prediction Refreshed',
-            message: refreshMessage || 'Prediction Refreshed',
-            isError: false,
-          });
-        }
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : 'Failed to load details.';
-        if (!options?.silent) {
-          setErrorText(message);
-          setContent('');
-        }
-        if (options?.force) {
-          setRefreshModal({
-            visible: true,
-            title: 'Refresh Failed',
-            message,
-            isError: true,
-          });
-        }
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [
-      clientId,
-      collection,
-      dataType,
-      detailCacheKey,
-      heading,
-      kind,
-      mode,
-      pipeline,
-      title,
-      userService,
-    ],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const hydrateAndLoad = async () => {
-      if (kind === 'transit') {
-        setLoading(false);
-        setContent('');
-        setErrorText('');
-        return;
-      }
-
-      if (insights) {
-        setContent(insights);
-        setLoading(false);
-        void setComboDetailCache(detailCacheKey, insights);
-        void loadContent({ silent: true });
-        return;
-      }
-
-      const memoryHit = getComboDetailCacheSync(detailCacheKey);
-      if (memoryHit?.content) {
-        setContent(memoryHit.content);
-        setLoading(false);
-        void loadContent({ silent: true });
-        return;
-      }
-
-      const stored = await getComboDetailCache(detailCacheKey);
-      if (cancelled) {
-        return;
-      }
-
-      if (stored?.content) {
-        setContent(stored.content);
-        setLoading(false);
-        void loadContent({ silent: true });
-        return;
-      }
-
-      await loadContent();
-    };
-
-    void hydrateAndLoad();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [detailCacheKey, insights, kind, loadContent]);
-
-  useEffect(() => {
-    if (!loading && !refreshing) {
-      setCountdown(30);
+  const loadContent = useCallback(async () => {
+    if (!collection || !pipeline?.length) {
+      setErrorText('Details not available for this notification.');
+      setContent('');
+      setLoading(false);
       return;
     }
 
-    setCountdown(30);
-    const intervalId = setInterval(() => {
-      setCountdown(prev => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
+    setLoading(true);
+    setErrorText('');
+    try {
+      const response = await userService.getAstrologerComboContent(
+        collection,
+        pipeline,
+      );
+      const extracted = extractNotificationContent(response);
+      setContent(extracted || 'No details available.');
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to load details.';
+      setErrorText(message);
+      setContent('');
+    } finally {
+      setLoading(false);
+    }
+  }, [collection, pipeline, userService]);
 
-    return () => clearInterval(intervalId);
-  }, [loading, refreshing]);
+  useEffect(() => {
+    loadContent();
+  }, [loadContent]);
 
-  const renderBody = () => {
-    if (kind === 'transit') {
-      if (!bullets.length) {
-        return (
-          <Text style={[styles.emptyText, { color: textMuted }]}>
-            No details available.
-          </Text>
-        );
-      }
+  const handleBack = () => {
+    const state = navigation.getState();
+    const routes = state?.routes || [];
+    const previous = routes[routes.length - 2];
+    const previousName = previous?.name;
 
-      return bullets.map((bullet, index) => (
-        <View key={`bullet-${index}`} style={styles.bulletRow}>
-          <Text style={[styles.bulletDot, { color: textPrimary }]}>•</Text>
-          <Text style={[styles.bulletText, { color: textPrimary }]}>{bullet}</Text>
-        </View>
-      ));
+    if (
+      !navigation.canGoBack() ||
+      previousName === 'SplashScreen' ||
+      previousName === 'Login'
+    ) {
+      goToAstrologerHome();
+      return;
     }
 
+    navigation.goBack();
+  };
+
+  const renderBody = () => {
     if (!content) {
       return (
         <Text style={[styles.emptyText, { color: textMuted }]}>
@@ -671,19 +480,12 @@ const AstrologerComboDetailScreen = () => {
     }
 
     const preparedContent = preprocessMarkdownAnswer(content);
-    const shouldRenderHtml =
-      isHtmlContent(preparedContent) ||
-      kind === 'transit_analysis' ||
-      kind === 'next_week' ||
-      mode === 'personalized';
+    const blocks = splitHtmlOrderedLists(
+      isHtmlContent(preparedContent)
+        ? preparedContent
+        : `<p>${preparedContent}</p>`,
+    );
 
-    if (!shouldRenderHtml) {
-      return (
-        <Text style={[styles.bodyText, { color: contentColor }]}>{content}</Text>
-      );
-    }
-
-    const blocks = splitHtmlOrderedLists(preparedContent);
     const renderHtml = (html: string, width: number, isListItem = false) => (
       <RenderHTML
         contentWidth={width}
@@ -715,7 +517,7 @@ const AstrologerComboDetailScreen = () => {
               <Text
                 style={[
                   styles.olNumber,
-                  { color: contentColor, width: numberWidth },
+                  { color: textPrimary, width: numberWidth },
                 ]}
               >
                 {block.start + itemIndex}.
@@ -728,7 +530,7 @@ const AstrologerComboDetailScreen = () => {
                     true,
                   )
                 ) : (
-                  <Text style={[styles.bodyText, { color: contentColor }]}>
+                  <Text style={[styles.bodyText, { color: textPrimary }]}>
                     {item}
                   </Text>
                 )}
@@ -739,9 +541,6 @@ const AstrologerComboDetailScreen = () => {
       );
     });
   };
-
-  const showRefreshButton =
-    !!clientId && (mode === 'personalized' || kind === 'next_week');
 
   return (
     <MainContainer
@@ -767,7 +566,7 @@ const AstrologerComboDetailScreen = () => {
         imageStyle={styles.headerImage}
       >
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={handleBack}
           style={[styles.backBtn, { backgroundColor: headerControlBg }]}
           activeOpacity={0.8}
         >
@@ -778,44 +577,24 @@ const AstrologerComboDetailScreen = () => {
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle} numberOfLines={3}>
-            {title || 'Details'}
+            {heading || title || 'Notification'}
           </Text>
         </View>
-        {showRefreshButton ? (
-          <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: headerControlBg }]}
-            onPress={() => loadContent({ force: true })}
-            disabled={refreshing || loading}
-            activeOpacity={0.8}
-          >
-            {refreshing ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Image
-                source={require('../../assets/icons/recycle.png')}
-                style={styles.refreshIcon}
-              />
-            )}
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerRightSpacer} />
-        )}
+        <View style={styles.headerRightSpacer} />
       </ImageBackground>
 
       {loading ? (
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={textPrimary} />
-          <Text style={[styles.countdownValue, { color: textPrimary }]}>
-            {countdown}
-          </Text>
-          <Text style={[styles.countdownHint, { color: textMuted }]}>
-            Please wait while we prepare your prediction
-          </Text>
         </View>
       ) : errorText ? (
         <View style={styles.centerState}>
           <Text style={[styles.emptyText, { color: textMuted }]}>{errorText}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => loadContent()} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={loadContent}
+            activeOpacity={0.85}
+          >
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -835,72 +614,6 @@ const AstrologerComboDetailScreen = () => {
           </View>
         </ScrollView>
       )}
-
-      <Modal
-        visible={refreshing && !loading}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {}}
-      >
-        <View style={styles.refreshModalOverlay}>
-          <View
-            style={[
-              styles.refreshModalCard,
-              styles.countdownModalCard,
-              { backgroundColor: cardBg, borderColor: cardBorder },
-            ]}
-          >
-            <ActivityIndicator size="large" color={textPrimary} />
-            <Text style={[styles.countdownValue, { color: textPrimary }]}>
-              {countdown}
-            </Text>
-            <Text style={[styles.countdownHint, { color: textMuted }]}>
-              Please wait while we prepare your prediction
-            </Text>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={refreshModal.visible}
-        transparent
-        animationType="fade"
-        onRequestClose={() =>
-          setRefreshModal(current => ({ ...current, visible: false }))
-        }
-      >
-        <View style={styles.refreshModalOverlay}>
-          <View
-            style={[
-              styles.refreshModalCard,
-              { backgroundColor: cardBg, borderColor: cardBorder },
-            ]}
-          >
-            <Text
-              style={[
-                styles.refreshModalTitle,
-                { color: refreshModal.isError ? '#C2410C' : textPrimary },
-              ]}
-            >
-              {refreshModal.title}
-            </Text>
-            {refreshModal.message ? (
-              <Text style={[styles.refreshModalMessage, { color: textPrimary }]}>
-                {refreshModal.message}
-              </Text>
-            ) : null}
-            <TouchableOpacity
-              style={styles.refreshModalBtn}
-              onPress={() =>
-                setRefreshModal(current => ({ ...current, visible: false }))
-              }
-              activeOpacity={0.85}
-            >
-              <Text style={styles.refreshModalBtnText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </MainContainer>
   );
 };
@@ -927,12 +640,6 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   backIcon: {
-    width: 18,
-    height: 18,
-    resizeMode: 'contain',
-    tintColor: '#FFFFFF',
-  },
-  refreshIcon: {
     width: 18,
     height: 18,
     resizeMode: 'contain',
@@ -981,17 +688,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: responsiveWidth('8'),
     gap: 12,
   },
-  countdownValue: {
-    fontSize: 28,
-    fontFamily: fontFamily.bold,
-    marginTop: 4,
-  },
-  countdownHint: {
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
   emptyText: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
@@ -1021,23 +717,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  bulletRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-    paddingRight: 4,
-  },
-  bulletDot: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginRight: 8,
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
-    lineHeight: 20,
-  },
   retryBtn: {
     backgroundColor: NAVY,
     borderRadius: 8,
@@ -1049,48 +728,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.semiBold,
   },
-  refreshModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: responsiveWidth('6'),
-  },
-  refreshModalCard: {
-    width: '100%',
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 16,
-  },
-  countdownModalCard: {
-    alignItems: 'center',
-    paddingVertical: 28,
-  },
-  refreshModalTitle: {
-    fontSize: 16,
-    fontFamily: fontFamily.semiBold,
-    marginBottom: 10,
-  },
-  refreshModalMessage: {
-    fontSize: 13,
-    lineHeight: 20,
-    fontFamily: fontFamily.regular,
-  },
-  refreshModalBtn: {
-    marginTop: 16,
-    backgroundColor: NAVY,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-  },
-  refreshModalBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: fontFamily.semiBold,
-  },
 });
 
-export default AstrologerComboDetailScreen;
+export default AstrologerNotificationDetailScreen;

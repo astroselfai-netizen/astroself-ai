@@ -77,6 +77,13 @@ export namespace Api {
         conversation_id: string;
       }
 
+      export interface AstrologerChatHistoryThread {
+        conversation_id: string;
+        created_at: string;
+        question: string;
+        items: AstrologerChatHistoryItem[];
+      }
+
       export interface AstrologerChatHistoryResponse {
         status: boolean;
         count: number;
@@ -91,6 +98,7 @@ export namespace Api {
         month_name: string;
         display: string;
         conversations?: AstrologerChatHistoryItem[];
+        threads?: AstrologerChatHistoryThread[];
       }
 
       export interface AstrologerChatHistoryMonthsResponse {
@@ -125,6 +133,43 @@ export namespace Api {
       export interface AstrologerMemberDetailsResponse {
         dasha_result: AstrologerMemberDashaResult;
         birth_details: AstrologerMemberBirthDetails;
+      }
+
+      export interface AstrologerMobileNotificationPipeline {
+        heading?: string;
+        collection?: string;
+        pipeline?: Array<Record<string, unknown>>;
+      }
+
+      export interface AstrologerMobileNotificationItem {
+        notification_id: string;
+        user_id: string;
+        title: string;
+        message: string;
+        notification_type: string;
+        route?: string;
+        payload?: {
+          planet?: string;
+          sign?: string;
+          [key: string]: unknown;
+        };
+        heading?: string;
+        collection?: string;
+        pipeline?: AstrologerMobileNotificationPipeline;
+        is_open: boolean;
+        opened_at?: string | null;
+        created_at: string;
+      }
+
+      export interface AstrologerMobileNotificationsResponse {
+        status: boolean;
+        data: {
+          items: AstrologerMobileNotificationItem[];
+          page: number;
+          page_size: number;
+          total: number;
+          total_pages: number;
+        };
       }
 
       export interface AstrologerUsageResponse {

@@ -23,6 +23,7 @@ import DatePicker from 'react-native-date-picker';
 import Toast from 'react-native-toast-message';
 import { useSelector } from 'react-redux';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import AstrologerPersonalDetailsForm from '../../components/AstrologerPersonalDetailsForm';
 import { color, fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -48,6 +49,18 @@ interface DropdownItem {
 }
 
 const genderOptions = ['Male', 'Female'];
+
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
+
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
+};
 
 const validationSchema = Yup.object({
   firstName: Yup.string().trim().required('First name is required'),
@@ -367,7 +380,15 @@ const AstrologerCreateClientScreen = () => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       enabled
     >
-      <MainContainer safeBottom>
+      <AstrologerScreenHeader
+        title="Create Chart"
+        showBack={!hideBackButton}
+      />
+      <MainContainer
+        safeBottom
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -375,41 +396,6 @@ const AstrologerCreateClientScreen = () => {
           keyboardDismissMode="on-drag"
           nestedScrollEnabled
         >
-          <View style={styles.headerWrap}>
-            {hideBackButton ? (
-              <View style={styles.backBtnPlaceholder} />
-            ) : (
-              <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={styles.backBtn}
-              >
-                <Image
-                  source={require('../../assets/icons/back.png')}
-                  style={[
-                    styles.backIcon,
-                    {
-                      tintColor:
-                        theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                    },
-                  ]}
-                />
-              </TouchableOpacity>
-            )}
-            <View style={styles.backIconWrap}>
-              <Text
-                style={[
-                  styles.topBarText,
-                  {
-                    color:
-                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Create Chart
-              </Text>
-            </View>
-          </View>
-
           <View style={styles.formContainer}>
             <View style={styles.inputContainer}>
               <TextInput
@@ -870,38 +856,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-  },
-  headerWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 60,
-    paddingHorizontal: 20,
-    marginBottom: 10,
-    position: 'relative',
-  },
-  backBtn: {
-    padding: 8,
-    marginRight: 16,
-  },
-  backBtnPlaceholder: {
-    width: responsiveWidth(5) + 16,
-    marginRight: 16,
-  },
-  backIcon: {
-    width: responsiveWidth(5),
-    height: responsiveWidth(5),
-    resizeMode: 'contain',
-  },
-  topBarText: {
-    fontSize: 24,
-    fontFamily: fontFamily.regular,
-  },
-  backIconWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: 12,
   },
   formContainer: {
     paddingHorizontal: 20,

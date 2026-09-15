@@ -1,6 +1,27 @@
 import messaging from '@react-native-firebase/messaging';
-import { Platform, Alert, Linking, NativeEventEmitter } from 'react-native';
+import {
+  Platform,
+  Alert,
+  Linking,
+  NativeEventEmitter,
+  DeviceEventEmitter,
+  PermissionsAndroid,
+  AppState,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import UserService from './user/user.service';
+import { openAstrologerNotification } from '../utils/astrologerNotificationNavigation';
+import { refreshAstrologerUnreadCount } from '../utils/astrologerUnreadCount';
+import { store } from '../state/store';
+import { incrementUnreadCount } from '../state/slices/notificationSlice';
+
+export const FOREGROUND_PUSH_EVENT = 'astroself.foregroundPush';
+
+export type ForegroundPushPayload = {
+  title: string;
+  body: string;
+  remoteMessage: any;
+};
 
 export interface NotificationData {
   title: string;
@@ -15,6 +36,50 @@ class NotificationService {
   private isIOSRegistered: boolean = false;
   private tokenPromiseResolve: ((token: string) => void) | null = null;
   private tokenPromiseReject: ((error: Error) => void) | null = null;
+  private handlersReady: boolean = false;
+  private handledInitialNotificationIds = new Set<string>();
+  private checkingInitialNotification = false;
+
+  private async requestAndroidPostNotifications(): Promise<boolean> {
+    if (Platform.OS !== 'android' || Number(Platform.Version) < 33) {
+      return true;
+    }
+
+    const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+    if (!permission) {
+      return true;
+    }
+
+    try {
+      const alreadyGranted = await PermissionsAndroid.check(permission);
+      if (alreadyGranted) {
+        return true;
+      }
+
+      const result = await PermissionsAndroid.request(permission, {
+        title: 'Notification Permission',
+        message:
+          'Astrodha.AI needs notification permission to send you transit and planet alerts.',
+        buttonPositive: 'OK',
+        buttonNegative: 'Cancel',
+      });
+
+      return result === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (error) {
+      console.error('Error requesting Android notification permission:', error);
+      return false;
+    }
+  }
+
+  private async persistAndSyncToken(token: string): Promise<void> {
+    if (!token) {
+      return;
+    }
+
+    this.fcmToken = token;
+    await AsyncStorage.setItem('fcmToken', token);
+    await this.sendTokenToServer(token);
+  }
 
   // Helper method to ensure iOS device is registered for remote messages
   private async ensureIOSRegistration(): Promise<boolean> {
@@ -123,6 +188,18 @@ class NotificationService {
   // Initialize push notifications
   async initialize(): Promise<void> {
     try {
+      await this.requestAndroidPostNotifications();
+
+      try {
+        await messaging().setForegroundNotificationPresentationOptions({
+          alert: true,
+          badge: true,
+          sound: true,
+        });
+      } catch (error) {
+        console.log('Foreground presentation options not available:', error);
+      }
+
       // Request permission for notifications FIRST
       const authStatus = await messaging().requestPermission({
         alert: true,
@@ -168,6 +245,26 @@ class NotificationService {
         // If direct call fails, the token refresh listener promise will catch it
         await this.getFCMToken();
         
+        // Ensure Android notification channel exists for FCM default channel id.
+        if (Platform.OS === 'android') {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const PushNotification = require('react-native-push-notification');
+            PushNotification.createChannel?.(
+              {
+                channelId: 'astrodha_default',
+                channelName: 'Astrodha Alerts',
+                channelDescription: 'Transit and planet alerts',
+                importance: 4,
+                vibrate: true,
+              },
+              () => undefined,
+            );
+          } catch (channelError) {
+            console.log('Could not create notification channel', channelError);
+          }
+        }
+
         // Check for initial notification
         this.checkInitialNotification();
       } else {
@@ -191,6 +288,7 @@ class NotificationService {
     // If we already have a token, return it
     if (this.fcmToken) {
       console.log('✅ Returning cached FCM token');
+      this.sendTokenToServer(this.fcmToken);
       return this.fcmToken;
     }
 
@@ -199,6 +297,7 @@ class NotificationService {
     if (storedToken) {
       console.log('✅ Returning stored FCM token');
       this.fcmToken = storedToken;
+      this.sendTokenToServer(storedToken);
       return storedToken;
     }
 
@@ -224,8 +323,7 @@ class NotificationService {
         
         if (token) {
           console.log('✅ Got FCM token via retry mechanism:', token);
-          this.fcmToken = token;
-          await AsyncStorage.setItem('fcmToken', token);
+          await this.persistAndSyncToken(token);
           return token;
         }
         
@@ -247,8 +345,7 @@ class NotificationService {
           const callbackToken = await tokenPromise;
           if (callbackToken) {
             console.log('✅ Got FCM token via callback:', callbackToken);
-            this.fcmToken = callbackToken;
-            await AsyncStorage.setItem('fcmToken', callbackToken);
+            await this.persistAndSyncToken(callbackToken);
             this.tokenPromiseResolve = null;
             this.tokenPromiseReject = null;
             return callbackToken;
@@ -265,8 +362,7 @@ class NotificationService {
         // Android: Direct call
         console.log('📱 Android: Calling messaging().getToken()...');
         const token = await messaging().getToken();
-        this.fcmToken = token;
-        await AsyncStorage.setItem('fcmToken', token);
+        await this.persistAndSyncToken(token);
         console.log('🔥 FCM Token Generated:', token);
         return token;
       }
@@ -315,6 +411,7 @@ class NotificationService {
         // Token exists in storage, use it (no need to generate new)
         console.log('✅ Using stored FCM token (no regeneration)');
         this.fcmToken = token;
+        await this.sendTokenToServer(token);
         return token;
       }
       
@@ -329,19 +426,31 @@ class NotificationService {
     }
   }
 
-  // Send token to server (implement your API call here)
-  private async sendTokenToServer(token: string): Promise<void> {
+  async sendTokenToServer(token: string): Promise<void> {
     try {
-      // Replace with your actual API endpoint
-      // const response = await fetch('YOUR_API_ENDPOINT/fcm-token', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${userToken}` // if needed
-      //   },
-      //   body: JSON.stringify({ fcmToken: token })
-      // });
-      
+      if (!token) {
+        return;
+      }
+
+      const userRaw = await AsyncStorage.getItem('USER_DATA');
+      if (!userRaw) {
+        return;
+      }
+
+      const user = JSON.parse(userRaw) as { email?: string };
+      const email = String(user?.email || '');
+      if (!email) {
+        return;
+      }
+
+      const lastSent = await AsyncStorage.getItem('fcmTokenSentToServer');
+      const stamp = `${email}:${token}`;
+      if (lastSent === stamp) {
+        return;
+      }
+
+      await new UserService().updateAstrologerFcmToken(email, token);
+      await AsyncStorage.setItem('fcmTokenSentToServer', stamp);
       console.log('Token sent to server:', token);
     } catch (error) {
       console.error('Error sending token to server:', error);
@@ -352,20 +461,26 @@ class NotificationService {
   // NOTE: Background message handler MUST be registered in index.js at the top level
   // Do NOT register it here as it won't work for background/quit state
   private setupMessageHandlers(): void {
-    // Handle foreground messages (app is open)
+    if (this.handlersReady) {
+      return;
+    }
+    this.handlersReady = true;
+
     messaging().onMessage(async remoteMessage => {
       console.log('📱 Foreground message received:', remoteMessage);
-      
-      // Show local notification or custom UI
       this.handleForegroundMessage(remoteMessage);
     });
 
-    // Handle notification opened app (app was in background)
     messaging().onNotificationOpenedApp(remoteMessage => {
       console.log('📱 Notification opened app from background state:', remoteMessage);
-      
-      // Handle navigation based on notification data
       this.handleNotificationPress(remoteMessage);
+    });
+
+    // Some Android OEMs deliver the tap after JS is already running.
+    AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') {
+        this.checkInitialNotification(true);
+      }
     });
   }
 
@@ -374,10 +489,7 @@ class NotificationService {
     // Primary: Listen for token refresh (this will fire when token is available)
     messaging().onTokenRefresh(async (token) => {
       console.log('🔄 FCM Token refreshed/available via onTokenRefresh:', token);
-      this.fcmToken = token;
-      
-      // Store new token in AsyncStorage
-      await AsyncStorage.setItem('fcmToken', token);
+      await this.persistAndSyncToken(token);
       
       // Resolve promise if waiting
       if (this.tokenPromiseResolve) {
@@ -386,9 +498,6 @@ class NotificationService {
         this.tokenPromiseResolve = null;
         this.tokenPromiseReject = null;
       }
-      
-      // Send new token to your server here
-      // await this.sendTokenToServer(token);
     });
 
     // iOS: Also listen for token via NotificationCenter (from AppDelegate)
@@ -401,8 +510,7 @@ class NotificationService {
             console.log('📱 FCM Token received via AppDelegate NotificationCenter:', data.token);
             
             if (!this.fcmToken) {
-              this.fcmToken = data.token;
-              AsyncStorage.setItem('fcmToken', data.token);
+              this.persistAndSyncToken(data.token);
               console.log('✅ FCM Token stored from AppDelegate callback');
             }
             
@@ -426,66 +534,103 @@ class NotificationService {
   }
 
   // Check for initial notification (when app is opened from notification)
-  private async checkInitialNotification(): Promise<void> {
+  private async checkInitialNotification(fromResume = false): Promise<void> {
+    if (this.checkingInitialNotification) {
+      return;
+    }
+    this.checkingInitialNotification = true;
+
     try {
       const remoteMessage = await messaging().getInitialNotification();
-      
+
       if (remoteMessage) {
-        console.log('Notification caused app to open from quit state:', remoteMessage);
-        
-        // Handle navigation based on notification data
-        this.handleNotificationPress(remoteMessage);
+        const messageId = String(
+          remoteMessage.messageId ||
+            remoteMessage.data?.notification_id ||
+            remoteMessage.data?.title ||
+            JSON.stringify(remoteMessage.data || {}),
+        );
+        if (this.handledInitialNotificationIds.has(messageId)) {
+          return;
+        }
+        this.handledInitialNotificationIds.add(messageId);
+
+        console.log(
+          fromResume
+            ? 'Notification open detected on resume:'
+            : 'Notification caused app to open from quit state:',
+          remoteMessage,
+        );
+        // Wait briefly so NavigationContainer / auth bootstrap can become ready.
+        setTimeout(() => {
+          this.handleNotificationPress(remoteMessage);
+        }, fromResume ? 200 : 600);
       }
     } catch (error) {
       console.error('Error checking initial notification:', error);
+    } finally {
+      this.checkingInitialNotification = false;
     }
   }
 
-  // Handle foreground messages
   private handleForegroundMessage(remoteMessage: any): void {
-    const { notification } = remoteMessage;
-    
-    if (notification) {
-      // Show custom alert or in-app notification
-      Alert.alert(
-        notification.title || 'New Notification',
-        notification.body || 'You have a new message',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'View', 
-            onPress: () => this.handleNotificationPress(remoteMessage)
-          }
-        ]
-      );
+    const notification = remoteMessage?.notification || {};
+    const data = remoteMessage?.data || {};
+    const title = String(notification.title || data.title || 'New Notification');
+    const body = String(notification.body || data.body || data.message || '');
+
+    store.dispatch(incrementUnreadCount());
+    refreshAstrologerUnreadCount();
+    setTimeout(() => {
+      refreshAstrologerUnreadCount();
+    }, 1500);
+
+    if (Platform.OS === 'android') {
+      DeviceEventEmitter.emit(FOREGROUND_PUSH_EVENT, {
+        title,
+        body,
+        remoteMessage,
+      } as ForegroundPushPayload);
     }
   }
 
-  // Handle notification press
   private handleNotificationPress(remoteMessage: any): void {
-    const { data } = remoteMessage;
-    
-    if (data) {
-      // Navigate based on notification data
-      if (data.screen) {
-        // Navigate to specific screen
-        console.log('Navigate to screen:', data.screen);
-        // Implement navigation logic here
-      }
-      
-      if (data.url) {
-        // Open URL
-        Linking.openURL(data.url);
-      }
-      
-      if (data.action) {
-        // Handle custom action
-        console.log('Custom action:', data.action);
-      }
+    const data = {
+      ...((remoteMessage?.data || {}) as Record<string, unknown>),
+    };
+
+    const notification = remoteMessage?.notification || {};
+    if (!data.title && notification.title) {
+      data.title = notification.title;
     }
-    
-    // Log the data for debugging
-    console.log('Notification data:', data);
+    if (!data.body && notification.body) {
+      data.body = notification.body;
+      data.message = data.message || notification.body;
+    }
+
+    const url = data.url ? String(data.url) : '';
+
+    if (
+      url &&
+      !data.route &&
+      !data.screen &&
+      !data.notification_type &&
+      !data.notification_id &&
+      !data.notificationId &&
+      !data.collection &&
+      !data.pipeline
+    ) {
+      Linking.openURL(url).catch(error => {
+        console.error('Error opening notification URL:', error);
+      });
+      return;
+    }
+
+    openAstrologerNotification(data);
+  }
+
+  openRemoteMessage(remoteMessage: any): void {
+    this.handleNotificationPress(remoteMessage);
   }
 
   // Subscribe to topic
@@ -527,6 +672,16 @@ class NotificationService {
   // Check if notifications are enabled
   async areNotificationsEnabled(): Promise<boolean> {
     try {
+      if (Platform.OS === 'android' && Number(Platform.Version) >= 33) {
+        const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+        if (permission) {
+          const granted = await PermissionsAndroid.check(permission);
+          if (!granted) {
+            return false;
+          }
+        }
+      }
+
       const authStatus = await messaging().hasPermission();
       return authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
              authStatus === messaging.AuthorizationStatus.PROVISIONAL;
@@ -536,15 +691,26 @@ class NotificationService {
     }
   }
 
-  // Request notification permission
   async requestPermission(): Promise<boolean> {
     try {
-      // iOS: Register device for remote messages first
+      const androidGranted = await this.requestAndroidPostNotifications();
+      if (!androidGranted) {
+        return false;
+      }
+
       if (Platform.OS === 'ios') {
         await this.ensureIOSRegistration();
       }
 
-      const authStatus = await messaging().requestPermission();
+      const authStatus = await messaging().requestPermission({
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      });
       return authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
              authStatus === messaging.AuthorizationStatus.PROVISIONAL;
     } catch (error) {

@@ -37,6 +37,11 @@ import {
   getAstrologerCurrentTransitSession,
   AstrologerCurrentTransitSession,
 } from '../../utils/astrologerCurrentTransitSession';
+import { hasAstrologerPersonalDetails } from '../../utils/astrologerPersonalDetails';
+import {
+  isAstrologerPaidPlan,
+  shouldLockPersonalizedPredictions,
+} from '../../utils/astrologerPaidPlan';
 
 const GOLD = '#C5A370';
 const NAVY = '#223149';
@@ -168,17 +173,14 @@ const getBirthDayName = (birthData?: Api.User.Res.AstrologerClientBirthData) => 
 };
 
 const formatBirthTimeWithPeriod = (birthData?: Api.User.Res.AstrologerClientBirthData) => {
-  if (!birthData) return { timeStr: '—', tzone: '' };
+  if (!birthData) {
+    return '—';
+  }
   const hour = Number(birthData.hour ?? 0);
   const min = Number(birthData.min ?? 0);
   const period = hour >= 12 ? 'PM' : 'AM';
   const h12 = hour % 12 || 12;
-  const timeStr = `${String(h12).padStart(2, '0')}:${String(min).padStart(2, '0')} ${period}`;
-  const tzone =
-    birthData.tzone === 5.5 || birthData.tzone === undefined || String(birthData.tzone) === '5.5'
-      ? 'IST'
-      : `UTC+${birthData.tzone}`;
-  return { timeStr, tzone };
+  return `${String(h12).padStart(2, '0')}:${String(min).padStart(2, '0')} ${period}`;
 };
 
 const formatCreatedDate = (createdAt?: string) => {
@@ -279,8 +281,10 @@ type ClientCardProps = {
   client: Api.User.Res.AstrologerClient;
   palette: ThemePalette;
   isPaidPlan?: boolean;
+  planSource?: unknown;
   onEdit: (client: Api.User.Res.AstrologerClient) => void;
   onChart: (client: Api.User.Res.AstrologerClient) => void;
+  onDignityAnalysis: (client: Api.User.Res.AstrologerClient) => void;
   onDelete: (client: Api.User.Res.AstrologerClient) => void;
   onChat: (client: Api.User.Res.AstrologerClient) => void;
   onGeneralPredictions?: (client: Api.User.Res.AstrologerClient) => void;
@@ -295,8 +299,10 @@ const ClientCard = ({
   client,
   palette,
   isPaidPlan = false,
+  planSource,
   onEdit,
   onChart,
+  onDignityAnalysis,
   onDelete,
   onChat,
   onGeneralPredictions,
@@ -306,15 +312,8 @@ const ClientCard = ({
   onBuyReport,
   onHowItWorks,
 }: ClientCardProps) => {
-  const clientRecord = client as Api.User.Res.AstrologerClient & Record<string, unknown>;
-  const isPersonalized = Boolean(
-    clientRecord.personal_details ??
-    clientRecord.personalizedDetails ??
-    clientRecord.personalized_details ??
-    clientRecord.is_personalized ??
-    false,
-  );
-  const isLocked = !isPaidPlan || !isPersonalized;
+  const isPersonalized = hasAstrologerPersonalDetails(client);
+  const isLocked = shouldLockPersonalizedPredictions(planSource, isPersonalized);
 
   const clientName =
     client.full_name ||
@@ -322,7 +321,7 @@ const ClientCard = ({
     'Unknown Client';
 
   const dayName = getBirthDayName(client.birth_data);
-  const { timeStr, tzone } = formatBirthTimeWithPeriod(client.birth_data);
+  const timeStr = formatBirthTimeWithPeriod(client.birth_data);
 
   return (
     <View
@@ -364,7 +363,7 @@ const ClientCard = ({
           </View>
         </View>
 
-        {/* Action Buttons: Edit, Chart, Delete */}
+        {/* Action Buttons: Edit, Chart, Dignity, Delete */}
         <View style={styles.clientActionIcons}>
           <TouchableOpacity
             style={[
@@ -397,6 +396,21 @@ const ClientCard = ({
               source={require('../../assets/icons/home/Chart.png')}
               style={[styles.clientActionIcon, { tintColor: palette.textPrimary }]}
             />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.clientActionBtn,
+              {
+                backgroundColor: palette.clientActionBtnBg,
+                borderColor: palette.clientActionBtnBorder,
+              },
+            ]}
+            onPress={() => onDignityAnalysis(client)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Dignity analysis"
+          >
+            <Text style={[styles.clientActionStar, { color: palette.gold }]}>★</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -440,7 +454,10 @@ const ClientCard = ({
             <Text style={[styles.birthInfoLabel, { color: palette.textMuted }]}>
               BIRTH DATE
             </Text>
-            <Text style={[styles.birthInfoValue, { color: palette.textPrimary }]}>
+            <Text
+              style={[styles.birthInfoValue, { color: palette.textPrimary }]}
+              numberOfLines={1}
+            >
               {formatBirthDate(client.birth_data)}
             </Text>
             {dayName ? (
@@ -472,14 +489,12 @@ const ClientCard = ({
             <Text style={[styles.birthInfoLabel, { color: palette.textMuted }]}>
               BIRTH TIME
             </Text>
-            <Text style={[styles.birthInfoValue, { color: palette.textPrimary }]}>
+            <Text
+              style={[styles.birthInfoValue, { color: palette.textPrimary }]}
+              numberOfLines={1}
+            >
               {timeStr}
             </Text>
-            {tzone ? (
-              <Text style={[styles.birthInfoSub, { color: palette.textMuted }]}>
-                {tzone}
-              </Text>
-            ) : null}
           </View>
         </View>
       </View>
@@ -500,6 +515,7 @@ const ClientCard = ({
               styles.predictionModeHeaderTitle,
               { color: palette.textPrimary },
             ]}
+            numberOfLines={1}
           >
             Choose Prediction Mode
           </Text>
@@ -560,11 +576,25 @@ const ClientCard = ({
               styles.modeCard,
               styles.modeCardPersonalized,
               {
-                backgroundColor: palette.isDark ? '#2B2214' : '#FFFDF5',
-                borderColor: palette.isDark ? '#D97706' : '#F6D8A8',
+                backgroundColor: isLocked
+                  ? palette.isDark
+                    ? '#2A2F3A'
+                    : '#F8F6F1'
+                  : palette.isDark
+                    ? '#2B2214'
+                    : '#FFFDF5',
+                borderColor: isLocked
+                  ? palette.isDark
+                    ? 'rgba(255,255,255,0.12)'
+                    : '#E8E2D6'
+                  : palette.isDark
+                    ? '#D97706'
+                    : '#F6D8A8',
               },
             ]}
             onPress={() => {
+              // cosmic_foundation / unpaid => plan modal
+              // paid but no personal details => personal details modal
               if (!isPaidPlan) {
                 onShowPaidPlanRequired?.();
               } else if (!isPersonalized) {
@@ -582,13 +612,26 @@ const ClientCard = ({
                 <Text style={styles.lockBadgeIcon}>🔒</Text>
               </View>
             ) : null}
-            <View style={styles.modeIconCirclePersonalized}>
+            <View
+              style={[
+                styles.modeIconCirclePersonalized,
+                isLocked ? styles.modeIconCircleLocked : null,
+              ]}
+            >
               <Text style={styles.modeIconTextPersonalized}>👤</Text>
             </View>
             <Text
               style={[
                 styles.modeCardTitlePersonalized,
-                { color: palette.isDark ? '#FCD34D' : '#92400E' },
+                {
+                  color: isLocked
+                    ? palette.isDark
+                      ? '#9CA3AF'
+                      : '#9A9386'
+                    : palette.isDark
+                      ? '#FCD34D'
+                      : '#92400E',
+                },
               ]}
             >
               Personalized Predictions
@@ -596,7 +639,15 @@ const ClientCard = ({
             <Text
               style={[
                 styles.modeCardDescPersonalized,
-                { color: palette.isDark ? '#FDE68A' : '#A16207' },
+                {
+                  color: isLocked
+                    ? palette.isDark
+                      ? '#8B909A'
+                      : '#B0A89C'
+                    : palette.isDark
+                      ? '#FDE68A'
+                      : '#A16207',
+                },
               ]}
             >
               Tailored using the personal details, current situation, plans and concerns you share with us.
@@ -604,7 +655,15 @@ const ClientCard = ({
             <Text
               style={[
                 styles.modeCardLinkPersonalized,
-                { color: palette.isDark ? '#FBBF24' : '#B45309' },
+                {
+                  color: isLocked
+                    ? palette.isDark
+                      ? '#9CA3AF'
+                      : '#9A9386'
+                    : palette.isDark
+                      ? '#FBBF24'
+                      : '#B45309',
+                },
               ]}
             >
               View predictions →
@@ -613,32 +672,17 @@ const ClientCard = ({
         </View>
       </View>
 
-      {/* Ask Questions Button (Outlined) */}
+      {/* Ask Questions Button */}
       <TouchableOpacity
-        style={[
-          styles.askQuestionsButton,
-          {
-            borderColor: palette.isDark ? '#C5A370' : '#0B1B3D',
-          },
-        ]}
+        style={styles.askQuestionsButton}
         onPress={() => onChat(client)}
         activeOpacity={0.85}
       >
         <Image
           source={require('../../assets/icons/Chat-active.png')}
-          style={[
-            styles.askQuestionsIcon,
-            { tintColor: palette.isDark ? '#C5A370' : '#0B1B3D' },
-          ]}
+          style={styles.askQuestionsIcon}
         />
-        <Text
-          style={[
-            styles.askQuestionsText,
-            { color: palette.isDark ? '#C5A370' : '#0B1B3D' },
-          ]}
-        >
-          Ask Questions
-        </Text>
+        <Text style={styles.askQuestionsText}>Ask Questions</Text>
       </TouchableOpacity>
 
       {/* Created Date */}
@@ -654,32 +698,17 @@ const ClientCard = ({
         </View>
       ) : null}
 
-      {/* Buy Report Button (Outlined) */}
+      {/* Buy Report Button */}
       <TouchableOpacity
-        style={[
-          styles.buyReportButton,
-          {
-            borderColor: palette.isDark ? palette.gold : '#C5A370',
-          },
-        ]}
+        style={styles.buyReportButton}
         onPress={() => onBuyReport(client)}
         activeOpacity={0.85}
       >
         <Image
           source={require('../../assets/icons/document.png')}
-          style={[
-            styles.buyReportIcon,
-            { tintColor: palette.isDark ? palette.gold : '#C5A370' },
-          ]}
+          style={styles.buyReportIcon}
         />
-        <Text
-          style={[
-            styles.buyReportText,
-            { color: palette.isDark ? palette.gold : '#C5A370' },
-          ]}
-        >
-          Buy Report
-        </Text>
+        <Text style={styles.buyReportText}>Buy Report</Text>
       </TouchableOpacity>
     </View>
   );
@@ -689,13 +718,13 @@ const AstrologerMyClientsScreen = () => {
   const navigation = useNavigation<any>();
   const { colors, theme } = useTheme();
   const user = useSelector((state: RootState) => state.app.user);
-  const { clients, userDetails, loading, refreshClients } = useAstrologerClients();
+  const { clients, userDetails, loading, refreshClients, patchClient } =
+    useAstrologerClients();
   const userService = React.useMemo(() => new UserService(), []);
   const [searchQuery, setSearchQuery] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedClient, setSelectedClient] =
     useState<Api.User.Res.AstrologerClient | null>(null);
-  const [aboutClient, setAboutClient] = useState('');
   const [isUpdatingClient, setIsUpdatingClient] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [clientToDelete, setClientToDelete] =
@@ -722,31 +751,10 @@ const AstrologerMyClientsScreen = () => {
   const astrologerUserId = String(user?._id || '');
   const astrologerUser = (userDetails || user) as Record<string, unknown> | undefined;
 
-  const isPaidPlan = useMemo(() => {
-    const currentPlan = String(
-      astrologerUser?.current_plan ||
-        astrologerUser?.plan_name ||
-        astrologerUser?.plan ||
-        user?.plan ||
-        '',
-    )
-      .toLowerCase()
-      .trim();
-
-    const isFree =
-      !currentPlan ||
-      currentPlan === 'free' ||
-      currentPlan === 'basic' ||
-      currentPlan.includes('free');
-
-    const isSubActive =
-      astrologerUser?.is_paid === true ||
-      astrologerUser?.plan_status === 'active' ||
-      astrologerUser?.is_subscribed === true ||
-      (!isFree && Boolean(currentPlan));
-
-    return Boolean(isSubActive && !isFree);
-  }, [astrologerUser, user]);
+  const isPaidPlan = useMemo(
+    () => isAstrologerPaidPlan(astrologerUser || user),
+    [astrologerUser, user],
+  );
 
   const handleViewPlans = useCallback(() => {
     setShowPaidPlanRequiredModal(false);
@@ -823,7 +831,6 @@ const AstrologerMyClientsScreen = () => {
   const handleEdit = useCallback((client: Api.User.Res.AstrologerClient) => {
     const clientRecord = client as Api.User.Res.AstrologerClient & Record<string, unknown>;
     setSelectedClient(client);
-    setAboutClient(client.about_client || '');
     setPersonalDetailsForm({
       whatDoYouDo: String(
         clientRecord.what_do_you_do || clientRecord.whatDoYouDo || '',
@@ -848,7 +855,6 @@ const AstrologerMyClientsScreen = () => {
   const handleCloseEditModal = useCallback(() => {
     setShowEditModal(false);
     setSelectedClient(null);
-    setAboutClient('');
     setPersonalDetailsForm({
       whatDoYouDo: '',
       maritalStatus: '',
@@ -886,13 +892,27 @@ const AstrologerMyClientsScreen = () => {
         payload,
       );
 
+      const hasPersonalDetails = Boolean(payload.personalizedDetails);
+      patchClient(selectedClient.id, {
+        about_client: personalDetailsForm.anyOtherDetails.trim(),
+        what_do_you_do: personalDetailsForm.whatDoYouDo,
+        marital_status: personalDetailsForm.maritalStatus,
+        children: personalDetailsForm.children,
+        current_future_plans: personalDetailsForm.currentFuturePlans.trim(),
+        current_challenges: personalDetailsForm.currentChallenges.trim(),
+        any_other_details: personalDetailsForm.anyOtherDetails.trim(),
+        personalizedDetails: hasPersonalDetails,
+        personal_details: hasPersonalDetails,
+        is_personalized: hasPersonalDetails,
+      });
+
       Toast.show({
         type: 'success',
         text1: 'Success',
         text2: response.message || 'Member info updated successfully',
       });
       handleCloseEditModal();
-      refreshClients();
+      await refreshClients();
     } catch (error: unknown) {
       const err = error as { message?: string };
       Toast.show({
@@ -905,11 +925,12 @@ const AstrologerMyClientsScreen = () => {
     }
   }, [
     selectedClient,
-    aboutClient,
+    personalDetailsForm,
     astrologerUser?._id,
     user?._id,
     userService,
     handleCloseEditModal,
+    patchClient,
     refreshClients,
   ]);
 
@@ -1118,7 +1139,7 @@ const AstrologerMyClientsScreen = () => {
         style={styles.flex}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
-        <AstrologerScreenHeader title="Your Charts" />
+        <AstrologerScreenHeader title="Your Charts" showNotificationBell />
         <MainContainer
           containerStyle={astrologerMainContainerStyle}
           subContainerStyle={astrologerContainerStyle}
@@ -1142,7 +1163,7 @@ const AstrologerMyClientsScreen = () => {
       style={styles.flex}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : -84}
     >
-        <AstrologerScreenHeader title="Your Charts" />
+        <AstrologerScreenHeader title="Your Charts" showNotificationBell />
         <MainContainer
           containerStyle={astrologerMainContainerStyle}
           subContainerStyle={astrologerContainerStyle}
@@ -1273,8 +1294,10 @@ const AstrologerMyClientsScreen = () => {
                   client={client}
                   palette={palette}
                   isPaidPlan={isPaidPlan}
+                  planSource={astrologerUser || user}
                   onEdit={handleEdit}
                   onChart={handleChart}
+                  onDignityAnalysis={handleDignityAnalysis}
                   onDelete={handleDelete}
                   onChat={handleChat}
                   onGeneralPredictions={handleGeneralPredictions}
@@ -1870,6 +1893,11 @@ const styles = StyleSheet.create({
     height: responsiveWidth('4.5'),
     resizeMode: 'contain',
   },
+  clientActionStar: {
+    fontSize: 16,
+    lineHeight: 18,
+    fontFamily: fontFamily.semiBold,
+  },
   birthInfoRow: {
     flexDirection: 'row',
     gap: responsiveWidth('2'),
@@ -1879,56 +1907,60 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     borderWidth: 1,
-    paddingVertical: responsiveWidth('2'),
-    paddingHorizontal: responsiveWidth('2.2'),
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   birthInfoIconWrapDate: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 6,
     backgroundColor: '#EEF2FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   birthInfoIconImgDate: {
-    width: 17,
-    height: 17,
+    width: 13,
+    height: 13,
     tintColor: '#6366F1',
   },
   birthInfoIconWrapTime: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 6,
     backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   birthInfoIconImgTime: {
-    width: 17,
-    height: 17,
+    width: 13,
+    height: 13,
     tintColor: '#D97706',
   },
   birthInfoCol: {
     flex: 1,
+    minWidth: 0,
   },
   birthInfoLabel: {
-    fontSize: 10.5,
+    fontSize: 9,
     fontFamily: fontFamily.medium,
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
     marginBottom: 1,
   },
   birthInfoValue: {
-    fontSize: 14.5,
+    fontSize: 12,
     fontFamily: fontFamily.semiBold,
-    lineHeight: 18,
+    lineHeight: 15,
+    includeFontPadding: false,
+    flexShrink: 1,
   },
   birthInfoSub: {
-    fontSize: 11.5,
+    fontSize: 10,
     fontFamily: fontFamily.regular,
     marginTop: 1,
+    includeFontPadding: false,
   },
   predictionModeSection: {
     borderRadius: 12,
@@ -1941,23 +1973,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     marginBottom: responsiveWidth('2'),
   },
   predictionModeHeaderTitle: {
-    fontSize: 15,
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 13,
     fontFamily: fontFamily.semiBold,
   },
   howItWorksBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    flexShrink: 0,
+    gap: 3,
   },
   howItWorksIcon: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#3B82F6',
   },
   howItWorksText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#3B82F6',
     fontFamily: fontFamily.medium,
   },
@@ -1997,6 +2033,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
+  },
+  modeIconCircleLocked: {
+    backgroundColor: '#EEEAE2',
   },
   modeIconTextPersonalized: {
     fontSize: 17,
@@ -2052,9 +2091,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   askQuestionsButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: '#0B1B3D',
+    backgroundColor: '#0B1B3D',
+    borderWidth: 0,
     borderRadius: 10,
     paddingVertical: responsiveWidth('2.8'),
     flexDirection: 'row',
@@ -2067,10 +2105,10 @@ const styles = StyleSheet.create({
     width: 15,
     height: 15,
     resizeMode: 'contain',
-    tintColor: '#0B1B3D',
+    tintColor: '#FFFFFF',
   },
   askQuestionsText: {
-    color: '#0B1B3D',
+    color: '#FFFFFF',
     fontSize: 14,
     fontFamily: fontFamily.semiBold,
   },
@@ -2092,9 +2130,8 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
   },
   buyReportButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: '#C5A370',
+    backgroundColor: '#C5A370',
+    borderWidth: 0,
     borderRadius: 10,
     paddingVertical: responsiveWidth('2.8'),
     flexDirection: 'row',
@@ -2106,10 +2143,10 @@ const styles = StyleSheet.create({
     width: 15,
     height: 15,
     resizeMode: 'contain',
-    tintColor: '#C5A370',
+    tintColor: '#FFFFFF',
   },
   buyReportText: {
-    color: '#C5A370',
+    color: '#FFFFFF',
     fontSize: 14,
     fontFamily: fontFamily.semiBold,
   },

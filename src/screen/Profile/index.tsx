@@ -35,14 +35,12 @@ import {
   getRazorpayUpiEnabledFields,
   withUpiPrefill,
 } from '../../utils/razorpayUpiOptions';
+import { resolveRazorpayKey } from '../../utils/razorpayKey';
 // Removed BlurView to avoid external dependency for blur
 
 // Razorpay Configuration
 const RAZORPAY_CONFIG = {
-  TEST_KEY: 'rzp_test_GIgkz0qhMQzJxv',
-  LIVE_KEY: 'rzp_live_t11y7Cds0JWo47',
   PLAN_ID: 'd461266c-574b-4312-994a-ebd2b5cf6dc3',
-  IS_TEST_MODE: true, // Set to false for production
 };
 
 export type RootStackParamList = {
@@ -341,7 +339,7 @@ const ProfileScreen = () => {
       const options = {
         description: `Add ${selectedMemberCount} Member${selectedMemberCount > 1 ? 's' : ''} to Astrodha`,
         currency: 'INR',
-        key: RAZORPAY_CONFIG.TEST_KEY,
+        key: resolveRazorpayKey(orderResponse),
         amount: orderResponse.amount,
         order_id: orderResponse.order_id,
         name: 'Astrodha',

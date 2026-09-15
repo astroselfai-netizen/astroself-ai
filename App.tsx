@@ -24,6 +24,7 @@ import { RootState } from './src/state/store';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
 import { useNotifications } from './src/hooks/useNotifications';
 import PermissionRequestModal from './src/components/PermissionRequestModal';
+import ForegroundPushBanner from './src/components/ForegroundPushBanner';
 // import NotificationBanner from './src/components/NotificationBanner';
 import permissionChecker from './src/utils/permissionChecker';
 import CrashlyticsService from './src/services/crashlyticsService';
@@ -146,6 +147,7 @@ function App() {
           <MainNavigator key={`${keyState}-${reloadKey}`} />
           {/* </View> */}
           <Toast  />
+          <ForegroundPushBanner />
           
           {/* Notification Banner */}
           {/* <NotificationBanner

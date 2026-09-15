@@ -11,11 +11,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { SvgXml } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import UserService from '../../services/user/user.service';
 import { Api } from '../../types/api';
@@ -23,6 +23,18 @@ import { Api } from '../../types/api';
 const NAVY = '#1A3673';
 const CHART_SIZE = responsiveWidth('78');
 const SCREEN_WIDTH = Dimensions.get('window').width;
+
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent' as const,
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
+
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent' as const,
+};
 
 type RootStackParamList = {
   AstrologerDignityAnalysisScreen: {
@@ -326,8 +338,6 @@ const getCardWidth = () => {
 };
 
 const AstrologerDignityAnalysisScreen = () => {
-  const navigation =
-    useNavigation<StackNavigationProp<RootStackParamList, 'AstrologerDignityAnalysisScreen'>>();
   const route =
     useRoute<RouteProp<RootStackParamList, 'AstrologerDignityAnalysisScreen'>>();
   const userService = useMemo(() => new UserService(), []);
@@ -435,7 +445,12 @@ const AstrologerDignityAnalysisScreen = () => {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       >
-        <MainContainer safeBottom>
+        <AstrologerScreenHeader title="Dignity Analysis" showBack />
+        <MainContainer
+          safeBottom
+          containerStyle={astrologerMainContainerStyle}
+          subContainerStyle={astrologerContainerStyle}
+        >
           <View style={styles.loaderWrap}>
             <ActivityIndicator size="large" color={NAVY} />
           </View>
@@ -450,15 +465,13 @@ const AstrologerDignityAnalysisScreen = () => {
       style={styles.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
     >
-      <MainContainer safeBottom>
+      <AstrologerScreenHeader title="Dignity Analysis" showBack />
+      <MainContainer
+        safeBottom
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Image source={require('../../assets/icons/back.png')} style={styles.backIcon} />
-            </TouchableOpacity>
-            <Text style={styles.screenTitle}>Dignity Analysis</Text>
-          </View>
-
           <View style={styles.profileCard}>
             <View style={styles.profileTopRow}>
               <Text style={styles.profileName}>{headerName}</Text>
@@ -665,40 +678,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: responsiveWidth('3'),
-    paddingTop: Platform.OS === 'ios' ? 48 : 48,
+    paddingTop: responsiveWidth('3'),
     paddingBottom: responsiveWidth('10'),
     gap: 14,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    minHeight: 38,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    borderColor: '#D7DEEA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    position: 'absolute',
-    left: 0,
-  },
-  backIcon: {
-    width: responsiveWidth(5),
-    height: responsiveWidth(5),
-    resizeMode: 'contain',
-    tintColor: NAVY,
-  },
-  screenTitle: {
-    fontSize: 20,
-    fontFamily: fontFamily.bold,
-    color: NAVY,
-    textAlign: 'center',
   },
   profileCard: {
     backgroundColor: '#FFFFFF',

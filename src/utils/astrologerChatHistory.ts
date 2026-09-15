@@ -1,7 +1,9 @@
 import { Api } from '../types/api';
+import { sanitizeAnswerText } from './astrologerChatMarkdown';
 
 type ChatHistoryItem = Api.User.Res.AstrologerChatHistoryItem;
 type ChatHistoryMonth = Api.User.Res.AstrologerChatHistoryMonth;
+type ChatHistoryThread = Api.User.Res.AstrologerChatHistoryThread;
 
 const MONTH_NAMES = [
   'January',
@@ -49,6 +51,21 @@ export const formatChatHistoryMonthDisplay = (
     return safeMonthName;
   }
   return 'Chat history';
+};
+
+export const formatChatHistoryEntryDate = (createdAt: string) => {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = date.toLocaleDateString('en-GB', { month: 'short' });
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${day} ${month} ${year} - ${hours}:${minutes}`;
 };
 
 const parseMonthYearFromDate = (value: unknown) => {
@@ -115,8 +132,8 @@ export const normalizeChatHistoryItem = (
   const question = String(
     item.question ?? item.message ?? item.user_message ?? item.query ?? '',
   ).trim();
-  const answer = String(
-    item.answer ?? item.response ?? item.bot_message ?? item.reply ?? '',
+  const answer = sanitizeAnswerText(
+    String(item.answer ?? item.response ?? item.bot_message ?? item.reply ?? ''),
   );
   const conversation_id = String(
     item.conversation_id ?? item.conversationId ?? item.id ?? '',
@@ -175,6 +192,11 @@ const collectChatHistoryItems = (
   const items: ChatHistoryItem[] = [];
 
   list.forEach(entry => {
+    if (Array.isArray(entry)) {
+      items.push(...collectChatHistoryItems(entry, filter));
+      return;
+    }
+
     if (!entry || typeof entry !== 'object') {
       return;
     }
@@ -249,6 +271,88 @@ export const extractChatHistoryItems = (
   return single && matchesMonthFilter(single, filter) ? [single] : [];
 };
 
+const getThreadSource = (raw: unknown): unknown[] => {
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+
+  if (!raw || typeof raw !== 'object') {
+    return [];
+  }
+
+  const item = raw as Record<string, unknown>;
+  for (const key of ['conversations', 'chats', 'questions', 'history', 'items']) {
+    if (Array.isArray(item[key])) {
+      return item[key] as unknown[];
+    }
+  }
+
+  if (Array.isArray(item.data)) {
+    return item.data;
+  }
+
+  return [];
+};
+
+const toChatHistoryThread = (items: ChatHistoryItem[]): ChatHistoryThread | null => {
+  if (!items.length) {
+    return null;
+  }
+
+  const chronological = [...items].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  const latest = chronological[chronological.length - 1];
+
+  return {
+    conversation_id: latest.conversation_id,
+    created_at: latest.created_at,
+    question: latest.question,
+    items: chronological,
+  };
+};
+
+export const extractChatHistoryThreads = (
+  raw: unknown,
+  filter?: { month: number; year: number },
+): ChatHistoryThread[] => {
+  const source = getThreadSource(raw);
+  const hasNestedArrays = source.some(entry => Array.isArray(entry));
+
+  let groups: ChatHistoryItem[][];
+
+  if (hasNestedArrays) {
+    groups = source
+      .filter((entry): entry is unknown[] => Array.isArray(entry))
+      .map(group => collectChatHistoryItems(group, filter));
+  } else {
+    const items = extractChatHistoryItems(raw, filter);
+    const byId = new Map<string, ChatHistoryItem[]>();
+
+    items.forEach(item => {
+      const key =
+        item.conversation_id || `solo-${item.created_at}-${item.question}`;
+      const existing = byId.get(key);
+      if (existing) {
+        existing.push(item);
+      } else {
+        byId.set(key, [item]);
+      }
+    });
+
+    groups = Array.from(byId.values());
+  }
+
+  return groups
+    .map(toChatHistoryThread)
+    .filter((thread): thread is ChatHistoryThread => thread != null)
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+};
+
 export const normalizeChatHistoryMonth = (
   raw: unknown,
 ): ChatHistoryMonth | null => {
@@ -291,7 +395,8 @@ export const normalizeChatHistoryMonth = (
   const display =
     String(item.display ?? item.label ?? '').trim() ||
     formatChatHistoryMonthDisplay(month, year, month_name);
-  const conversations = extractChatHistoryItems(item, { month, year });
+  const threads = extractChatHistoryThreads(item, { month, year });
+  const conversations = threads.flatMap(thread => thread.items);
 
   const reportedCount =
     toNumber(item.total_questions) ??
@@ -313,6 +418,7 @@ export const normalizeChatHistoryMonth = (
         item.latest_created_at ?? item.latestCreatedAt ?? item.created_at ?? '',
       ) || undefined,
     conversations,
+    threads,
   };
 };
 
@@ -389,3 +495,52 @@ export const filterChatHistoryByMonthYear = (
     const parsed = parseMonthYearFromDate(item.created_at);
     return parsed.month === month && parsed.year === year;
   });
+
+type ChatHistoryMonthsCache = {
+  userId: string;
+  months: ChatHistoryMonth[];
+};
+
+let chatHistoryMonthsCache: ChatHistoryMonthsCache | null = null;
+
+export const setChatHistoryMonthsCache = (
+  userId: string,
+  months: ChatHistoryMonth[],
+) => {
+  chatHistoryMonthsCache = { userId, months };
+};
+
+export const getCachedChatHistoryMonths = (userId: string): ChatHistoryMonth[] =>
+  chatHistoryMonthsCache?.userId === userId ? chatHistoryMonthsCache.months : [];
+
+export const getCachedChatHistoryMonthConversations = (
+  userId: string,
+  month: number,
+  year: number,
+): ChatHistoryItem[] => {
+  const match = getCachedChatHistoryMonths(userId).find(
+    item => item.month === month && item.year === year,
+  );
+  return match?.conversations || [];
+};
+
+export const getCachedChatHistoryThread = (
+  userId: string,
+  month: number,
+  year: number,
+  conversationId: string,
+): ChatHistoryItem[] => {
+  const match = getCachedChatHistoryMonths(userId).find(
+    item => item.month === month && item.year === year,
+  );
+  const thread = match?.threads?.find(
+    item => item.conversation_id === conversationId,
+  );
+  if (thread?.items?.length) {
+    return thread.items;
+  }
+
+  return (match?.conversations || []).filter(
+    item => item.conversation_id === conversationId,
+  );
+};

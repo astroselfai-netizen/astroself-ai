@@ -41,6 +41,7 @@ import {
   getRazorpayUpiEnabledFields,
   withUpiPrefill,
 } from '../../utils/razorpayUpiOptions';
+import { resolveRazorpayKey } from '../../utils/razorpayKey';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -60,10 +61,7 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyCRiOhv-8F7NUHE22gm9zres6rVFwlkXEE';
 
 // Razorpay Configuration
 const RAZORPAY_CONFIG = {
-  TEST_KEY: 'rzp_test_GIgkz0qhMQzJxv',
-  LIVE_KEY: 'rzp_live_t11y7Cds0JWo47',
   PLAN_ID: 'd461266c-574b-4312-994a-ebd2b5cf6dc3',
-  IS_TEST_MODE: true, // Set to false for production
 };
 
 interface Place {
@@ -474,7 +472,7 @@ const AddNewMember = () => {
       const options = {
         description: `Add ${memberCount} Member${memberCount > 1 ? 's' : ''} to Astrodha`,
         currency: 'INR',
-        key: RAZORPAY_CONFIG.TEST_KEY,
+        key: resolveRazorpayKey(orderResponse),
         amount: orderResponse.amount,
         order_id: orderResponse.order_id,
         name: 'Astrodha',

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { navigationRef, flushPendingNavigation } from '../utils/navigationRef';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
@@ -77,6 +78,8 @@ import AstrologerDignityAnalysisScreen from '../screen/AstrologerDignityAnalysis
 import AstrologerComboDetailScreen from '../screen/AstrologerComboDetail';
 import AstrologerPredictionsScreen from '../screen/AstrologerPredictions';
 import AstrologerRegisterScreen from '../screen/AstrologerRegister';
+import AstrologerNotificationsScreen from '../screen/AstrologerNotifications';
+import AstrologerNotificationDetailScreen from '../screen/AstrologerNotificationDetail';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -534,7 +537,7 @@ function AstrologerTabs() {
 
 function MainNavigator() {
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -596,6 +599,14 @@ function MainNavigator() {
         <Stack.Screen
           name="AstrologerPredictionsScreen"
           component={AstrologerPredictionsScreen}
+        />
+        <Stack.Screen
+          name="AstrologerNotificationsScreen"
+          component={AstrologerNotificationsScreen}
+        />
+        <Stack.Screen
+          name="AstrologerNotificationDetailScreen"
+          component={AstrologerNotificationDetailScreen}
         />
       </Stack.Navigator>
     </NavigationContainer>

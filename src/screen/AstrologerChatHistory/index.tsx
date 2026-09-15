@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Image,
+  SectionList,
   StatusBar,
   StyleSheet,
   Text,
@@ -17,6 +17,7 @@ import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
 import { Api } from '../../types/api';
+import { formatChatHistoryEntryDate, extractChatHistoryThreads } from '../../utils/astrologerChatHistory';
 
 type RootStackParamList = {
   AstrologerChatHistoryScreen: {
@@ -29,11 +30,19 @@ type RootStackParamList = {
     month: number;
     year: number;
     display: string;
-    conversations?: Api.User.Res.AstrologerChatHistoryItem[];
+    conversationId?: string;
   };
 };
 
 type MonthItem = Api.User.Res.AstrologerChatHistoryMonth;
+type ThreadItem = Api.User.Res.AstrologerChatHistoryThread;
+
+type HistorySection = {
+  title: string;
+  month: number;
+  year: number;
+  data: ThreadItem[];
+};
 
 const NAVY = '#1A3673';
 
@@ -70,6 +79,24 @@ const AstrologerChatHistoryScreen = () => {
   const cardBorder = isDark ? 'rgba(255,255,255,0.18)' : '#D7DEEA';
   const backBtnBg = isDark ? 'rgba(255,255,255,0.12)' : '#E8EEF7';
 
+  const sections = useMemo<HistorySection[]>(
+    () =>
+      months
+        .map(month => ({
+          title: month.display,
+          month: month.month,
+          year: month.year,
+          data:
+            month.threads && month.threads.length > 0
+              ? month.threads
+              : extractChatHistoryThreads({
+                  conversations: month.conversations || [],
+                }),
+        }))
+        .filter(section => section.data.length > 0),
+    [months],
+  );
+
   const loadMonths = useCallback(async () => {
     if (!clientId) {
       setMonths([]);
@@ -96,44 +123,50 @@ const AstrologerChatHistoryScreen = () => {
     }, [loadMonths]),
   );
 
-  const openMonth = (item: MonthItem) => {
-    if (!item.month || !item.year) {
+  const openConversation = (section: HistorySection, item: ThreadItem) => {
+    if (!section.month || !section.year) {
       return;
     }
 
     navigation.navigate('AstrologerChatHistoryDetailsScreen', {
       clientId,
       clientName,
-      month: item.month,
-      year: item.year,
-      display: item.display,
-      conversations: item.conversations || [],
+      month: section.month,
+      year: section.year,
+      display: formatChatHistoryEntryDate(item.created_at) || section.title,
+      conversationId: item.conversation_id,
     });
   };
 
-  const renderItem = ({ item }: { item: MonthItem }) => {
-    const count = item.total_questions ?? 0;
-    const label = count === 1 ? '1 Question asked' : `${count} Questions asked`;
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.monthCard,
-          { backgroundColor: cardBg, borderColor: cardBorder },
-        ]}
-        activeOpacity={0.85}
-        onPress={() => openMonth(item)}
-      >
-        <View style={styles.monthCardText}>
-          <Text style={[styles.monthTitle, { color: textPrimary }]}>
-            {item.display}
-          </Text>
-          <Text style={[styles.monthSubtitle, { color: textMuted }]}>{label}</Text>
-        </View>
-        <Text style={[styles.chevron, { color: textPrimary }]}>›</Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderItem = ({
+    item,
+    section,
+  }: {
+    item: ThreadItem;
+    section: HistorySection;
+  }) => (
+    <TouchableOpacity
+      style={[
+        styles.chatCard,
+        { backgroundColor: cardBg, borderColor: cardBorder },
+      ]}
+      activeOpacity={0.85}
+      onPress={() => openConversation(section, item)}
+    >
+      <View style={styles.chatCardText}>
+        <Text style={[styles.chatDate, { color: textPrimary }]}>
+          {formatChatHistoryEntryDate(item.created_at)}
+        </Text>
+        <Text
+          style={[styles.chatQuestion, { color: textMuted }]}
+          numberOfLines={2}
+        >
+          {item.question}
+        </Text>
+      </View>
+      <Text style={[styles.chevron, { color: textPrimary }]}>›</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <MainContainer
@@ -182,14 +215,31 @@ const AstrologerChatHistoryScreen = () => {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={months}
-          keyExtractor={(item, index) => `${item.year}-${item.month}-${index}`}
+        <SectionList
+          sections={sections}
+          keyExtractor={(item, index) =>
+            `${item.conversation_id}-${item.created_at}-${index}`
+          }
           renderItem={renderItem}
+          renderSectionHeader={({ section }) => (
+            <Text
+              style={[
+                styles.monthHeader,
+                { color: textPrimary },
+                section.month === sections[0]?.month &&
+                section.year === sections[0]?.year
+                  ? styles.monthHeaderFirst
+                  : null,
+              ]}
+            >
+              {section.title.toUpperCase()}
+            </Text>
+          )}
           contentContainerStyle={[
             styles.listContent,
-            months.length === 0 ? styles.listEmpty : null,
+            sections.length === 0 ? styles.listEmpty : null,
           ]}
+          stickySectionHeadersEnabled={false}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             <Text style={[styles.emptyText, { color: textMuted }]}>
@@ -239,7 +289,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: responsiveWidth('4'),
-    paddingTop: responsiveWidth('2'),
+    paddingTop: responsiveWidth('1'),
     paddingBottom: responsiveWidth('6'),
   },
   listEmpty: {
@@ -247,29 +297,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  separator: {
-    height: 12,
+  monthHeader: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    marginBottom: 10,
+    marginTop: 18,
+    letterSpacing: 0.4,
   },
-  monthCard: {
+  monthHeaderFirst: {
+    marginTop: 4,
+  },
+  separator: {
+    height: 10,
+  },
+  chatCard: {
     borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  monthCardText: {
+  chatCardText: {
     flex: 1,
     paddingRight: 12,
   },
-  monthTitle: {
-    fontSize: 22,
+  chatDate: {
+    fontSize: 16,
     fontFamily: fontFamily.bold,
     marginBottom: 6,
   },
-  monthSubtitle: {
+  chatQuestion: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
+    lineHeight: 20,
   },
   chevron: {
     fontSize: 28,

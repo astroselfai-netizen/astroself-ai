@@ -134,6 +134,7 @@ export const useNotifications = (): UseNotificationsReturn => {
     const unsubscribe = messaging().onTokenRefresh(async (token) => {
       console.log('Token refreshed in hook:', token);
       setFcmToken(token);
+      await notificationService.sendTokenToServer(token);
     });
 
     return unsubscribe;

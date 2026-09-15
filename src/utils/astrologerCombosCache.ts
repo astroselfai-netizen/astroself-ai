@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const LIST_PREFIX = 'ASTROLOGER_COMBOS_LIST_V4';
+const LIST_PREFIX = 'ASTROLOGER_COMBOS_LIST_V5';
 const DETAIL_PREFIX = 'ASTROLOGER_COMBO_DETAIL_V1';
 
 export type CachedTransitComboItem = {

@@ -18,6 +18,7 @@ export interface CreateOrderResponse {
   receipt: string;
   status: string;
   created_at: number;
+  razorpay_key?: string;
 }
 
 export interface VerifyPaymentRequest {
@@ -52,6 +53,7 @@ export interface CreateUserReportResponse {
   receipt: string;
   status: string;
   created_at: number;
+  razorpay_key?: string;
 }
 
 export interface UserReportVerifyRequest {
@@ -129,6 +131,7 @@ export interface CreateAstrologerReportOrderResponse {
   receipt: string;
   status?: string;
   created_at?: number;
+  razorpay_key?: string;
   [key: string]: any;
 }
 
@@ -220,8 +223,17 @@ class PaymentService extends Service {
         },
       });
 
-      if (response.data && response.data.order_id) {
-        return response.data;
+      const payload = response.data?.data || response.data;
+      if (payload && (payload.order_id || payload.razorpay_order_id || payload.id)) {
+        return {
+          ...payload,
+          order_id: String(payload.order_id || payload.razorpay_order_id || payload.id),
+          amount: Number(payload.amount ?? payload.amount_paise ?? 0),
+          razorpay_key:
+            payload.razorpay_key ||
+            payload.key ||
+            response.data.razorpay_key,
+        };
       } else {
         throw new Error('Invalid response from create order API');
       }
@@ -282,8 +294,23 @@ class PaymentService extends Service {
 
       console.log('Create user report response:--->', response.data);
 
-      if (response.data && response.data.order_id) {
-        return response.data;
+      const payload = response.data?.data || response.data;
+      const orderId =
+        payload?.order_id || payload?.razorpay_order_id || payload?.id;
+      const razorpayKey =
+        payload?.razorpay_key ||
+        payload?.key ||
+        response.data?.razorpay_key ||
+        response.data?.key;
+
+      if (orderId) {
+        return {
+          ...payload,
+          order_id: String(orderId),
+          amount: Number(payload?.amount ?? payload?.amount_paise ?? 0),
+          currency: String(payload?.currency || 'INR'),
+          razorpay_key: razorpayKey || undefined,
+        };
       } else {
         throw new Error('Invalid response from create user report API');
       }
@@ -375,10 +402,27 @@ class PaymentService extends Service {
       console.log('Create astrologer report order response:--->', response.data);
 
       const data = response.data;
-      if (data && (data.order_id || data.data?.order_id || data.id)) {
-        return data.data || data;
+      const payload = data?.data || data;
+      if (payload && (payload.order_id || payload.razorpay_order_id || payload.id)) {
+        return {
+          ...payload,
+          order_id: String(payload.order_id || payload.razorpay_order_id || payload.id),
+          amount: Number(payload.amount ?? payload.amount_paise ?? 0),
+          razorpay_key:
+            payload.razorpay_key ||
+            payload.key ||
+            data?.razorpay_key ||
+            data?.key,
+        };
       } else if (data && data.status) {
-        return data.data || data;
+        return {
+          ...(payload || data),
+          razorpay_key:
+            payload?.razorpay_key ||
+            payload?.key ||
+            data?.razorpay_key ||
+            data?.key,
+        };
       } else {
         throw new Error(data?.message || 'Invalid response from astrologer create report order API');
       }

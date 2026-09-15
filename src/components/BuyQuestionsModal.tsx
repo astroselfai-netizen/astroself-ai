@@ -19,6 +19,7 @@ import {
   getRazorpayUpiEnabledFields,
   withUpiPrefill,
 } from '../utils/razorpayUpiOptions';
+import { resolveRazorpayKey } from '../utils/razorpayKey';
 import http from '../utils/http';
 import {
   formatMoneyAmount,
@@ -32,12 +33,6 @@ const NAVY = '#223149';
 const MAX_QUESTIONS = 20;
 const PRESET_PACKS = [1, 3, 5, 10] as const;
 const POPULAR_COUNT = 5;
-
-const RAZORPAY_CONFIG = {
-  TEST_KEY: 'rzp_test_Rueu06YDULsQCD',
-  LIVE_KEY: 'rzp_live_t11y7Cds0JWo47',
-  IS_TEST_MODE: true,
-};
 
 type PackSelection = number | 'custom';
 
@@ -170,11 +165,7 @@ const BuyQuestionsModal = ({
         throw new Error('Invalid order response from server');
       }
 
-      const razorpayKey =
-        orderResponse.razorpay_key ||
-        (RAZORPAY_CONFIG.IS_TEST_MODE
-          ? RAZORPAY_CONFIG.TEST_KEY
-          : RAZORPAY_CONFIG.LIVE_KEY);
+      const razorpayKey = resolveRazorpayKey(orderResponse);
 
       console.log('Razorpay Key:', orderResponse);
       console.log(

@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   extractChatHistoryItems,
-  filterChatHistoryByMonthYear,
-  groupChatHistoryIntoMonths,
+  getCachedChatHistoryMonths,
   normalizeChatHistoryMonthsList,
+  setChatHistoryMonthsCache,
 } from '../../utils/astrologerChatHistory';
 import http from '../../utils/http';
 import { Service } from '../Service';
@@ -838,6 +838,7 @@ export default class UserService extends Service {
 
     if (axiosResponse?.data?.status === true) {
       const normalized = normalizeChatHistoryMonthsList(axiosResponse.data);
+      setChatHistoryMonthsCache(userId, normalized);
       return {
         ...axiosResponse.data,
         data: normalized,
@@ -860,88 +861,7 @@ export default class UserService extends Service {
         throw new Error('No authentication token found');
       }
 
-      try {
-        const response = await this.fetchAstrologerChatHistoryMonthsFromApi(
-          userId,
-          token,
-        );
-        const hasQuestionCounts = response.data.some(
-          month => (month.total_questions || 0) > 0,
-        );
-        const needsConversationFallback = response.data.some(
-          month =>
-            (month.total_questions || 0) > 0 &&
-            !(month.conversations && month.conversations.length),
-        );
-        if (
-          response.data.length > 0 &&
-          hasQuestionCounts &&
-          !needsConversationFallback
-        ) {
-          return response;
-        }
-
-        const fullHistory = await this.getAstrologerChatHistory(userId);
-        const months = groupChatHistoryIntoMonths(fullHistory.data || []);
-        if (months.length > 0) {
-          const byKey = new Map(
-            months.map(month => [`${month.year}-${month.month}`, month]),
-          );
-          const merged =
-            response.data.length > 0
-              ? response.data.map(month => {
-                  const fallback = byKey.get(`${month.year}-${month.month}`);
-                  const conversations =
-                    month.conversations && month.conversations.length > 0
-                      ? month.conversations
-                      : fallback?.conversations || [];
-                  return {
-                    ...month,
-                    total_questions: Math.max(
-                      month.total_questions || 0,
-                      fallback?.total_questions || 0,
-                      conversations.length,
-                    ),
-                    conversations,
-                  };
-                })
-              : months;
-
-          const extraMonths = months.filter(
-            month =>
-              !response.data.some(
-                existing =>
-                  existing.year === month.year && existing.month === month.month,
-              ),
-          );
-
-          const data = [...merged, ...extraMonths].sort(
-            (a, b) => b.year - a.year || b.month - a.month,
-          );
-
-          return {
-            status: true,
-            user_id: userId,
-            count: data.length,
-            data,
-          };
-        }
-
-        return response;
-      } catch (error: any) {
-        if (error.response?.status !== 404) {
-          throw error;
-        }
-
-        const fullHistory = await this.getAstrologerChatHistory(userId);
-        const months = groupChatHistoryIntoMonths(fullHistory.data || []);
-        return {
-          status: true,
-          user_id: userId,
-          count: months.length,
-          data: months,
-        };
-      }
+      return await this.fetchAstrologerChatHistoryMonthsFromApi(userId, token);
     } catch (error: any) {
       console.error('Get astrologer chat history months error:', error);
 
@@ -971,63 +891,24 @@ export default class UserService extends Service {
         throw new Error('No authentication token found');
       }
 
-      const buildResponse = (
-        data: Api.User.Res.AstrologerChatHistoryItem[],
-      ): Api.User.Res.AstrologerChatHistoryMonthDetailsResponse => ({
+      let match = getCachedChatHistoryMonths(userId).find(
+        item => item.month === month && item.year === year,
+      );
+      if (!match?.conversations?.length) {
+        const monthsResponse =
+          await this.fetchAstrologerChatHistoryMonthsFromApi(userId, token);
+        match = monthsResponse.data.find(
+          item => item.month === month && item.year === year,
+        );
+      }
+
+      return {
         status: true,
         user_id: userId,
         month,
         year,
-        data,
-      });
-
-      try {
-        const axiosResponse = await http.post(
-          '/astrologer/chat-history/months/details',
-          { user_id: userId, month, year },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              accept: 'application/json',
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-
-        const items = extractChatHistoryItems(axiosResponse?.data, {
-          month,
-          year,
-        });
-        if (items.length > 0) {
-          return buildResponse(items);
-        }
-      } catch (error: any) {
-        if (error.response?.status === 401) {
-          throw error;
-        }
-      }
-
-      try {
-        const monthsResponse = await this.fetchAstrologerChatHistoryMonthsFromApi(
-          userId,
-          token,
-        );
-        const match = monthsResponse.data.find(
-          item => item.month === month && item.year === year,
-        );
-        if (match?.conversations && match.conversations.length > 0) {
-          return buildResponse(match.conversations);
-        }
-      } catch (error: any) {
-        if (error.response?.status === 401) {
-          throw error;
-        }
-      }
-
-      const fullHistory = await this.getAstrologerChatHistory(userId);
-      return buildResponse(
-        filterChatHistoryByMonthYear(fullHistory.data || [], month, year),
-      );
+        data: match?.conversations || [],
+      };
     } catch (error: any) {
       console.error('Get astrologer chat history month details error:', error);
 
@@ -1486,11 +1367,13 @@ export default class UserService extends Service {
     userId: string,
     dataType:
       | 'combinations'
+      | 'managing_relationships'
       | 'active_combinations'
       | 'current_activity'
       | 'transit_details_list'
       | 'the_inner_you'
       | 'next_week'
+      | 'pre_question'
       | string,
   ): Promise<{
     status: boolean;
@@ -1690,8 +1573,12 @@ export default class UserService extends Service {
         return axiosResponse.data;
       }
 
-      if (Array.isArray(axiosResponse?.data?.data)) {
+      if (Array.isArray(axiosResponse?.data?.data) || axiosResponse?.data?.data) {
         return axiosResponse.data;
+      }
+
+      if (Array.isArray(axiosResponse?.data)) {
+        return { status: true, data: axiosResponse.data };
       }
 
       throw new Error(
@@ -2683,5 +2570,103 @@ export default class UserService extends Service {
         'Failed to verify questions payment. Please try again.';
       throw new Error(errorMessage);
     }
+  }
+
+  async getAstrologerMobileNotifications(
+    userId: string,
+    page = 1,
+    pageSize = 20,
+    isOpen?: boolean,
+  ): Promise<Api.User.Res.AstrologerMobileNotificationsResponse> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      let url = `/astrologer/mobile/notifications?user_id=${encodeURIComponent(
+        userId,
+      )}&page=${page}&page_size=${pageSize}`;
+      if (typeof isOpen === 'boolean') {
+        url += `&is_open=${isOpen}`;
+      }
+
+      const axiosResponse = await http.get(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === true) {
+        return axiosResponse.data;
+      }
+
+      throw new Error(
+        axiosResponse?.data?.message || 'Failed to fetch notifications',
+      );
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('USER_TOKEN');
+        await AsyncStorage.removeItem('USER_DATA');
+        throw new Error('Authentication failed. Please login again.');
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch notifications. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async markAstrologerMobileNotificationOpen(
+    userId: string,
+    notificationId: string,
+  ): Promise<{ status?: boolean; message?: string }> {
+    try {
+      const token = await AsyncStorage.getItem('USER_TOKEN');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const axiosResponse = await http.patch(
+        '/astrologer/mobile/notifications/open',
+        {
+          user_id: userId,
+          notification_id: notificationId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (axiosResponse?.data?.status === false) {
+        throw new Error(
+          axiosResponse?.data?.message || 'Failed to open notification',
+        );
+      }
+
+      return axiosResponse?.data || { status: true };
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to open notification. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  async updateAstrologerFcmToken(email: string, fcmToken: string): Promise<void> {
+    await http.post('astrologer/mobile/login', {
+      username: email,
+      password: '',
+      fcm_token: fcmToken,
+    });
   }
 }

@@ -110,10 +110,10 @@ const settingsList: { section: string; data: SettingsItem[] }[] = [
         icon: require('../../assets/icons/Faqs.png'),
         label: 'Faqs',
       },
-      {
-        icon: require('../../assets/icons/info.png'),
-        label: 'Astrodha Guide',
-      },
+      // {
+      //   icon: require('../../assets/icons/info.png'),
+      //   label: 'Astrodha Guide',
+      // },
       // {
       //   icon: require('../../assets/icons/document.png'),
       //   label: 'Privacy & Policy',

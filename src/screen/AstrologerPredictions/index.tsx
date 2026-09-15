@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   Image,
@@ -28,6 +28,8 @@ import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
 import { RootState } from '../../state/store';
 import { Api } from '../../types/api';
+import { hasAstrologerPersonalDetails } from '../../utils/astrologerPersonalDetails';
+import { isAstrologerPaidPlan } from '../../utils/astrologerPaidPlan';
 
 const NAVY = '#1A3673';
 const GOLD = '#C5A370';
@@ -112,6 +114,8 @@ const AstrologerPredictionsScreen = () => {
     useState(false);
   const [showPersonalDetailsRequiredModal, setShowPersonalDetailsRequiredModal] =
     useState(false);
+  const [tabsStuck, setTabsStuck] = useState(false);
+  const memberHeaderHeightRef = useRef(0);
 
   // Load clients list for sidebar if not passed
   useEffect(() => {
@@ -241,40 +245,14 @@ const AstrologerPredictionsScreen = () => {
     if ((route.params as any)?.isPaidPlan !== undefined) {
       return Boolean((route.params as any).isPaidPlan);
     }
-    const currentPlan = String(
-      (user as Record<string, unknown> | null)?.current_plan ||
-        (user as Record<string, unknown> | null)?.plan_name ||
-        (user as Record<string, unknown> | null)?.plan ||
-        '',
-    )
-      .toLowerCase()
-      .trim();
-
-    const isFree =
-      !currentPlan ||
-      currentPlan === 'free' ||
-      currentPlan === 'basic' ||
-      currentPlan.includes('free');
-
-    const isSubActive =
-      (user as Record<string, unknown> | null)?.is_paid === true ||
-      (user as Record<string, unknown> | null)?.plan_status === 'active' ||
-      (user as Record<string, unknown> | null)?.is_subscribed === true ||
-      (!isFree && Boolean(currentPlan));
-
-    return Boolean(isSubActive && !isFree);
+    return isAstrologerPaidPlan(user);
   }, [user, route.params]);
 
   const isPersonalizedActive = useMemo(() => {
-    return Boolean(
-      (memberDetails?.birth_details as any)?.is_personalized ??
-      (memberDetails?.birth_details as any)?.personal_details ??
-      (memberDetails?.birth_details as any)?.personalized_details ??
-      (activeClient as any)?.is_personalized ??
-      (activeClient as any)?.personal_details ??
-      (activeClient as any)?.personalized_details ??
-      (activeClient as any)?.personalizedDetails ??
-      false,
+    return (
+      hasAstrologerPersonalDetails(memberDetails) ||
+      hasAstrologerPersonalDetails(memberDetails?.birth_details) ||
+      hasAstrologerPersonalDetails(activeClient)
     );
   }, [memberDetails, activeClient]);
 
@@ -390,6 +368,74 @@ const AstrologerPredictionsScreen = () => {
     [isDark],
   );
 
+  const renderModeTabs = () => (
+    <View
+      style={[
+        styles.modeTabsOuterContainer,
+        {
+          backgroundColor: palette.tabContainerBg,
+          borderColor: palette.tabContainerBorder,
+        },
+      ]}
+    >
+      <View style={styles.modeTabsRow}>
+        <TouchableOpacity
+          style={[
+            styles.modeTabPill,
+            activeMode === 'general'
+              ? [styles.modeTabPillActive, { backgroundColor: palette.tabActiveBg }]
+              : [styles.modeTabPillInactive, { borderColor: palette.tabInactiveBorder }],
+          ]}
+          onPress={() => handleSelectMode('general')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.modeTabEmoji}>🪐</Text>
+          <Text
+            style={[
+              styles.modeTabText,
+              activeMode === 'general'
+                ? [styles.modeTabTextActive, { color: palette.tabActiveText }]
+                : [styles.modeTabTextInactive, { color: palette.tabInactiveText }],
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            General Predictions
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.modeTabPill,
+            activeMode === 'personalized'
+              ? [styles.modeTabPillActive, { backgroundColor: palette.tabActiveBg }]
+              : [styles.modeTabPillInactive, { borderColor: palette.tabInactiveBorder }],
+          ]}
+          onPress={() => handleSelectMode('personalized')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.modeTabEmoji}>
+            {!isPaidPlan || !isPersonalizedActive ? '🔒' : '👤'}
+          </Text>
+          <Text
+            style={[
+              styles.modeTabText,
+              activeMode === 'personalized'
+                ? [styles.modeTabTextActive, { color: palette.tabActiveText }]
+                : [styles.modeTabTextInactive, { color: palette.tabInactiveText }],
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            Personalized Predictions
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
@@ -406,96 +452,57 @@ const AstrologerPredictionsScreen = () => {
         containerStyle={astrologerMainContainerStyle}
         subContainerStyle={astrologerContainerStyle}
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Member Details Header Card (with menu, initials, birth info, dasha pills) */}
-          <AstrologerChatMemberHeader
-            loading={memberDetailsLoading}
-            memberDetails={memberDetails}
-            fallbackName={activeClientName}
-            fallbackBirthData={activeClient?.birth_data}
-            isDark={isDark}
-            borderColor={palette.headerBorder}
-            backgroundColor={palette.headerBg}
-            onOpenCharts={handleOpenCharts}
-            onCheckTransitCombo={handleCheckTransitCombo}
-          />
-
-          {/* Two Prediction Mode Tabs Container */}
-          <View
-            style={[
-              styles.modeTabsOuterContainer,
-              {
-                backgroundColor: palette.tabContainerBg,
-                borderColor: palette.tabContainerBorder,
-              },
-            ]}
-          >
-            <View style={styles.modeTabsRow}>
-              {/* General Predictions Tab */}
-              <TouchableOpacity
-                style={[
-                  styles.modeTabPill,
-                  activeMode === 'general'
-                    ? [styles.modeTabPillActive, { backgroundColor: palette.tabActiveBg }]
-                    : [styles.modeTabPillInactive, { borderColor: palette.tabInactiveBorder }],
-                ]}
-                onPress={() => handleSelectMode('general')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.modeTabEmoji}>🪐</Text>
-                <Text
-                  style={[
-                    styles.modeTabText,
-                    activeMode === 'general'
-                      ? [styles.modeTabTextActive, { color: palette.tabActiveText }]
-                      : [styles.modeTabTextInactive, { color: palette.tabInactiveText }],
-                  ]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.8}
-                >
-                  General Predictions
-                </Text>
-              </TouchableOpacity>
-
-              {/* Personalized Predictions Tab */}
-              <TouchableOpacity
-                style={[
-                  styles.modeTabPill,
-                  activeMode === 'personalized'
-                    ? [styles.modeTabPillActive, { backgroundColor: palette.tabActiveBg }]
-                    : [styles.modeTabPillInactive, { borderColor: palette.tabInactiveBorder }],
-                ]}
-                onPress={() => handleSelectMode('personalized')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.modeTabEmoji}>
-                  {!isPaidPlan || !isPersonalizedActive ? '🔒' : '👤'}
-                </Text>
-                <Text
-                  style={[
-                    styles.modeTabText,
-                    activeMode === 'personalized'
-                      ? [styles.modeTabTextActive, { color: palette.tabActiveText }]
-                      : [styles.modeTabTextInactive, { color: palette.tabInactiveText }],
-                  ]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.8}
-                >
-                  Personalized Predictions
-                </Text>
-              </TouchableOpacity>
+        <View style={styles.predictionsBody}>
+          {tabsStuck ? (
+            <View
+              pointerEvents="auto"
+              style={[
+                styles.stuckTabsOverlay,
+                { backgroundColor: palette.screenBg },
+              ]}
+            >
+              {renderModeTabs()}
             </View>
-          </View>
+          ) : null}
 
-          {/* Combinations Content */}
-          <View style={styles.combosSectionWrap}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+            scrollEventThrottle={16}
+            onScroll={event => {
+              const offsetY = event.nativeEvent.contentOffset.y;
+              const headerHeight = memberHeaderHeightRef.current;
+              const shouldStick =
+                headerHeight > 8 && offsetY >= headerHeight - 2;
+              setTabsStuck(prev => (prev === shouldStick ? prev : shouldStick));
+            }}
+          >
+            <View
+              onLayout={event => {
+                memberHeaderHeightRef.current = event.nativeEvent.layout.height;
+              }}
+            >
+              <AstrologerChatMemberHeader
+                loading={memberDetailsLoading}
+                memberDetails={memberDetails}
+                fallbackName={activeClientName}
+                fallbackBirthData={activeClient?.birth_data}
+                isDark={isDark}
+                borderColor={palette.headerBorder}
+                backgroundColor={palette.headerBg}
+                onOpenCharts={handleOpenCharts}
+                onCheckTransitCombo={handleCheckTransitCombo}
+              />
+            </View>
+
+            <View style={styles.stickyTabsWrap} pointerEvents="box-none">
+              {renderModeTabs()}
+            </View>
+
+            <View style={styles.combosSectionWrap}>
             {activeClientId ? (
               <AstrologerCombos
                 key={`${activeClientId}-${activeMode}`}
@@ -532,6 +539,7 @@ const AstrologerPredictionsScreen = () => {
             )}
           </View>
         </ScrollView>
+        </View>
       </MainContainer>
 
       {/* Sidebar Modal to switch client charts */}
@@ -691,14 +699,34 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  predictionsBody: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: responsiveWidth('12'),
   },
+  stickyTabsWrap: {
+    paddingHorizontal: responsiveWidth('3.5'),
+    paddingTop: responsiveWidth('2'),
+    paddingBottom: responsiveWidth('2'),
+  },
+  stuckTabsOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    elevation: 8,
+    paddingHorizontal: responsiveWidth('3.5'),
+    paddingTop: responsiveWidth('2'),
+    paddingBottom: responsiveWidth('2'),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
   modeTabsOuterContainer: {
-    marginHorizontal: responsiveWidth('3.5'),
-    marginTop: responsiveWidth('3'),
-    marginBottom: responsiveWidth('2'),
     borderRadius: 12,
     borderWidth: 1,
     padding: responsiveWidth('1.5'),

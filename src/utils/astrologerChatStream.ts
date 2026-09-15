@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { baseURL } from './http';
+import {
+  extractGetContentAnswer,
+  extractGetContentStreamDelta,
+} from './astrologerPreQuestions';
 
 export type AstrologerChatPayload = {
   user_id: string;
@@ -326,3 +330,250 @@ export const streamAstrologerChat = async (
     xhr.abort();
   };
 };
+
+export type AstrologerGetContentPayload = {
+  collection: string;
+  pipeline: Array<Record<string, unknown>>;
+};
+
+const emitGetContentPayload = (
+  payload: unknown,
+  eventName: string,
+  callbacks: AstrologerChatStreamCallbacks,
+) => {
+  const name = eventName.toLowerCase();
+  const record =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>)
+      : null;
+
+  if (name.startsWith('node_update') && record?.node) {
+    callbacks.onNodeUpdate?.(
+      String(record.node),
+      String(record.status || 'running'),
+      (record.data as Record<string, unknown>) || {},
+    );
+    return;
+  }
+
+  const text = extractGetContentStreamDelta(payload);
+  const answer = extractGetContentAnswer(payload) || text;
+
+  if (
+    name === 'final' ||
+    name === 'done' ||
+    name === 'complete' ||
+    name === 'end'
+  ) {
+    callbacks.onFinal?.({
+      title: typeof record?.title === 'string' ? record.title : undefined,
+      answer: answer || undefined,
+    });
+    return;
+  }
+
+  if (text) {
+    callbacks.onAnswerToken?.(text);
+  }
+};
+
+const handleGetContentSSEEvent = (
+  parsed: ParsedSSEEvent,
+  callbacks: AstrologerChatStreamCallbacks,
+) => {
+  const { event, data } = parsed;
+  if (!data || data === '[DONE]') {
+    return;
+  }
+
+  try {
+    emitGetContentPayload(JSON.parse(data), event, callbacks);
+  } catch {
+    const text = extractGetContentStreamDelta(data);
+    if (text) {
+      callbacks.onAnswerToken?.(text);
+    }
+  }
+};
+
+export const streamAstrologerGetContent = async (
+  payload: AstrologerGetContentPayload,
+  callbacks: AstrologerChatStreamCallbacks,
+): Promise<() => void> => {
+  const token = await AsyncStorage.getItem('USER_TOKEN');
+
+  if (!token) {
+    callbacks.onError?.(new Error('No authentication token found'));
+    callbacks.onDone?.();
+    return () => undefined;
+  }
+
+  const xhr = new XMLHttpRequest();
+  let processedLength = 0;
+  let parseRemainder = '';
+  let settled = false;
+  let receivedStreamText = false;
+  const eventQueue: ParsedSSEEvent[] = [];
+  let draining = false;
+
+  const enqueueEvents = (events: ParsedSSEEvent[]) => {
+    if (!events.length) {
+      return;
+    }
+
+    receivedStreamText = true;
+    eventQueue.push(...events);
+
+    if (draining) {
+      return;
+    }
+
+    draining = true;
+    const onIdle = () => {
+      draining = false;
+      if (eventQueue.length > 0) {
+        draining = true;
+        requestAnimationFrame(() => {
+          drainGetContentEventQueue(eventQueue, callbacks, () => {
+            draining = false;
+          });
+        });
+      }
+    };
+    drainGetContentEventQueue(eventQueue, callbacks, onIdle);
+  };
+
+  const processIncomingText = (incoming: string) => {
+    if (!incoming) {
+      return;
+    }
+
+    const toParse = `${parseRemainder}${incoming}`;
+    if (toParse.includes('event:') || toParse.includes('data:')) {
+      const parsed = parseSSEBuffer(toParse);
+      parseRemainder = parsed.remainder;
+      enqueueEvents(parsed.events);
+      return;
+    }
+
+    const trimmedAll = toParse.trim();
+    if (trimmedAll.startsWith('{') || trimmedAll.startsWith('[')) {
+      try {
+        emitGetContentPayload(JSON.parse(trimmedAll), 'message', callbacks);
+        parseRemainder = '';
+        receivedStreamText = true;
+      } catch {
+        parseRemainder = toParse;
+      }
+      return;
+    }
+
+    parseRemainder = '';
+    receivedStreamText = true;
+    callbacks.onAnswerToken?.(incoming);
+  };
+
+  const finish = (error?: Error) => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+
+    if (!error && parseRemainder.trim()) {
+      const remainder = parseRemainder.trim();
+      parseRemainder = '';
+      if (remainder.includes('event:') || remainder.includes('data:')) {
+        const parsed = parseSSEBuffer(`${remainder}\n\n`);
+        parsed.events.forEach(event =>
+          handleGetContentSSEEvent(event, callbacks),
+        );
+      } else {
+        try {
+          const extracted = extractGetContentAnswer(JSON.parse(remainder));
+          if (extracted && !receivedStreamText) {
+            callbacks.onFinal?.({ answer: extracted });
+          } else if (extracted && receivedStreamText) {
+            callbacks.onFinal?.({ answer: extracted });
+          }
+        } catch {
+          if (!receivedStreamText && remainder) {
+            callbacks.onFinal?.({ answer: remainder });
+          }
+        }
+      }
+    }
+
+    if (error) {
+      callbacks.onError?.(error);
+    }
+    callbacks.onDone?.();
+  };
+
+  xhr.open('POST', `${baseURL}/astrologer/get-content/stream`);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+  xhr.setRequestHeader('Accept', 'text/event-stream');
+
+  xhr.onprogress = () => {
+    const fullText = xhr.responseText || '';
+    const chunk = fullText.slice(processedLength);
+    processedLength = fullText.length;
+    processIncomingText(chunk);
+  };
+
+  xhr.onreadystatechange = () => {
+    if (xhr.readyState === 3 || xhr.readyState === 4) {
+      const fullText = xhr.responseText || '';
+      const chunk = fullText.slice(processedLength);
+      processedLength = fullText.length;
+      processIncomingText(chunk);
+    }
+  };
+
+  xhr.onload = () => {
+    const tail = xhr.responseText.slice(processedLength);
+    processedLength = xhr.responseText.length;
+    processIncomingText(tail);
+
+    if (xhr.status >= 400) {
+      finish(
+        new Error(parseAstrologerChatErrorMessage(xhr.responseText, xhr.status)),
+      );
+      return;
+    }
+    finish();
+  };
+
+  xhr.onerror = () => {
+    finish(new Error('Network error while loading this question'));
+  };
+
+  xhr.onabort = () => {
+    finish();
+  };
+
+  xhr.send(JSON.stringify(payload));
+
+  return () => {
+    xhr.abort();
+  };
+};
+
+const drainGetContentEventQueue = (
+  queue: ParsedSSEEvent[],
+  callbacks: AstrologerChatStreamCallbacks,
+  onIdle: () => void,
+) => {
+  const batch = queue.splice(0, 12);
+  batch.forEach(event => handleGetContentSSEEvent(event, callbacks));
+
+  if (queue.length > 0) {
+    requestAnimationFrame(() =>
+      drainGetContentEventQueue(queue, callbacks, onIdle),
+    );
+    return;
+  }
+
+  onIdle();
+};
+

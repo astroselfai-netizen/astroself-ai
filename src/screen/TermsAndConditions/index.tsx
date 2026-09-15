@@ -9,21 +9,26 @@ import {
   View,
   Platform,
   ScrollView,
-  StatusBar,
-  Image,
   useWindowDimensions,
 } from 'react-native';
-import {
-  fontFamily,
-  responsiveWidth,
-  responsiveHeight,
-} from '../../constant/theme';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { useTheme } from '../../context/ThemeContext';
 import RenderHTML from 'react-native-render-html';
 import http from '../../utils/http';
+
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
+};
+
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
 
 type TermsSection = {
   heading: string;
@@ -38,23 +43,8 @@ type TermsApiResponse = {
   };
 };
 
-export type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  ForgotPassword: undefined;
-  HomeScreen: undefined;
-  ContinueWithOtp: undefined;
-  ForgotPasswordOtp: undefined;
-};
-
-type TermsAndConditionsNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  'Login'
->;
-
 const TermsAndConditions = () => {
   const { theme, colors } = useTheme();
-  const navigation = useNavigation<TermsAndConditionsNavigationProp>();
   const { width } = useWindowDimensions();
 
   const [loading, setLoading] = useState(true);
@@ -115,47 +105,13 @@ const TermsAndConditions = () => {
   );
 
   return (
-    // <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
-    <MainContainer safeBottom>
-      {/* Header */}
-      <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent={true}
-      />
-      <View style={styles.headerRow}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-          activeOpacity={0.7}
-        >
-          <Image
-            source={require('../../assets/icons/back.png')}
-            style={[
-              styles.backIcon,
-              {
-                tintColor:
-                  theme === 'dark' ? colors.textPrimary : colors.DarkNavy,
-              },
-            ]}
-          />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text
-            style={[
-              styles.headerTitle,
-              {
-                color:
-                  theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-              },
-            ]}
-          >
-            {title}
-          </Text>
-        </View>
-      </View>
-
-      {/* Main Content Card */}
+    <View style={styles.flex}>
+      <AstrologerScreenHeader title={title} showBack />
+      <MainContainer
+        safeBottom
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
@@ -261,58 +217,20 @@ const TermsAndConditions = () => {
           )}
         </View>
       </ScrollView>
-    </MainContainer>
-    // </View>
+      </MainContainer>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  flex: {
     flex: 1,
   },
   scrollViewContent: {
     flexGrow: 1,
     minHeight: '100%',
+    paddingTop: responsiveWidth('4'),
     paddingBottom: Platform.OS === 'android' ? 70 : 70,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop:
-      Platform.OS === 'android'
-        ? responsiveHeight('0.5%')
-        : responsiveWidth('12%'),
-    // paddingHorizontal: responsiveWidth('2'),
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
-    position: 'relative',
-    minHeight: 50,
-  },
-  backBtn: {
-    // position: 'absolute',
-      left: responsiveWidth('5'),
-      // padding: 8,
-      // top:
-      //   Platform.OS === 'android'
-      //     ? responsiveWidth('11.5%')
-      //     : responsiveWidth('2%'),
-    // zIndex: 1,
-  },
-  backIcon: {
-    width: responsiveWidth(5),
-    height: responsiveWidth(5),
-    resizeMode: 'contain',
-    tintColor: '#FFFFFF',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontFamily: fontFamily.regular,
-    textAlign: 'center',
   },
   contentCard: {
     borderRadius: 8,

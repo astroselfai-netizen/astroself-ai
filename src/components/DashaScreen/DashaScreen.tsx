@@ -118,6 +118,28 @@ const DashaScreen = ({
   });
   const hasSetInitialValue = useRef(true);
   const hasInitializedAstrologerSelections = useRef(false);
+  const dashaOverviewScrollRef = useRef<ScrollView>(null);
+  const dashaCardOffsets = useRef<Record<string, number>>({});
+
+  const scrollSelectedDashaCardIntoView = useCallback((dashaKey: string) => {
+    let cardX = dashaCardOffsets.current[dashaKey];
+    if (cardX == null) {
+      const index = dashaTypes.findIndex(type => type.key === dashaKey);
+      if (index < 0 || !dashaOverviewScrollRef.current) {
+        return;
+      }
+      cardX =
+        responsiveWidth('2') + index * (responsiveWidth('37%') + 16);
+    }
+    if (!dashaOverviewScrollRef.current) {
+      return;
+    }
+    const inset = responsiveWidth('2');
+    dashaOverviewScrollRef.current.scrollTo({
+      x: Math.max(0, cardX - inset),
+      animated: true,
+    });
+  }, []);
 
   console.log('all_dasha===>', dashaDetails);
 
@@ -340,6 +362,13 @@ const DashaScreen = ({
     setCurrentDashaData(getCurrentDashaData());
   }, [dashaDetails, selectedDashaType, getCurrentDashaData]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollSelectedDashaCardIntoView(selectedDashaType);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [selectedDashaType, scrollSelectedDashaCardIntoView]);
+
   // Function to get the next dasha type in hierarchy
   const getNextDashaType = useCallback((currentType: string): string | null => {
     const typeIndex = dashaTypes.findIndex(type => type.key === currentType);
@@ -433,24 +462,50 @@ const DashaScreen = ({
       const periods: DashaPeriod[] = dashaTypeData.dasha_period;
       if (periods.length === 0) return null;
 
-      const active = periods.find(p => isCurrentPeriod(p.start, p.end));
-      const p = active || periods[0];
+      const dashaType = dashaTypes.find(type => type.key === typeKey);
+      const selectedPlanetName =
+        astrologerClientMode && dashaType?.param
+          ? String(selectedPlanets[dashaType.param] || '').trim()
+          : '';
+
+      const selectedPeriod = selectedPlanetName
+        ? periods.find(
+            period =>
+              String(period.planet || '').toLowerCase() ===
+              selectedPlanetName.toLowerCase(),
+          )
+        : null;
+      const active = periods.find(period =>
+        isCurrentPeriod(period.start, period.end),
+      );
+      const period = selectedPeriod || active || periods[0];
       return {
-        planet: p.planet || '--',
-        start: p.start || '--',
-        end: p.end || '--',
+        planet: period.planet || '--',
+        start: period.start || '--',
+        end: period.end || '--',
       };
     },
-    [dashaDetails, isCurrentPeriod],
+    [astrologerClientMode, dashaDetails, isCurrentPeriod, selectedPlanets],
   );
+
+  const isSameDashaPeriod = (
+    item: DashaTableItem,
+    summary: { planet: string; start: string; end: string } | null,
+  ) => {
+    if (!summary) {
+      return false;
+    }
+    const samePlanet =
+      String(item.planet || '').toLowerCase() ===
+      String(summary.planet || '').toLowerCase();
+    const sameStart =
+      formatDateForDisplay(item.from) === formatDateForDisplay(summary.start);
+    return samePlanet && sameStart;
+  };
 
   const dashaSelectorData = dashaTypes.map((type, index) => {
     const summary = getDashaSummaryForType(type.key);
-    const selectedPlanet =
-      astrologerClientMode && type.param
-        ? selectedPlanets[type.param]
-        : summary?.planet || '--';
-    const planetName = selectedPlanet || summary?.planet || '--';
+    const planetName = summary?.planet || '--';
     const planetId = planetNameToId[planetName] ?? 0;
     return {
       id: `${type.key}-${index}`,
@@ -510,6 +565,7 @@ const DashaScreen = ({
           </Text>
           <View style={styles.dashaCardsRow}>
             <ScrollView
+              ref={dashaOverviewScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               pagingEnabled={false}
@@ -521,6 +577,10 @@ const DashaScreen = ({
                   <TouchableOpacity
                     key={dasha.id}
                     activeOpacity={0.85}
+                    onLayout={event => {
+                      dashaCardOffsets.current[dasha.key] =
+                        event.nativeEvent.layout.x;
+                    }}
                     onPress={() => {
                       setSelectedDashaType(dasha.key);
                       if (astrologerClientMode && onAstrologerDashaRowPress) {
@@ -730,13 +790,12 @@ const DashaScreen = ({
                 <View style={styles.tableBody}>
                   {currentDashaData.length > 0 ? (
                     currentDashaData.map((item: DashaTableItem) => {
-                      const dashaType = dashaTypes.find(
-                        type => type.key === selectedDashaType,
+                      const selectedSummary =
+                        getDashaSummaryForType(selectedDashaType);
+                      const isSelectedRow = isSameDashaPeriod(
+                        item,
+                        selectedSummary,
                       );
-                      const isSelectedRow =
-                        astrologerClientMode && dashaType?.param
-                          ? selectedPlanets[dashaType.param] === item.planet
-                          : item.isActive;
                       const isRowClickable = astrologerClientMode
                         ? Boolean(onAstrologerDashaRowPress)
                         : item.isActive;

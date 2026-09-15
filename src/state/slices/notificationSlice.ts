@@ -50,6 +50,12 @@ const notificationSlice = createSlice({
       state.notifications.unshift(action.payload);
       state.unreadCount += 1;
     },
+    setUnreadCount: (state, action: PayloadAction<number>) => {
+      state.unreadCount = Math.max(0, action.payload);
+    },
+    incrementUnreadCount: state => {
+      state.unreadCount += 1;
+    },
     markNotificationAsRead: (state, _action: PayloadAction<number>) => {
       if (state.unreadCount > 0) {
         state.unreadCount -= 1;
@@ -90,6 +96,8 @@ export const {
   setLoading,
   setError,
   addNotification,
+  setUnreadCount,
+  incrementUnreadCount,
   markNotificationAsRead,
   markAllNotificationsAsRead,
   removeNotification,

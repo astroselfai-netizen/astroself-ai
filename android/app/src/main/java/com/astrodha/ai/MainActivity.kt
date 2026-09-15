@@ -1,5 +1,6 @@
 package com.astrodha.ai
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.core.view.ViewCompat
@@ -17,6 +18,13 @@ class MainActivity : ReactActivity() {
     // Android 15+ forces edge-to-edge; adjustResize no longer lifts content
     // above the keyboard. Manually pad the root view with IME insets.
     setupImeWindowInsets()
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    // Required for FCM notification taps while the activity is already alive.
+    // Without this, tray taps can dismiss the notification without opening/navigating.
+    super.onNewIntent(intent)
+    setIntent(intent)
   }
 
   private fun setupImeWindowInsets() {

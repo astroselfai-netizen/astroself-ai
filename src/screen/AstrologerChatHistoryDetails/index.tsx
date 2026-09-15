@@ -18,6 +18,10 @@ import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
 import { Api } from '../../types/api';
+import {
+  getCachedChatHistoryMonthConversations,
+  getCachedChatHistoryThread,
+} from '../../utils/astrologerChatHistory';
 
 type HistoryItem = Api.User.Res.AstrologerChatHistoryItem;
 
@@ -28,7 +32,7 @@ type RootStackParamList = {
     month: number;
     year: number;
     display: string;
-    conversations?: HistoryItem[];
+    conversationId?: string;
   };
 };
 
@@ -73,12 +77,29 @@ const AstrologerChatHistoryDetailsScreen = () => {
   const display = route.params?.display || 'Chat history';
   const month = route.params?.month;
   const year = route.params?.year;
-  const cachedConversations = route.params?.conversations;
+  const conversationId = route.params?.conversationId || '';
+  const cachedConversations = useMemo(() => {
+    if (!clientId || month == null || year == null) {
+      return [];
+    }
 
-  const [loading, setLoading] = useState(!cachedConversations?.length);
-  const [items, setItems] = useState<HistoryItem[]>(
-    () => cachedConversations || [],
-  );
+    if (conversationId) {
+      const thread = getCachedChatHistoryThread(
+        clientId,
+        month,
+        year,
+        conversationId,
+      );
+      if (thread.length) {
+        return thread;
+      }
+    }
+
+    return getCachedChatHistoryMonthConversations(clientId, month, year);
+  }, [clientId, conversationId, month, year]);
+
+  const [loading, setLoading] = useState(cachedConversations.length === 0);
+  const [items, setItems] = useState<HistoryItem[]>(cachedConversations);
   const [errorText, setErrorText] = useState('');
 
   const isDark = theme === 'dark';
@@ -96,7 +117,7 @@ const AstrologerChatHistoryDetailsScreen = () => {
       return;
     }
 
-    if (!cachedConversations?.length) {
+    if (!cachedConversations.length) {
       setLoading(true);
     }
     setErrorText('');
@@ -106,15 +127,15 @@ const AstrologerChatHistoryDetailsScreen = () => {
         month,
         year,
       );
-      const nextItems = [...(response.data || [])].sort(
-        (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-      );
-      setItems(
-        nextItems.length > 0 ? nextItems : cachedConversations || [],
-      );
+      const nextItems = [...(response.data || [])]
+        .filter(item => !conversationId || item.conversation_id === conversationId)
+        .sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        );
+      setItems(nextItems.length > 0 ? nextItems : cachedConversations);
     } catch (error: any) {
-      if (cachedConversations?.length) {
+      if (cachedConversations.length) {
         setItems(cachedConversations);
       } else {
         setItems([]);
@@ -123,7 +144,7 @@ const AstrologerChatHistoryDetailsScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [cachedConversations, clientId, month, year, userService]);
+  }, [cachedConversations, clientId, conversationId, month, year, userService]);
 
   useFocusEffect(
     useCallback(() => {

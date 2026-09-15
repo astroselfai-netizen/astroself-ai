@@ -18,6 +18,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import DatePicker from 'react-native-date-picker';
 import Toast from 'react-native-toast-message';
 import { MainContainer } from '../../components/common/mainContainer';
+import AstrologerScreenHeader from '../../components/AstrologerScreenHeader';
 import { fontFamily, responsiveWidth } from '../../constant/theme';
 import { useTheme } from '../../context/ThemeContext';
 import UserService from '../../services/user/user.service';
@@ -40,6 +41,18 @@ interface DropdownItem {
 
 type RootStackParamList = {
   AstrologerCurrentTransitResultScreen: { chartData: Record<string, unknown> };
+};
+
+const astrologerContainerStyle = {
+  backgroundColor: 'transparent',
+  marginBottom: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  overflow: 'visible' as const,
+};
+
+const astrologerMainContainerStyle = {
+  backgroundColor: 'transparent',
 };
 
 const validationSchema = Yup.object({
@@ -214,7 +227,12 @@ const AstrologerCurrentTransitScreen = () => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -84}
       enabled
     >
-      <MainContainer safeBottom>
+      <AstrologerScreenHeader title="Transit Chart" showBack />
+      <MainContainer
+        safeBottom
+        containerStyle={astrologerMainContainerStyle}
+        subContainerStyle={astrologerContainerStyle}
+      >
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -222,37 +240,6 @@ const AstrologerCurrentTransitScreen = () => {
           keyboardDismissMode="interactive"
           nestedScrollEnabled
         >
-          <View style={styles.headerWrap}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backBtn}
-            >
-              <Image
-                source={require('../../assets/icons/back.png')}
-                style={[
-                  styles.backIcon,
-                  {
-                    tintColor:
-                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
-                ]}
-              />
-            </TouchableOpacity>
-            <View style={styles.backIconWrap}>
-              <Text
-                style={[
-                  styles.topBarText,
-                  {
-                    color:
-                      theme === 'dark' ? colors.themeTextWhite : colors.DarkNavy,
-                  },
-                ]}
-              >
-                Transit Chart
-              </Text>
-            </View>
-          </View>
-
           <View style={styles.formContainer}>
             {/* <Text
               style={[
@@ -378,7 +365,7 @@ const AstrologerCurrentTransitScreen = () => {
                     ]}
                     numberOfLines={1}
                   >
-                    {formik.values.placeOfBirthDisplay || 'Place of Birth'}
+                    {formik.values.placeOfBirthDisplay || 'Place'}
                   </Text>
                 </View>
                 <Image
@@ -567,40 +554,7 @@ const AstrologerCurrentTransitScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollViewContent: { flexGrow: 1 },
-  headerWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 60,
-    paddingHorizontal: 20,
-    marginBottom: 10,
-    position: 'relative',
-  },
-  backBtn: { padding: 8, marginRight: 16 },
-  backIcon: {
-    width: responsiveWidth(5),
-    height: responsiveWidth(5),
-    resizeMode: 'contain',
-  },
-  topBarText: {
-    fontSize: 22,
-    fontFamily: fontFamily.semiBold,
-    textAlign: 'center',
-  },
-  subTitleText: {
-    fontSize: 14,
-    fontFamily: fontFamily.regular,
-    textAlign: 'center',
-    marginTop: 4,
-    opacity: 0.8,
-  },
-  backIconWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  scrollViewContent: { flexGrow: 1, paddingTop: 12 },
   formContainer: { paddingHorizontal: 20 },
   sectionTitle: {
     fontSize: 18,

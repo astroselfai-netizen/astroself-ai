@@ -1,3 +1,28 @@
+export const sanitizeAnswerText = (text: string): string => {
+  if (!text) return '';
+  const lowerText = text.toLowerCase();
+
+  const isTechnicalError =
+    lowerText.includes('mongodb') ||
+    lowerText.includes('could not safely validate') ||
+    (lowerText.includes('query') && lowerText.includes('validate')) ||
+    lowerText.includes('internal server error') ||
+    lowerText.includes('failed to generate the query') ||
+    lowerText.includes('failed to execute the query') ||
+    lowerText.includes('query generation failed') ||
+    lowerText.includes('database error') ||
+    lowerText.includes('database query failed') ||
+    lowerText.includes('rephrasing your question') ||
+    lowerText.includes('an error occurred') ||
+    lowerText.startsWith('error:') ||
+    lowerText.startsWith('exception:');
+
+  if (isTechnicalError) {
+    return 'Please start a new chat, rephrase your question, and try again.';
+  }
+  return text;
+};
+
 export type ChatSection = {
   heading?: string;
   bullets?: string[];
@@ -78,7 +103,10 @@ export const parseMarkdownAnswer = (
   answer: string,
   forStreaming = false,
 ): ParsedChatAnswer => {
-  const source = forStreaming ? stripPartialTrailingMarkdown(answer) : answer;
+  const safeAnswer = sanitizeAnswerText(answer);
+  const source = forStreaming
+    ? stripPartialTrailingMarkdown(safeAnswer)
+    : safeAnswer;
   const lines = source
     .split('\n')
     .map(line => line.trim())
@@ -175,8 +203,9 @@ export const parseMarkdownAnswer = (
  * Full markdown structure is applied only after the answer finishes.
  */
 export const getStreamingDisplayText = (text: string) => {
+  const safeText = sanitizeAnswerText(text);
   const cleaned = stripTrailingBoldMarkers(
-    stripPartialTrailingMarkdown(text),
+    stripPartialTrailingMarkdown(safeText),
   );
 
   return cleaned

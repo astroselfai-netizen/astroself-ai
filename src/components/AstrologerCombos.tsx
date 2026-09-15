@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import Toast from 'react-native-toast-message';
 import { icons } from '../assets';
 import { fontFamily, responsiveWidth } from '../constant/theme';
 import UserService from '../services/user/user.service';
@@ -26,12 +25,20 @@ import {
 const NAVY = '#1A3673';
 const GOLD = '#C5A370';
 
+const phaseIntroVisitCounts = new Map<string, number>();
+
+const shouldShowPhaseIntroForVisit = (key: string) => {
+  const nextCount = (phaseIntroVisitCounts.get(key) || 0) + 1;
+  phaseIntroVisitCounts.set(key, nextCount);
+  return nextCount === 1 || nextCount % 5 === 0;
+};
+
 export type PredictionMode = 'general' | 'personalized';
 
 export type ComboTab =
   | 'next_week'
   | 'transit_analysis'
-  | 'combinations'
+  | 'managing_relationships'
   | 'antar_dasha'
   | 'dos_donts'
   | 'the_inner_you';
@@ -41,7 +48,7 @@ export const GENERAL_COMBO_TAB_ORDER: ComboTab[] = [
   'transit_analysis',
   'dos_donts',
   'the_inner_you',
-  'combinations',
+  'managing_relationships',
 ];
 
 export const PERSONALIZED_COMBO_TAB_ORDER: ComboTab[] = [
@@ -106,7 +113,7 @@ type ComboDetailParams = {
     | 'antar_dasha'
     | 'dos_donts'
     | 'the_inner_you'
-    | 'combinations';
+    | 'managing_relationships';
   clientId?: string;
   heading?: string;
   bullets?: string[];
@@ -165,6 +172,33 @@ const formatDashaDateToken = (raw: string) => {
     return raw.trim();
   }
   return `${day} ${monthLabel} ${year}`;
+};
+
+const formatAdRangeDisplay = (antardasha?: DashaPeriodInfo | null) => {
+  if (!antardasha) {
+    return '';
+  }
+
+  const fromRaw =
+    antardasha.from ||
+    String(antardasha.dateRange || '').split(/\s*(?:→|->|to|—)\s*/i)[0] ||
+    '';
+  const toRaw =
+    antardasha.to ||
+    String(antardasha.dateRange || '').split(/\s*(?:→|->|to|—)\s*/i)[1] ||
+    '';
+
+  const from = String(fromRaw).trim().split(/\s+/)[0];
+  const to = String(toRaw).trim().split(/\s+/)[0];
+
+  if (from && to) {
+    return `${from} → ${to}`;
+  }
+
+  return String(antardasha.dateRange || '')
+    .replace(/\s+to\s+/gi, ' → ')
+    .replace(/\s*—\s*/g, ' → ')
+    .trim();
 };
 
 const formatDashaRangeForIntro = (dateRange?: string) => {
@@ -319,7 +353,7 @@ const AstrologerCombos = ({
       setInternalMode(newMode);
       onModeChange?.(newMode);
       if (newMode === 'personalized') {
-        if (comboTab === 'the_inner_you' || comboTab === 'combinations') {
+        if (comboTab === 'the_inner_you' || comboTab === 'managing_relationships') {
           setComboTab('next_week');
         }
       } else if (newMode === 'general') {
@@ -370,11 +404,19 @@ const AstrologerCombos = ({
     phase: cachedList?.phaseCurrentDate || '',
   });
   const [showPhaseIntroModal, setShowPhaseIntroModal] = useState(false);
+  const countedIntroKeyRef = useRef('');
+  const [refreshModal, setRefreshModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    isError: false,
+  });
+  const [countdown, setCountdown] = useState(30);
 
   const tabLabels = useMemo(
     () => ({
       next_week: `Next 7 Days (${nextWeekItems.length})`,
-      combinations: `Combinations (${combinationItems.length})`,
+      managing_relationships: `Managing Relationships (${combinationItems.length})`,
       antar_dasha: `Current Phase of Life (${activeComboItems.length})`,
       dos_donts: `Do's and Don'ts (${activityItems.length})`,
       transit_analysis: `Transit Predictions (${transitDetailItems.length})`,
@@ -416,7 +458,10 @@ const AstrologerCombos = ({
 
   const loadCombinations = useCallback(async (): Promise<CombinationListItem[]> => {
     try {
-      const response = await userService.getAstrologerCombinations(clientId, 'combinations');
+      const response = await userService.getAstrologerCombinations(
+        clientId,
+        'managing_relationships',
+      );
       const items = extractComboListFromResponse(response).map((item, index) =>
         mapComboListItem(item, index, 'combo'),
       );
@@ -678,8 +723,8 @@ const AstrologerCombos = ({
         return 'current_activity';
       case 'the_inner_you':
         return 'the_inner_you';
-      case 'combinations':
-        return 'combinations';
+      case 'managing_relationships':
+        return 'managing_relationships';
       default:
         return 'active_combinations';
     }
@@ -687,7 +732,7 @@ const AstrologerCombos = ({
 
   const handleRefreshItem = useCallback(
     async (item: CombinationListItem, tab: ComboTab) => {
-      if (!clientId || !item.heading) {
+      if (!clientId || !item.heading || refreshingItemId) {
         return;
       }
 
@@ -773,30 +818,39 @@ const AstrologerCombos = ({
         }
 
         const apiMessage = String(response?.message || '').trim();
-        Toast.show({
-          type: 'success',
-          text1: apiMessage || 'Prediction Refreshed',
-          text2: apiMessage ? undefined : `Refreshed "${item.heading}"`,
-          position: 'top',
-          topOffset: 60,
-          visibilityTime: apiMessage ? 3500 : 2500,
-          text1NumberOfLines: 3,
+        setRefreshModal({
+          visible: true,
+          title: 'Prediction Refreshed',
+          message: apiMessage || `Refreshed "${item.heading}"`,
+          isError: false,
         });
       } catch (err: any) {
-        Toast.show({
-          type: 'error',
-          text1: 'Refresh Failed',
-          text2: err?.message || 'Could not refresh prediction',
-          position: 'top',
-          topOffset: 60,
-          visibilityTime: 3000,
+        setRefreshModal({
+          visible: true,
+          title: 'Refresh Failed',
+          message: err?.message || 'Could not refresh prediction',
+          isError: true,
         });
       } finally {
         setRefreshingItemId(null);
       }
     },
-    [clientId, predictionMode, persistCombosCache, userService, nextWeekItems, activeComboItems, transitDetailItems, activityItems, innerYouItems],
+    [clientId, predictionMode, persistCombosCache, refreshingItemId, userService, nextWeekItems, activeComboItems, transitDetailItems, activityItems, innerYouItems],
   );
+
+  useEffect(() => {
+    if (!refreshingItemId) {
+      setCountdown(30);
+      return;
+    }
+
+    setCountdown(30);
+    const intervalId = setInterval(() => {
+      setCountdown(prev => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [refreshingItemId]);
 
   const handleRefresh = useCallback(async () => {
     if (!clientId) {
@@ -881,40 +935,25 @@ const AstrologerCombos = ({
   }, [antardasha, mahadasha]);
 
   useEffect(() => {
-    if (comboTab === 'antar_dasha' && phaseOfLifeIntro) {
-      setShowPhaseIntroModal(true);
+    if (comboTab !== 'antar_dasha' && comboTab !== 'transit_analysis') {
+      setShowPhaseIntroModal(false);
+      countedIntroKeyRef.current = '';
       return;
     }
-    if (comboTab === 'transit_analysis' && phaseOfLifeIntro) {
-      setShowPhaseIntroModal(true);
+
+    if (!phaseOfLifeIntro) {
+      setShowPhaseIntroModal(false);
       return;
     }
-    setShowPhaseIntroModal(false);
-  }, [comboTab, phaseOfLifeIntro, clientId]);
 
-  const renderCombinationsList = () => {
-    if (!combinationItems.length) {
-      return (
-        <Text style={[styles.emptyText, { color: textMuted }]}>
-          No combinations found
-        </Text>
-      );
+    const visitKey = `${clientId}:${predictionMode}:${comboTab}`;
+    if (countedIntroKeyRef.current === visitKey) {
+      return;
     }
 
-    return combinationItems.map((item, index) => (
-      <View
-        key={item.id}
-        style={[styles.numberedRow, { borderColor: cardBorder }]}
-      >
-        <View style={styles.numberBadge}>
-          <Text style={styles.numberBadgeText}>{index + 1}</Text>
-        </View>
-        <Text style={styles.numberedTitle} numberOfLines={4}>
-          {item.heading}
-        </Text>
-      </View>
-    ));
-  };
+    countedIntroKeyRef.current = visitKey;
+    setShowPhaseIntroModal(shouldShowPhaseIntroForVisit(visitKey));
+  }, [clientId, comboTab, phaseOfLifeIntro, predictionMode]);
 
   const renderDetailRow = (
     key: string,
@@ -1093,6 +1132,37 @@ const AstrologerCombos = ({
       );
     }
 
+    if (comboTab === 'managing_relationships') {
+      if (!combinationItems.length) {
+        return (
+          <Text style={[styles.emptyText, { color: textMuted }]}>
+            No Managing Relationships found
+          </Text>
+        );
+      }
+
+      return combinationItems.map(item =>
+        renderDetailRow(
+          item.id,
+          item.heading,
+          () =>
+            openDetail({
+              title: item.heading,
+              kind: 'managing_relationships',
+              clientId,
+              heading: item.heading,
+              mode: predictionMode,
+              insights: item.insights,
+              dataType: 'managing_relationships',
+              collection: item.collection,
+              pipeline: item.pipeline,
+            }),
+          () => handleRefreshItem(item, 'managing_relationships'),
+          refreshingItemId === item.id,
+        ),
+      );
+    }
+
     if (!activeComboItems.length) {
       return (
         <Text style={[styles.emptyText, { color: textMuted }]}>
@@ -1128,8 +1198,8 @@ const AstrologerCombos = ({
       ? 'Next 7 Days'
       : comboTab === 'transit_analysis'
       ? 'Transit Predictions'
-      : comboTab === 'combinations'
-        ? 'Combinations'
+      : comboTab === 'managing_relationships'
+        ? 'Managing Relationships'
         : comboTab === 'dos_donts'
           ? "Do's and Don'ts"
           : comboTab === 'the_inner_you'
@@ -1138,12 +1208,7 @@ const AstrologerCombos = ({
               ? 'Current Phase of Life'
               : 'Generic Prediction';
 
-  const phaseDateLabel = formatLongDate(
-    phaseCurrentDate ||
-      activityCurrentDate ||
-      antardasha?.from ||
-      antardasha?.dateRange?.split(/\s*(?:→|->|to)\s*/i)[0],
-  );
+  const adDateRange = formatAdRangeDisplay(antardasha);
   const transitDateLabel = formatLongDate(
     transitCurrentDate || activityCurrentDate,
   );
@@ -1155,12 +1220,6 @@ const AstrologerCombos = ({
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={NAVY} />
         </View>
-      );
-    }
-
-    if (comboTab === 'combinations') {
-      return (
-        <View style={styles.listScrollContent}>{renderCombinationsList()}</View>
       );
     }
 
@@ -1180,9 +1239,9 @@ const AstrologerCombos = ({
       <View style={styles.headerRow}>
         <View style={styles.headerTextWrap}>
           <Text style={[styles.title, { color: textPrimary }]}>{headerTitle}</Text>
-          {comboTab === 'antar_dasha' && phaseDateLabel ? (
+          {comboTab === 'antar_dasha' && adDateRange ? (
             <Text style={[styles.asOf, { color: textMuted }]}>
-              Predictions from {phaseDateLabel}
+              Predictions from {adDateRange}
             </Text>
           ) : comboTab === 'transit_analysis' && transitDateLabel ? (
             <Text style={[styles.asOf, { color: textPrimary }]}>
@@ -1214,6 +1273,8 @@ const AstrologerCombos = ({
       <ScrollView
         ref={tabsScrollRef}
         horizontal
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         showsHorizontalScrollIndicator={false}
         style={styles.tabScroll}
         contentContainerStyle={styles.tabRow}
@@ -1266,11 +1327,7 @@ const AstrologerCombos = ({
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
         >
-          {comboTab === 'combinations' ? (
-            renderCombinationsList()
-          ) : (
-            renderExpandableList()
-          )}
+          {renderExpandableList()}
         </ScrollView>
       )}
 
@@ -1368,6 +1425,78 @@ const AstrologerCombos = ({
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={Boolean(refreshingItemId)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.phaseModalOverlay}>
+          <View
+            style={[
+              styles.phaseModalCard,
+              styles.countdownModalCard,
+              {
+                backgroundColor: cardBg === '#FFFFFF' ? '#FFFFFF' : cardBg,
+                borderColor: cardBorder,
+              },
+            ]}
+          >
+            <ActivityIndicator size="large" color={textPrimary} />
+            <Text style={[styles.countdownValue, { color: textPrimary }]}>
+              {countdown}
+            </Text>
+            <Text style={[styles.countdownHint, { color: textMuted }]}>
+              Please wait while we prepare your prediction
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={refreshModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          setRefreshModal(current => ({ ...current, visible: false }))
+        }
+      >
+        <View style={styles.phaseModalOverlay}>
+          <View
+            style={[
+              styles.phaseModalCard,
+              {
+                backgroundColor: cardBg === '#FFFFFF' ? '#FFFFFF' : cardBg,
+                borderColor: cardBorder,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.phaseModalTitle,
+                { color: refreshModal.isError ? '#C2410C' : textPrimary },
+              ]}
+            >
+              {refreshModal.title}
+            </Text>
+            {refreshModal.message ? (
+              <Text style={[styles.phaseIntroText, { color: textPrimary }]}>
+                {refreshModal.message}
+              </Text>
+            ) : null}
+            <TouchableOpacity
+              style={styles.phaseModalBtn}
+              onPress={() =>
+                setRefreshModal(current => ({ ...current, visible: false }))
+              }
+              activeOpacity={0.85}
+            >
+              <Text style={styles.phaseModalBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1433,6 +1562,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: fontFamily.semiBold,
+  },
+  countdownModalCard: {
+    alignItems: 'center',
+    paddingVertical: 28,
+  },
+  countdownValue: {
+    fontSize: 28,
+    fontFamily: fontFamily.bold,
+    marginTop: 12,
+  },
+  countdownHint: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 6,
   },
   detailRow: {
     flexDirection: 'row',
@@ -1547,39 +1692,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: fontFamily.regular,
     lineHeight: 24,
-  },
-  numberedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 10,
-    width: '100%',
-    marginBottom: 10,
-  },
-  numberBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F4E4CC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  numberBadgeText: {
-    color: NAVY,
-    fontSize: 12,
-    fontFamily: fontFamily.semiBold,
-  },
-  numberedTitle: {
-    flex: 1,
-    flexShrink: 1,
-    fontSize: 13,
-    fontFamily: fontFamily.semiBold,
-    lineHeight: 18,
-    color: NAVY,
   },
   emptyText: {
     fontSize: 14,

@@ -32,6 +32,7 @@ import { mergeUserProfile } from '../../utils/userRole';
 import {
   getRazorpaySubscriptionPaymentFields,
 } from '../../utils/razorpayUpiOptions';
+import { resolveRazorpayKey } from '../../utils/razorpayKey';
 import {
   applyQuestionPriceToText,
   getPlanCurrencyTag,
@@ -48,10 +49,7 @@ type AstrologerRazorpayPaymentResponse = {
 };
 
 const RAZORPAY_CONFIG = {
-  TEST_KEY: 'rzp_test_Rueu06YDULsQCD',
-  LIVE_KEY: 'rzp_live_t11y7Cds0JWo47',
   PLAN_ID: 'd461266c-574b-4312-994a-ebd2b5cf6dc3',
-  IS_TEST_MODE: true,
 };
 
 const isRazorpayPaymentCancelled = (paymentError: {
@@ -794,11 +792,7 @@ const AstrologerPlanScreen = () => {
           let paymentResponse: AstrologerRazorpayPaymentResponse | null = null;
 
           if (checkoutSubscriptionId) {
-            const razorpayKey =
-              initiateResponse.razorpay_key ||
-              (RAZORPAY_CONFIG.IS_TEST_MODE
-                ? RAZORPAY_CONFIG.TEST_KEY
-                : RAZORPAY_CONFIG.LIVE_KEY);
+            const razorpayKey = resolveRazorpayKey(initiateResponse);
 
             if (!razorpayKey) {
               throw new Error('Razorpay key not received from server');
@@ -910,11 +904,7 @@ const AstrologerPlanScreen = () => {
         );
 
         
-        const razorpayKey =
-          subscriptionResponse.razorpay_key ||
-          (RAZORPAY_CONFIG.IS_TEST_MODE
-            ? RAZORPAY_CONFIG.TEST_KEY
-            : RAZORPAY_CONFIG.LIVE_KEY);
+        const razorpayKey = resolveRazorpayKey(subscriptionResponse);
 
         if (!razorpayKey) {
           throw new Error('Razorpay key not received from server');

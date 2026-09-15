@@ -1,11 +1,16 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import RenderHTML from 'react-native-render-html';
 import { fontFamily, responsiveWidth } from '../constant/theme';
 import {
   ChatSection,
   getStreamingDisplayText,
   parseMarkdownAnswer,
 } from '../utils/astrologerChatMarkdown';
+import {
+  isHtmlContent,
+  prepareChatHtmlContent,
+} from '../utils/astrologerHtmlContent';
 import FormattedMarkdownText from './FormattedMarkdownText';
 import TypewriterText from './TypewriterText';
 
@@ -54,6 +59,124 @@ const MarkdownSection = ({
   </View>
 );
 
+const HtmlAnswerBody = ({
+  source,
+  textColor,
+}: {
+  source: string;
+  textColor: string;
+}) => {
+  const { width } = useWindowDimensions();
+  const html = useMemo(() => prepareChatHtmlContent(source), [source]);
+  const contentWidth = Math.max(0, width - responsiveWidth('22'));
+
+  const htmlBaseStyle = useMemo(
+    () => ({
+      color: textColor,
+      fontSize: 14,
+      lineHeight: 21,
+      fontFamily: fontFamily.regular,
+    }),
+    [textColor],
+  );
+
+  const htmlTagsStyles = useMemo(
+    () => ({
+      h1: {
+        color: textColor,
+        fontSize: 16,
+        fontFamily: fontFamily.bold,
+        marginTop: 0,
+        marginBottom: 8,
+      },
+      h2: {
+        color: textColor,
+        fontSize: 15,
+        fontFamily: fontFamily.bold,
+        marginTop: 8,
+        marginBottom: 6,
+      },
+      h3: {
+        color: textColor,
+        fontSize: 14,
+        fontFamily: fontFamily.bold,
+        marginTop: 0,
+        marginBottom: 8,
+      },
+      p: {
+        color: textColor,
+        fontSize: 14,
+        lineHeight: 21,
+        fontFamily: fontFamily.regular,
+        marginTop: 0,
+        marginBottom: 8,
+      },
+      strong: {
+        color: textColor,
+        fontFamily: fontFamily.bold,
+      },
+      ol: {
+        marginTop: 4,
+        marginBottom: 8,
+        paddingLeft: 8,
+      },
+      ul: {
+        marginTop: 4,
+        marginBottom: 8,
+        paddingLeft: 8,
+      },
+      li: {
+        color: textColor,
+        fontSize: 14,
+        lineHeight: 21,
+        fontFamily: fontFamily.regular,
+        marginBottom: 6,
+      },
+    }),
+    [textColor],
+  );
+
+  const htmlRenderersProps = useMemo(
+    () => ({
+      ol: {
+        enableDynamicMarkerBoxWidth: true,
+        markerBoxStyle: {
+          paddingRight: 8,
+          alignItems: 'flex-end' as const,
+        },
+        markerTextStyle: {
+          fontSize: 14,
+          lineHeight: 21,
+          fontFamily: fontFamily.regular,
+          color: textColor,
+        },
+      },
+      ul: {
+        enableDynamicMarkerBoxWidth: true,
+      },
+    }),
+    [textColor],
+  );
+
+  if (!html) {
+    return null;
+  }
+
+  return (
+    <View style={styles.bodyWrap}>
+      <RenderHTML
+        contentWidth={contentWidth}
+        source={{ html }}
+        baseStyle={htmlBaseStyle}
+        tagsStyles={htmlTagsStyles as any}
+        renderersProps={htmlRenderersProps}
+        defaultTextProps={{ selectable: false }}
+        systemFonts={[fontFamily.regular, fontFamily.bold, fontFamily.semiBold]}
+      />
+    </View>
+  );
+};
+
 const MarkdownAnswerBody = ({
   source,
   textColor,
@@ -65,6 +188,10 @@ const MarkdownAnswerBody = ({
 
   if (!source.trim()) {
     return null;
+  }
+
+  if (isHtmlContent(source)) {
+    return <HtmlAnswerBody source={source} textColor={textColor} />;
   }
 
   return (
@@ -90,43 +217,47 @@ export const MarkdownAnswer = ({
   textColor: string;
 }) => <MarkdownAnswerBody source={text} textColor={textColor} />;
 
-/**
- * Smooth typewriter while streaming.
- * Avoids full markdown re-parse on each tick (that caused blank/flicker).
- */
 const StreamingMarkdownAnswer = ({
   text,
   active = true,
   textColor,
   onProgress,
   onComplete,
-}: StreamingMarkdownAnswerProps) => (
-  <TypewriterText
-    text={text}
-    active={active}
-    onProgress={onProgress}
-    onComplete={onComplete}
-    renderContent={visibleText => {
-      const display = getStreamingDisplayText(visibleText);
-      const withCaret = active ? `${display}|` : display;
-      if (!withCaret.trim() || withCaret === '|') {
-        return (
-          <Text style={[styles.streamingText, { color: textColor, opacity: 0.55 }]}>
-            |
-          </Text>
-        );
-      }
+}: StreamingMarkdownAnswerProps) => {
+  const htmlSource = isHtmlContent(text);
 
-      return (
-        <FormattedMarkdownText
-          text={withCaret}
-          color={textColor}
-          style={styles.streamingText}
-        />
-      );
-    }}
-  />
-);
+  if (htmlSource) {
+    return <HtmlAnswerBody source={text} textColor={textColor} />;
+  }
+
+  return (
+    <TypewriterText
+      text={text}
+      active={active}
+      onProgress={onProgress}
+      onComplete={onComplete}
+      renderContent={visibleText => {
+        const display = getStreamingDisplayText(visibleText);
+        const withCaret = active ? `${display}|` : display;
+        if (!withCaret.trim() || withCaret === '|') {
+          return (
+            <Text style={[styles.streamingText, { color: textColor, opacity: 0.55 }]}>
+              |
+            </Text>
+          );
+        }
+
+        return (
+          <FormattedMarkdownText
+            text={withCaret}
+            color={textColor}
+            style={styles.streamingText}
+          />
+        );
+      }}
+    />
+  );
+};
 
 const styles = StyleSheet.create({
   bodyWrap: {

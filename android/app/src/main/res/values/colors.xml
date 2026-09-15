@@ -11,5 +11,6 @@
     <color name="custom_picker_selected_date">#DF8A5D</color>
     <color name="custom_picker_selected_text">#FFFFFF</color>
     <color name="custom_picker_weekday_text">#FFFFFF</color>
+    <color name="notification_accent">#1A3673</color>
 </resources>
 

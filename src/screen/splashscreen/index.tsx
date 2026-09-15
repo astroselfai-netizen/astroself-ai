@@ -1,8 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Image, ImageBackground } from 'react-native';
+import { StyleSheet, ImageBackground, StatusBar, Text, View } from 'react-native';
 import { NavigationProp, StackActions } from '@react-navigation/native';
 
-import { responsiveHeight, responsiveWidth } from '../../constant/theme';
+import {
+  fontFamily,
+  responsiveHeight,
+  responsiveWidth,
+} from '../../constant/theme';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
@@ -10,8 +14,7 @@ import { RootState } from '../../state/store';
 import { isAstrologerUser } from '../../utils/userRole';
 import UserService from '../../services/user/user.service';
 import { resolveAstrologerPostAuthScreen } from '../../utils/resolveAstrologerPostAuthNavigation';
-// import Icon from '../../assets/svgs/icBall.svg';
-// import { useTranslation } from 'react-i18next';
+import { navigationRef } from '../../utils/navigationRef';
 
 type RootStackParamList = {
   Login: undefined;
@@ -20,11 +23,27 @@ type RootStackParamList = {
   AddNewMember: undefined;
 };
 
+const GOLD = '#C8A165';
+
 const SplashScreen = () => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const membersData = useSelector((state: RootState) => state.app.members);
   const user = useSelector((state: RootState) => state.app.user);
   const hasNavigatedRef = useRef(false);
+  const splashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const shouldSkipSplashAutoNavigation = () => {
+    if (hasNavigatedRef.current) {
+      return true;
+    }
+    if (navigationRef.isReady()) {
+      const current = navigationRef.getCurrentRoute()?.name;
+      if (current && current !== 'SplashScreen') {
+        return true;
+      }
+    }
+    return false;
+  };
 
   useEffect(() => {
     const checkUserData = async () => {
@@ -37,8 +56,9 @@ const SplashScreen = () => {
         const userDataString = await AsyncStorage.getItem('USER_DATA');
         const storedUser = userDataString ? JSON.parse(userDataString) : null;
 
-        setTimeout(async () => {
-          if (hasNavigatedRef.current) {
+        splashTimerRef.current = setTimeout(async () => {
+          if (shouldSkipSplashAutoNavigation()) {
+            hasNavigatedRef.current = true;
             return;
           }
 
@@ -110,31 +130,51 @@ const SplashScreen = () => {
             hasNavigatedRef.current = true;
             navigation.dispatch(StackActions.replace('Login'));
           }
-        }, 500);
+        }, 2200);
       } catch (error) {
         console.error('Error checking auth:', error);
-        setTimeout(() => {
-          if (!hasNavigatedRef.current) {
+        splashTimerRef.current = setTimeout(() => {
+          if (shouldSkipSplashAutoNavigation()) {
             hasNavigatedRef.current = true;
-            navigation.dispatch(StackActions.replace('Login'));
+            return;
           }
-        }, 1000);
+          hasNavigatedRef.current = true;
+          navigation.dispatch(StackActions.replace('Login'));
+        }, 2200);
       }
     };
 
     checkUserData();
+
+    return () => {
+      if (splashTimerRef.current) {
+        clearTimeout(splashTimerRef.current);
+        splashTimerRef.current = null;
+      }
+    };
   }, [navigation, membersData, user]);
 
   return (
     <ImageBackground
       source={require('../../assets/image/DarkBackground.png')}
-      // blurRadius={12}
       style={style.SplashScreenPicContainer}
     >
-      <Image
-        source={require('../../assets/icons/Subtract-dark.png')}
-        style={[style.SubtractIcon]}
-      />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <View style={style.content}>
+        <View style={style.badge}>
+          <Text style={style.badgeText}>CALM YOUR NERVES AND ENJOY YOUR LIFE</Text>
+        </View>
+
+        <Text style={style.headline}>
+          Astrodha<Text style={style.headlineGold}>.AI</Text>
+          {' - KNOW\nTHE TIMING OF EVENTS\nYOU ARE EXPECTING'}
+        </Text>
+
+        <Text style={style.subtext}>
+          A next-generation AI-powered workspace that helps you ask questions
+          about life events.
+        </Text>
+      </View>
     </ImageBackground>
   );
 };
@@ -145,14 +185,47 @@ const style = StyleSheet.create({
     width: responsiveWidth('100%'),
     alignItems: 'center',
     justifyContent: 'center',
-    // resizeMode: 'contain',
-    // transform: [{ rotate: "340deg" }],
   },
-  SubtractIcon: {
-    height: responsiveWidth(20),
-    width: responsiveWidth(70),
-    resizeMode: 'contain',
-    tintColor: 'white',
+  content: {
+    width: '100%',
+    paddingHorizontal: responsiveWidth('7'),
+    alignItems: 'center',
+  },
+  badge: {
+    borderWidth: 1,
+    borderColor: GOLD,
+    borderRadius: 50,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: responsiveHeight('4'),
+  },
+  badgeText: {
+    color: GOLD,
+    fontSize: 10,
+    fontFamily: fontFamily.medium,
+    letterSpacing: 1.2,
+    textAlign: 'center',
+  },
+  headline: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    lineHeight: 36,
+    fontFamily: fontFamily.bold,
+    textAlign: 'center',
+    letterSpacing: 0.4,
+  },
+  headlineGold: {
+    color: GOLD,
+    fontFamily: fontFamily.bold,
+  },
+  subtext: {
+    marginTop: responsiveHeight('2.5'),
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 14,
+    lineHeight: 21,
+    fontFamily: fontFamily.regular,
+    textAlign: 'center',
+    maxWidth: responsiveWidth('82'),
   },
 });
 
