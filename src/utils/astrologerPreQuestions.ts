@@ -1,8 +1,16 @@
+export type PreQuestionChildContent = {
+  heading: string;
+  description: string;
+};
+
 export type PreQuestionItem = {
   id: string;
   heading: string;
   collection: string;
   pipeline: Array<Record<string, unknown>>;
+  description?: string;
+  source?: string;
+  children?: PreQuestionChildContent[];
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
@@ -81,6 +89,7 @@ export const extractGetContentAnswer = (payload: unknown): string => {
   const direct =
     asString(obj.answer) ||
     asString(obj.insights) ||
+    asString(obj.description) ||
     asString(obj.content) ||
     asString(obj.text);
   if (direct) {
@@ -264,6 +273,112 @@ const isCompositeNode = (value: unknown) => {
   );
 };
 
+const extractChildContents = (
+  pipeline: Array<Record<string, unknown>>,
+): PreQuestionChildContent[] =>
+  pipeline
+    .map(node => {
+      if (!isCompositeNode(node) || isMongoStage(node)) {
+        return null;
+      }
+      const record = asRecord(node);
+      if (!record) {
+        return null;
+      }
+      const heading = asString(record.heading || record.title);
+      const description =
+        asString(record.description) || normalizeDetails(record.details);
+      if (!heading || !description) {
+        return null;
+      }
+      return { heading, description };
+    })
+    .filter((item): item is PreQuestionChildContent => Boolean(item));
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Backend composite get-content sometimes returns "No matching data found." for a
+ * nested section even when suggested_questions already has that section's HTML
+ * description. Prefer the description so mobile matches web/history content.
+ */
+export const fillMissingGetContentSections = (
+  answer: string,
+  item: PreQuestionItem,
+): string => {
+  if (!answer?.trim()) {
+    return item.description || '';
+  }
+
+  if (!/no matching data found/i.test(answer)) {
+    return answer;
+  }
+
+  let result = answer;
+  const children =
+    item.children ||
+    extractChildContents(
+      Array.isArray(item.pipeline)
+        ? (item.pipeline as Array<Record<string, unknown>>)
+        : [],
+    );
+
+  children.forEach(child => {
+    const heading = escapeRegExp(child.heading);
+    const patterns = [
+      new RegExp(
+        `(##\\s*\\*{0,2}\\s*${heading}\\s*\\*{0,2}\\s*\\n+)(?:<p[^>]*>\\s*)?No matching data found\\.?\\s*(?:</p>)?`,
+        'i',
+      ),
+      new RegExp(
+        `(<h[1-6][^>]*>\\s*${heading}\\s*</h[1-6]>\\s*)(?:<p[^>]*>\\s*)?No matching data found\\.?\\s*(?:</p>)?`,
+        'i',
+      ),
+    ];
+
+    for (const pattern of patterns) {
+      if (pattern.test(result)) {
+        result = result.replace(pattern, `$1${child.description}\n\n`);
+        break;
+      }
+    }
+  });
+
+  // If still only missing placeholders and we have a top-level description, use it.
+  if (
+    /no matching data found/i.test(result) &&
+    item.description &&
+    result.replace(/no matching data found\.?/gi, '').trim().length < 40
+  ) {
+    return item.description;
+  }
+
+  return result;
+};
+
+export const buildAnswerFromPreQuestionDescriptions = (
+  item: PreQuestionItem,
+): string => {
+  const children =
+    item.children ||
+    extractChildContents(
+      Array.isArray(item.pipeline)
+        ? (item.pipeline as Array<Record<string, unknown>>)
+        : [],
+    );
+
+  if (children.length > 0) {
+    const parts = [`## **${item.heading}**`];
+    children.forEach(child => {
+      parts.push(`## **${child.heading}**\n${child.description}`);
+    });
+    return parts.join('\n\n');
+  }
+
+  return item.description || '';
+};
+
 export const extractPreQuestionItems = (response: unknown): PreQuestionItem[] =>
   extractList(response)
     .map((item, index) => {
@@ -279,11 +394,20 @@ export const extractPreQuestionItems = (response: unknown): PreQuestionItem[] =>
       if (!heading || !collection || pipeline.length === 0) {
         return null;
       }
+      const description =
+        asString(item.description) ||
+        asString(nested?.description) ||
+        normalizeDetails(item.details) ||
+        normalizeDetails(nested?.details);
+      const children = extractChildContents(pipeline);
       return {
         id: `${collection}-${heading}-${index}`,
         heading,
         collection,
         pipeline,
+        description: description || undefined,
+        source: asString(item.source) || undefined,
+        children: children.length > 0 ? children : undefined,
       };
     })
     .filter((item): item is PreQuestionItem => Boolean(item));
@@ -291,7 +415,19 @@ export const extractPreQuestionItems = (response: unknown): PreQuestionItem[] =>
 export const buildPreQuestionStreamPayload = (
   item: PreQuestionItem,
   clientId: string,
-): { collection: string; pipeline: Array<Record<string, unknown>> } => {
+  options?: {
+    astrologerId?: string;
+    conversationId?: string;
+  },
+): {
+  collection: string;
+  pipeline: Array<Record<string, unknown>>;
+  user_id: string;
+  heading: string;
+  source: string;
+  conversation_id: string;
+  astrologer_id: string;
+} => {
   const patched = patchPipelineUserId(
     {
       heading: item.heading,
@@ -312,15 +448,16 @@ export const buildPreQuestionStreamPayload = (
     !isMongoStage(first) &&
     asString(asRecord(first)?.heading) === patched.heading;
 
-  if (alreadyWrapped) {
-    return {
-      collection: patched.collection,
-      pipeline: patched.pipeline,
-    };
-  }
+  const collection = patched.collection;
+  const pipeline = alreadyWrapped ? patched.pipeline : [patched];
 
   return {
-    collection: patched.collection,
-    pipeline: [patched],
+    collection,
+    pipeline,
+    user_id: clientId,
+    heading: patched.heading,
+    source: item.source || 'pre_question',
+    conversation_id: options?.conversationId || '',
+    astrologer_id: options?.astrologerId || '',
   };
 };

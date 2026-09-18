@@ -1,6 +1,11 @@
-export const isHtmlContent = (value: string) =>
-  /<\/?[a-z][\s\S]*>/i.test(value || '');
-
+export const isHtmlContent = (value: string) => {
+  const text = value || '';
+  if (/<\/?[a-z][\s\S]*>/i.test(text)) {
+    return true;
+  }
+  // History / API sometimes stores escaped tags like &lt;p&gt;
+  return /&lt;\/?[a-z][\s\S]*?&gt;/i.test(text);
+};
 const escapeHtml = (value: string) =>
   value
     .replace(/&/g, '&amp;')

@@ -426,6 +426,29 @@ const isAstrologerDisplayPlan = (item: unknown): item is PlanApiItem => {
 const getPlanLabel = (plan: PlanApiItem | null, fallback: string) =>
   (plan?.featuresTitle || plan?.title || fallback).toUpperCase();
 
+/** Matches web: paid cards append these after API richContent list items. */
+const getPaidPlanSharedFeatureExtras = (plan: PlanApiItem): string[] => {
+  const firstFeature = plan.features?.[0];
+  const firstListItem = extractListItemsFromHtml(
+    firstFeature?.richContent || '',
+  )[0];
+  const source = `${firstFeature?.title || ''} ${firstListItem || ''}`;
+  const match = source.match(/\d+/);
+  const memberCount = match ? Number(match[0]) : null;
+  const membersLine = memberCount
+    ? `All features in the Free Plan for ${memberCount} ${
+        memberCount === 1 ? 'member' : 'members'
+      }`
+    : 'All features in the Free Plan';
+
+  return [
+    membersLine,
+    'Get personalised predictions and manifestations based on the details shared by you',
+    'Update your details once every month',
+    "Get refreshed guidance on Do's and Don'ts",
+  ];
+};
+
 const getPlanFeatureItems = (
   plan: PlanApiItem | null,
   fallback: string[],
@@ -467,6 +490,15 @@ const getPlanFeatureItems = (
       );
     }
   });
+
+  if (isPaidPlan(plan)) {
+    getPaidPlanSharedFeatureExtras(plan).forEach(extra => {
+      const normalized = extra.toLowerCase();
+      if (!items.some(item => item.toLowerCase() === normalized)) {
+        items.push(extra);
+      }
+    });
+  }
 
   return items.length > 0 ? items : fallback;
 };

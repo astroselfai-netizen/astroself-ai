@@ -289,6 +289,12 @@ export const streamAstrologerChat = async (
   xhr.setRequestHeader('Authorization', `Bearer ${token}`);
   xhr.setRequestHeader('Accept', 'text/event-stream');
 
+  console.log('[AstrologerChat] POST /astrologer/chat payload:', payload);
+  console.log(
+    '[AstrologerChat] POST /astrologer/chat payload JSON:',
+    JSON.stringify(payload, null, 2),
+  );
+
   xhr.onprogress = () => {
     const fullText = xhr.responseText;
     const chunk = fullText.slice(processedLength);
@@ -334,6 +340,11 @@ export const streamAstrologerChat = async (
 export type AstrologerGetContentPayload = {
   collection: string;
   pipeline: Array<Record<string, unknown>>;
+  user_id?: string;
+  heading?: string;
+  source?: string;
+  conversation_id?: string;
+  astrologer_id?: string;
 };
 
 const emitGetContentPayload = (
@@ -513,6 +524,15 @@ export const streamAstrologerGetContent = async (
   xhr.setRequestHeader('Content-Type', 'application/json');
   xhr.setRequestHeader('Authorization', `Bearer ${token}`);
   xhr.setRequestHeader('Accept', 'text/event-stream');
+
+  console.log(
+    '[AstrologerChat] POST /astrologer/get-content/stream payload:',
+    payload,
+  );
+  console.log(
+    '[AstrologerChat] POST /astrologer/get-content/stream payload JSON:',
+    JSON.stringify(payload, null, 2),
+  );
 
   xhr.onprogress = () => {
     const fullText = xhr.responseText || '';

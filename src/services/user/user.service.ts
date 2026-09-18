@@ -1374,6 +1374,7 @@ export default class UserService extends Service {
       | 'the_inner_you'
       | 'next_week'
       | 'pre_question'
+      | 'suggested_questions'
       | string,
   ): Promise<{
     status: boolean;

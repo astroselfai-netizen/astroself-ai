@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   BackHandler,
-  Easing,
   FlatList,
   Image,
   ImageBackground,
@@ -68,9 +66,11 @@ import { icons } from '../../assets';
 import { resolveBottomSafeInset } from '../../utils/safeAreaInsets';
 import { mergeUserProfile } from '../../utils/userRole';
 import {
+  buildAnswerFromPreQuestionDescriptions,
   buildPreQuestionStreamPayload,
   extractGetContentAnswer,
   extractPreQuestionItems,
+  fillMissingGetContentSections,
   PreQuestionItem,
 } from '../../utils/astrologerPreQuestions';
 import { getAssistantShareText } from '../../utils/astrologerChatShare';
@@ -291,7 +291,9 @@ const mapChatHistoryToMessages = (
 
   sorted.forEach((item, index) => {
     const timeLabel = formatHistoryTimeLabel(item.created_at);
-    const parsed = parseMarkdownAnswer(item.answer);
+    const answer = sanitizeAnswerText(item.answer || '');
+    const htmlAnswer = isHtmlContent(answer);
+    const parsed = answer && !htmlAnswer ? parseMarkdownAnswer(answer) : null;
     const messageKey = `${item.conversation_id}-${item.created_at}-${index}`;
 
     messages.push({
@@ -305,9 +307,10 @@ const mapChatHistoryToMessages = (
       id: `${messageKey}-assistant`,
       type: 'assistant',
       timeLabel,
-      title: parsed.title,
-      sections: parsed.sections,
-      rawText: item.answer,
+      title: parsed?.title || '',
+      sections: htmlAnswer ? [] : parsed?.sections || [],
+      streamingText: htmlAnswer ? answer : undefined,
+      rawText: answer,
       isStreaming: false,
     });
   });
@@ -364,10 +367,10 @@ const SUGGESTION_ROW_GAP = 8;
 
 type SuggestionItem = { id: string; heading: string };
 
+const SUGGESTION_SCROLL_STEP = 160;
+
 type SuggestionMarqueeRowProps = {
   items: SuggestionItem[];
-  direction: 'rtl' | 'ltr';
-  paused: boolean;
   disabled?: boolean;
   onSelect: (id: string) => void;
   chipBg: string;
@@ -378,8 +381,6 @@ type SuggestionMarqueeRowProps = {
 
 const SuggestionMarqueeRow = ({
   items,
-  direction,
-  paused,
   disabled = false,
   onSelect,
   chipBg,
@@ -387,111 +388,112 @@ const SuggestionMarqueeRow = ({
   textColor,
   starColor,
 }: SuggestionMarqueeRowProps) => {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
-  const loopWidthRef = useRef(0);
-  const [rowWidth, setRowWidth] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollXRef = useRef(0);
+  const contentWidthRef = useRef(0);
+  const viewportWidthRef = useRef(0);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const stopMarquee = useCallback(() => {
-    animationRef.current?.stop();
-    animationRef.current = null;
+  const updateScrollEdges = useCallback((x: number) => {
+    const maxOffset = Math.max(
+      0,
+      contentWidthRef.current - viewportWidthRef.current,
+    );
+    scrollXRef.current = x;
+    setCanScrollLeft(x > 2);
+    setCanScrollRight(x < maxOffset - 2);
   }, []);
 
-  const startMarquee = useCallback(
-    (width: number) => {
-      if (width <= 8) {
-        return;
-      }
-      if (Math.abs(width - loopWidthRef.current) < 1 && animationRef.current) {
-        return;
-      }
-
-      loopWidthRef.current = width;
-      stopMarquee();
-      const isRtl = direction === 'rtl';
-      translateX.setValue(isRtl ? 0 : -width);
-      const animation = Animated.loop(
-        Animated.timing(translateX, {
-          toValue: isRtl ? -width : 0,
-          duration: Math.max(16000, width * 22),
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-      );
-      animationRef.current = animation;
-      animation.start();
-    },
-    [direction, stopMarquee, translateX],
-  );
-
-  useEffect(() => {
-    if (paused || rowWidth <= 8) {
-      stopMarquee();
-      if (rowWidth <= 8) {
-        translateX.setValue(0);
-      }
-      loopWidthRef.current = 0;
-      return;
-    }
-    startMarquee(rowWidth);
-  }, [paused, rowWidth, startMarquee, stopMarquee, translateX]);
-
-  useEffect(() => {
-    return () => {
-      stopMarquee();
-    };
-  }, [stopMarquee]);
-
-  const renderChips = (keyPrefix: string) =>
-    items.map((suggestion, index) => (
-      <TouchableOpacity
-        key={`${keyPrefix}-${suggestion.id}-${index}`}
-        style={[
-          styles.suggestionChip,
-          {
-            backgroundColor: chipBg,
-            borderColor: chipBorder,
-          },
-        ]}
-        onPress={() => onSelect(suggestion.id)}
-        activeOpacity={0.8}
-        disabled={disabled}
-      >
-        <Text style={[styles.suggestionStar, { color: starColor }]}>✦</Text>
-        <Text
-          style={[styles.suggestionText, { color: textColor }]}
-          numberOfLines={1}
-        >
-          {suggestion.heading}
-        </Text>
-      </TouchableOpacity>
-    ));
+  const scrollBy = (direction: -1 | 1) => {
+    const maxOffset = Math.max(
+      0,
+      contentWidthRef.current - viewportWidthRef.current,
+    );
+    const nextX = Math.max(
+      0,
+      Math.min(maxOffset, scrollXRef.current + direction * SUGGESTION_SCROLL_STEP),
+    );
+    scrollRef.current?.scrollTo({ x: nextX, animated: true });
+    updateScrollEdges(nextX);
+  };
 
   return (
-    <View style={styles.suggestionRowViewport}>
-      <View style={styles.suggestionMeasureHost} pointerEvents="none">
-        <View
-          style={styles.suggestionMeasureRow}
-          onLayout={event => {
-            const width = event.nativeEvent.layout.width;
-            setRowWidth(prev => (Math.abs(prev - width) < 1 ? prev : width));
-          }}
-        >
-          {renderChips('measure')}
-        </View>
-      </View>
-      {rowWidth > 8 ? (
-        <Animated.View
-          style={[styles.suggestionTrack, { transform: [{ translateX }] }]}
-        >
-          <View style={styles.suggestionSingleRow}>{renderChips('a')}</View>
-          <View style={styles.suggestionSingleRow} pointerEvents="none">
-            {renderChips('b')}
-          </View>
-        </Animated.View>
-      ) : (
-        <View style={styles.suggestionSingleRow}>{renderChips('static')}</View>
-      )}
+    <View style={styles.suggestionRowShell}>
+      <TouchableOpacity
+        style={[
+          styles.suggestionNavBtn,
+          { borderColor: chipBorder, backgroundColor: chipBg },
+          !canScrollLeft ? styles.suggestionNavBtnDisabled : null,
+        ]}
+        onPress={() => scrollBy(-1)}
+        disabled={!canScrollLeft}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel="Scroll suggestions left"
+      >
+        <Text style={[styles.suggestionNavBtnText, { color: textColor }]}>‹</Text>
+      </TouchableOpacity>
+
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.suggestionRowViewport}
+        contentContainerStyle={styles.suggestionScrollContent}
+        onLayout={event => {
+          viewportWidthRef.current = event.nativeEvent.layout.width;
+          updateScrollEdges(scrollXRef.current);
+        }}
+        onContentSizeChange={width => {
+          contentWidthRef.current = width;
+          updateScrollEdges(scrollXRef.current);
+        }}
+        onScroll={event => {
+          updateScrollEdges(event.nativeEvent.contentOffset.x);
+        }}
+        scrollEventThrottle={16}
+      >
+        {items.map((suggestion, index) => (
+          <TouchableOpacity
+            key={`${suggestion.id}-${index}`}
+            style={[
+              styles.suggestionChip,
+              {
+                backgroundColor: chipBg,
+                borderColor: chipBorder,
+              },
+              disabled ? styles.suggestionChipDisabled : null,
+            ]}
+            onPress={() => onSelect(suggestion.id)}
+            activeOpacity={0.8}
+            disabled={disabled}
+          >
+            <Text style={[styles.suggestionStar, { color: starColor }]}>✦</Text>
+            <Text
+              style={[styles.suggestionText, { color: textColor }]}
+              numberOfLines={1}
+            >
+              {suggestion.heading}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <TouchableOpacity
+        style={[
+          styles.suggestionNavBtn,
+          { borderColor: chipBorder, backgroundColor: chipBg },
+          !canScrollRight ? styles.suggestionNavBtnDisabled : null,
+        ]}
+        onPress={() => scrollBy(1)}
+        disabled={!canScrollRight}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel="Scroll suggestions right"
+      >
+        <Text style={[styles.suggestionNavBtnText, { color: textColor }]}>›</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -518,7 +520,6 @@ const SuggestionMarquee = ({
   wrapBg,
 }: SuggestionMarqueeProps) => {
   const [hidden, setHidden] = useState(false);
-  const [paused, setPaused] = useState(false);
 
   if (items.length === 0) {
     return null;
@@ -533,44 +534,21 @@ const SuggestionMarquee = ({
             TRY ASKING
           </Text>
         </View>
-        <View style={styles.suggestionHeaderActions}>
-          {hidden ? null : (
-            <TouchableOpacity
-              onPress={() => setPaused(value => !value)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={paused ? 'Play suggestions' : 'Pause suggestions'}
-            >
-              {paused ? (
-                <Text style={[styles.suggestionHeaderAction, { color: textColor }]}>
-                  ▶
-                </Text>
-              ) : (
-                <View style={styles.suggestionPauseIcon}>
-                  <View style={[styles.suggestionPauseBar, { backgroundColor: textColor }]} />
-                  <View style={[styles.suggestionPauseBar, { backgroundColor: textColor }]} />
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={() => setHidden(value => !value)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={hidden ? 'Show suggestions' : 'Hide suggestions'}
-          >
-            <Text style={[styles.suggestionHeaderAction, { color: textColor }]}>
-              {hidden ? 'Show ▾' : 'Hide ▾'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => setHidden(value => !value)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={hidden ? 'Show suggestions' : 'Hide suggestions'}
+        >
+          <Text style={[styles.suggestionHeaderAction, { color: textColor }]}>
+            {hidden ? 'Show ▾' : 'Hide ▾'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {hidden ? null : (
         <SuggestionMarqueeRow
           items={items}
-          direction="rtl"
-          paused={paused}
           disabled={disabled}
           onSelect={onSelect}
           chipBg={chipBg}
@@ -593,6 +571,7 @@ const AstrologerClientChatScreen = () => {
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const inputRef = useRef<TextInput>(null);
   const chatAbortRef = useRef<(() => void) | null>(null);
+  const suggestionsBusyRef = useRef(false);
   const historyRequestIdRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
   const lastLayoutRevisionRef = useRef(0);
@@ -666,6 +645,24 @@ const AstrologerClientChatScreen = () => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const isKeyboardVisibleRef = useRef(false);
   const [preQuestions, setPreQuestions] = useState<PreQuestionItem[]>([]);
+  const areSuggestionsDisabled = useMemo(
+    () =>
+      isSending ||
+      historyLoading ||
+      messages.some(
+        message =>
+          message.type === 'assistant' &&
+          (Boolean(message.isStreaming) || Boolean(message.showThinking)),
+      ),
+    [historyLoading, isSending, messages],
+  );
+
+  useEffect(() => {
+    if (!areSuggestionsDisabled) {
+      suggestionsBusyRef.current = false;
+    }
+  }, [areSuggestionsDisabled]);
+
   const astrologerQuestionBalance = Math.max(
     0,
     Math.floor(Number((user as Record<string, unknown> | undefined)?.question_count ?? 0)),
@@ -1313,7 +1310,7 @@ const AstrologerClientChatScreen = () => {
       try {
         const response = await userService.getAstrologerCombinations(
           activeClientId,
-          'pre_question',
+          'suggested_questions',
         );
         if (!cancelled) {
           setPreQuestions(extractPreQuestionItems(response));
@@ -1644,15 +1641,19 @@ const AstrologerClientChatScreen = () => {
     setTimeout(() => scrollToBottom(true), 230);
 
     chatAbortRef.current?.();
-    chatAbortRef.current = await streamAstrologerChat(
-      {
-        user_id: activeClientId,
-        astrologer_id: astrologerId,
-        // inr_budget: astrologerInrBudget,
-        question: trimmed,
-        conversation_id: conversationId,
-      },
-      {
+    const chatPayload = {
+      user_id: activeClientId,
+      astrologer_id: astrologerId,
+      // inr_budget: astrologerInrBudget,
+      question: trimmed,
+      conversation_id: conversationId,
+    };
+    console.log('[AstrologerChat] handleSend payload:', chatPayload);
+    console.log(
+      '[AstrologerChat] handleSend payload JSON:',
+      JSON.stringify(chatPayload, null, 2),
+    );
+    chatAbortRef.current = await streamAstrologerChat(chatPayload, {
         onNodeUpdate: (node, status) => {
           const now = Date.now();
           if (status !== 'completed' && now - streamStateRef.current.lastNodeUpdateAt < 150) {
@@ -1690,9 +1691,16 @@ const AstrologerClientChatScreen = () => {
 
   const handleSelectPreQuestion = async (questionId: string) => {
     const item = preQuestions.find(question => question.id === questionId);
-    if (!item || isSending || historyLoading) {
+    if (
+      !item ||
+      suggestionsBusyRef.current ||
+      areSuggestionsDisabled ||
+      !activeClientId
+    ) {
       return;
     }
+
+    suggestionsBusyRef.current = true;
 
     const userMessageId = `${Date.now()}-user`;
     const assistantMessageId = `${Date.now()}-assistant`;
@@ -1726,9 +1734,27 @@ const AstrologerClientChatScreen = () => {
 
     let didFinalize = false;
     chatAbortRef.current?.();
-    chatAbortRef.current = await streamAstrologerGetContent(
-      buildPreQuestionStreamPayload(item, activeClientId),
-      {
+    const streamPayload = buildPreQuestionStreamPayload(item, activeClientId, {
+      astrologerId: String(astrologerId || ''),
+      conversationId: conversationId || '',
+    });
+    const finalizePreQuestionAnswer = (rawAnswer: string) => {
+      const filled = fillMissingGetContentSections(rawAnswer, item);
+      const answer =
+        filled.trim() ||
+        buildAnswerFromPreQuestionDescriptions(item) ||
+        item.description ||
+        '';
+      if (!answer.trim()) {
+        return false;
+      }
+      finalizeAssistantMessage(assistantMessageId, {
+        title: item.heading,
+        answer,
+      });
+      return true;
+    };
+    chatAbortRef.current = await streamAstrologerGetContent(streamPayload, {
         onNodeUpdate: (node, status) => {
           const now = Date.now();
           if (status !== 'completed' && now - streamStateRef.current.lastNodeUpdateAt < 150) {
@@ -1748,15 +1774,13 @@ const AstrologerClientChatScreen = () => {
           if (!answer.trim()) {
             return;
           }
-          didFinalize = true;
-          finalizeAssistantMessage(assistantMessageId, {
-            ...finalData,
-            title: finalData.title || item.heading,
-            answer,
-          });
+          didFinalize = finalizePreQuestionAnswer(answer);
         },
         onError: error => {
           clearStreamingBuffer(assistantMessageId);
+          if (finalizePreQuestionAnswer('')) {
+            return;
+          }
           updateAssistantMessage(assistantMessageId, message => ({
             ...message,
             showThinking: false,
@@ -1779,24 +1803,19 @@ const AstrologerClientChatScreen = () => {
           const buffered =
             streamStateRef.current.buffers[assistantMessageId] || '';
           if (buffered.trim()) {
-            finalizeAssistantMessage(assistantMessageId, {
-              title: item.heading,
-              answer: buffered,
-            });
+            didFinalize = finalizePreQuestionAnswer(buffered);
             finishRequest();
             return;
           }
 
-          const payload = buildPreQuestionStreamPayload(item, activeClientId);
           userService
-            .getAstrologerComboContent(payload.collection, payload.pipeline)
+            .getAstrologerComboContent(
+              streamPayload.collection,
+              streamPayload.pipeline,
+            )
             .then(response => {
-              const answer = extractGetContentAnswer(response);
-              if (answer.trim()) {
-                finalizeAssistantMessage(assistantMessageId, {
-                  title: item.heading,
-                  answer,
-                });
+              const answer = extractGetContentAnswer(response) || '';
+              if (finalizePreQuestionAnswer(answer)) {
                 return;
               }
               updateAssistantMessage(assistantMessageId, message => ({
@@ -1808,6 +1827,9 @@ const AstrologerClientChatScreen = () => {
               }));
             })
             .catch((error: unknown) => {
+              if (finalizePreQuestionAnswer('')) {
+                return;
+              }
               const message =
                 error instanceof Error ? error.message : 'Failed to load this question.';
               updateAssistantMessage(assistantMessageId, itemMessage => ({
@@ -1865,10 +1887,16 @@ const AstrologerClientChatScreen = () => {
       );
     }
 
-    const hasStructuredSections = Boolean(item.sections?.length && !item.isStreaming);
+    const htmlAnswerText =
+      (item.streamingText && isHtmlContent(item.streamingText)
+        ? item.streamingText
+        : '') ||
+      (item.rawText && isHtmlContent(item.rawText) ? item.rawText : '');
+    const hasStructuredSections =
+      Boolean(item.sections?.length && !item.isStreaming) && !htmlAnswerText;
     // Keep streamed text on screen even after typing ends if sections aren't ready yet.
     const showStreamingAnswer =
-      Boolean(item.streamingText) && !hasStructuredSections;
+      Boolean(htmlAnswerText || item.streamingText) && !hasStructuredSections;
     const isWaitingForStream =
       Boolean(item.isStreaming) && !item.streamingText && !item.errorText;
     const hasRichContent = hasStructuredSections || showStreamingAnswer;
@@ -1989,7 +2017,7 @@ const AstrologerClientChatScreen = () => {
 
               {showStreamingAnswer ? (
                 <StreamingMarkdownAnswer
-                  text={item.streamingText || ''}
+                  text={htmlAnswerText || item.streamingText || ''}
                   active={Boolean(item.isStreaming)}
                   textColor={palette.textPrimary}
                   onProgress={handleTypewriterProgress}
@@ -2744,7 +2772,7 @@ const AstrologerClientChatScreen = () => {
                 <SuggestionMarquee
                   items={preQuestions}
                   onSelect={handleSelectPreQuestion}
-                  disabled={isSending || historyLoading}
+                  disabled={areSuggestionsDisabled}
                   chipBg={palette.isDark ? '#2A3F58' : '#FFFDF8'}
                   chipBorder={palette.isDark ? 'rgba(197, 163, 112, 0.45)' : '#E6D5B0'}
                   textColor={palette.isDark ? '#EEE5CA' : NAVY}
@@ -3597,62 +3625,42 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     fontFamily: fontFamily.semiBold,
   },
-  suggestionHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
   suggestionHeaderAction: {
     fontSize: 12,
     fontFamily: fontFamily.medium,
     lineHeight: 16,
   },
-  suggestionPauseIcon: {
+  suggestionRowShell: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    height: 14,
+    gap: 6,
   },
-  suggestionPauseBar: {
-    width: 2,
-    height: 12,
-    borderRadius: 1,
+  suggestionNavBtn: {
+    width: 28,
+    height: SUGGESTION_CHIP_HEIGHT,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  suggestionRows: {
-    gap: SUGGESTION_ROW_GAP,
+  suggestionNavBtnDisabled: {
+    opacity: 0.35,
+  },
+  suggestionNavBtnText: {
+    fontSize: 22,
+    lineHeight: 24,
+    fontFamily: fontFamily.semiBold,
+    marginTop: -1,
   },
   suggestionRowViewport: {
+    flex: 1,
     height: SUGGESTION_CHIP_HEIGHT,
-    overflow: 'hidden',
-    width: '100%',
   },
-  suggestionTrack: {
+  suggestionScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  suggestionSingleRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    flexShrink: 0,
     gap: SUGGESTION_ROW_GAP,
-    paddingRight: SUGGESTION_ROW_GAP,
-  },
-  suggestionMeasureHost: {
-    position: 'absolute',
-    opacity: 0,
-    left: 0,
-    top: 0,
-    width: 10000,
-    zIndex: -1,
-  },
-  suggestionMeasureRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: SUGGESTION_ROW_GAP,
-    paddingRight: SUGGESTION_ROW_GAP,
+    paddingHorizontal: 2,
   },
   suggestionChip: {
     flexDirection: 'row',
@@ -3663,6 +3671,9 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     flexShrink: 0,
     height: SUGGESTION_CHIP_HEIGHT,
+  },
+  suggestionChipDisabled: {
+    opacity: 0.45,
   },
   suggestionStar: {
     fontSize: 11,
